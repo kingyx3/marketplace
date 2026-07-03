@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       app: ${{ steps.filter.outputs.app }}
+      config: ${{ steps.filter.outputs.config }}
       migrations: ${{ steps.filter.outputs.migrations }}
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +41,19 @@ jobs:
               - 'eslint.config.mjs'
               - 'vitest.config.ts'
               - 'postcss.config.mjs'
+            config:
+              - '.env.example'
+              - '.github/workflows/**'
+              - 'docs/admin-operations.md'
+              - 'docs/build-plan.md'
+              - 'docs/cost-controls.md'
+              - 'docs/deployment.md'
+              - 'docs/environments.md'
+              - 'docs/security.md'
+              - 'docs/testing.md'
+              - 'scripts/**'
+              - 'tests/env.test.ts'
+              - 'tests/deploy-workflow.test.ts'
             migrations:
               - 'supabase/**'
 
@@ -94,6 +108,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  config-contract:
+    needs: changes
+    if: needs.changes.outputs.config == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Validate workflow YAML
+        run: |
+          for file in .github/workflows/*.yml; do
+            npx --yes js-yaml "$file" >/dev/null
+          done
+      - run: npm test -- tests/env.test.ts tests/deploy-workflow.test.ts
 
   # Apply every migration + seed against a clean postgres to catch
   # SQL errors before they reach `supabase db push` in deploy.

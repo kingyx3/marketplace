@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * generate-env.mjs — the single source of truth for the environment
  * contract, and the bridge between GitHub Environment secrets/vars
@@ -10,6 +9,9 @@
  * Usage:
  *   node scripts/generate-env.mjs --check           # validate process.env, exit 1 on failure
  *   node scripts/generate-env.mjs --write [path]    # validate, then write .env (default ./.env)
+ *
+ * If a local .env file exists, it is loaded before validation without
+ * overriding already-exported environment variables.
  *
  * Security invariants:
  *   * Secret VALUES are never printed — only key names.
@@ -33,6 +35,7 @@ export const ENV_CONTRACT = [
   // --- App ---
   { key: "NEXT_PUBLIC_SITE_URL", required: true, secret: false, pattern: /^https?:\/\/.+/, hint: "canonical public URL of this environment" },
   // --- Deploy-time only (not written to .env) ---
+  { key: "TARGET_ENV", required: true, secret: false, deployOnly: true, pattern: /^(development|staging|production)$/, hint: "GitHub Environment name; must match the workflow target" },
   { key: "SUPABASE_ACCESS_TOKEN", required: false, secret: true, deployOnly: true, hint: "Supabase CLI auth for `supabase db push`" },
   { key: "SUPABASE_DB_PASSWORD", required: false, secret: true, deployOnly: true, hint: "database password for `supabase link`" },
   { key: "SUPABASE_PROJECT_REF", required: false, secret: false, deployOnly: true, hint: "project ref for `supabase link`" },
@@ -78,8 +81,45 @@ export function renderDotenv(env) {
   return lines.join("\n") + "\n";
 }
 
+export function parseDotenv(content) {
+  const parsed = {};
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const equalsAt = line.indexOf("=");
+    if (equalsAt <= 0) continue;
+
+    const key = line.slice(0, equalsAt).trim();
+    let value = line.slice(equalsAt + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    parsed[key] = value;
+  }
+  return parsed;
+}
+
+export async function loadLocalDotenv(env = process.env, path = ".env") {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const parsed = parseDotenv(await readFile(path, "utf8"));
+    for (const [key, value] of Object.entries(parsed)) {
+      if (env[key] === undefined) env[key] = value;
+    }
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
 async function main() {
   const [, , mode, outPath] = process.argv;
+  await loadLocalDotenv(process.env);
   const { ok, errors } = validateEnv(process.env);
 
   if (!ok) {

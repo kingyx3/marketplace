@@ -14,7 +14,11 @@ docs and README must never describe those as working.
 - ✅ CI (lint/typecheck/test/build/migrations, parallel, secretless)
 - ✅ Deploy pipeline: reusable workflow, 3 environments, env→Vercel sync,
      migration gating, smoke test, production approval gate
+- ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks,
+     migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
+- ✅ Admin operations runbook (`docs/admin-operations.md`) for workflows that
+     are not yet productized
 
 ## Not built — roadmap
 
@@ -28,7 +32,8 @@ Sequenced to match the 30/60/90-day plan in
 - [ ] Cart + checkout (server-derived pricing, Stripe PaymentIntent)
 - [ ] Webhook → `payments`/`orders` state machine (today it only records)
 - [ ] Order confirmation email (Resend adapter — first real notification)
-- [ ] Admin: minimal product/inventory CRUD (service role, protected)
+- [ ] Admin: minimal product/inventory CRUD (server-authorized, audited)
+- [ ] Admin: order/payment exception queue backed by Stripe reconciliation
 
 ### Phase 2 — pre-orders (the differentiator)
 
@@ -44,6 +49,7 @@ Sequenced to match the 30/60/90-day plan in
 - [ ] Tier pricing on catalog + carted minimums
 - [ ] Invoice/PO-style checkout (Stripe invoices or bank transfer + manual confirm)
 - [ ] Supplier purchase-order intake updating `incoming` stock
+- [ ] Admin: B2B approval, pricing-tier assignment, and purchase-order tools
 
 ### Phase 4 — scale & polish
 
@@ -58,3 +64,9 @@ Sequenced to match the 30/60/90-day plan in
 - Multi-currency display (schema-ready; UI later)
 - Marketplace/consignment for singles (out of scope: sealed-first strategy)
 - GCP/Terraform migration (docs/architecture.md — only if we outgrow Vercel/Supabase)
+
+## Admin workflow status
+
+Admin operations are documented but not built as a product surface. Until
+the admin UI exists, production admin changes are manual, reviewed, and
+traceable through `docs/admin-operations.md`.

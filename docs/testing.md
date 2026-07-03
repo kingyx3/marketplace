@@ -10,17 +10,22 @@
 | Production build | `npm run build` | `build` |
 | Migrations apply cleanly | `npx supabase db reset` (local) | `migrations` |
 | Env contract | `npm run env:check` | `validate-env` (deploy) |
+| Deploy config contract | `npm test -- tests/env.test.ts tests/deploy-workflow.test.ts` | `config-contract` |
 
 CI runs these **in parallel** on every PR with no secrets. The
 `migrations` CI job applies every migration + seed to a vanilla
 `postgres:15` container using `.github/ci/auth-shim.sql` to emulate the
-Supabase-managed `auth` schema.
+Supabase-managed `auth` schema. Env/deploy config changes also run
+workflow YAML parsing and focused contract tests.
 
 ## What's unit-tested now
 
 - `tests/env.test.ts` — the environment contract: accepts a valid env,
   fails fast on missing keys, never leaks values in errors, never writes
   deploy-only keys to `.env`, and stays in sync with `.env.example`.
+- `tests/deploy-workflow.test.ts` — deploy workflow guardrails:
+  app/migration checks before mutable jobs and expected caller-to-
+  environment mapping.
 - `tests/allocation.test.ts` — the allocation engine: rule priority,
   channel reserves, per-customer caps, FIFO partial fills, no oversell.
 

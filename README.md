@@ -31,11 +31,11 @@ Checks: `npm run lint && npm run typecheck && npm test && npm run build`
 ## Deployment
 
 Three GitHub Environments — `development` (feature branches), `staging`
-(`main`), `production` (tags, human-approved). Configure the ~6 required
-secrets and 5 vars per environment listed in **docs/environments.md**,
-and CI does the rest: it validates the env contract, pushes database
-migrations, generates `.env`, syncs it to Vercel, deploys, and smoke
-tests `/api/health`.
+(`main`), `production` (tags, human-approved). Configure the 6 required
+secrets and 6 vars per environment listed in **docs/environments.md**,
+and CI/deploy do the rest: validate the env contract, run app and
+migration checks, push database migrations, generate `.env`, sync it to
+Vercel, deploy, and smoke test `/api/health`.
 
 ## Documentation map
 
@@ -47,6 +47,7 @@ tests `/api/health`.
 | [docs/data-model.md](docs/data-model.md) | Schema reference and key decisions |
 | [docs/security.md](docs/security.md) | RLS, webhooks, secrets handling |
 | [docs/cost-controls.md](docs/cost-controls.md) | Keeping the bill near zero pre-launch |
+| [docs/admin-operations.md](docs/admin-operations.md) | Manual admin runbooks until admin tooling ships |
 | [docs/local-dev.md](docs/local-dev.md) | Day-to-day development |
 | [docs/testing.md](docs/testing.md) | Running and writing checks |
 | [docs/build-plan.md](docs/build-plan.md) | Roadmap — what is NOT built yet |

@@ -13,6 +13,8 @@
   key is a secret** because it bypasses RLS.
 - Rotation: change in provider dashboard → update GitHub Environment →
   re-run deploy (env re-syncs to Vercel automatically).
+- `TARGET_ENV` is a non-secret deploy guard. It must match the selected
+  GitHub Environment before migrations or Vercel changes run.
 
 ## Row-level security
 
@@ -27,6 +29,12 @@ RLS is enabled on every table in the initial migration. Policy tiers:
 All writes to commercial tables go through server code using the
 service role, so price calculation, stock checks, and state machines
 cannot be bypassed from a browser.
+
+## Admin boundary
+
+No browser admin console is built yet. Manual admin changes must follow
+`docs/admin-operations.md`, use trusted operator access only, and leave
+an external audit trail until the protected admin UI exists.
 
 ## Webhooks (Stripe)
 
@@ -53,6 +61,8 @@ cannot be bypassed from a browser.
 
 - Workflows request `permissions: contents: read` only.
 - The CI job needs no secrets at all — anyone can safely run it on a fork PR.
+- Deployment app checks and migration SQL validation run before mutable
+  Supabase/Vercel deploy jobs.
 - `SUPABASE_ACCESS_TOKEN` / `VERCEL_TOKEN` are deploy-time only and are
   never written into the runtime `.env` (enforced by `deployOnly` in the
   env contract and covered by a unit test).

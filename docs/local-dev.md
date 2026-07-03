@@ -21,6 +21,7 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key from supabase start>
 SUPABASE_SERVICE_ROLE_KEY=<service_role key from supabase start>
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
+TARGET_ENV=development
 STRIPE_SECRET_KEY=sk_test_...        # your Stripe TEST key
 STRIPE_WEBHOOK_SECRET=whsec_...      # from `stripe listen` (below)
 ```
@@ -46,7 +47,7 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 | --- | --- |
 | `npm run dev` | dev server |
 | `npm run lint` / `typecheck` / `test` | checks (see docs/testing.md) |
-| `npm run env:check` | validate your `.env` against the contract |
+| `npm run env:check` | load and validate your local `.env` against the contract |
 | `npx supabase db reset` | rebuild DB from migrations + seed |
 | `npx supabase migration new <name>` | start a new migration file |
 | `npx supabase studio` | DB browser at localhost:54323 |
