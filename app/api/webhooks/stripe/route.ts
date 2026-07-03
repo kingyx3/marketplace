@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createStripeClient } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase";
+import { handleStripeEvent } from "@/lib/stripe-webhooks";
 
 export const dynamic = "force-dynamic";
 
@@ -53,16 +54,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "storage failure" }, { status: 500 });
   }
 
-  switch (event.type) {
-    case "payment_intent.amount_capturable_updated":
-    case "payment_intent.succeeded":
-    case "payment_intent.payment_failed":
-    case "charge.refunded":
-      // TODO(build-plan): update `payments` / `preorders` / `orders`
-      // state machines. The scaffold verifies + records events only.
-      break;
-    default:
-      break;
+  try {
+    await handleStripeEvent(supabase, event);
+  } catch (error) {
+    await supabase.from("webhook_events").delete().eq("provider", "stripe").eq("event_id", event.id);
+    console.error("stripe webhook processing failed:", error instanceof Error ? error.message : "unknown");
+    return NextResponse.json({ error: "processing failure" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });
