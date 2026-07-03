@@ -1,0 +1,25 @@
+# Pushes to main → staging environment.
+# Branch protection on main should require the CI checks, so anything
+# landing here has already passed lint/typecheck/test/build/migrations.
+name: Deploy staging
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+    secrets: inherit

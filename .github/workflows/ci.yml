@@ -1,0 +1,128 @@
+# CI for pull requests: parallel, no secrets required.
+# Deploys are separate (deploy-*.yml) and gate on these checks via
+# branch protection ("required status checks"), not via this file.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Affected-path detection: skip app jobs on docs-only changes.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      migrations: ${{ steps.filter.outputs.migrations }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'app/**'
+              - 'lib/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'next.config.ts'
+              - 'eslint.config.mjs'
+              - 'vitest.config.ts'
+              - 'postcss.config.mjs'
+            migrations:
+              - 'supabase/**'
+
+  lint:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  # Apply every migration + seed against a clean postgres to catch
+  # SQL errors before they reach `supabase db push` in deploy.
+  migrations:
+    needs: changes
+    if: needs.changes.outputs.migrations == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply auth shim (emulates Supabase-managed schema)
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql
+      - name: Apply migrations in order
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "applying $f"
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
+          done
+      - name: Apply seed
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql
