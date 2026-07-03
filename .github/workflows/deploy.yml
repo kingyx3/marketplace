@@ -1,0 +1,129 @@
+# Reusable deploy pipeline. Called by deploy-development.yml,
+# deploy-staging.yml, and deploy-production.yml with an `environment`
+# input that selects the GitHub Environment (and therefore which
+# secrets/vars are injected — see docs/environments.md).
+#
+# Job order (explicit dependencies):
+#   validate-env  →  migrate  →  deploy  →  smoke
+# A migration failure blocks the app deploy; a deploy failure blocks
+# the smoke test. Nothing here prints secret values.
+name: Deploy (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment to deploy (development | staging | production)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-env:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      # Dependency-free: runs without npm ci. Fails fast (exit 1) if the
+      # environment is missing/malformed, before any infra is touched.
+      - run: node scripts/generate-env.mjs --check
+
+  migrate:
+    needs: validate-env
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+      - name: Push migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push
+
+  deploy:
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.vercel.outputs.deployment_url }}
+    outputs:
+      deployment_url: ${{ steps.vercel.outputs.deployment_url }}
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Sync runtime env to Vercel
+        # The .env is generated from GitHub Environment secrets/vars and
+        # pushed to Vercel — Vercel itself holds no hand-managed config.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          TWILIO_ACCOUNT_SID: ${{ vars.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+        run: |
+          node scripts/generate-env.mjs --write .env.deploy
+          VERCEL_ENV=$([ "${{ inputs.environment }}" = "production" ] && echo production || echo preview)
+          while IFS='=' read -r key value; do
+            case "$key" in ''|\#*) continue ;; esac
+            npx vercel env rm "$key" "$VERCEL_ENV" --yes --token "$VERCEL_TOKEN" >/dev/null 2>&1 || true
+            printf '%s' "$value" | npx vercel env add "$key" "$VERCEL_ENV" --token "$VERCEL_TOKEN" >/dev/null
+          done < .env.deploy
+          rm -f .env.deploy
+      - name: Deploy to Vercel
+        id: vercel
+        run: |
+          FLAGS="--token $VERCEL_TOKEN --yes"
+          if [ "${{ inputs.environment }}" = "production" ]; then FLAGS="$FLAGS --prod"; fi
+          npx vercel pull --yes --environment=$([ "${{ inputs.environment }}" = "production" ] && echo production || echo preview) --token "$VERCEL_TOKEN"
+          URL=$(npx vercel deploy $FLAGS)
+          echo "deployment_url=$URL" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check
+        run: |
+          URL="${{ needs.deploy.outputs.deployment_url }}"
+          echo "smoke testing $URL/api/health"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/health") && [ "$code" = "200" ] && exit 0
+            echo "attempt $i: HTTP $code — retrying in $((i*5))s"
+            sleep $((i*5))
+          done
+          echo "health check failed" >&2
+          exit 1

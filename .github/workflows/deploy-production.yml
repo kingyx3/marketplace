@@ -1,0 +1,25 @@
+# Tags / releases → production environment.
+# The `production` GitHub Environment must be configured with required
+# reviewers — the deploy pauses for human approval before any job that
+# targets it runs. See docs/deployment.md.
+name: Deploy production
+
+on:
+  release:
+    types: [published]
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+    secrets: inherit
