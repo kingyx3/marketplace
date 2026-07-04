@@ -51,6 +51,20 @@ stock — e.g. "reserve 8 boxes for B2C at max 2/customer; B2B takes the
 rest FIFO". The pure engine in `lib/allocation.ts` mirrors this and is
 unit-tested; the seed ships a working example.
 
+**Preorder allocation is a guarded state transition.**
+`apply_preorder_allocations` increments `preorders.allocated_qty` and
+`inventory.allocated` together, refuses allocations beyond
+`on_hand + incoming`, and derives `balance_cents` from allocated units
+minus deposit and captured balance payments. The app computes candidates
+from live rows, but the database enforces the stock boundary.
+
+**Preorder conversion is idempotent.** Balance PaymentIntent success
+calls `mark_preorder_balance_paid`, which validates amount/currency
+against the remaining allocated balance, records the captured balance
+payment, creates one paid order and order item, and stores the order id
+on the preorder. Duplicate Stripe events return the existing order id
+instead of creating another order or decrementing inventory twice.
+
 **B2B is an approval layer on customers.** Any customer can _apply_ for
 a `b2b_accounts` row; only `approved` accounts see wholesale pricing via
 `pricing_tiers` (basis-point discounts + minimum order). Pricing tiers

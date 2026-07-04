@@ -45,6 +45,16 @@ interface CartCheckoutPanelProps {
   publishableKey: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
+  mode?: "order" | "preorder";
+  channel?: "b2c" | "b2b";
+  paymentEndpoint?: string;
+  paymentBody?: Record<string, unknown>;
+  clearCartOnSuccess?: boolean;
+  authRedirectPath?: string;
+  returnPath?: string;
+  startLabel?: string;
+  successHref?: string;
+  successLabel?: string;
   disabled?: boolean;
 }
 
@@ -53,6 +63,16 @@ export function CartCheckoutPanel({
   publishableKey,
   supabaseUrl,
   supabaseAnonKey,
+  mode = "order",
+  channel = "b2c",
+  paymentEndpoint = "/api/checkout",
+  paymentBody,
+  clearCartOnSuccess = true,
+  authRedirectPath = "/cart",
+  returnPath = "/cart?checkout=processing",
+  startLabel = "Pay securely",
+  successHref,
+  successLabel,
   disabled = false,
 }: CartCheckoutPanelProps) {
   const router = useRouter();
@@ -77,7 +97,7 @@ export function CartCheckoutPanel({
 
     const { data, error } = await supabase.auth.getSession();
     if (error || !data.session?.access_token) {
-      router.push(`/auth/sign-in?next=${encodeURIComponent("/cart")}`);
+      router.push(`/auth/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
       throw new Error("Sign in is required before checkout");
     }
     return data.session.access_token;
@@ -97,7 +117,7 @@ export function CartCheckoutPanel({
     const payload = (await response.json().catch(() => ({}))) as ApiErrorResponse;
 
     if (response.status === 401) {
-      router.push(`/auth/sign-in?next=${encodeURIComponent("/cart")}`);
+      router.push(`/auth/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
     }
     if (!response.ok) {
       throw new Error(payload.error?.message ?? "Checkout request failed");
@@ -118,13 +138,9 @@ export function CartCheckoutPanel({
     setMessage(null);
 
     try {
-      const result = await authenticatedJson<CheckoutResponse>("/api/checkout", {
+      const result = await authenticatedJson<CheckoutResponse>(paymentEndpoint, {
         method: "POST",
-        body: JSON.stringify({
-          mode: "order",
-          channel: "b2c",
-          items,
-        }),
+        body: JSON.stringify(paymentBody ?? { mode, channel, items }),
       });
       setCheckout(result);
       setPhase("ready");
@@ -137,6 +153,12 @@ export function CartCheckoutPanel({
   }
 
   async function clearCartAfterSuccess() {
+    if (!clearCartOnSuccess) {
+      router.refresh();
+      setMessage("Payment confirmed");
+      return;
+    }
+
     try {
       await authenticatedJson<{ cleared: true }>("/api/cart/clear", { method: "POST" });
       router.refresh();
@@ -194,14 +216,13 @@ export function CartCheckoutPanel({
           onClick={beginCheckout}
           type="button"
         >
-          {phase === "creating" ? "Preparing payment" : "Pay securely"}
+          {phase === "creating" ? "Preparing payment" : startLabel}
         </button>
       ) : null}
 
       {checkout && stripePromise && elementsOptions ? (
         <Elements key={checkout.clientSecret} options={elementsOptions} stripe={stripePromise}>
           <PaymentForm
-            checkout={checkout}
             onCancel={cancelCheckout}
             onFailure={(text) => {
               setPhase("failed");
@@ -224,18 +245,19 @@ export function CartCheckoutPanel({
               await clearCartAfterSuccess();
             }}
             phase={phase}
+            returnPath={returnPath}
           />
         </Elements>
       ) : null}
 
       {message ? <StatusMessage phase={phase}>{message}</StatusMessage> : null}
 
-      {phase === "succeeded" && checkout?.orderId ? (
+      {phase === "succeeded" && (successHref || checkout?.orderId) ? (
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
-          href={`/orders/${checkout.orderId}`}
+          href={successHref ?? `/orders/${checkout?.orderId}`}
         >
-          View order
+          {successLabel ?? "View order"}
         </Link>
       ) : (
         <Link
@@ -250,7 +272,6 @@ export function CartCheckoutPanel({
 }
 
 function PaymentForm({
-  checkout,
   phase,
   onCancel,
   onFailure,
@@ -258,8 +279,8 @@ function PaymentForm({
   onReady,
   onStartConfirm,
   onSuccess,
+  returnPath,
 }: {
-  checkout: CheckoutResponse;
   phase: CheckoutPhase;
   onCancel: () => void;
   onFailure: (message: string) => void;
@@ -267,6 +288,7 @@ function PaymentForm({
   onReady: () => void;
   onStartConfirm: () => void;
   onSuccess: () => Promise<void>;
+  returnPath: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -280,7 +302,7 @@ function PaymentForm({
       elements,
       redirect: "if_required",
       confirmParams: {
-        return_url: `${window.location.origin}/cart?checkout=processing&order=${checkout.orderId ?? ""}`,
+        return_url: `${window.location.origin}${returnPath}`,
       },
     });
 

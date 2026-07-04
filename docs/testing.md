@@ -40,6 +40,9 @@ workflow YAML parsing and focused contract tests.
 - `tests/notifications.test.ts` - Resend order-confirmation delivery,
   disabled-provider skip behavior, dedupe, provider failure recording,
   and configured-channel detection.
+- `tests/preorder-flow.test.ts` - live preorder allocation dispatch,
+  duplicate-safe allocation, balance PaymentIntent creation, over-balance
+  rejection, Stripe balance conversion, and SQL state-machine guards.
 - `tests/live-customer-pages.test.ts` - customer order/preorder display
   helpers and a guard that authenticated account/order/preorder pages do
   not import fixture data.

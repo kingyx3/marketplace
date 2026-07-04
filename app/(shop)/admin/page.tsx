@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { updateInventory } from "@/app/actions/admin";
+import { runPreorderAllocation, updateInventory } from "@/app/actions/admin";
 import {
   adminMetrics,
   adminWorkQueue,
@@ -55,7 +55,10 @@ export default async function AdminPage() {
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-zinc-950">Inventory</h2>
-              <Link href="/catalog" className="text-sm font-semibold text-emerald-700 hover:text-emerald-900">
+              <Link
+                href="/catalog"
+                className="text-sm font-semibold text-emerald-700 hover:text-emerald-900"
+              >
                 Open catalog
               </Link>
             </div>
@@ -69,6 +72,7 @@ export default async function AdminPage() {
                     <th className="py-3 pr-4 font-medium">Incoming</th>
                     <th className="py-3 pr-4 font-medium">Allocated</th>
                     <th className="py-3 pr-4 font-medium">Available</th>
+                    <th className="py-3 pr-4 font-medium">Preorders</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -77,7 +81,10 @@ export default async function AdminPage() {
                       <td className="py-4 pr-4 font-semibold text-zinc-950">{row.productName}</td>
                       <td className="py-4 pr-4 text-zinc-600">{row.sku}</td>
                       <td className="py-4 pr-4 text-zinc-600">
-                        <form action={updateInventory} className="flex flex-wrap items-center gap-2">
+                        <form
+                          action={updateInventory}
+                          className="flex flex-wrap items-center gap-2"
+                        >
                           <input type="hidden" name="skuId" value={row.skuId} />
                           <input
                             className="h-10 w-20 rounded-md border border-zinc-300 px-2"
@@ -114,6 +121,14 @@ export default async function AdminPage() {
                         <StatusBadge tone={row.available > 0 ? "success" : "warning"}>
                           {row.available}
                         </StatusBadge>
+                      </td>
+                      <td className="py-4 pr-4">
+                        <form action={runPreorderAllocation}>
+                          <input type="hidden" name="skuId" value={row.skuId} />
+                          <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700">
+                            Allocate
+                          </button>
+                        </form>
                       </td>
                     </tr>
                   ))}
@@ -209,18 +224,20 @@ async function fetchInventoryRows(): Promise<AdminInventoryRow[]> {
     throw new Error(`Admin inventory query failed: ${error.message}`);
   }
 
-  return ((data ?? []) as unknown as Array<{
-    sku_id: string;
-    on_hand: number;
-    incoming: number;
-    allocated: number;
-    safety_stock: number;
-    available: number;
-    booster_box_skus: {
-      sku: string;
-      product_variants: { products: { name: string } | null } | null;
-    } | null;
-  }>).map((row) => ({
+  return (
+    (data ?? []) as unknown as Array<{
+      sku_id: string;
+      on_hand: number;
+      incoming: number;
+      allocated: number;
+      safety_stock: number;
+      available: number;
+      booster_box_skus: {
+        sku: string;
+        product_variants: { products: { name: string } | null } | null;
+      } | null;
+    }>
+  ).map((row) => ({
     skuId: row.sku_id,
     sku: row.booster_box_skus?.sku ?? row.sku_id,
     productName: row.booster_box_skus?.product_variants?.products?.name ?? "Unknown product",

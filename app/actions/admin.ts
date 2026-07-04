@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireStaff } from "@/lib/auth";
+import { runPreorderAllocationForSku } from "@/lib/preorders";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function updateInventory(formData: FormData) {
@@ -64,6 +65,18 @@ export async function approveWholesale(formData: FormData) {
   }
 
   revalidatePath("/admin/wholesale");
+}
+
+export async function runPreorderAllocation(formData: FormData) {
+  const { user } = await requireStaff("/admin/preorders");
+  const skuId = String(formData.get("skuId") ?? "");
+
+  const supabase = createServiceClient();
+  await runPreorderAllocationForSku(supabase, skuId, `staff:${user.id}`);
+
+  revalidatePath("/admin");
+  revalidatePath("/preorders");
+  revalidatePath("/catalog");
 }
 
 function toNonNegativeInt(value: FormDataEntryValue | null): number {

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
+import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
 import { addToCart } from "@/app/actions/cart";
 import {
   formatMoney,
@@ -50,7 +51,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
         eyebrow={`${product.game} / ${product.setCode}`}
         title={product.name}
         description={product.description}
-        action={<StatusBadge tone={product.setStatus === "preorder_open" ? "success" : "neutral"}>{formatStatus(product.setStatus)}</StatusBadge>}
+        action={
+          <StatusBadge tone={product.setStatus === "preorder_open" ? "success" : "neutral"}>
+            {formatStatus(product.setStatus)}
+          </StatusBadge>
+        }
       />
 
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -147,12 +152,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </Link>
               )}
               {product.setStatus === "preorder_open" ? (
-                <Link
-                  href="/preorders"
-                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-5 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700"
-                >
-                  Place preorder
-                </Link>
+                skuId ? (
+                  <CartCheckoutPanel
+                    authRedirectPath={`/catalog/${product.slug}`}
+                    clearCartOnSuccess={false}
+                    items={[{ skuId, quantity: 1 }]}
+                    mode="preorder"
+                    publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                    returnPath="/preorders?checkout=processing"
+                    startLabel="Pay preorder deposit"
+                    successHref="/preorders"
+                    successLabel="View preorders"
+                    supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                    supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+                  />
+                ) : null
               ) : null}
             </div>
           </section>
@@ -202,8 +216,12 @@ function mergeProduct(
     setName: liveProduct?.setName ?? fixture?.setName ?? "Set pending",
     setCode: liveProduct?.setCode ?? fixture?.setCode ?? "TBD",
     releaseDate: liveProduct?.releaseDate ?? fixture?.releaseDate ?? "TBD",
-    setStatus: (liveProduct?.setStatus as MarketplaceProduct["setStatus"] | null) ?? fixture?.setStatus ?? "announced",
-    productType: liveProduct?.productType.replaceAll("_", " ") ?? fixture?.productType ?? "Booster box",
+    setStatus:
+      (liveProduct?.setStatus as MarketplaceProduct["setStatus"] | null) ??
+      fixture?.setStatus ??
+      "announced",
+    productType:
+      liveProduct?.productType.replaceAll("_", " ") ?? fixture?.productType ?? "Booster box",
     sku: sku?.sku ?? fixture?.sku ?? "SKU",
     language: fixture?.language ?? "EN",
     priceCents: sku?.priceCents ?? fixture?.priceCents ?? 0,

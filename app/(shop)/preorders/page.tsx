@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
@@ -19,7 +20,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function PreordersPage() {
+export default async function PreordersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ checkout?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
   const { customer } = await requireCustomer("/preorders");
   const supabase = createServiceClient();
   let preorders: LivePreorder[] = [];
@@ -51,6 +57,11 @@ export default async function PreordersPage() {
       {dataError ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
           Preorders could not be loaded right now.
+        </div>
+      ) : null}
+      {params.checkout === "processing" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Payment is processing. Your preorder will update after Stripe confirms it.
         </div>
       ) : null}
 
@@ -121,12 +132,32 @@ export default async function PreordersPage() {
                       >
                         View product
                       </Link>
-                      {preorder.status === "balance_due" ? (
-                        <span className="inline-flex min-h-10 items-center rounded-md border border-amber-200 px-4 text-sm font-semibold text-amber-800">
-                          Balance flow pending
-                        </span>
+                      {preorder.order_id ? (
+                        <Link
+                          className="inline-flex min-h-10 items-center justify-center rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-800 hover:border-emerald-500"
+                          href={`/orders/${preorder.order_id}`}
+                        >
+                          View order
+                        </Link>
                       ) : null}
                     </div>
+                    {preorder.status === "balance_due" ? (
+                      <div className="mt-5 max-w-md">
+                        <CartCheckoutPanel
+                          authRedirectPath="/preorders"
+                          clearCartOnSuccess={false}
+                          items={[{ skuId: preorder.sku_id, quantity: preorder.allocated_qty }]}
+                          paymentEndpoint={`/api/preorders/${preorder.id}/balance`}
+                          publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                          returnPath="/preorders?checkout=processing"
+                          startLabel="Pay preorder balance"
+                          successHref="/preorders"
+                          successLabel="Refresh preorder status"
+                          supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                          supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                   <div className="rounded-md bg-zinc-50 p-4">
                     <Timeline items={preorderTimeline(preorder)} />

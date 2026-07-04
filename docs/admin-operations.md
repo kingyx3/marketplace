@@ -48,12 +48,17 @@ Do not describe manual admin workflows as product features.
 
 1. Confirm incoming stock and channel reserve rules before customer
    communication.
-2. Run allocation logic only after inventory and pricing data are current.
-3. Capture balances through server-side Stripe flows only.
+2. Run the SKU-scoped allocation action from the protected admin
+   inventory table or `POST /api/admin/preorders/allocate` only after
+   inventory and pricing data are current.
+3. Capture balances through the authenticated customer balance
+   PaymentIntent flow only.
 4. Record skipped or partially-filled customers for support follow-up.
 
-The allocation engine exists as pure logic, but it is not wired to an
-admin UI or production job yet.
+The allocation action reads live `allocation_rules`, open deposited
+preorders, and inventory capacity, then persists deltas through
+`apply_preorder_allocations`. Re-running the action is safe for already
+filled preorders because only outstanding quantity is considered.
 
 ### B2B approval
 
@@ -80,5 +85,5 @@ The approval UI is not built yet.
 - Product, inventory, pricing, and B2B workflows.
 - Browser UI for payment exception and refund workflows with Stripe
   reconciliation.
-- Allocation run review, approval, and customer notification queue.
+- Allocation review, approval, and customer notification queue.
 - Audit views for inventory, payment, order, and admin changes.

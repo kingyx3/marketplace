@@ -66,6 +66,16 @@ async function handlePaymentIntentSucceeded(
   }
 
   if (payment.preorder_id) {
+    if (payment.kind === "balance") {
+      const orderId = await markPreorderBalancePaidFromIntent(
+        supabase,
+        payment.preorder_id,
+        intent
+      );
+      await sendOrderConfirmationEmail(supabase, orderId);
+      return;
+    }
+
     await updatePayment(supabase, payment.id, {
       status: "captured",
       captured_at: new Date().toISOString(),
@@ -122,6 +132,27 @@ async function markOrderPaidFromIntent(
   if (error) {
     throw new Error(error.message);
   }
+}
+
+async function markPreorderBalancePaidFromIntent(
+  supabase: SupabaseClient,
+  preorderId: string,
+  intent: Stripe.PaymentIntent
+): Promise<string> {
+  const { data, error } = await supabase.rpc("mark_preorder_balance_paid", {
+    p_preorder_id: preorderId,
+    p_provider_payment_id: intent.id,
+    p_amount_cents: intent.amount_received || intent.amount,
+    p_currency: intent.currency,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (typeof data !== "string") {
+    throw new Error("preorder conversion did not return an order id");
+  }
+  return data;
 }
 
 async function handleChargeRefunded(

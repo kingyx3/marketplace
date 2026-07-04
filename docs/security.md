@@ -90,6 +90,14 @@ work.
 - Pre-order deposits use PaymentIntents with `capture_method: manual`
   (authorize now, capture at allocation) so uncaptured funds are
   releasable on cancellation without a refund flow.
+- Pre-order allocation is admin-only and persists through
+  `apply_preorder_allocations`, which refuses deltas beyond
+  `inventory.on_hand + inventory.incoming` and only considers
+  outstanding preorder quantity.
+- Pre-order balances are created from server-side preorder rows. The
+  client sends only auth plus the preorder id; `mark_preorder_balance_paid`
+  validates provider amount/currency against the remaining allocated
+  balance before creating the converted paid order.
 - Live Stripe keys exist only in the `production` GitHub Environment,
   which requires human approval to deploy.
 

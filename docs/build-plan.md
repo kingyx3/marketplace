@@ -68,11 +68,14 @@ Sequenced to match the 30/60/90-day plan in
 
 ### Phase 2 — pre-orders (the differentiator)
 
-- [ ] Storefront pre-order placement flow around the deposit API
+- [x] Storefront pre-order placement flow around the deposit API
+      (product detail starts a server-priced Stripe Elements deposit flow)
 - [x] Pre-order deposit PaymentIntent API primitive with manual capture and
       persisted pre-order/payment rows
-- [ ] Allocation run: wire `lib/allocation.ts` to inventory + rules
-- [ ] Balance capture + pre-order → order conversion
+- [x] Allocation run: `lib/allocation.ts` reads live inventory/rules and
+      persists allocation deltas through a guarded database function
+- [x] Balance capture + pre-order conversion via authenticated balance
+      PaymentIntent API and idempotent Stripe webhook conversion
 - [x] Customer pre-order dashboard (read-only status, allocated quantity,
       deposit, and balance due from live rows)
 - [ ] Waitlist + drop notifications (Telegram/WhatsApp adapters)
