@@ -4,6 +4,7 @@ import {
   calculateDepositCents,
   calculateDiscountCents,
   normalizeCartItems,
+  quoteCheckout,
   type CheckoutQuote,
 } from "@/lib/commerce";
 
@@ -76,5 +77,137 @@ describe("commerce helpers", () => {
       p_expected_total_cents: 36616,
     });
   });
+
+  it("rejects approved B2B checkout below the assigned tier minimum", async () => {
+    const supabase = fakeQuoteSupabase({
+      b2bApproved: true,
+      tiers: [{ discount_bps: 800, min_order_cents: 50000 }],
+    });
+
+    await expect(
+      quoteCheckout(
+        supabase as never,
+        {
+          mode: "order",
+          channel: "b2b",
+          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+        },
+        customerRecord()
+      )
+    ).rejects.toThrow("B2B minimum order is 50000 cents");
+  });
+
+  it("applies assigned B2B tier pricing after the minimum order is met", async () => {
+    const supabase = fakeQuoteSupabase({
+      b2bApproved: true,
+      tiers: [{ discount_bps: 800, min_order_cents: 30000 }],
+    });
+
+    await expect(
+      quoteCheckout(
+        supabase as never,
+        {
+          mode: "order",
+          channel: "b2b",
+          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 2 }],
+        },
+        customerRecord()
+      )
+    ).resolves.toMatchObject({
+      channel: "b2b",
+      subtotalCents: 39800,
+      discountBps: 800,
+      discountCents: 3184,
+      totalCents: 36616,
+    });
+  });
 });
+
+function customerRecord() {
+  return {
+    id: "customer-123",
+    auth_user_id: "auth-user-123",
+    email: "buyer@example.test",
+    name: "Buyer",
+    phone: null,
+    segment: "reseller",
+    default_currency: "SGD",
+    marketing_opt_in: false,
+  };
+}
+
+function fakeQuoteSupabase(options: {
+  b2bApproved: boolean;
+  tiers: Array<{ discount_bps: number; min_order_cents: number }>;
+}) {
+  return {
+    from(table: string) {
+      return tableBuilder(table, options);
+    },
+  };
+}
+
+function tableBuilder(
+  table: string,
+  options: {
+    b2bApproved: boolean;
+    tiers: Array<{ discount_bps: number; min_order_cents: number }>;
+  }
+) {
+  const builder = {
+    select: () => builder,
+    eq: () => {
+      if (table === "customer_pricing_tiers") {
+        return Promise.resolve({
+          data: [{ pricing_tier_id: "tier-123" }],
+          error: null,
+        });
+      }
+      return builder;
+    },
+    order: () => builder,
+    limit: () => builder,
+    in: () => {
+      if (table === "pricing_tiers") {
+        return Promise.resolve({ data: options.tiers, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    },
+    maybeSingle: async () => {
+      if (table === "b2b_accounts") {
+        return { data: { approved: options.b2bApproved }, error: null };
+      }
+      if (table === "inventory") {
+        return {
+          data: { on_hand: 10, allocated: 0, incoming: 0, safety_stock: 0, available: 10 },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    },
+    single: async () => {
+      if (table === "booster_box_skus") {
+        return {
+          data: {
+            id: "11111111-1111-4111-8111-111111111111",
+            sku: "BOX-1",
+            price_cents: 19900,
+            currency: "SGD",
+            product_variant_id: "variant-123",
+          },
+          error: null,
+        };
+      }
+      if (table === "product_variants") {
+        return { data: { product_id: "product-123" }, error: null };
+      }
+      if (table === "products") {
+        return { data: { name: "Booster Box", active: true }, error: null };
+      }
+      return { data: null, error: null };
+    },
+  };
+
+  return builder;
+}
 

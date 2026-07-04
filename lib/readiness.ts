@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getAppName } from "@/lib/app-config";
 import { configuredChannels } from "@/lib/notifications";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -15,18 +16,19 @@ interface EnvLike {
   TWILIO_AUTH_TOKEN?: string;
   TELEGRAM_BOT_TOKEN?: string;
   WHATSAPP_ACCESS_TOKEN?: string;
+  APP_NAME?: string;
   [key: string]: string | undefined;
 }
 
 export interface HealthResponse {
   status: "ok";
-  service: "marketplace";
+  service: string;
   timestamp: string;
 }
 
 export interface ReadinessResponse {
   status: "ok" | "degraded";
-  service: "marketplace";
+  service: string;
   timestamp: string;
   checks: {
     supabase: { status: "ok" | "fail"; reason?: string };
@@ -46,7 +48,7 @@ export interface ReadinessResponse {
 export function shallowHealth(now = new Date()): HealthResponse {
   return {
     status: "ok",
-    service: "marketplace",
+    service: getAppName(),
     timestamp: now.toISOString(),
   };
 }
@@ -66,7 +68,7 @@ export async function collectReadiness(
 
   return {
     status,
-    service: "marketplace",
+    service: getAppName(env),
     timestamp: (options.now ?? new Date()).toISOString(),
     checks: {
       supabase,

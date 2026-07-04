@@ -36,6 +36,7 @@ GitHub Environment name.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`       | anon/publishable key (safe to expose; RLS-enforced)       |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`  | `pk_test_...` in dev/staging, `pk_live_...` in production |
 | `NEXT_PUBLIC_SITE_URL`                | `https://staging.example.com`                             |
+| `APP_NAME`                            | `Marketplace`                                             |
 | `TARGET_ENV`                          | `development`, `staging`, or `production`                 |
 | `SUPABASE_PROJECT_REF`                | `abcd1234`                                                |
 | `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | from `vercel link` → `.vercel/project.json`               |

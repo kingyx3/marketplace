@@ -6,6 +6,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
 import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
 import { addToCart } from "@/app/actions/cart";
+import { getAppName } from "@/lib/app-config";
 import {
   formatMoney,
   formatStatus,
@@ -24,9 +25,10 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
   const product = getProduct(slug);
+  const appName = getAppName();
 
   return {
-    title: product ? `${product.name} | Marketplace` : "Product | Marketplace",
+    title: product ? `${product.name} | ${appName}` : `Product | ${appName}`,
   };
 }
 

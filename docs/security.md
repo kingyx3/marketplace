@@ -68,6 +68,9 @@ work.
 
 - Amounts are integer cents; the client never supplies a price — the
   server derives it from `booster_box_skus` + `pricing_tiers`.
+- B2B checkout fails closed unless the customer has an approved wholesale
+  account and an assigned pricing tier; tier minimum order values are
+  enforced before any PaymentIntent is created.
 - Checkout order creation persists the server-derived subtotal,
   discount, and total, then rejects the request if the database re-read
   no longer matches those expected values.

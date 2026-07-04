@@ -3,6 +3,7 @@ import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { requireCustomer } from "@/lib/auth";
+import { getAppName } from "@/lib/app-config";
 import { createServiceClient } from "@/lib/supabase";
 import { listCustomerOrders, listCustomerPreorders } from "@/lib/orders";
 import { formatMoney } from "@/lib/money";
@@ -17,7 +18,13 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ welcome?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const appName = getAppName();
   const { customer } = await requireCustomer("/account");
   const supabase = createServiceClient();
   let recentOrders: LiveOrder[] = [];
@@ -76,6 +83,11 @@ export default async function AccountPage() {
           Account activity could not be loaded right now.
         </div>
       ) : null}
+      {params.welcome === "1" ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          Welcome to {appName}. Your Google account is connected, and your dashboard is ready.
+        </div>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
         <MetricCard
@@ -101,7 +113,7 @@ export default async function AccountPage() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-zinc-950">
-                  {customer.name ?? "Marketplace customer"}
+                  {customer.name ?? `${appName} customer`}
                 </h2>
                 <p className="mt-1 text-sm text-zinc-500">{customer.email}</p>
               </div>

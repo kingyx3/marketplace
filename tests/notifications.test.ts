@@ -37,10 +37,14 @@ describe("order confirmation notifications", () => {
 
   it("sends through Resend once and persists the provider message id", async () => {
     const { supabase, calls } = fakeSupabase();
-    const fetcher = vi.fn(async () => Response.json({ id: "resend-message-123" }, { status: 200 }));
+    const fetcher = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      void args;
+      return Response.json({ id: "resend-message-123" }, { status: 200 });
+    });
 
     const result = await sendOrderConfirmationEmail(supabase as never, "order-123", {
       env: {
+        APP_NAME: "Card Vault",
         NEXT_PUBLIC_SITE_URL: "https://shop.example.test",
         RESEND_API_KEY: "re_test_123",
         RESEND_FROM_EMAIL: "orders@example.test",
@@ -64,6 +68,11 @@ describe("order confirmation notifications", () => {
         }),
       })
     );
+    const [, requestInit] = fetcher.mock.calls[0] as [RequestInfo | URL, RequestInit];
+    const body = JSON.parse(String(requestInit.body));
+    expect(body.subject).toContain("Card Vault order confirmation");
+    expect(body.text).toContain("Your Card Vault order is confirmed.");
+    expect(body.html).toContain("Card Vault has received your payment");
     expect(calls.updates[0]).toMatchObject({
       table: "notifications",
       update: {

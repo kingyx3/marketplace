@@ -63,10 +63,12 @@ filled preorders because only outstanding quantity is considered.
 ### B2B approval
 
 1. Verify business identity and channel eligibility outside the app.
-2. Approve or reject the B2B account only from a trusted admin surface.
-3. Re-check pricing tier visibility after approval.
+2. Approve the B2B account from the protected admin page after review.
+3. Assign the appropriate pricing tier directly in Supabase until the
+   tier-assignment UI is built.
+4. Re-check pricing tier visibility after approval.
 
-The approval UI is not built yet.
+The rejection and pricing-tier assignment UI is not built yet.
 
 ### Deploy incident
 

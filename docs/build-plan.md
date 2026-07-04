@@ -8,7 +8,8 @@ docs and README must never describe those as working.
 - ✅ Next.js 15 app shell; landing, `/catalog`, and product detail pages
   reading live catalog rows from Postgres with fixture/image fallbacks
 - ✅ Google-only Supabase Auth routes, session refresh middleware, sign-out,
-  customer row provisioning, protected account/admin pages, and
+  customer row provisioning with first-signup welcome messaging,
+  protected account/admin pages, and
   authenticated account/order/pre-order APIs
 - ✅ Cookie cart helpers and server-side checkout validation for SKU,
   quantity, inventory, currency, B2B eligibility, tier discounts, and
@@ -26,7 +27,8 @@ docs and README must never describe those as working.
   with guarded payment/order/refund state transitions
 - ✅ Full commerce schema as SQL migrations, RLS on every table, seed data
 - ✅ Allocation engine (`lib/allocation.ts`) — pure logic + unit tests
-- ✅ Env contract: `generate-env.mjs`, zod runtime schema, unit tests
+- ✅ Env contract: `generate-env.mjs`, zod runtime schema, `APP_NAME`
+  display-name propagation, and unit tests
 - ✅ CI (lint/typecheck/test/build/migrations, parallel, secretless)
 - ✅ Deploy pipeline: reusable workflow, 3 environments, env→Vercel sync,
   migration gating, smoke test, production approval gate
@@ -64,7 +66,8 @@ Sequenced to match the 30/60/90-day plan in
       flagging; generic order `status` PATCH is removed
 - [x] Admin API: order/payment exception queue backed by persisted manual
       flags plus derived stale/orphan/failed-payment signals
-- [ ] Admin UI: order/payment exception review and reconciliation console
+- [x] Admin UI: live order/payment exception queue visibility
+- [ ] Admin UI: reconciliation console for manual payment correction
 
 ### Phase 2 — pre-orders (the differentiator)
 
@@ -82,11 +85,15 @@ Sequenced to match the 30/60/90-day plan in
 
 ### Phase 3 — B2B/wholesale
 
-- [ ] B2B application + approval flow
-- [ ] Tier pricing on catalog + carted minimums
+- [x] Customer B2B application page plus server-side approved-account
+      channel gate, assigned-tier pricing, and minimum-order enforcement
+      in quote/checkout
+- [x] Admin B2B application review list and approval action
+- [ ] Admin B2B rejection flow and pricing-tier assignment/removal
+- [ ] Tier pricing visible on catalog/product/cart before checkout
 - [ ] Invoice/PO-style checkout (Stripe invoices or bank transfer + manual confirm)
 - [ ] Supplier purchase-order intake updating `incoming` stock
-- [ ] Admin: B2B approval, pricing-tier assignment, and purchase-order tools
+- [ ] Admin: B2B pricing-tier assignment and purchase-order intake tools
 
 ### Phase 4 — scale & polish
 
@@ -104,6 +111,8 @@ Sequenced to match the 30/60/90-day plan in
 
 ## Admin workflow status
 
-Admin operations are documented but not built as a product surface. Until
-the admin UI exists, production admin changes are manual, reviewed, and
-traceable through `docs/admin-operations.md`.
+The protected admin page now covers live inventory updates, preorder
+allocation, payment-exception visibility, purchase-order visibility, and
+B2B approval. Product/SKU CRUD, payment reconciliation UI, pricing-tier
+assignment, B2B rejection, and supplier PO intake are still manual,
+reviewed workflows tracked above and in `docs/admin-operations.md`.

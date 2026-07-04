@@ -2,14 +2,10 @@ import Link from "next/link";
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { runPreorderAllocation, updateInventory } from "@/app/actions/admin";
-import {
-  adminMetrics,
-  adminWorkQueue,
-  formatMoney,
-  purchaseOrders,
-} from "@/app/_data/marketplace-fixtures";
+import { approveWholesale, runPreorderAllocation, updateInventory } from "@/app/actions/admin";
 import { requireStaff } from "@/lib/auth";
+import { formatMoney } from "@/lib/money";
+import { listAdminOrderExceptions, type AdminOrderException } from "@/lib/orders";
 import { createServiceClient } from "@/lib/supabase";
 
 interface AdminInventoryRow {
@@ -23,17 +19,37 @@ interface AdminInventoryRow {
   available: number;
 }
 
-function queueTone(status: string) {
-  if (status === "Blocked") return "danger" as const;
-  if (status === "Today" || status === "Needs action") return "warning" as const;
-  return "info" as const;
+interface AdminB2bApplication {
+  id: string;
+  companyName: string;
+  businessRegNo: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  createdAt: string;
+}
+
+interface AdminPurchaseOrderRow {
+  id: string;
+  status: string;
+  supplier: string;
+  expectedAt: string | null;
+  boxes: number;
+  valueCents: number;
+  currency: string;
 }
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const { staff } = await requireStaff("/admin");
-  const inventoryRows = await fetchInventoryRows();
+  const supabase = createServiceClient();
+  const [inventoryRows, exceptions, b2bApplications, purchaseOrders] = await Promise.all([
+    fetchInventoryRows(supabase),
+    listAdminOrderExceptions(supabase),
+    fetchPendingB2bApplications(supabase),
+    fetchPurchaseOrders(supabase),
+  ]);
+  const metrics = adminMetricsFrom({ inventoryRows, exceptions, b2bApplications });
 
   return (
     <div className="space-y-8">
@@ -45,7 +61,7 @@ export default async function AdminPage() {
       />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {adminMetrics.map((metric) => (
+        {metrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} />
         ))}
       </section>
@@ -140,68 +156,129 @@ export default async function AdminPage() {
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
             <h2 className="text-xl font-semibold text-zinc-950">Purchase orders</h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {purchaseOrders.map((po) => (
-                <article key={po.id} className="rounded-md border border-zinc-200 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="font-semibold text-zinc-950">{po.id}</h3>
-                    <StatusBadge tone={po.status === "confirmed" ? "success" : "info"}>
-                      {po.status}
-                    </StatusBadge>
-                  </div>
-                  <dl className="mt-4 grid gap-3 text-sm">
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-zinc-500">Supplier</dt>
-                      <dd className="font-semibold text-zinc-950">{po.supplier}</dd>
+              {purchaseOrders.length === 0 ? (
+                <p className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
+                  No purchase orders yet.
+                </p>
+              ) : (
+                purchaseOrders.map((po) => (
+                  <article key={po.id} className="rounded-md border border-zinc-200 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="font-semibold text-zinc-950">{po.id}</h3>
+                      <StatusBadge tone={po.status === "confirmed" ? "success" : "info"}>
+                        {po.status}
+                      </StatusBadge>
                     </div>
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-zinc-500">Expected</dt>
-                      <dd className="font-semibold text-zinc-950">{po.expectedAt}</dd>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-zinc-500">Boxes</dt>
-                      <dd className="font-semibold text-zinc-950">{po.boxes}</dd>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-zinc-500">Value</dt>
-                      <dd className="font-semibold text-zinc-950">
-                        {formatMoney(po.valueCents, po.currency)}
-                      </dd>
-                    </div>
-                  </dl>
-                </article>
-              ))}
+                    <dl className="mt-4 grid gap-3 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-zinc-500">Supplier</dt>
+                        <dd className="font-semibold text-zinc-950">{po.supplier}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-zinc-500">Expected</dt>
+                        <dd className="font-semibold text-zinc-950">
+                          {po.expectedAt ?? "Unscheduled"}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-zinc-500">Boxes</dt>
+                        <dd className="font-semibold text-zinc-950">{po.boxes}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-zinc-500">Value</dt>
+                        <dd className="font-semibold text-zinc-950">
+                          {formatMoney(po.valueCents, po.currency)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </article>
+                ))
+              )}
             </div>
           </section>
         </div>
 
         <aside className="space-y-5">
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-950">Work queue</h2>
+            <h2 className="text-lg font-semibold text-zinc-950">Payment exceptions</h2>
             <div className="mt-5 grid gap-3">
-              {adminWorkQueue.map((item) => (
-                <article key={item.title} className="rounded-md border border-zinc-200 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="font-semibold text-zinc-950">{item.title}</h3>
-                    <StatusBadge tone={queueTone(item.status)}>{item.status}</StatusBadge>
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-zinc-600">{item.detail}</p>
-                </article>
-              ))}
+              {exceptions.length === 0 ? (
+                <p className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
+                  No open payment exceptions.
+                </p>
+              ) : (
+                exceptions.slice(0, 6).map((exception) => (
+                  <article key={exception.key} className="rounded-md border border-zinc-200 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="font-semibold text-zinc-950">
+                        {formatExceptionType(exception.exceptionType)}
+                      </h3>
+                      <StatusBadge tone={exceptionTone(exception.severity)}>
+                        {exception.severity}
+                      </StatusBadge>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-zinc-600">{exception.detail}</p>
+                    <dl className="mt-3 grid gap-2 text-xs text-zinc-500">
+                      <div className="flex justify-between gap-4">
+                        <dt>Order</dt>
+                        <dd>{exception.orderId ?? "None"}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt>Payment</dt>
+                        <dd>{exception.paymentId ?? exception.providerPaymentId ?? "None"}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-zinc-950">Wholesale applications</h2>
+            <div className="mt-5 grid gap-3">
+              {b2bApplications.length === 0 ? (
+                <p className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
+                  No pending wholesale applications.
+                </p>
+              ) : (
+                b2bApplications.map((application) => (
+                  <article key={application.id} className="rounded-md border border-zinc-200 p-4">
+                    <div>
+                      <h3 className="font-semibold text-zinc-950">{application.companyName}</h3>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        {application.customerName ?? application.customerEmail ?? "Customer"}
+                      </p>
+                      {application.businessRegNo ? (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          Registration {application.businessRegNo}
+                        </p>
+                      ) : null}
+                    </div>
+                    <form action={approveWholesale} className="mt-4">
+                      <input type="hidden" name="accountId" value={application.id} />
+                      <button className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700">
+                        Approve
+                      </button>
+                    </form>
+                  </article>
+                ))
+              )}
             </div>
           </section>
 
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-zinc-950">Allocation controls</h2>
-            <div className="mt-5 grid gap-3">
-              <button className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
-                Run allocation
-              </button>
-              <button className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500">
-                Export preorder queue
-              </button>
-              <button className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500">
-                Review B2B applications
-              </button>
+            <div className="mt-5 grid gap-3 text-sm leading-6 text-zinc-600">
+              <p>
+                Use the per-SKU Allocate buttons in the inventory table to run guarded allocation.
+              </p>
+              <Link
+                className="font-semibold text-emerald-700 hover:text-emerald-900"
+                href="/preorders"
+              >
+                Review customer preorder status
+              </Link>
             </div>
           </section>
         </aside>
@@ -210,8 +287,55 @@ export default async function AdminPage() {
   );
 }
 
-async function fetchInventoryRows(): Promise<AdminInventoryRow[]> {
-  const supabase = createServiceClient();
+function adminMetricsFrom({
+  inventoryRows,
+  exceptions,
+  b2bApplications,
+}: {
+  inventoryRows: AdminInventoryRow[];
+  exceptions: AdminOrderException[];
+  b2bApplications: AdminB2bApplication[];
+}) {
+  const incoming = inventoryRows.reduce((sum, row) => sum + row.incoming, 0);
+  const allocated = inventoryRows.reduce((sum, row) => sum + row.allocated, 0);
+  return [
+    {
+      label: "Open exceptions",
+      value: String(exceptions.length),
+      detail: "Payment/order anomalies requiring review",
+    },
+    {
+      label: "Pending B2B",
+      value: String(b2bApplications.length),
+      detail: "Wholesale applications awaiting staff approval",
+    },
+    {
+      label: "Incoming boxes",
+      value: String(incoming),
+      detail: "Confirmed incoming stock across live SKUs",
+    },
+    {
+      label: "Allocated boxes",
+      value: String(allocated),
+      detail: "Units reserved for orders and preorders",
+    },
+  ];
+}
+
+function exceptionTone(severity: AdminOrderException["severity"]) {
+  if (severity === "critical") return "danger" as const;
+  if (severity === "warning") return "warning" as const;
+  return "info" as const;
+}
+
+function formatExceptionType(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+async function fetchInventoryRows(supabase = createServiceClient()): Promise<AdminInventoryRow[]> {
   const { data, error } = await supabase
     .from("inventory")
     .select(
@@ -246,5 +370,73 @@ async function fetchInventoryRows(): Promise<AdminInventoryRow[]> {
     allocated: row.allocated,
     safetyStock: row.safety_stock,
     available: row.available,
+  }));
+}
+
+async function fetchPendingB2bApplications(
+  supabase = createServiceClient()
+): Promise<AdminB2bApplication[]> {
+  const { data, error } = await supabase
+    .from("b2b_accounts")
+    .select("id, company_name, business_reg_no, created_at, customers(email, name)")
+    .eq("approved", false)
+    .order("created_at", { ascending: true })
+    .limit(10);
+
+  if (error) {
+    throw new Error(`Wholesale application query failed: ${error.message}`);
+  }
+
+  return (
+    (data ?? []) as unknown as Array<{
+      id: string;
+      company_name: string;
+      business_reg_no: string | null;
+      created_at: string;
+      customers: { email: string | null; name: string | null } | null;
+    }>
+  ).map((row) => ({
+    id: row.id,
+    companyName: row.company_name,
+    businessRegNo: row.business_reg_no,
+    customerName: row.customers?.name ?? null,
+    customerEmail: row.customers?.email ?? null,
+    createdAt: row.created_at,
+  }));
+}
+
+async function fetchPurchaseOrders(
+  supabase = createServiceClient()
+): Promise<AdminPurchaseOrderRow[]> {
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .select(
+      "id, status, currency, expected_at, total_cents, suppliers(name), purchase_order_items(quantity)"
+    )
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (error) {
+    throw new Error(`Purchase order query failed: ${error.message}`);
+  }
+
+  return (
+    (data ?? []) as unknown as Array<{
+      id: string;
+      status: string;
+      currency: string;
+      expected_at: string | null;
+      total_cents: number;
+      suppliers: { name: string } | null;
+      purchase_order_items?: Array<{ quantity: number }>;
+    }>
+  ).map((row) => ({
+    id: row.id,
+    status: row.status,
+    supplier: row.suppliers?.name ?? "Unknown supplier",
+    expectedAt: row.expected_at,
+    boxes: (row.purchase_order_items ?? []).reduce((sum, item) => sum + item.quantity, 0),
+    valueCents: row.total_cents,
+    currency: row.currency,
   }));
 }

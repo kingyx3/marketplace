@@ -12,6 +12,7 @@ const validEnv: Record<string, string> = {
   SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
   STRIPE_SECRET_KEY: "sk_test_123",
   STRIPE_WEBHOOK_SECRET: "whsec_123",
+  APP_NAME: "Marketplace",
   NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
   TARGET_ENV: "development",
 };
@@ -52,7 +53,13 @@ describe("env contract", () => {
     const dotenv = renderDotenv({ ...validEnv, VERCEL_TOKEN: "vercel-secret" });
     expect(dotenv).not.toContain("VERCEL_TOKEN");
     expect(dotenv).not.toContain("TARGET_ENV");
+    expect(dotenv).toContain("APP_NAME=Marketplace");
     expect(dotenv).toContain("STRIPE_SECRET_KEY=sk_test_123");
+  });
+
+  it("quotes app names with spaces in generated .env files", () => {
+    const dotenv = renderDotenv({ ...validEnv, APP_NAME: "TCG Marketplace" });
+    expect(dotenv).toContain('APP_NAME="TCG Marketplace"');
   });
 
   it("requires a known deployment target environment", () => {

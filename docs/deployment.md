@@ -33,9 +33,9 @@ Notes:
 - **Environment guard**: each GitHub Environment sets `TARGET_ENV`.
   The reusable workflow fails before migrations if `TARGET_ENV` does
   not match the caller-provided environment.
-- **Env sync**: the deploy job regenerates the runtime `.env` from
-  GitHub Environment values and pushes it to Vercel on every deploy —
-  the dashboard is never hand-edited (config as code).
+- **Env sync**: the deploy job regenerates the runtime `.env`, including
+  `APP_NAME`, from GitHub Environment values and pushes it to Vercel on
+  every deploy — the dashboard is never hand-edited (config as code).
 - **Migrations before app**: a failed `supabase db push` stops the
   rollout; the previous app version keeps running against the old schema.
 - **Smoke/readiness**: every deploy checks shallow `/api/health`.

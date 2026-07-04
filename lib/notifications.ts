@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getAppName } from "@/lib/app-config";
 import { formatMoney } from "@/lib/money";
 
 export type NotificationChannel = "email" | "sms" | "telegram" | "whatsapp";
@@ -242,6 +243,7 @@ function buildOrderConfirmationMessage(
 ): NotificationMessage {
   const siteUrl = (env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
   const supportEmail = env.SUPPORT_EMAIL ?? env.RESEND_FROM_EMAIL ?? "support@example.invalid";
+  const appName = getAppName(env);
   const items = (order.order_items ?? []).map((item) => ({
     name: productNameForItem(item),
     sku: skuForItem(item),
@@ -256,13 +258,14 @@ function buildOrderConfirmationMessage(
     currency: order.currency,
     status: order.status,
     placedAt: order.placed_at,
+    appName,
     items,
     supportEmail,
   };
 
-  const subject = `Order confirmation ${order.id.slice(0, 8)}`;
+  const subject = `${appName} order confirmation ${order.id.slice(0, 8)}`;
   const text = [
-    `Thanks${customer.name ? `, ${customer.name}` : ""}. Your order is confirmed.`,
+    `Thanks${customer.name ? `, ${customer.name}` : ""}. Your ${appName} order is confirmed.`,
     `Order: ${order.id}`,
     `Status: ${order.status}`,
     `Total: ${formatMoney(order.total_cents, order.currency)}`,
@@ -274,6 +277,7 @@ function buildOrderConfirmationMessage(
   const html = `
     <div>
       <p>Thanks${customer.name ? `, ${escapeHtml(customer.name)}` : ""}. Your order is confirmed.</p>
+      <p>${escapeHtml(appName)} has received your payment and queued the order for fulfillment.</p>
       <p><strong>Order:</strong> ${escapeHtml(order.id)}</p>
       <p><strong>Status:</strong> ${escapeHtml(order.status)}</p>
       <p><strong>Total:</strong> ${escapeHtml(formatMoney(order.total_cents, order.currency))}</p>

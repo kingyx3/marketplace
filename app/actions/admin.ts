@@ -65,6 +65,7 @@ export async function approveWholesale(formData: FormData) {
   }
 
   revalidatePath("/admin/wholesale");
+  revalidatePath("/admin");
 }
 
 export async function runPreorderAllocation(formData: FormData) {

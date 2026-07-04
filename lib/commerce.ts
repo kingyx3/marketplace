@@ -144,7 +144,8 @@ export async function quoteCheckout(
     lines.push(line);
   }
 
-  const discountBps = await findBestDiscountBps(supabase, customer.id, subtotalCents, channel);
+  const pricing = await findB2bPricing(supabase, customer.id, subtotalCents, channel);
+  const discountBps = pricing.discountBps;
   const discountCents = calculateDiscountCents(subtotalCents, discountBps);
   const totalCents = subtotalCents - discountCents;
   const depositCents =
@@ -277,13 +278,13 @@ function availableQuantity(inventory: InventoryRecord, mode: CheckoutMode): numb
   return Math.max(0, physicalAvailable - stockBuffer);
 }
 
-async function findBestDiscountBps(
+async function findB2bPricing(
   supabase: SupabaseClient,
   customerId: string,
   subtotalCents: number,
   channel: SalesChannel
-): Promise<number> {
-  if (channel !== "b2b") return 0;
+): Promise<{ discountBps: number; minimumOrderCents: number }> {
+  if (channel !== "b2b") return { discountBps: 0, minimumOrderCents: 0 };
 
   const assigned = await supabase
     .from("customer_pricing_tiers")
@@ -296,7 +297,9 @@ async function findBestDiscountBps(
   const tierIds = (assigned.data ?? [])
     .map((row: { pricing_tier_id?: string }) => row.pricing_tier_id)
     .filter((id): id is string => Boolean(id));
-  if (tierIds.length === 0) return 0;
+  if (tierIds.length === 0) {
+    throw forbidden("B2B pricing tier assignment required");
+  }
 
   const tiers = await supabase
     .from("pricing_tiers")
@@ -306,7 +309,20 @@ async function findBestDiscountBps(
     throw new Error(tiers.error.message);
   }
 
-  return (tiers.data ?? []).reduce((best: number, tier) => {
+  const tierRows = tiers.data ?? [];
+  if (tierRows.length === 0) {
+    throw forbidden("B2B pricing tier assignment required");
+  }
+
+  const minimumOrderCents = tierRows.reduce((minimum: number, tier) => {
+    const minOrder = Number(tier.min_order_cents ?? 0);
+    return Math.min(minimum, minOrder);
+  }, Number.POSITIVE_INFINITY);
+  if (subtotalCents < minimumOrderCents) {
+    throw badRequest(`B2B minimum order is ${minimumOrderCents} cents`);
+  }
+
+  const discountBps = tierRows.reduce((best: number, tier) => {
     const discount = Number(tier.discount_bps ?? 0);
     const minOrder = Number(tier.min_order_cents ?? 0);
     if (subtotalCents >= minOrder && discount > best) {
@@ -314,4 +330,6 @@ async function findBestDiscountBps(
     }
     return best;
   }, 0);
+
+  return { discountBps, minimumOrderCents };
 }

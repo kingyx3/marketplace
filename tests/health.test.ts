@@ -5,7 +5,7 @@ describe("health and readiness", () => {
   it("keeps shallow health dependency-free", () => {
     expect(shallowHealth(new Date("2026-07-04T12:00:00.000Z"))).toEqual({
       status: "ok",
-      service: "marketplace",
+      service: "Marketplace",
       timestamp: "2026-07-04T12:00:00.000Z",
     });
   });
@@ -42,6 +42,7 @@ describe("health and readiness", () => {
     const readiness = await collectReadiness({
       supabase: supabase as never,
       env: {
+        APP_NAME: "Ops Console",
         NEXT_PUBLIC_SUPABASE_URL: "https://abc123.supabase.co",
         SUPABASE_SERVICE_ROLE_KEY: "service-role-secret",
         STRIPE_SECRET_KEY: "sk_test_123",
@@ -53,6 +54,7 @@ describe("health and readiness", () => {
     });
 
     expect(readiness.status).toBe("ok");
+    expect(readiness.service).toBe("Ops Console");
     expect(readiness.checks.supabase).toEqual({ status: "ok" });
     expect(readiness.checks.notifications.email).toBe("configured");
     expect(JSON.stringify(readiness)).not.toContain("service-role-secret");

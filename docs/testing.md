@@ -22,21 +22,25 @@ workflow YAML parsing and focused contract tests.
 
 - `tests/env.test.ts` — the environment contract: accepts a valid env,
   fails fast on missing keys, never leaks values in errors, never writes
-  deploy-only keys to `.env`, and stays in sync with `.env.example`.
+  deploy-only keys to `.env`, safely renders `APP_NAME`, and stays in
+  sync with `.env.example`.
 - `tests/deploy-workflow.test.ts` — deploy workflow guardrails:
   app/migration checks before mutable jobs and expected caller-to-
   environment mapping, including staging/production deep readiness.
-- `tests/health.test.ts` — shallow health without dependencies and deep
-  readiness success/failure responses without secret values.
+- `tests/health.test.ts` — shallow health without dependencies, app-name
+  propagation, and deep readiness success/failure responses without
+  secret values.
 - `tests/allocation.test.ts` — the allocation engine: rule priority,
   channel reserves, per-customer caps, FIFO partial fills, no oversell.
 - `tests/commerce.test.ts` — cart normalization, integer-cent discounts,
-  bounded deposits, checkout quantity limits, the PaymentIntent response
-  shape, rollback/cancel behavior, and the RPC pricing contract passed to
-  order creation.
+  bounded deposits, checkout quantity limits, B2B tier/minimum-order
+  enforcement, the PaymentIntent response shape, rollback/cancel
+  behavior, and the RPC pricing contract passed to order creation.
 - `tests/admin-orders.test.ts` - explicit admin order action contract,
   manual reconciliation RPC dispatch, unpaid cancellation dispatch, and
   derived payment exception queue behavior.
+- `tests/admin-surface.test.ts` - protected admin page guard against
+  fixture-backed work queues.
 - `tests/notifications.test.ts` - Resend order-confirmation delivery,
   disabled-provider skip behavior, dedupe, provider failure recording,
   and configured-channel detection.
