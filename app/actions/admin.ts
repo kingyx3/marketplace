@@ -28,16 +28,17 @@ export async function updateInventory(formData: FormData) {
 }
 
 export async function shipOrder(formData: FormData) {
-  await requireStaff("/admin/orders");
+  const { user } = await requireStaff("/admin/orders");
   const orderId = String(formData.get("orderId") ?? "");
   const carrier = String(formData.get("carrier") ?? "");
   const trackingNumber = String(formData.get("trackingNumber") ?? "");
 
   const supabase = createServiceClient();
-  const { error } = await supabase.rpc("ship_order", {
+  const { error } = await supabase.rpc("admin_ship_order", {
     p_order_id: orderId,
     p_carrier: carrier,
     p_tracking_number: trackingNumber,
+    p_actor: `staff:${user.id}`,
   });
 
   if (error) {

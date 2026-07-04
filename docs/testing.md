@@ -2,15 +2,15 @@
 
 ## The suite
 
-| Check | Command | CI job |
-| --- | --- | --- |
-| Lint (ESLint 9 + next config) | `npm run lint` | `lint` |
-| Types (`tsc --noEmit`, strict) | `npm run typecheck` | `typecheck` |
-| Unit tests (Vitest) | `npm test` | `test` |
-| Production build | `npm run build` | `build` |
-| Migrations apply cleanly | `npx supabase db reset` (local) | `migrations` |
-| Env contract | `npm run env:check` | `validate-env` (deploy) |
-| Deploy config contract | `npm test -- tests/env.test.ts tests/deploy-workflow.test.ts` | `config-contract` |
+| Check                          | Command                                                       | CI job                  |
+| ------------------------------ | ------------------------------------------------------------- | ----------------------- |
+| Lint (ESLint 9 + next config)  | `npm run lint`                                                | `lint`                  |
+| Types (`tsc --noEmit`, strict) | `npm run typecheck`                                           | `typecheck`             |
+| Unit tests (Vitest)            | `npm test`                                                    | `test`                  |
+| Production build               | `npm run build`                                               | `build`                 |
+| Migrations apply cleanly       | `npx supabase db reset` (local)                               | `migrations`            |
+| Env contract                   | `npm run env:check`                                           | `validate-env` (deploy) |
+| Deploy config contract         | `npm test -- tests/env.test.ts tests/deploy-workflow.test.ts` | `config-contract`       |
 
 CI runs these **in parallel** on every PR with no secrets. The
 `migrations` CI job applies every migration + seed to a vanilla
@@ -25,12 +25,24 @@ workflow YAML parsing and focused contract tests.
   deploy-only keys to `.env`, and stays in sync with `.env.example`.
 - `tests/deploy-workflow.test.ts` — deploy workflow guardrails:
   app/migration checks before mutable jobs and expected caller-to-
-  environment mapping.
+  environment mapping, including staging/production deep readiness.
+- `tests/health.test.ts` — shallow health without dependencies and deep
+  readiness success/failure responses without secret values.
 - `tests/allocation.test.ts` — the allocation engine: rule priority,
   channel reserves, per-customer caps, FIFO partial fills, no oversell.
 - `tests/commerce.test.ts` — cart normalization, integer-cent discounts,
-  bounded deposits, checkout quantity limits, and the RPC pricing
-  contract passed to order creation.
+  bounded deposits, checkout quantity limits, the PaymentIntent response
+  shape, rollback/cancel behavior, and the RPC pricing contract passed to
+  order creation.
+- `tests/admin-orders.test.ts` - explicit admin order action contract,
+  manual reconciliation RPC dispatch, unpaid cancellation dispatch, and
+  derived payment exception queue behavior.
+- `tests/notifications.test.ts` - Resend order-confirmation delivery,
+  disabled-provider skip behavior, dedupe, provider failure recording,
+  and configured-channel detection.
+- `tests/live-customer-pages.test.ts` - customer order/preorder display
+  helpers and a guard that authenticated account/order/preorder pages do
+  not import fixture data.
 
 ## Writing tests
 

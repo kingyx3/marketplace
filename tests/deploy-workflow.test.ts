@@ -18,7 +18,14 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("needs: [validate-env, migration-check]");
     expect(workflow).toContain("needs: [app-checks, migrate]");
     expect(workflow).toContain("TARGET_ENV: ${{ vars.TARGET_ENV }}");
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}"
+    );
+    expect(workflow).toContain("RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}");
+    expect(workflow).toContain("SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}");
     expect(workflow).toContain('if [ "$TARGET_ENV" != "${{ inputs.environment }}" ]; then');
+    expect(workflow).toContain("Deep readiness check");
+    expect(workflow).toContain("$URL/api/health?deep=1");
   });
 
   it("maps deployment callers to the expected GitHub Environments", async () => {

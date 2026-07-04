@@ -5,7 +5,7 @@
 ```
 Browser ──▶ Vercel (Next.js 15, App Router)
               ├─ Server Components / API routes
-              ├─ /api/health           (deploy smoke test)
+              ├─ /api/health           (shallow smoke + deep readiness)
               └─ /api/webhooks/stripe  (signature-verified, idempotent)
                     │
                     ▼
@@ -27,21 +27,22 @@ Browser ──▶ Vercel (Next.js 15, App Router)
   authorized now and captured at allocation.
 - **Search**: Postgres full-text (GIN index on products). Upgrade path:
   Typesense or Algolia when the catalog outgrows FTS relevance.
-- **Notifications**: provider-agnostic interface (`lib/notifications.ts`)
-  with feature-gated stubs for Resend, Twilio, Telegram, WhatsApp.
+- **Notifications**: provider-agnostic interface (`lib/notifications.ts`).
+  Resend order-confirmation email is implemented; SMS, Telegram, and
+  WhatsApp remain feature-gated stubs.
 - **Admin operations**: no browser admin console exists yet. Production
   admin work follows `docs/admin-operations.md` until the protected admin
   UI is built.
 
 ## Why this stack
 
-| Requirement | How it's met |
-| --- | --- |
-| Minimal secrets to deploy | 6 secrets + 6 vars per environment (docs/environments.md) |
-| `.env` generated in CI | `scripts/generate-env.mjs` from GitHub Environment values |
-| Scale-to-zero cost | Vercel and Supabase free/low tiers; no always-on servers |
-| Env separation | GitHub Environments → separate Supabase projects + Vercel targets |
-| Config as code | Migrations, workflows, env contract all in-repo |
+| Requirement               | How it's met                                                      |
+| ------------------------- | ----------------------------------------------------------------- |
+| Minimal secrets to deploy | Required secrets + vars per environment (docs/environments.md)    |
+| `.env` generated in CI    | `scripts/generate-env.mjs` from GitHub Environment values         |
+| Scale-to-zero cost        | Vercel and Supabase free/low tiers; no always-on servers          |
+| Env separation            | GitHub Environments → separate Supabase projects + Vercel targets |
+| Config as code            | Migrations, workflows, env contract all in-repo                   |
 
 ## Alternatives considered
 
@@ -64,7 +65,7 @@ and PCI handled for you, but pre-order deposit/balance flows, allocation
 rules, and B2B tiering all become app-subscription workarounds; margins
 on booster boxes are thin enough that platform + app fees bite. The
 research report (docs/research/08-technical-implementation.md) covers
-this trade-off in depth — including the recommendation to *validate*
+this trade-off in depth — including the recommendation to _validate_
 demand on a hosted platform if speed matters more than control.
 
 ## Environment topology

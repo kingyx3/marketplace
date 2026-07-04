@@ -1,9 +1,9 @@
 # Admin operations
 
-This repo does not yet ship a browser admin console. Admin work is
-runbook-driven until the Phase 1 admin tools in `docs/build-plan.md`
-are implemented. Do not describe manual admin workflows as product
-features.
+This repo ships a limited protected admin surface and admin APIs, but
+not a complete browser admin console. Admin work is still runbook-driven
+until the Phase 1 admin tools in `docs/build-plan.md` are fully built.
+Do not describe manual admin workflows as product features.
 
 ## Current operating model
 
@@ -13,9 +13,14 @@ features.
   be traceable in an issue or PR, even when the change is made through
   Supabase Studio.
 - Money state is Stripe-first and webhook-driven. Never mark a payment
-  or order as paid from client-provided state.
+  or order as paid from client-provided state. Admin reconciliation must
+  use the explicit `record_manual_reconciliation` action with provider,
+  payment reference, amount, currency, reason, and actor.
 - Admin changes that affect inventory, pricing, allocation, B2B status,
   refunds, or payment state require a second human review in production.
+- Order/payment admin actions are constrained: packing requires paid,
+  shipping requires paid/packing, unpaid cancellation releases allocation
+  transactionally, and exception flags persist in `payment_exceptions`.
 
 ## Routine runbooks
 
@@ -33,8 +38,11 @@ features.
 2. Confirm the same id in `webhook_events`.
 3. If the event was verified but ignored, inspect the route behavior
    before retrying. Verified duplicates should remain idempotent.
-4. If a manual correction is unavoidable, update payment/order state in
-   one transaction and leave an audit note outside the database row.
+4. If a manual correction is unavoidable, use the admin reconciliation
+   action so the payment row, order transition, inventory release, reason,
+   and audit log are recorded together.
+5. Review `/api/admin/orders/exceptions` for persisted manual flags and
+   derived stale/orphan/failed-payment signals.
 
 ### Pre-order allocation
 
@@ -70,6 +78,7 @@ The approval UI is not built yet.
 - Google/Supabase-authenticated admin entry point.
 - Server-side role checks backed by non-user-editable authorization data.
 - Product, inventory, pricing, and B2B workflows.
-- Payment exception and refund workflows with Stripe reconciliation.
+- Browser UI for payment exception and refund workflows with Stripe
+  reconciliation.
 - Allocation run review, approval, and customer notification queue.
 - Audit views for inventory, payment, order, and admin changes.

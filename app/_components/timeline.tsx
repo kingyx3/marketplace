@@ -1,4 +1,8 @@
-import type { TimelineItem } from "@/app/_data/marketplace-fixtures";
+export type TimelineItem = {
+  label: string;
+  date: string;
+  state: "complete" | "current" | "upcoming" | "error";
+};
 
 const stateClasses: Record<TimelineItem["state"], string> = {
   complete: "border-emerald-600 bg-emerald-600",
