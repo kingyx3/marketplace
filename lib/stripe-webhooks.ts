@@ -53,16 +53,20 @@ async function handlePaymentIntentSucceeded(
     return;
   }
 
-  await updatePayment(supabase, payment.id, {
-    status: "captured",
-    captured_at: new Date().toISOString(),
-  });
-
   if (payment.order_id) {
     await markOrderPaidFromIntent(supabase, payment.order_id, intent);
+    await updatePayment(supabase, payment.id, {
+      status: "captured",
+      captured_at: new Date().toISOString(),
+    });
+    return;
   }
 
   if (payment.preorder_id) {
+    await updatePayment(supabase, payment.id, {
+      status: "captured",
+      captured_at: new Date().toISOString(),
+    });
     await supabase
       .from("preorders")
       .update({ status: payment.kind === "deposit" ? "deposited" : "paid" })
@@ -91,6 +95,7 @@ async function handlePaymentIntentFailed(
 
   await updatePayment(supabase, payment.id, { status: "failed" });
   if (payment.order_id) {
+    await supabase.rpc("release_order_allocation", { p_order_id: payment.order_id });
     await supabase
       .from("orders")
       .update({ status: "cancelled" })
@@ -130,6 +135,7 @@ async function handleChargeRefunded(supabase: SupabaseClient, charge: Stripe.Cha
     payment_id: payment.id,
     provider_refund_id: latestRefundId(charge),
     amount_cents: refundedCents,
+    currency: payment.currency,
     status: charge.refunded ? "succeeded" : "pending",
   });
 
@@ -156,7 +162,7 @@ function latestRefundId(charge: Stripe.Charge): string | null {
 async function paymentByIntent(supabase: SupabaseClient, intentId: string) {
   const { data, error } = await supabase
     .from("payments")
-    .select("id, order_id, preorder_id, kind, status")
+    .select("id, order_id, preorder_id, kind, status, currency")
     .eq("provider", "stripe")
     .eq("provider_payment_id", intentId)
     .maybeSingle();

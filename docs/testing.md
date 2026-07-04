@@ -28,6 +28,9 @@ workflow YAML parsing and focused contract tests.
   environment mapping.
 - `tests/allocation.test.ts` — the allocation engine: rule priority,
   channel reserves, per-customer caps, FIFO partial fills, no oversell.
+- `tests/commerce.test.ts` — cart normalization, integer-cent discounts,
+  bounded deposits, checkout quantity limits, and the RPC pricing
+  contract passed to order creation.
 
 ## Writing tests
 

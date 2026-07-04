@@ -39,6 +39,21 @@ export async function createCheckoutPayment(
     : createOrderPayment(auth, quote, stripe);
 }
 
+export function checkoutOrderRpcParams(authUserId: string, quote: CheckoutQuote) {
+  return {
+    p_auth_user_id: authUserId,
+    p_items: quote.lines.map((line) => ({
+      sku_id: line.skuId,
+      quantity: line.quantity,
+    })),
+    p_channel: quote.channel,
+    p_expected_subtotal_cents: quote.subtotalCents,
+    p_discount_cents: quote.discountCents,
+    p_discount_bps: quote.discountBps,
+    p_expected_total_cents: quote.totalCents,
+  };
+}
+
 async function createOrderPayment(
   auth: ApiCustomerContext,
   quote: CheckoutQuote,
@@ -49,14 +64,7 @@ async function createOrderPayment(
 
   try {
     const order = await auth.supabase
-      .rpc("create_checkout_order_from_cart", {
-        p_auth_user_id: auth.user.id,
-        p_items: quote.lines.map((line) => ({
-          sku_id: line.skuId,
-          quantity: line.quantity,
-        })),
-        p_channel: quote.channel,
-      })
+      .rpc("create_checkout_order_from_cart", checkoutOrderRpcParams(auth.user.id, quote))
       .single();
     if (order.error || !order.data) {
       throw new Error(order.error?.message ?? "order creation failed");
@@ -135,6 +143,7 @@ async function createPreorderPayment(
     const intent = await stripe.paymentIntents.create({
       amount: quote.depositCents,
       currency: quote.currency.toLowerCase(),
+      capture_method: "manual",
       setup_future_usage: "off_session",
       automatic_payment_methods: { enabled: true },
       receipt_email: auth.customer.email,

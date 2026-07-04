@@ -26,7 +26,7 @@ export const preorderStatusUpdateSchema = z.object({
 });
 
 const orderSelect =
-  "id, channel, status, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, placed_at, created_at, updated_at, order_items(id, sku_id, quantity, unit_price_cents), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at), shipments(id, carrier, tracking_number, status, shipped_at, delivered_at, created_at)";
+  "id, channel, status, currency, subtotal_cents, discount_cents, discount_bps, shipping_cents, tax_cents, total_cents, placed_at, created_at, updated_at, order_items(id, sku_id, quantity, unit_price_cents), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at), shipments(id, carrier, tracking_number, status, shipped_at, delivered_at, created_at)";
 
 const preorderSelect =
   "id, sku_id, channel, quantity, unit_price_cents, deposit_cents, balance_cents, currency, status, allocated_qty, order_id, created_at, updated_at, payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at)";

@@ -18,11 +18,13 @@
 
 ## Row-level security
 
-RLS is enabled on every table in the initial migration. Policy tiers:
+RLS is enabled on every table and Data API exposure is granted
+explicitly in migrations. Policy tiers:
 
 1. **Public read** — catalog + availability only.
 2. **Own rows** — customers select their own commercial documents via
-   `auth.uid()`.
+   `auth.uid()`; customer profile updates include `WITH CHECK` so a row
+   cannot be reassigned to another auth user.
 3. **Service role only** — supply, pricing, allocation, refunds, audit,
    webhook tables have no client policies at all.
 
@@ -51,6 +53,13 @@ an external audit trail until the protected admin UI exists.
 
 - Amounts are integer cents; the client never supplies a price — the
   server derives it from `booster_box_skus` + `pricing_tiers`.
+- Checkout order creation persists the server-derived subtotal,
+  discount, and total, then rejects the request if the database re-read
+  no longer matches those expected values.
+- Stripe paid events must match the stored order amount and currency
+  before `mark_order_paid` can release allocation, decrement inventory,
+  and mark the order paid. Duplicate paid events are idempotent and do
+  not decrement inventory twice.
 - Pre-order deposits use PaymentIntents with `capture_method: manual`
   (authorize now, capture at allocation) so uncaptured funds are
   releasable on cancellation without a refund flow.

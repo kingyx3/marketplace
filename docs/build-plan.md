@@ -1,13 +1,27 @@
 # Build plan
 
-Honest status ledger. **Nothing listed under "Not built" exists yet** —
+Honest status ledger. **Unchecked roadmap items are not built yet** —
 docs and README must never describe those as working.
 
 ## Built (this scaffold)
 
-- ✅ Next.js 15 app shell; landing + `/catalog` reading live from Postgres
+- ✅ Next.js 15 app shell; landing, `/catalog`, and product detail pages
+     reading live catalog rows from Postgres with fixture/image fallbacks
+- ✅ Google-only Supabase Auth routes, session refresh middleware, sign-out,
+     customer row provisioning, protected account/admin pages, and
+     authenticated account/order/pre-order APIs
+- ✅ Cookie cart helpers and server-side checkout validation for SKU,
+     quantity, inventory, currency, B2B eligibility, tier discounts, and
+     server-derived totals
+- ✅ Checkout order RPC with atomic inventory allocation, persisted discounts,
+     expected subtotal/total checks, and Stripe amount/currency verification
+     before an order can become `paid`
+- ✅ Basic account dashboard, order/pre-order list/detail APIs, B2B
+     application endpoint, staff-gated admin inventory/order/pre-order APIs,
+     and an operator inventory page
 - ✅ `/api/health` smoke endpoint
-- ✅ Stripe webhook receiver: signature-verified, idempotent (event ledger)
+- ✅ Stripe webhook receiver: signature-verified, idempotent (event ledger),
+     with guarded payment/order/refund state transitions
 - ✅ Full commerce schema as SQL migrations, RLS on every table, seed data
 - ✅ Allocation engine (`lib/allocation.ts`) — pure logic + unit tests
 - ✅ Env contract: `generate-env.mjs`, zod runtime schema, unit tests
@@ -17,27 +31,39 @@ docs and README must never describe those as working.
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks,
      migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
+- ✅ Explicit Supabase Data API grants paired with RLS policies for the public
+     catalog and authenticated own-row reads
 - ✅ Admin operations runbook (`docs/admin-operations.md`) for workflows that
      are not yet productized
 
-## Not built — roadmap
+## Roadmap status
 
 Sequenced to match the 30/60/90-day plan in
 `docs/research/14-final-recommendation.md`.
 
 ### Phase 1 — sell one box (MVP commerce)
 
-- [ ] Auth flows (Supabase Auth: sign-up/in, customer row provisioning)
-- [ ] Product detail page with real images (Supabase Storage)
-- [ ] Cart + checkout (server-derived pricing, Stripe PaymentIntent)
-- [ ] Webhook → `payments`/`orders` state machine (today it only records)
+- [x] Auth flows (Supabase Auth: Google sign-in/out, session handling,
+      customer row provisioning)
+- [x] Product detail page backed by database catalog rows (Supabase Storage
+      product-image workflow still TODO)
+- [x] Cart + checkout backend (server-derived pricing, inventory checks,
+      Stripe PaymentIntent API, and guarded Stripe Checkout Session UI path)
+- [ ] Browser PaymentIntent confirmation UI using Stripe.js/Elements; the
+      backend API returns client secrets but the storefront cart still redirects
+      through Stripe Checkout Session for B2C orders.
+- [x] Webhook → `payments`/`orders` state machine for successful, failed,
+      authorized, and refunded Stripe events
 - [ ] Order confirmation email (Resend adapter — first real notification)
-- [ ] Admin: minimal product/inventory CRUD (server-authorized, audited)
+- [ ] Admin: complete product/inventory CRUD (inventory update exists; product
+      create/update/delete and richer validation are still TODO)
 - [ ] Admin: order/payment exception queue backed by Stripe reconciliation
 
 ### Phase 2 — pre-orders (the differentiator)
 
-- [ ] Pre-order placement with deposit (manual-capture PaymentIntent)
+- [ ] Storefront pre-order placement flow around the deposit API
+- [x] Pre-order deposit PaymentIntent API primitive with manual capture and
+      persisted pre-order/payment rows
 - [ ] Allocation run: wire `lib/allocation.ts` to inventory + rules
 - [ ] Balance capture + pre-order → order conversion
 - [ ] Customer pre-order dashboard (status, balance due)
