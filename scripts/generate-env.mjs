@@ -116,6 +116,20 @@ export const ENV_CONTRACT = [
   },
   // --- Notifications (optional; a missing key disables the channel) ---
   { key: "RESEND_API_KEY", required: false, secret: true, hint: "email via Resend" },
+  {
+    key: "RESEND_FROM_EMAIL",
+    required: false,
+    secret: false,
+    pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
+    hint: "verified Resend sender address",
+  },
+  {
+    key: "SUPPORT_EMAIL",
+    required: false,
+    secret: false,
+    pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
+    hint: "support contact shown in transactional emails",
+  },
   { key: "TWILIO_ACCOUNT_SID", required: false, secret: false, hint: "SMS via Twilio" },
   { key: "TWILIO_AUTH_TOKEN", required: false, secret: true, hint: "SMS via Twilio" },
   { key: "TELEGRAM_BOT_TOKEN", required: false, secret: true, hint: "Telegram Bot API" },

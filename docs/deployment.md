@@ -12,11 +12,11 @@ migration-check ──┴─▶ migrate ──┐
 app-checks ─────────────────────┴─▶ deploy ──▶ smoke
 ```
 
-| Caller | Trigger | Environment |
-| --- | --- | --- |
-| `deploy-development.yml` | push to non-`main` branches | `development` |
-| `deploy-staging.yml` | push to `main` | `staging` |
-| `deploy-production.yml` | tag `v*` / release published | `production` (human approval) |
+| Caller                   | Trigger                      | Environment                   |
+| ------------------------ | ---------------------------- | ----------------------------- |
+| `deploy-development.yml` | push to non-`main` branches  | `development`                 |
+| `deploy-staging.yml`     | push to `main`               | `staging`                     |
+| `deploy-production.yml`  | tag `v*` / release published | `production` (human approval) |
 
 Notes:
 
@@ -38,6 +38,10 @@ Notes:
   the dashboard is never hand-edited (config as code).
 - **Migrations before app**: a failed `supabase db push` stops the
   rollout; the previous app version keeps running against the old schema.
+- **Smoke/readiness**: every deploy checks shallow `/api/health`.
+  Staging and production also call `/api/health?deep=1` after deploy to
+  verify Supabase connectivity, Stripe config presence, and notification
+  channel status without printing secret values.
 
 ## Rollback
 

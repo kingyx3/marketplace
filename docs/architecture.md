@@ -5,7 +5,7 @@
 ```
 Browser ──▶ Vercel (Next.js 15, App Router)
               ├─ Server Components / API routes
-              ├─ /api/health           (deploy smoke test)
+              ├─ /api/health           (shallow smoke + deep readiness)
               └─ /api/webhooks/stripe  (signature-verified, idempotent)
                     │
                     ▼
@@ -27,8 +27,9 @@ Browser ──▶ Vercel (Next.js 15, App Router)
   authorized now and captured at allocation.
 - **Search**: Postgres full-text (GIN index on products). Upgrade path:
   Typesense or Algolia when the catalog outgrows FTS relevance.
-- **Notifications**: provider-agnostic interface (`lib/notifications.ts`)
-  with feature-gated stubs for Resend, Twilio, Telegram, WhatsApp.
+- **Notifications**: provider-agnostic interface (`lib/notifications.ts`).
+  Resend order-confirmation email is implemented; SMS, Telegram, and
+  WhatsApp remain feature-gated stubs.
 - **Admin operations**: no browser admin console exists yet. Production
   admin work follows `docs/admin-operations.md` until the protected admin
   UI is built.

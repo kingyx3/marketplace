@@ -20,6 +20,8 @@ const serverEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
   // Optional, feature-gated notification providers
   RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_FROM_EMAIL: z.string().email().optional(),
+  SUPPORT_EMAIL: z.string().email().optional(),
   TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),

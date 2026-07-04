@@ -35,9 +35,23 @@ cannot be bypassed from a browser.
 
 ## Admin boundary
 
-No browser admin console is built yet. Manual admin changes must follow
-`docs/admin-operations.md`, use trusted operator access only, and leave
-an external audit trail until the protected admin UI exists.
+Admin routes require server-verified staff access from `staff_users` or
+server-controlled app metadata. Order/payment mutations are explicit
+actions, not generic status writes:
+
+- `mark_packing` requires a paid order.
+- `ship` requires a paid or packing order plus carrier/tracking.
+- `cancel_unpaid` only applies to draft/pending-payment orders and
+  releases allocation in the same database transaction.
+- `record_manual_reconciliation` requires provider, payment reference,
+  amount, currency, reason, and actor; amount/currency must match the
+  order before it can mark paid.
+- `flag_payment_exception` writes `payment_exceptions` for operator
+  review.
+
+Manual admin changes must follow `docs/admin-operations.md` and require
+trusted operator access. Broader product/B2B admin UI remains roadmap
+work.
 
 ## Webhooks (Stripe)
 
@@ -69,11 +83,33 @@ an external audit trail until the protected admin UI exists.
   before `mark_order_paid` can release allocation, decrement inventory,
   and mark the order paid. Duplicate paid events are idempotent and do
   not decrement inventory twice.
+- Order confirmation email is claimed with a unique notification dedupe
+  key before calling Resend. Duplicate webhooks do not send a second
+  email; provider failure is recorded on the notification row and does
+  not roll back paid order state.
 - Pre-order deposits use PaymentIntents with `capture_method: manual`
   (authorize now, capture at allocation) so uncaptured funds are
   releasable on cancellation without a refund flow.
 - Live Stripe keys exist only in the `production` GitHub Environment,
   which requires human approval to deploy.
+
+## Notifications
+
+- Notification providers are feature-gated by environment keys. Missing
+  email keys record a skipped notification instead of crashing checkout
+  or webhook processing.
+- Resend secrets stay server-side. Transactional email payloads include
+  order number, item names/SKUs, amount, status, order link, and support
+  contact, but never provider secrets or raw payment credentials.
+
+## Readiness checks
+
+- `/api/health` is intentionally shallow so deploy smoke tests can prove
+  the app process is serving traffic without requiring runtime
+  dependencies.
+- `/api/health?deep=1` checks Supabase connectivity, Stripe config
+  presence, and notification provider status using key names/statuses
+  only. It never returns secret values.
 
 ## Least privilege elsewhere
 

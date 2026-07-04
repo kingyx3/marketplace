@@ -20,7 +20,8 @@ docs and README must never describe those as working.
   Supabase rows, plus order/pre-order list/detail APIs, B2B application
   endpoint, staff-gated admin inventory/order/pre-order APIs, and an
   operator inventory page
-- ✅ `/api/health` smoke endpoint
+- ✅ `/api/health` smoke endpoint plus `/api/health?deep=1` readiness
+  checks for Supabase, Stripe config, and notification channel status
 - ✅ Stripe webhook receiver: signature-verified, idempotent (event ledger),
   with guarded payment/order/refund state transitions
 - ✅ Full commerce schema as SQL migrations, RLS on every table, seed data
@@ -53,10 +54,17 @@ Sequenced to match the 30/60/90-day plan in
       states, and cart clearing only after confirmed client-side success)
 - [x] Webhook → `payments`/`orders` state machine for successful, failed,
       authorized, and refunded Stripe events
-- [ ] Order confirmation email (Resend adapter — first real notification)
+- [x] Order confirmation email via Resend, with notification-row dedupe,
+      provider-message tracking, disabled-provider skip state, and
+      failure recording that does not roll back paid orders
 - [ ] Admin: complete product/inventory CRUD (inventory update exists; product
       create/update/delete and richer validation are still TODO)
-- [ ] Admin: order/payment exception queue backed by Stripe reconciliation
+- [x] Admin API: explicit order/payment actions for packing, shipping,
+      unpaid cancellation, manual reconciliation, and payment exception
+      flagging; generic order `status` PATCH is removed
+- [x] Admin API: order/payment exception queue backed by persisted manual
+      flags plus derived stale/orphan/failed-payment signals
+- [ ] Admin UI: order/payment exception review and reconciliation console
 
 ### Phase 2 — pre-orders (the differentiator)
 

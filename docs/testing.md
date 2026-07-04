@@ -25,13 +25,21 @@ workflow YAML parsing and focused contract tests.
   deploy-only keys to `.env`, and stays in sync with `.env.example`.
 - `tests/deploy-workflow.test.ts` — deploy workflow guardrails:
   app/migration checks before mutable jobs and expected caller-to-
-  environment mapping.
+  environment mapping, including staging/production deep readiness.
+- `tests/health.test.ts` — shallow health without dependencies and deep
+  readiness success/failure responses without secret values.
 - `tests/allocation.test.ts` — the allocation engine: rule priority,
   channel reserves, per-customer caps, FIFO partial fills, no oversell.
 - `tests/commerce.test.ts` — cart normalization, integer-cent discounts,
   bounded deposits, checkout quantity limits, the PaymentIntent response
   shape, rollback/cancel behavior, and the RPC pricing contract passed to
   order creation.
+- `tests/admin-orders.test.ts` - explicit admin order action contract,
+  manual reconciliation RPC dispatch, unpaid cancellation dispatch, and
+  derived payment exception queue behavior.
+- `tests/notifications.test.ts` - Resend order-confirmation delivery,
+  disabled-provider skip behavior, dedupe, provider failure recording,
+  and configured-channel detection.
 - `tests/live-customer-pages.test.ts` - customer order/preorder display
   helpers and a guard that authenticated account/order/preorder pages do
   not import fixture data.

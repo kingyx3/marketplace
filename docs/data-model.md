@@ -19,6 +19,8 @@ customers ─▶ b2b_accounts                                          inventory
    ├──▶ notifications│
                      ▼
               allocation_rules          audit_logs   webhook_events
+                                             ▲             │
+                                             └── payment_exceptions
 ```
 
 ## Key decisions
@@ -33,7 +35,7 @@ refund rows carry their own currency for reconciliation.
 `deposit` / `balance` / `full`. This models the standard TCG pre-order
 pattern (deposit at announcement, balance at allocation) without
 inventing partial-payment logic on orders. A fulfilled pre-order is
-*converted* into an order (`preorders.order_id`), so fulfillment,
+_converted_ into an order (`preorders.order_id`), so fulfillment,
 shipping, and refunds all live in one place.
 
 **Oversell guard is a database constraint.** `inventory` tracks
@@ -49,7 +51,7 @@ stock — e.g. "reserve 8 boxes for B2C at max 2/customer; B2B takes the
 rest FIFO". The pure engine in `lib/allocation.ts` mirrors this and is
 unit-tested; the seed ships a working example.
 
-**B2B is an approval layer on customers.** Any customer can *apply* for
+**B2B is an approval layer on customers.** Any customer can _apply_ for
 a `b2b_accounts` row; only `approved` accounts see wholesale pricing via
 `pricing_tiers` (basis-point discounts + minimum order). Pricing tiers
 are M:N so a customer can hold e.g. a regional tier and a promo tier.
@@ -72,6 +74,25 @@ processing and treats a duplicate-key error as "already handled".
 stored order total before releasing allocation and decrementing stock, so
 duplicate or underpaid payment events fail closed.
 
+**Notification delivery is deduped.** `notifications` stores provider,
+provider message id, a unique `dedupe_key`, `sent_at`, and delivery
+error state. Order-confirmation email uses `order_confirmation:<order
+id>` so duplicate payment webhooks cannot send duplicate customer email.
+Missing providers are recorded as `skipped` instead of being treated as
+checkout failures.
+
+**Admin payment exceptions are durable.** `payment_exceptions` records
+manual flags and operator-visible payment anomalies without exposing the
+table to browser roles. Derived queues can also surface stale pending
+payments, orphan Stripe webhook events, and failed/cancelled payments
+still attached to unpaid orders.
+
+**Admin order mutations are explicit database actions.** Admin APIs call
+service-role-only functions for packing, shipping, unpaid cancellation,
+manual reconciliation, and exception flagging. Direct `paid` status
+updates are not an API contract; reconciliation must include provider,
+payment reference, amount, currency, reason, and actor.
+
 ## Row-level security
 
 RLS is enabled on **every** table:
@@ -84,6 +105,7 @@ RLS is enabled on **every** table:
   rows via `auth.uid()`; customer profile updates include both `USING`
   and `WITH CHECK`; all commercial writes go through the service role so
   state machines and stock checks stay server-side.
-- Supply-side tables (`suppliers`, `purchase_orders`, `pricing_tiers`,
-  `allocation_rules`, `refunds`, `audit_logs`, `webhook_events`): no
+- Supply-side and admin-only tables (`suppliers`, `purchase_orders`,
+  `pricing_tiers`, `allocation_rules`, `refunds`, `audit_logs`,
+  `webhook_events`, `payment_exceptions`): no
   anon/authenticated policies at all — service role only.

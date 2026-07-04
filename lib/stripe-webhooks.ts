@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendOrderConfirmationEmail } from "@/lib/notifications";
 
 export async function handleStripeEvent(
   supabase: SupabaseClient,
@@ -49,6 +50,7 @@ async function handlePaymentIntentSucceeded(
     const orderId = intent.metadata?.order_id;
     if (orderId) {
       await markOrderPaidFromIntent(supabase, orderId, intent);
+      await sendOrderConfirmationEmail(supabase, orderId);
     }
     return;
   }
@@ -59,6 +61,7 @@ async function handlePaymentIntentSucceeded(
       status: "captured",
       captured_at: new Date().toISOString(),
     });
+    await sendOrderConfirmationEmail(supabase, payment.order_id);
     return;
   }
 
@@ -121,7 +124,10 @@ async function markOrderPaidFromIntent(
   }
 }
 
-async function handleChargeRefunded(supabase: SupabaseClient, charge: Stripe.Charge): Promise<void> {
+async function handleChargeRefunded(
+  supabase: SupabaseClient,
+  charge: Stripe.Charge
+): Promise<void> {
   const intentId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
   if (!intentId) return;
 
@@ -145,10 +151,7 @@ async function handleChargeRefunded(supabase: SupabaseClient, charge: Stripe.Cha
       await supabase.from("orders").update({ status: "refunded" }).eq("id", payment.order_id);
     }
     if (payment.preorder_id) {
-      await supabase
-        .from("preorders")
-        .update({ status: "refunded" })
-        .eq("id", payment.preorder_id);
+      await supabase.from("preorders").update({ status: "refunded" }).eq("id", payment.preorder_id);
     }
   }
 }
