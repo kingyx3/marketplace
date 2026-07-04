@@ -12,6 +12,8 @@ The canonical machine-readable contract is `ENV_CONTRACT` in
 [`scripts/generate-env.mjs`](../scripts/generate-env.mjs); `.env.example`
 and `lib/env.ts` mirror it. CI fails fast (before touching infra) if an
 environment is missing or malformed — key names only, values never logged.
+`TARGET_ENV` is deploy-time only and must exactly match the selected
+GitHub Environment name.
 
 ## Required per environment
 
@@ -33,6 +35,7 @@ environment is missing or malformed — key names only, values never logged.
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://abcd1234.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon/publishable key (safe to expose; RLS-enforced) |
 | `NEXT_PUBLIC_SITE_URL` | `https://staging.example.com` |
+| `TARGET_ENV` | `development`, `staging`, or `production` |
 | `SUPABASE_PROJECT_REF` | `abcd1234` |
 | `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | from `vercel link` → `.vercel/project.json` |
 

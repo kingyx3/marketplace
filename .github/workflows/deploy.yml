@@ -4,9 +4,10 @@
 # secrets/vars are injected — see docs/environments.md).
 #
 # Job order (explicit dependencies):
-#   validate-env  →  migrate  →  deploy  →  smoke
-# A migration failure blocks the app deploy; a deploy failure blocks
-# the smoke test. Nothing here prints secret values.
+#   validate-env + app-checks + migration-check -> migrate -> deploy -> smoke
+# app-checks and migration-check run before mutable deploy work.
+# A failed env, app, or migration check blocks the rollout.
+# Nothing here prints secret values.
 name: Deploy (reusable)
 
 on:
@@ -28,6 +29,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      TARGET_ENV: ${{ vars.TARGET_ENV }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
@@ -39,9 +41,68 @@ jobs:
       # Dependency-free: runs without npm ci. Fails fast (exit 1) if the
       # environment is missing/malformed, before any infra is touched.
       - run: node scripts/generate-env.mjs --check
+      - name: Verify GitHub Environment target
+        run: |
+          if [ "$TARGET_ENV" != "${{ inputs.environment }}" ]; then
+            echo "TARGET_ENV must match the workflow input environment." >&2
+            echo "TARGET_ENV=$TARGET_ENV input=${{ inputs.environment }}" >&2
+            exit 1
+          fi
+
+  app-checks:
+    name: App check (${{ matrix.check }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: lint
+            command: npm run lint
+          - check: typecheck
+            command: npm run typecheck
+          - check: test
+            command: npm test
+          - check: build
+            command: npm run build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: ${{ matrix.command }}
+
+  migration-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply auth shim (emulates Supabase-managed schema)
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql
+      - name: Apply migrations in order
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "applying $f"
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
+          done
+      - name: Apply seed
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql
 
   migrate:
-    needs: validate-env
+    needs: [validate-env, migration-check]
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
@@ -61,7 +122,7 @@ jobs:
         run: supabase db push
 
   deploy:
-    needs: migrate
+    needs: [app-checks, migrate]
     runs-on: ubuntu-latest
     environment:
       name: ${{ inputs.environment }}
@@ -86,6 +147,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          TARGET_ENV: ${{ vars.TARGET_ENV }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}

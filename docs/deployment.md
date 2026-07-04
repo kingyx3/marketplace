@@ -3,12 +3,13 @@
 ## Pipeline
 
 `deploy.yml` is a reusable workflow (`workflow_call`) invoked by three
-thin callers. Job order is explicit and each stage blocks the next:
+thin callers. Checks run in parallel where safe, and mutable deploy work
+waits for the checks it depends on:
 
 ```
-validate-env ──▶ migrate ──▶ deploy ──▶ smoke
-(env contract)   (supabase    (env sync   (GET /api/health
- fails fast)      db push)     + vercel)    must be 200)
+validate-env ─────┐
+migration-check ──┴─▶ migrate ──┐
+app-checks ─────────────────────┴─▶ deploy ──▶ smoke
 ```
 
 | Caller | Trigger | Environment |
@@ -26,6 +27,12 @@ Notes:
   migration-apply in parallel on every PR. Enable branch protection on
   `main` with those as required checks so staging only ever deploys
   already-green code.
+- **Deploy gating**: branch, main, and release deploys run app checks
+  and migration SQL validation before `supabase db push` or Vercel env
+  sync/deploy can run.
+- **Environment guard**: each GitHub Environment sets `TARGET_ENV`.
+  The reusable workflow fails before migrations if `TARGET_ENV` does
+  not match the caller-provided environment.
 - **Env sync**: the deploy job regenerates the runtime `.env` from
   GitHub Environment values and pushes it to Vercel on every deploy —
   the dashboard is never hand-edited (config as code).

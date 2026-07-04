@@ -1,0 +1,75 @@
+# Admin operations
+
+This repo does not yet ship a browser admin console. Admin work is
+runbook-driven until the Phase 1 admin tools in `docs/build-plan.md`
+are implemented. Do not describe manual admin workflows as product
+features.
+
+## Current operating model
+
+- Infrastructure and deployment config live in git, GitHub Environments,
+  Supabase, Stripe, and Vercel.
+- Runtime data lives in Supabase Postgres. Production data changes must
+  be traceable in an issue or PR, even when the change is made through
+  Supabase Studio.
+- Money state is Stripe-first and webhook-driven. Never mark a payment
+  or order as paid from client-provided state.
+- Admin changes that affect inventory, pricing, allocation, B2B status,
+  refunds, or payment state require a second human review in production.
+
+## Routine runbooks
+
+### Catalog or inventory correction
+
+1. Confirm the requested SKU, set, quantity, currency, and price source.
+2. Prefer a product-admin workflow once built. Until then, make the
+   smallest Supabase data edit required and record the reason externally.
+3. Verify `inventory.allocated <= inventory.on_hand + inventory.incoming`.
+4. Check the public catalog after deploy or data change.
+
+### Stripe webhook or payment exception
+
+1. Find the Stripe event id in the Stripe dashboard.
+2. Confirm the same id in `webhook_events`.
+3. If the event was verified but ignored, inspect the route behavior
+   before retrying. Verified duplicates should remain idempotent.
+4. If a manual correction is unavoidable, update payment/order state in
+   one transaction and leave an audit note outside the database row.
+
+### Pre-order allocation
+
+1. Confirm incoming stock and channel reserve rules before customer
+   communication.
+2. Run allocation logic only after inventory and pricing data are current.
+3. Capture balances through server-side Stripe flows only.
+4. Record skipped or partially-filled customers for support follow-up.
+
+The allocation engine exists as pure logic, but it is not wired to an
+admin UI or production job yet.
+
+### B2B approval
+
+1. Verify business identity and channel eligibility outside the app.
+2. Approve or reject the B2B account only from a trusted admin surface.
+3. Re-check pricing tier visibility after approval.
+
+The approval UI is not built yet.
+
+### Deploy incident
+
+1. Stop new production releases by leaving the GitHub Environment
+   approval pending.
+2. Roll back the Vercel deployment if the app deploy caused the issue.
+3. For schema mistakes, ship a new forward migration; never edit an
+   applied migration.
+4. Rotate provider secrets in the provider dashboard, then update the
+   GitHub Environment and rerun deploy.
+
+## Admin tooling backlog
+
+- Google/Supabase-authenticated admin entry point.
+- Server-side role checks backed by non-user-editable authorization data.
+- Product, inventory, pricing, and B2B workflows.
+- Payment exception and refund workflows with Stripe reconciliation.
+- Allocation run review, approval, and customer notification queue.
+- Audit views for inventory, payment, order, and admin changes.

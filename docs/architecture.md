@@ -28,12 +28,15 @@ Browser ──▶ Vercel (Next.js 15, App Router)
   Typesense or Algolia when the catalog outgrows FTS relevance.
 - **Notifications**: provider-agnostic interface (`lib/notifications.ts`)
   with feature-gated stubs for Resend, Twilio, Telegram, WhatsApp.
+- **Admin operations**: no browser admin console exists yet. Production
+  admin work follows `docs/admin-operations.md` until the protected admin
+  UI is built.
 
 ## Why this stack
 
 | Requirement | How it's met |
 | --- | --- |
-| Minimal secrets to deploy | 6 secrets + 5 vars per environment (docs/environments.md) |
+| Minimal secrets to deploy | 6 secrets + 6 vars per environment (docs/environments.md) |
 | `.env` generated in CI | `scripts/generate-env.mjs` from GitHub Environment values |
 | Scale-to-zero cost | Vercel and Supabase free/low tiers; no always-on servers |
 | Env separation | GitHub Environments → separate Supabase projects + Vercel targets |
@@ -69,3 +72,7 @@ One Supabase project and one Vercel project per environment
 (`development`, `staging`, `production`). Nothing is shared across
 environments — separate databases, separate Stripe modes (test keys in
 dev/staging, live keys only in production), separate URLs.
+
+`TARGET_ENV` in each GitHub Environment must match the reusable deploy
+workflow input. The deploy fails before migrations or Vercel changes if
+that mapping drifts.
