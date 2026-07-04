@@ -6,35 +6,36 @@ docs and README must never describe those as working.
 ## Built (this scaffold)
 
 - ✅ Next.js 15 app shell; landing, `/catalog`, and product detail pages
-     reading live catalog rows from Postgres with fixture/image fallbacks
+  reading live catalog rows from Postgres with fixture/image fallbacks
 - ✅ Google-only Supabase Auth routes, session refresh middleware, sign-out,
-     customer row provisioning, protected account/admin pages, and
-     authenticated account/order/pre-order APIs
+  customer row provisioning, protected account/admin pages, and
+  authenticated account/order/pre-order APIs
 - ✅ Cookie cart helpers and server-side checkout validation for SKU,
-     quantity, inventory, currency, B2B eligibility, tier discounts, and
-     server-derived totals
+  quantity, inventory, currency, B2B eligibility, tier discounts, and
+  server-derived totals
 - ✅ Checkout order RPC with atomic inventory allocation, persisted discounts,
-     expected subtotal/total checks, and Stripe amount/currency verification
-     before an order can become `paid`
-- ✅ Basic account dashboard, order/pre-order list/detail APIs, B2B
-     application endpoint, staff-gated admin inventory/order/pre-order APIs,
-     and an operator inventory page
+  expected subtotal/total checks, and Stripe amount/currency verification
+  before an order can become `paid`
+- ✅ Live account dashboard and customer order/pre-order pages backed by
+  Supabase rows, plus order/pre-order list/detail APIs, B2B application
+  endpoint, staff-gated admin inventory/order/pre-order APIs, and an
+  operator inventory page
 - ✅ `/api/health` smoke endpoint
 - ✅ Stripe webhook receiver: signature-verified, idempotent (event ledger),
-     with guarded payment/order/refund state transitions
+  with guarded payment/order/refund state transitions
 - ✅ Full commerce schema as SQL migrations, RLS on every table, seed data
 - ✅ Allocation engine (`lib/allocation.ts`) — pure logic + unit tests
 - ✅ Env contract: `generate-env.mjs`, zod runtime schema, unit tests
 - ✅ CI (lint/typecheck/test/build/migrations, parallel, secretless)
 - ✅ Deploy pipeline: reusable workflow, 3 environments, env→Vercel sync,
-     migration gating, smoke test, production approval gate
+  migration gating, smoke test, production approval gate
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks,
-     migration SQL validation, and smoke tests
+  migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
 - ✅ Explicit Supabase Data API grants paired with RLS policies for the public
-     catalog and authenticated own-row reads
+  catalog and authenticated own-row reads
 - ✅ Admin operations runbook (`docs/admin-operations.md`) for workflows that
-     are not yet productized
+  are not yet productized
 
 ## Roadmap status
 
@@ -47,11 +48,9 @@ Sequenced to match the 30/60/90-day plan in
       customer row provisioning)
 - [x] Product detail page backed by database catalog rows (Supabase Storage
       product-image workflow still TODO)
-- [x] Cart + checkout backend (server-derived pricing, inventory checks,
-      Stripe PaymentIntent API, and guarded Stripe Checkout Session UI path)
-- [ ] Browser PaymentIntent confirmation UI using Stripe.js/Elements; the
-      backend API returns client secrets but the storefront cart still redirects
-      through Stripe Checkout Session for B2C orders.
+- [x] Cart + checkout backend and browser PaymentIntent confirmation UI
+      (server-derived pricing, inventory checks, Stripe Elements, retry/cancel
+      states, and cart clearing only after confirmed client-side success)
 - [x] Webhook → `payments`/`orders` state machine for successful, failed,
       authorized, and refunded Stripe events
 - [ ] Order confirmation email (Resend adapter — first real notification)
@@ -66,7 +65,8 @@ Sequenced to match the 30/60/90-day plan in
       persisted pre-order/payment rows
 - [ ] Allocation run: wire `lib/allocation.ts` to inventory + rules
 - [ ] Balance capture + pre-order → order conversion
-- [ ] Customer pre-order dashboard (status, balance due)
+- [x] Customer pre-order dashboard (read-only status, allocated quantity,
+      deposit, and balance due from live rows)
 - [ ] Waitlist + drop notifications (Telegram/WhatsApp adapters)
 
 ### Phase 3 — B2B/wholesale

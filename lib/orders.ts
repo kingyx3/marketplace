@@ -3,12 +3,23 @@ import { z } from "zod";
 import { notFound } from "@/lib/api/errors";
 import type { CustomerRecord } from "@/lib/api/auth";
 
+type CustomerScope = Pick<CustomerRecord, "id">;
+
 export const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 export const orderStatusUpdateSchema = z.object({
-  status: z.enum(["draft", "pending_payment", "paid", "packing", "shipped", "delivered", "cancelled", "refunded"]),
+  status: z.enum([
+    "draft",
+    "pending_payment",
+    "paid",
+    "packing",
+    "shipped",
+    "delivered",
+    "cancelled",
+    "refunded",
+  ]),
 });
 
 export const preorderStatusUpdateSchema = z.object({
@@ -26,14 +37,14 @@ export const preorderStatusUpdateSchema = z.object({
 });
 
 const orderSelect =
-  "id, channel, status, currency, subtotal_cents, discount_cents, discount_bps, shipping_cents, tax_cents, total_cents, placed_at, created_at, updated_at, order_items(id, sku_id, quantity, unit_price_cents), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at), shipments(id, carrier, tracking_number, status, shipped_at, delivered_at, created_at)";
+  "id, channel, status, currency, subtotal_cents, discount_cents, discount_bps, shipping_cents, tax_cents, total_cents, placed_at, created_at, updated_at, order_items(id, sku_id, quantity, unit_price_cents, booster_box_skus(sku, product_variants(products(slug, name)))), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at), shipments(id, carrier, tracking_number, status, shipped_at, delivered_at, created_at)";
 
 const preorderSelect =
-  "id, sku_id, channel, quantity, unit_price_cents, deposit_cents, balance_cents, currency, status, allocated_qty, order_id, created_at, updated_at, payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at)";
+  "id, sku_id, channel, quantity, unit_price_cents, deposit_cents, balance_cents, currency, status, allocated_qty, order_id, created_at, updated_at, booster_box_skus(sku, product_variants(products(slug, name))), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at)";
 
 export async function listCustomerOrders(
   supabase: SupabaseClient,
-  customer: CustomerRecord,
+  customer: CustomerScope,
   limit: number
 ) {
   const { data, error } = await supabase
@@ -50,7 +61,7 @@ export async function listCustomerOrders(
 
 export async function getCustomerOrder(
   supabase: SupabaseClient,
-  customer: CustomerRecord,
+  customer: CustomerScope,
   id: string
 ) {
   const { data, error } = await supabase
@@ -70,7 +81,7 @@ export async function getCustomerOrder(
 
 export async function listCustomerPreorders(
   supabase: SupabaseClient,
-  customer: CustomerRecord,
+  customer: CustomerScope,
   limit: number
 ) {
   const { data, error } = await supabase
@@ -87,7 +98,7 @@ export async function listCustomerPreorders(
 
 export async function getCustomerPreorder(
   supabase: SupabaseClient,
-  customer: CustomerRecord,
+  customer: CustomerScope,
   id: string
 ) {
   const { data, error } = await supabase
@@ -129,11 +140,7 @@ export async function listAdminPreorders(supabase: SupabaseClient, limit: number
   return data ?? [];
 }
 
-export async function updateAdminOrder(
-  supabase: SupabaseClient,
-  id: string,
-  body: unknown
-) {
+export async function updateAdminOrder(supabase: SupabaseClient, id: string, body: unknown) {
   const input = orderStatusUpdateSchema.parse(body);
   const update: Record<string, unknown> = { status: input.status };
   if (input.status === "paid") {
@@ -152,11 +159,7 @@ export async function updateAdminOrder(
   return data;
 }
 
-export async function updateAdminPreorder(
-  supabase: SupabaseClient,
-  id: string,
-  body: unknown
-) {
+export async function updateAdminPreorder(supabase: SupabaseClient, id: string, body: unknown) {
   const input = preorderStatusUpdateSchema.parse(body);
   const update: Record<string, unknown> = { status: input.status };
   if (input.allocatedQty !== undefined) {

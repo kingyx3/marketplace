@@ -10,7 +10,8 @@
 - Key split: `NEXT_PUBLIC_*` values are vars (browser-visible by
   design); everything else is a secret. The Supabase **anon key is
   var-class** because RLS is the security boundary; the **service-role
-  key is a secret** because it bypasses RLS.
+  key is a secret** because it bypasses RLS. Stripe's publishable key is
+  browser-visible config; Stripe secret and webhook keys are server-only.
 - Rotation: change in provider dashboard → update GitHub Environment →
   re-run deploy (env re-syncs to Vercel automatically).
 - `TARGET_ENV` is a non-secret deploy guard. It must match the selected
@@ -56,6 +57,14 @@ an external audit trail until the protected admin UI exists.
 - Checkout order creation persists the server-derived subtotal,
   discount, and total, then rejects the request if the database re-read
   no longer matches those expected values.
+- The storefront confirms Stripe PaymentIntents with Stripe Elements.
+  The browser sends only SKU IDs/quantities and an auth token to
+  `/api/checkout`; it receives a `clientSecret` and never sends or trusts
+  prices, totals, currency, discounts, inventory, or billing state.
+- The cart cookie is cleared only after Stripe confirms a successful
+  client-side payment. Failed, cancelled, and processing attempts keep the
+  cart available; explicit cancellation releases the pending order
+  allocation and cancels the unconfirmed PaymentIntent.
 - Stripe paid events must match the stored order amount and currency
   before `mark_order_paid` can release allocation, decrement inventory,
   and mark the order paid. Duplicate paid events are idempotent and do

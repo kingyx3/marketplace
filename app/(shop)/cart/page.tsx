@@ -2,8 +2,10 @@ import Link from "next/link";
 
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { removeFromCart, startCheckout, updateCartQuantity } from "@/app/actions/cart";
-import { getCartQuote } from "@/lib/cart";
+import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
+import { removeFromCart, updateCartQuantity } from "@/app/actions/cart";
+import { readCart } from "@/lib/cart";
+import { getSkuQuote } from "@/lib/catalog";
 import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -11,28 +13,33 @@ export const dynamic = "force-dynamic";
 export default async function CartPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ error?: string; checkout?: string }>;
+  searchParams?: Promise<{ error?: string; checkout?: string; order?: string }>;
 }) {
   const params = (await searchParams) ?? {};
+  const cartItems = await readCart();
   let quote;
   let quoteError: string | null = null;
 
   try {
-    quote = await getCartQuote();
+    quote = await getSkuQuote(cartItems);
   } catch (error) {
     quote = { lines: [], subtotalCents: 0, currency: "SGD" };
     quoteError = error instanceof Error ? error.message : "Unable to quote cart";
   }
 
-  const gst = Math.round(quote.subtotalCents * 9 / 109);
+  const gst = Math.round((quote.subtotalCents * 9) / 109);
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Cart"
         title="Review sealed product order"
-        description="The cart stores only SKU IDs and quantities. Prices, availability, and payment totals are recalculated on the server before Stripe checkout."
-        action={<StatusBadge tone={quote.lines.length > 0 ? "success" : "warning"}>{quote.lines.length} line(s)</StatusBadge>}
+        description="The cart stores only SKU IDs and quantities. Prices, availability, and payment totals are recalculated on the server before payment."
+        action={
+          <StatusBadge tone={quote.lines.length > 0 ? "success" : "warning"}>
+            {quote.lines.length} line(s)
+          </StatusBadge>
+        }
       />
 
       {params.error ? (
@@ -42,7 +49,17 @@ export default async function CartPage({
       ) : null}
       {params.checkout === "cancelled" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Stripe checkout was cancelled. Your cart is still here.
+          Payment was cancelled. Your cart is still here.
+        </div>
+      ) : null}
+      {params.checkout === "processing" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Payment is processing. Your order will update after Stripe confirms it.
+        </div>
+      ) : null}
+      {params.checkout === "failed" ? (
+        <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          Payment was not completed. Try again when you are ready.
         </div>
       ) : null}
       {quoteError ? (
@@ -54,7 +71,9 @@ export default async function CartPage({
       {quote.lines.length === 0 ? (
         <section className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
           <h2 className="text-xl font-semibold text-zinc-950">Your cart is empty</h2>
-          <p className="mt-3 text-sm text-zinc-600">Add an in-stock or incoming sealed product to start checkout.</p>
+          <p className="mt-3 text-sm text-zinc-600">
+            Add an in-stock or incoming sealed product to start checkout.
+          </p>
           <Link
             href="/catalog"
             className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
@@ -143,17 +162,13 @@ export default async function CartPage({
               </div>
             </dl>
 
-            <form action={startCheckout} className="mt-6 grid gap-2">
-              <button className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
-                Continue to Stripe
-              </button>
-              <Link
-                href="/catalog"
-                className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
-              >
-                Keep shopping
-              </Link>
-            </form>
+            <CartCheckoutPanel
+              disabled={Boolean(quoteError)}
+              items={cartItems}
+              publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+              supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+              supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+            />
           </aside>
         </section>
       )}

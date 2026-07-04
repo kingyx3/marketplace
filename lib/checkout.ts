@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { badRequest, internalError } from "@/lib/api/errors";
+import { z } from "zod";
+import { badRequest, conflict, internalError, notFound } from "@/lib/api/errors";
 import type { ApiCustomerContext } from "@/lib/api/auth";
 import {
   checkoutRequestSchema,
@@ -20,6 +21,24 @@ export interface CheckoutResult {
   publishableCurrency: string;
   amountCents: number;
   quote: CheckoutQuote;
+}
+
+const cancelCheckoutSchema = z.object({
+  paymentIntentId: z.string().trim().min(3).max(200).startsWith("pi_"),
+});
+
+export function checkoutResponseBody(result: CheckoutResult) {
+  return {
+    mode: result.mode,
+    orderId: result.orderId,
+    preorderId: result.preorderId,
+    paymentId: result.paymentId,
+    paymentIntentId: result.paymentIntentId,
+    clientSecret: result.clientSecret,
+    amountCents: result.amountCents,
+    currency: result.publishableCurrency,
+    quote: result.quote,
+  };
 }
 
 export async function createCheckoutPayment(
@@ -104,6 +123,78 @@ async function createOrderPayment(
     await rollbackFailedCheckout(auth.supabase, { orderId, paymentIntentId, stripe });
     throw error instanceof Error ? error : internalError();
   }
+}
+
+export async function cancelPendingCheckoutPayment(
+  auth: ApiCustomerContext,
+  body: unknown,
+  stripe: Stripe = createStripeClient()
+): Promise<{ cancelled: true; orderId?: string; preorderId?: string }> {
+  const input = cancelCheckoutSchema.parse(body);
+  const payment = await paymentByIntent(auth.supabase, input.paymentIntentId);
+  if (!payment) {
+    throw notFound("Payment not found");
+  }
+
+  if (!["pending", "requires_capture", "authorized"].includes(payment.status)) {
+    throw conflict("Payment can no longer be cancelled");
+  }
+
+  if (payment.order_id) {
+    await assertCustomerOrderIsCancellable(auth, payment.order_id);
+  }
+  if (payment.preorder_id) {
+    await assertCustomerPreorderIsCancellable(auth, payment.preorder_id);
+  }
+
+  try {
+    await stripe.paymentIntents.cancel(input.paymentIntentId);
+  } catch {
+    throw conflict("Payment can no longer be cancelled");
+  }
+
+  const paymentUpdate = await auth.supabase
+    .from("payments")
+    .update({ status: "cancelled" })
+    .eq("id", payment.id)
+    .in("status", ["pending", "requires_capture", "authorized"]);
+  if (paymentUpdate.error) {
+    throw new Error(paymentUpdate.error.message);
+  }
+
+  if (payment.order_id) {
+    const release = await auth.supabase.rpc("release_order_allocation", {
+      p_order_id: payment.order_id,
+    });
+    if (release.error) {
+      throw new Error(release.error.message);
+    }
+    const orderUpdate = await auth.supabase
+      .from("orders")
+      .update({ status: "cancelled" })
+      .eq("id", payment.order_id)
+      .in("status", ["draft", "pending_payment"]);
+    if (orderUpdate.error) {
+      throw new Error(orderUpdate.error.message);
+    }
+  }
+
+  if (payment.preorder_id) {
+    const preorderUpdate = await auth.supabase
+      .from("preorders")
+      .update({ status: "cancelled" })
+      .eq("id", payment.preorder_id)
+      .in("status", ["pending_deposit", "deposited"]);
+    if (preorderUpdate.error) {
+      throw new Error(preorderUpdate.error.message);
+    }
+  }
+
+  return {
+    cancelled: true,
+    orderId: payment.order_id ?? undefined,
+    preorderId: payment.preorder_id ?? undefined,
+  };
 }
 
 async function createPreorderPayment(
@@ -208,6 +299,70 @@ async function insertPayment(
   }
 
   return { id: data.id };
+}
+
+async function paymentByIntent(supabase: SupabaseClient, paymentIntentId: string) {
+  const { data, error } = await supabase
+    .from("payments")
+    .select("id, order_id, preorder_id, status")
+    .eq("provider", "stripe")
+    .eq("provider_payment_id", paymentIntentId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as {
+    id: string;
+    order_id: string | null;
+    preorder_id: string | null;
+    status: string;
+  } | null;
+}
+
+async function assertCustomerOrderIsCancellable(
+  auth: ApiCustomerContext,
+  orderId: string
+): Promise<void> {
+  const { data, error } = await auth.supabase
+    .from("orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .eq("customer_id", auth.customer.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw notFound("Order not found");
+  }
+  if (!["draft", "pending_payment"].includes(String(data.status))) {
+    throw conflict("Order can no longer be cancelled");
+  }
+}
+
+async function assertCustomerPreorderIsCancellable(
+  auth: ApiCustomerContext,
+  preorderId: string
+): Promise<void> {
+  const { data, error } = await auth.supabase
+    .from("preorders")
+    .select("id, status")
+    .eq("id", preorderId)
+    .eq("customer_id", auth.customer.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw notFound("Pre-order not found");
+  }
+  if (!["pending_deposit", "deposited"].includes(String(data.status))) {
+    throw conflict("Pre-order can no longer be cancelled");
+  }
 }
 
 function checkoutResultFromIntent(input: {
