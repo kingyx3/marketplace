@@ -3,8 +3,9 @@ import { z } from "zod";
 import { badRequest, forbidden, notFound } from "@/lib/api/errors";
 import type { CustomerRecord } from "@/lib/api/auth";
 
-export const MAX_CHECKOUT_LINES = 20;
+export const MAX_CHECKOUT_LINES = 10;
 export const MAX_QUANTITY_PER_LINE = 24;
+export const MAX_CHECKOUT_TOTAL_QUANTITY = 24;
 export const DEFAULT_PREORDER_DEPOSIT_BPS = 2000;
 
 export type CheckoutMode = "order" | "preorder";
@@ -100,7 +101,13 @@ export function normalizeCartItems(items: CartItem[]): NormalizedCartItem[] {
     });
   });
 
-  return [...bySku.values()].sort((a, b) => a.position - b.position);
+  const normalized = [...bySku.values()].sort((a, b) => a.position - b.position);
+  const totalQuantity = normalized.reduce((sum, item) => sum + item.quantity, 0);
+  if (totalQuantity > MAX_CHECKOUT_TOTAL_QUANTITY) {
+    throw badRequest(`Cart quantity exceeds ${MAX_CHECKOUT_TOTAL_QUANTITY}`);
+  }
+
+  return normalized;
 }
 
 export function calculateDiscountCents(subtotalCents: number, discountBps: number): number {

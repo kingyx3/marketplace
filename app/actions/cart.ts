@@ -51,6 +51,10 @@ export async function startCheckout() {
       p_auth_user_id: user.id,
       p_items: cart.map((item) => ({ sku_id: item.skuId, quantity: item.quantity })),
       p_channel: "b2c",
+      p_expected_subtotal_cents: quote.subtotalCents,
+      p_discount_cents: 0,
+      p_discount_bps: 0,
+      p_expected_total_cents: quote.subtotalCents,
     })
     .single();
 

@@ -6,11 +6,12 @@ Lorcana, and Flesh and Blood. Singapore/SEA-first, with global benchmarks.
 
 This repository currently contains:
 
-- **A deployable scaffold** — Next.js 15 + Supabase (Postgres/RLS/Auth) +
-  Stripe, deployed to Vercel through GitHub Actions with a minimal,
-  documented set of secrets. The full commerce data model ships as SQL
-  migrations; store features are a roadmap (`docs/build-plan.md`), not
-  yet built.
+- **A deployable commerce foundation** — Next.js 15 + Supabase
+  (Postgres/RLS/Auth) + Stripe, deployed to Vercel through GitHub Actions
+  with a minimal, documented set of secrets. Catalog, Google auth,
+  account APIs, cart validation, checkout/payment primitives, and guarded
+  order state transitions are implemented; remaining storefront/admin
+  depth is tracked honestly in `docs/build-plan.md`.
 - **A research report** — `docs/research/` covers the market, business
   models, supplier routes, customer segments, pre-order design,
   financials, and go-to-market for a TCG booster box business.

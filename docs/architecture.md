@@ -22,8 +22,9 @@ Browser ──▶ Vercel (Next.js 15, App Router)
   the planned component layer (see `docs/build-plan.md`).
 - **Database**: Supabase Postgres. Schema is SQL migrations in
   `supabase/migrations/` — the single source of truth (`docs/data-model.md`).
-- **Payments**: Stripe PaymentIntents with **manual capture** so
-  pre-order deposits can be authorized now and captured at allocation.
+- **Payments**: Stripe PaymentIntents. B2C order payments capture
+  normally; pre-order deposits use **manual capture** so funds can be
+  authorized now and captured at allocation.
 - **Search**: Postgres full-text (GIN index on products). Upgrade path:
   Typesense or Algolia when the catalog outgrows FTS relevance.
 - **Notifications**: provider-agnostic interface (`lib/notifications.ts`)
