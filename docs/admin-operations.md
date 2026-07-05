@@ -27,16 +27,22 @@ Do not describe manual admin workflows as product features.
 - B2B pricing-tier removal is constrained to the protected admin page and
   leaves the account approved but inactive for wholesale checkout when no
   assigned tier remains.
+- Product, SKU, product-image, and inventory changes are constrained to
+  protected admin actions. Inventory adjustments require a reason code and
+  preserve the database oversell invariant.
 
 ## Routine runbooks
 
 ### Catalog or inventory correction
 
 1. Confirm the requested SKU, set, quantity, currency, and price source.
-2. Prefer a product-admin workflow once built. Until then, make the
-   smallest Supabase data edit required and record the reason externally.
-3. Verify `inventory.allocated <= inventory.on_hand + inventory.incoming`.
-4. Check the public catalog after deploy or data change.
+2. Use the protected admin catalog forms for product/SKU create, update,
+   archive, restore, and product-image upload.
+3. Use the protected inventory form for stock corrections and choose the
+   closest reason code (`stock_count`, `supplier_update`, `damage`,
+   `correction`, or `other`).
+4. Verify `inventory.allocated <= inventory.on_hand + inventory.incoming`.
+5. Check the public catalog after deploy or data change.
 
 ### Supplier purchase order intake
 
@@ -110,7 +116,7 @@ asking the customer to place B2B orders again.
 
 - Google/Supabase-authenticated admin entry point.
 - Server-side role checks backed by non-user-editable authorization data.
-- Product, inventory, pricing, and supplier maintenance workflows.
+- Pricing and supplier maintenance workflows.
 - Supplier setup and maintenance UI.
 - Browser UI for payment exception and refund workflows with Stripe
   reconciliation.

@@ -40,6 +40,7 @@ interface CatalogRow {
         booster_box_skus:
           | {
               sku: string;
+              active: boolean;
               packs_per_box: number | null;
               cards_per_pack: number | null;
               msrp_cents: number | null;
@@ -71,7 +72,7 @@ function isSetStatus(value: string | undefined): value is SetStatus {
 
 function normalizeRow(row: CatalogRow): MarketplaceProduct {
   const fixture = getProduct(row.slug);
-  const sku = row.product_variants?.[0]?.booster_box_skus?.[0];
+  const sku = row.product_variants?.[0]?.booster_box_skus?.find((candidate) => candidate.active);
   const inventory = sku?.inventory?.[0];
 
   return {
@@ -126,6 +127,7 @@ async function fetchProducts(): Promise<{ products: MarketplaceProduct[]; source
         product_variants(
           booster_box_skus(
             sku,
+            active,
             packs_per_box,
             cards_per_pack,
             msrp_cents,

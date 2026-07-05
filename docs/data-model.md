@@ -45,6 +45,12 @@ column. Pre-orders may be taken against confirmed incoming stock, but
 the constraint makes overselling a transaction failure rather than a
 support ticket.
 
+**Product and SKU archive are state, not destructive deletes.**
+`products.active` removes a product from the storefront while preserving
+historical order/preorder references. `booster_box_skus.active` does the
+same for individual sellable SKUs, and checkout RPCs refuse inactive SKUs
+even if a stale cart still contains one.
+
 **Allocation is data, not code branches.** `allocation_rules` (priority,
 channel, reserve quantity, per-customer cap) drives who gets scarce
 stock — e.g. "reserve 8 boxes for B2C at max 2/customer; B2B takes the
@@ -124,6 +130,12 @@ service-role-only functions for packing, shipping, unpaid cancellation,
 manual reconciliation, and exception flagging. Direct `paid` status
 updates are not an API contract; reconciliation must include provider,
 payment reference, amount, currency, reason, and actor.
+
+**Admin catalog and inventory mutations are explicit database actions.**
+Product/SKU create, update, archive, image assignment, and inventory
+adjustment go through service-role-only functions. Inventory adjustment
+requires a reason code and keeps the stock invariant enforced in the
+database.
 
 ## Row-level security
 

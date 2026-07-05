@@ -42,6 +42,11 @@ describe("platform config contract", () => {
     expect(migrations).toContain("ADMIN_SUPPLIER_PO_INTAKE");
     expect(migrations).toContain("drop trigger if exists audit_log on public.purchase_orders");
     expect(migrations).toContain("drop trigger if exists audit_log on public.purchase_order_items");
+    expect(migrations).toContain("admin_upsert_catalog_product");
+    expect(migrations).toContain("admin_upsert_booster_box_sku");
+    expect(migrations).toContain("admin_set_product_image");
+    expect(migrations).toContain("admin_adjust_inventory");
+    expect(migrations).toContain("ADMIN_INVENTORY_ADJUSTMENT");
   });
 
   it("runs config verifier scripts in CI", async () => {

@@ -46,6 +46,9 @@ workflow YAML parsing and focused contract tests.
   manual reconciliation RPC dispatch, unpaid cancellation dispatch, and
   derived payment exception queue behavior, including admin form payload
   validation for manual reconciliation.
+- `tests/admin-catalog.test.ts` - product/SKU form parsing, reason-coded
+  inventory adjustment parsing, and service-role-only catalog migration
+  markers.
 - `tests/purchase-orders.test.ts` - admin supplier PO form parsing and
   service-role-only stock-intake migration markers.
 - `tests/admin-surface.test.ts` - protected admin page guard against

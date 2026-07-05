@@ -41,6 +41,10 @@ docs and README must never describe those as working.
 - ✅ Admin B2B pricing-tier removal: service-role-only RPC removes assigned
   tiers, records the staff actor, and lets the existing checkout gate disable
   wholesale access when no tier remains
+- ✅ Admin product/SKU/inventory management: protected product create/update/
+  archive forms, SKU create/update/archive forms, Supabase Storage product
+  image upload, and reason-coded inventory adjustments backed by audited
+  service-role RPCs
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks,
   migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
@@ -69,8 +73,9 @@ Sequenced to match the 30/60/90-day plan in
 - [x] Order confirmation email via Resend, with notification-row dedupe,
       provider-message tracking, disabled-provider skip state, and
       failure recording that does not roll back paid orders
-- [ ] Admin: complete product/inventory CRUD (inventory update exists; product
-      create/update/delete, image upload UI, and richer validation are still TODO)
+- [x] Admin: complete product/inventory CRUD (product create/update/archive,
+      SKU create/update/archive, product image upload, integer-cent validation,
+      and reason-coded inventory adjustment)
 - [x] Admin API: explicit order/payment actions for packing, shipping,
       unpaid cancellation, manual reconciliation, and payment exception
       flagging; generic order `status` PATCH is removed
@@ -128,6 +133,6 @@ allocation, payment-exception visibility, purchase-order visibility, and
 B2B approval/rejection with pricing-tier assignment, and manual payment
 reconciliation from the exception queue. Supplier PO intake records a
 confirmed PO and increments incoming stock through an audited service-role
-RPC, and assigned B2B pricing tiers can be removed through an audited
-service-role action. Product/SKU CRUD is still a manual, reviewed workflow
-tracked above and in `docs/admin-operations.md`.
+RPC, assigned B2B pricing tiers can be removed through an audited
+service-role action, and product/SKU/image/inventory management is
+available through audited admin actions.

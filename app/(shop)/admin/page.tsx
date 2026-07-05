@@ -9,7 +9,12 @@ import {
   removeWholesalePricingTier,
   runAdminOrderAction,
   runPreorderAllocation,
+  setCatalogProductActive,
+  setCatalogSkuActive,
   updateInventory,
+  uploadCatalogProductImage,
+  upsertCatalogProduct,
+  upsertCatalogSku,
 } from "@/app/actions/admin";
 import { requireStaff } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
@@ -19,12 +24,46 @@ import { createServiceClient } from "@/lib/supabase";
 interface AdminInventoryRow {
   skuId: string;
   sku: string;
+  skuActive: boolean;
+  barcode: string | null;
+  packsPerBox: number | null;
+  cardsPerPack: number | null;
+  msrpCents: number | null;
+  priceCents: number;
+  currency: string;
+  weightGrams: number | null;
+  productId: string;
   productName: string;
   onHand: number;
   incoming: number;
   allocated: number;
   safetyStock: number;
   available: number;
+}
+
+interface AdminCatalogProductRow {
+  id: string;
+  categoryId: string;
+  setId: string | null;
+  slug: string;
+  name: string;
+  productType: string;
+  description: string | null;
+  language: string;
+  imageUrl: string | null;
+  active: boolean;
+}
+
+interface AdminCategoryOption {
+  id: string;
+  name: string;
+}
+
+interface AdminSetOption {
+  id: string;
+  categoryId: string;
+  name: string;
+  code: string;
 }
 
 interface AdminB2bApplication {
@@ -84,6 +123,9 @@ export default async function AdminPage() {
     exceptions,
     b2bApplications,
     approvedB2bTierAssignments,
+    catalogProducts,
+    categoryOptions,
+    setOptions,
     purchaseOrders,
     pricingTiers,
     suppliers,
@@ -92,6 +134,9 @@ export default async function AdminPage() {
     listAdminOrderExceptions(supabase),
     fetchPendingB2bApplications(supabase),
     fetchApprovedB2bTierAssignments(supabase),
+    fetchCatalogProducts(supabase),
+    fetchCategoryOptions(supabase),
+    fetchSetOptions(supabase),
     fetchPurchaseOrders(supabase),
     fetchPricingTiers(supabase),
     fetchSupplierOptions(supabase),
@@ -112,6 +157,13 @@ export default async function AdminPage() {
           <MetricCard key={metric.label} {...metric} />
         ))}
       </section>
+
+      <CatalogManagementSection
+        categories={categoryOptions}
+        products={catalogProducts}
+        sets={setOptions}
+        skus={inventoryRows}
+      />
 
       <section className="grid gap-6 lg:grid-cols-[1fr_24rem]">
         <div className="space-y-6">
@@ -172,6 +224,25 @@ export default async function AdminPage() {
                             min={0}
                             name="safetyStock"
                             type="number"
+                          />
+                          <select
+                            aria-label={`${row.sku} adjustment reason`}
+                            className="h-10 rounded-md border border-zinc-300 px-2 text-xs"
+                            name="reasonCode"
+                            required
+                          >
+                            <option value="stock_count">Stock count</option>
+                            <option value="supplier_update">Supplier update</option>
+                            <option value="damage">Damage</option>
+                            <option value="correction">Correction</option>
+                            <option value="other">Other</option>
+                          </select>
+                          <input
+                            className="h-10 w-36 rounded-md border border-zinc-300 px-2 text-xs"
+                            aria-label={`${row.sku} adjustment note`}
+                            maxLength={240}
+                            name="reasonNote"
+                            placeholder="Reason note"
                           />
                           <button className="h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700">
                             Save
@@ -498,6 +569,368 @@ function exceptionTone(severity: AdminOrderException["severity"]) {
   return "info" as const;
 }
 
+function CatalogManagementSection({
+  categories,
+  products,
+  sets,
+  skus,
+}: {
+  categories: AdminCategoryOption[];
+  products: AdminCatalogProductRow[];
+  sets: AdminSetOption[];
+  skus: AdminInventoryRow[];
+}) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-zinc-950">Catalog management</h2>
+        <StatusBadge tone="info">{products.length} products</StatusBadge>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <div className="space-y-5">
+          <form action={upsertCatalogProduct} className="grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+            <h3 className="font-semibold text-zinc-950">Create product</h3>
+            <ProductFields categories={categories} sets={sets} />
+            <button className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700">
+              Create product
+            </button>
+          </form>
+
+          <div className="grid gap-3">
+            {products.slice(0, 8).map((product) => (
+              <article key={product.id} className="rounded-md border border-zinc-200 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-zinc-950">{product.name}</h3>
+                    <p className="mt-1 text-xs text-zinc-500">{product.slug}</p>
+                  </div>
+                  <StatusBadge tone={product.active ? "success" : "warning"}>
+                    {product.active ? "active" : "archived"}
+                  </StatusBadge>
+                </div>
+                <form action={upsertCatalogProduct} className="grid gap-3">
+                  <input type="hidden" name="productId" value={product.id} />
+                  <ProductFields categories={categories} product={product} sets={sets} />
+                  <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700">
+                    Save product
+                  </button>
+                </form>
+                <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
+                  <form action={uploadCatalogProductImage} className="grid gap-2">
+                    <input type="hidden" name="productId" value={product.id} />
+                    <input
+                      accept="image/*"
+                      className="min-h-10 rounded-md border border-zinc-300 px-2 py-2 text-sm"
+                      name="image"
+                      required
+                      type="file"
+                    />
+                    <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700">
+                      Upload image
+                    </button>
+                  </form>
+                  <form action={setCatalogProductActive}>
+                    <input type="hidden" name="productId" value={product.id} />
+                    <input
+                      type="hidden"
+                      name="active"
+                      value={product.active ? "false" : "true"}
+                    />
+                    <button className="min-h-10 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:border-rose-400">
+                      {product.active ? "Archive" : "Restore"}
+                    </button>
+                  </form>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          <form action={upsertCatalogSku} className="grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+            <h3 className="font-semibold text-zinc-950">Create SKU</h3>
+            <SkuFields products={products} />
+            <button
+              className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+              disabled={products.length === 0}
+            >
+              Create SKU
+            </button>
+          </form>
+
+          <div className="grid gap-3">
+            {skus.slice(0, 10).map((sku) => (
+              <article key={sku.skuId} className="rounded-md border border-zinc-200 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-zinc-950">{sku.sku}</h3>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {sku.productName} - {formatMoney(sku.priceCents, sku.currency)}
+                    </p>
+                  </div>
+                  <StatusBadge tone={sku.skuActive ? "success" : "warning"}>
+                    {sku.skuActive ? "active" : "archived"}
+                  </StatusBadge>
+                </div>
+                <form action={upsertCatalogSku} className="grid gap-3">
+                  <input type="hidden" name="skuId" value={sku.skuId} />
+                  <SkuFields products={products} sku={sku} />
+                  <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700">
+                    Save SKU
+                  </button>
+                </form>
+                <form action={setCatalogSkuActive} className="mt-3">
+                  <input type="hidden" name="skuId" value={sku.skuId} />
+                  <input type="hidden" name="active" value={sku.skuActive ? "false" : "true"} />
+                  <button className="min-h-10 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:border-rose-400">
+                    {sku.skuActive ? "Archive SKU" : "Restore SKU"}
+                  </button>
+                </form>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductFields({
+  categories,
+  product,
+  sets,
+}: {
+  categories: AdminCategoryOption[];
+  product?: AdminCatalogProductRow;
+  sets: AdminSetOption[];
+}) {
+  return (
+    <>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Name
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={product?.name}
+            maxLength={160}
+            name="name"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Slug
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={product?.slug}
+            maxLength={180}
+            name="slug"
+            pattern="[a-z0-9]+(-[a-z0-9]+)*"
+            required
+          />
+        </label>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Category
+          <select
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={product?.categoryId}
+            name="categoryId"
+            required
+          >
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Set
+          <select
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={product?.setId ?? ""}
+            name="setId"
+          >
+            <option value="">None</option>
+            {sets.map((set) => (
+              <option key={set.id} value={set.id}>
+                {set.name} ({set.code})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Type
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={product?.productType ?? "booster_box"}
+            maxLength={60}
+            name="productType"
+            required
+          />
+        </label>
+      </div>
+      <div className="grid gap-3 md:grid-cols-[8rem_1fr_auto]">
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Language
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm uppercase"
+            defaultValue={product?.language ?? "EN"}
+            maxLength={8}
+            name="language"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Image URL
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={product?.imageUrl ?? ""}
+            maxLength={1000}
+            name="imageUrl"
+          />
+        </label>
+        <label className="flex items-end gap-2 pb-2 text-xs font-medium text-zinc-600">
+          <input type="hidden" name="active" value="false" />
+          <input defaultChecked={product?.active ?? true} name="active" type="checkbox" value="true" />
+          Active
+        </label>
+      </div>
+      <label className="grid gap-1 text-xs font-medium text-zinc-600">
+        Description
+        <textarea
+          className="min-h-20 rounded-md border border-zinc-300 px-2 py-2 text-sm"
+          defaultValue={product?.description ?? ""}
+          maxLength={2000}
+          name="description"
+        />
+      </label>
+    </>
+  );
+}
+
+function SkuFields({
+  products,
+  sku,
+}: {
+  products: AdminCatalogProductRow[];
+  sku?: AdminInventoryRow;
+}) {
+  return (
+    <>
+      <label className="grid gap-1 text-xs font-medium text-zinc-600">
+        Product
+        <select
+          className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+          defaultValue={sku?.productId}
+          name="productId"
+          required
+        >
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          SKU
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm uppercase"
+            defaultValue={sku?.sku}
+            maxLength={120}
+            name="sku"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Barcode
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={sku?.barcode ?? ""}
+            maxLength={120}
+            name="barcode"
+          />
+        </label>
+      </div>
+      <div className="grid gap-3 md:grid-cols-4">
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Price cents
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={sku?.priceCents}
+            min={0}
+            name="priceCents"
+            required
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          MSRP cents
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={sku?.msrpCents ?? ""}
+            min={0}
+            name="msrpCents"
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Currency
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm uppercase"
+            defaultValue={sku?.currency ?? "SGD"}
+            maxLength={3}
+            minLength={3}
+            name="currency"
+            required
+          />
+        </label>
+        <label className="flex items-end gap-2 pb-2 text-xs font-medium text-zinc-600">
+          <input type="hidden" name="active" value="false" />
+          <input defaultChecked={sku?.skuActive ?? true} name="active" type="checkbox" value="true" />
+          Active
+        </label>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Packs/box
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={sku?.packsPerBox ?? ""}
+            min={0}
+            name="packsPerBox"
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Cards/pack
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={sku?.cardsPerPack ?? ""}
+            min={0}
+            name="cardsPerPack"
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Weight grams
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={sku?.weightGrams ?? ""}
+            min={0}
+            name="weightGrams"
+            type="number"
+          />
+        </label>
+      </div>
+    </>
+  );
+}
+
 function formatExceptionType(value: string) {
   return value
     .split("_")
@@ -721,7 +1154,7 @@ async function fetchInventoryRows(supabase = createServiceClient()): Promise<Adm
   const { data, error } = await supabase
     .from("inventory")
     .select(
-      "sku_id, on_hand, incoming, allocated, safety_stock, available, booster_box_skus(sku, product_variants(products(name)))"
+      "sku_id, on_hand, incoming, allocated, safety_stock, available, booster_box_skus(sku, active, barcode, packs_per_box, cards_per_pack, msrp_cents, price_cents, currency, weight_grams, product_variants(products(id, name)))"
     )
     .eq("location", "main")
     .order("created_at", { ascending: false });
@@ -740,18 +1173,113 @@ async function fetchInventoryRows(supabase = createServiceClient()): Promise<Adm
       available: number;
       booster_box_skus: {
         sku: string;
-        product_variants: { products: { name: string } | null } | null;
+        active: boolean;
+        barcode: string | null;
+        packs_per_box: number | null;
+        cards_per_pack: number | null;
+        msrp_cents: number | null;
+        price_cents: number;
+        currency: string;
+        weight_grams: number | null;
+        product_variants: { products: { id: string; name: string } | null } | null;
       } | null;
     }>
   ).map((row) => ({
     skuId: row.sku_id,
     sku: row.booster_box_skus?.sku ?? row.sku_id,
+    skuActive: row.booster_box_skus?.active ?? true,
+    barcode: row.booster_box_skus?.barcode ?? null,
+    packsPerBox: row.booster_box_skus?.packs_per_box ?? null,
+    cardsPerPack: row.booster_box_skus?.cards_per_pack ?? null,
+    msrpCents: row.booster_box_skus?.msrp_cents ?? null,
+    priceCents: row.booster_box_skus?.price_cents ?? 0,
+    currency: row.booster_box_skus?.currency ?? "SGD",
+    weightGrams: row.booster_box_skus?.weight_grams ?? null,
+    productId: row.booster_box_skus?.product_variants?.products?.id ?? "",
     productName: row.booster_box_skus?.product_variants?.products?.name ?? "Unknown product",
     onHand: row.on_hand,
     incoming: row.incoming,
     allocated: row.allocated,
     safetyStock: row.safety_stock,
     available: row.available,
+  }));
+}
+
+async function fetchCatalogProducts(
+  supabase = createServiceClient()
+): Promise<AdminCatalogProductRow[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, category_id, set_id, slug, name, product_type, description, language, image_url, active")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    throw new Error(`Admin catalog product query failed: ${error.message}`);
+  }
+
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      category_id: string;
+      set_id: string | null;
+      slug: string;
+      name: string;
+      product_type: string;
+      description: string | null;
+      language: string;
+      image_url: string | null;
+      active: boolean;
+    }>
+  ).map((row) => ({
+    id: row.id,
+    categoryId: row.category_id,
+    setId: row.set_id,
+    slug: row.slug,
+    name: row.name,
+    productType: row.product_type,
+    description: row.description,
+    language: row.language,
+    imageUrl: row.image_url,
+    active: row.active,
+  }));
+}
+
+async function fetchCategoryOptions(
+  supabase = createServiceClient()
+): Promise<AdminCategoryOption[]> {
+  const { data, error } = await supabase
+    .from("tcg_categories")
+    .select("id, name")
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Category option query failed: ${error.message}`);
+  }
+
+  return ((data ?? []) as Array<{ id: string; name: string }>).map((row) => ({
+    id: row.id,
+    name: row.name,
+  }));
+}
+
+async function fetchSetOptions(supabase = createServiceClient()): Promise<AdminSetOption[]> {
+  const { data, error } = await supabase
+    .from("sets_releases")
+    .select("id, category_id, name, code")
+    .order("release_date", { ascending: false });
+
+  if (error) {
+    throw new Error(`Set option query failed: ${error.message}`);
+  }
+
+  return (
+    (data ?? []) as Array<{ id: string; category_id: string; name: string; code: string }>
+  ).map((row) => ({
+    id: row.id,
+    categoryId: row.category_id,
+    name: row.name,
+    code: row.code,
   }));
 }
 

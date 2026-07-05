@@ -121,6 +121,26 @@ describe("commerce helpers", () => {
       totalCents: 36616,
     });
   });
+
+  it("rejects inactive SKUs before creating payment state", async () => {
+    const supabase = fakeQuoteSupabase({
+      b2bApproved: false,
+      skuActive: false,
+      tiers: [],
+    });
+
+    await expect(
+      quoteCheckout(
+        supabase as never,
+        {
+          mode: "order",
+          channel: "b2c",
+          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+        },
+        customerRecord()
+      )
+    ).rejects.toThrow("SKU is not active");
+  });
 });
 
 function customerRecord() {
@@ -138,6 +158,7 @@ function customerRecord() {
 
 function fakeQuoteSupabase(options: {
   b2bApproved: boolean;
+  skuActive?: boolean;
   tiers: Array<{ discount_bps: number; min_order_cents: number }>;
 }) {
   return {
@@ -151,6 +172,7 @@ function tableBuilder(
   table: string,
   options: {
     b2bApproved: boolean;
+    skuActive?: boolean;
     tiers: Array<{ discount_bps: number; min_order_cents: number }>;
   }
 ) {
@@ -191,6 +213,7 @@ function tableBuilder(
           data: {
             id: "11111111-1111-4111-8111-111111111111",
             sku: "BOX-1",
+            active: options.skuActive ?? true,
             price_cents: 19900,
             currency: "SGD",
             product_variant_id: "variant-123",

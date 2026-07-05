@@ -73,6 +73,7 @@ export interface CheckoutQuote {
 interface SkuRecord {
   id: string;
   sku: string;
+  active: boolean;
   price_cents: number;
   currency: string;
   product_variant_id: string;
@@ -200,7 +201,7 @@ async function quoteLine(
 ): Promise<CheckoutLine> {
   const { data: sku, error: skuError } = await supabase
     .from("booster_box_skus")
-    .select("id, sku, price_cents, currency, product_variant_id")
+    .select("id, sku, active, price_cents, currency, product_variant_id")
     .eq("id", item.skuId)
     .single();
   if (skuError || !sku) {
@@ -208,6 +209,10 @@ async function quoteLine(
   }
 
   const skuRecord = sku as SkuRecord;
+  if (!skuRecord.active) {
+    throw badRequest("SKU is not active");
+  }
+
   const productName = await productNameForSku(supabase, skuRecord.product_variant_id);
   const inventory = await inventoryForSku(supabase, skuRecord.id);
   const availableToSell = availableQuantity(inventory, mode);

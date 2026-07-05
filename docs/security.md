@@ -68,12 +68,16 @@ actions, not generic status writes:
 - `admin_remove_b2b_pricing_tier` removes one assigned wholesale tier and
   records the actor; wholesale checkout remains blocked until a current
   tier is assigned.
+- `admin_upsert_catalog_product`, `admin_upsert_booster_box_sku`, and
+  archive/restore functions validate slug/SKU/currency/integer-cent
+  fields and preserve historical rows instead of deleting product data.
+- `admin_adjust_inventory` requires a reason code and actor before
+  changing stock counters.
 
 Manual admin changes must follow `docs/admin-operations.md` and require
 trusted operator access. B2B approval and rejection are explicit
 service-role transitions; approval requires a pricing tier assignment in
-the same database function. Broader product and supplier setup UI remains
-roadmap work.
+the same database function. Supplier setup UI remains roadmap work.
 The admin payment-exception console posts to the same audited action path
 as the API and cannot directly set an order to `paid`.
 
