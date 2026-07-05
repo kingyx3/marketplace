@@ -8,14 +8,13 @@ const REQUIRED_SECURITY_HEADERS = new Map([
   ["Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"],
 ]);
 
-const REQUIRED_DEPLOY_ENV = ["VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "VERCEL_TOKEN"];
+const REQUIRED_DEPLOY_ENV = ["APP_NAME", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "VERCEL_TOKEN"];
 
 const RUNTIME_FROM_GITHUB_MARKERS = [
   "NEXT_PUBLIC_SUPABASE_URL: ${{ vars.",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.",
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.",
   "NEXT_PUBLIC_SITE_URL: ${{ vars.",
-  "APP_NAME: ${{ vars.",
   "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.",
   "STRIPE_SECRET_KEY: ${{ secrets.",
   "STRIPE_WEBHOOK_SECRET: ${{ secrets.",
@@ -64,14 +63,17 @@ async function main() {
         errors.push(`deploy workflow must not source runtime app env from GitHub: ${marker.split(":")[0]}`);
       }
     }
+    if (!deployWorkflow.includes("Sync APP_NAME to Vercel")) {
+      errors.push("deploy workflow must sync APP_NAME from GitHub vars to Vercel");
+    }
     if (!deployWorkflow.includes("npx vercel pull")) {
       errors.push("deploy workflow must pull Vercel runtime env before deploy");
     }
     if (!deployWorkflow.includes("node scripts/generate-env.mjs --check")) {
       errors.push("deploy workflow must validate pulled runtime env before deploy");
     }
-    if (deployWorkflow.includes("vercel env add") || deployWorkflow.includes("vercel env rm")) {
-      errors.push("deploy workflow must not push runtime env values into Vercel");
+    if (deployWorkflow.includes(".env.deploy")) {
+      errors.push("deploy workflow must not generate and sync the full runtime env from GitHub");
     }
     if (!deployWorkflow.includes("npx vercel deploy")) {
       errors.push("deploy workflow must deploy through Vercel CLI");
