@@ -49,6 +49,7 @@ test `/api/health`.
 | [docs/architecture.md](docs/architecture.md)         | Stack, rationale, alternatives considered       |
 | [docs/environments.md](docs/environments.md)         | Every secret/var, per environment               |
 | [docs/deployment.md](docs/deployment.md)             | Pipeline flow, gates, rollback                  |
+| [docs/secrets-and-env-audit.md](docs/secrets-and-env-audit.md) | Current config audit and cleanup checklist |
 | [docs/data-model.md](docs/data-model.md)             | Schema reference and key decisions              |
 | [docs/security.md](docs/security.md)                 | RLS, webhooks, secrets handling                 |
 | [docs/cost-controls.md](docs/cost-controls.md)       | Keeping the bill near zero pre-launch           |
