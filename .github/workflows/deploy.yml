@@ -3,9 +3,8 @@
 # input that selects the GitHub Environment (and therefore which minimal
 # deploy/migration secrets/vars are injected — see docs/environments.md).
 #
-# Runtime app environment belongs in Vercel, not GitHub. This workflow only
-# stores the credentials needed to connect GitHub Actions to Supabase and
-# Vercel, then validates Vercel's pulled runtime env before deployment.
+# Runtime secrets and provider config belong in Vercel, not GitHub. APP_NAME
+# is the one GitHub-owned app var input and is synced to Vercel on deploy.
 #
 # Job order (explicit dependencies):
 #   validate-env + app-checks + migration-check -> migrate -> deploy -> smoke
@@ -31,6 +30,7 @@ jobs:
     environment: ${{ inputs.environment }}
     env:
       TARGET_ENV: ${{ inputs.environment }}
+      APP_NAME: ${{ vars.APP_NAME }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
@@ -47,7 +47,7 @@ jobs:
           esac
 
           missing=0
-          for key in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for key in APP_NAME SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
             if [ -z "${!key}" ]; then
               echo "Missing required deploy key: $key" >&2
               missing=1
@@ -143,6 +143,7 @@ jobs:
       deployment_url: ${{ steps.vercel.outputs.deployment_url }}
     env:
       TARGET_ENV: ${{ inputs.environment }}
+      APP_NAME: ${{ vars.APP_NAME }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -153,12 +154,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Sync APP_NAME to Vercel
+        run: |
+          VERCEL_ENV=$([ "${{ inputs.environment }}" = "production" ] && echo production || echo preview)
+          npx vercel env rm APP_NAME "$VERCEL_ENV" --yes --token "$VERCEL_TOKEN" >/dev/null 2>&1 || true
+          printf '%s' "$APP_NAME" | npx vercel env add APP_NAME "$VERCEL_ENV" --token "$VERCEL_TOKEN" >/dev/null
       - name: Pull and validate Vercel runtime env
         run: |
           VERCEL_ENV=$([ "${{ inputs.environment }}" = "production" ] && echo production || echo preview)
           npx vercel pull --yes --environment="$VERCEL_ENV" --token "$VERCEL_TOKEN"
           ENV_FILE=".vercel/.env.${VERCEL_ENV}.local"
           cp "$ENV_FILE" .env
+          grep -q '^APP_NAME=' .env || printf '\nAPP_NAME=%s\n' "$APP_NAME" >> .env
           node scripts/generate-env.mjs --check
           rm -f .env
       - name: Deploy to Vercel
