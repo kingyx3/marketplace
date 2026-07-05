@@ -46,9 +46,12 @@ workflow YAML parsing and focused contract tests.
   manual reconciliation RPC dispatch, unpaid cancellation dispatch, and
   derived payment exception queue behavior, including admin form payload
   validation for manual reconciliation.
+- `tests/purchase-orders.test.ts` - admin supplier PO form parsing and
+  service-role-only stock-intake migration markers.
 - `tests/admin-surface.test.ts` - protected admin page guard against
   fixture-backed work queues, plus B2B tiered approval/rejection and
-  reconciliation-console wiring.
+  tier assignment/removal, reconciliation-console, and supplier PO intake
+  wiring.
 - `tests/notifications.test.ts` - Resend order-confirmation delivery,
   disabled-provider skip behavior, dedupe, provider failure recording,
   and configured-channel detection.

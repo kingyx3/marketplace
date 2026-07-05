@@ -31,6 +31,9 @@ where p.slug = 'smp-play-booster-box';
 insert into public.inventory (sku_id, location, on_hand, allocated, incoming, safety_stock)
 select id, 'main', 0, 0, 24, 2 from public.booster_box_skus where sku = 'MTG-SMP-PBB-EN';
 
+insert into public.suppliers (name, supplier_type, region, payment_terms, currency, notes) values
+  ('Sample Distributor', 'distributor', 'SG', 'prepaid', 'SGD', 'Local development supplier for purchase-order intake.');
+
 insert into public.pricing_tiers (code, name, description, discount_bps, min_order_cents) values
   ('retail',      'Retail',            'Default B2C list price',                    0,     0),
   ('wholesale_1', 'Wholesale Tier 1',  'Approved B2B accounts, small volume',     800, 50000),

@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireStaff } from "@/lib/auth";
 import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
+import { adminPurchaseOrderFromForm } from "@/lib/admin-purchase-order-forms";
+import { requireStaff } from "@/lib/auth";
 import { performAdminOrderAction } from "@/lib/orders";
 import { runPreorderAllocationForSku } from "@/lib/preorders";
 import { createServiceClient } from "@/lib/supabase";
@@ -63,6 +64,31 @@ export async function runAdminOrderAction(formData: FormData) {
   revalidatePath(`/orders/${orderId}`);
 }
 
+export async function recordSupplierPurchaseOrder(formData: FormData) {
+  const { user } = await requireStaff("/admin/purchase-orders");
+  const input = adminPurchaseOrderFromForm(formData);
+
+  const supabase = createServiceClient();
+  const { error } = await supabase.rpc("admin_create_supplier_purchase_order", {
+    p_supplier_id: input.supplierId,
+    p_sku_id: input.skuId,
+    p_quantity: input.quantity,
+    p_unit_cost_cents: input.unitCostCents,
+    p_currency: input.currency,
+    p_expected_at: input.expectedAt,
+    p_notes: input.notes,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) {
+    throw new Error(`Supplier purchase order intake failed: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/catalog");
+  revalidatePath("/preorders");
+}
+
 export async function approveWholesale(formData: FormData) {
   const { user } = await requireStaff("/admin/wholesale");
   const accountId = String(formData.get("accountId") ?? "");
@@ -101,6 +127,28 @@ export async function rejectWholesale(formData: FormData) {
 
   if (error) {
     throw new Error(`Wholesale rejection failed: ${error.message}`);
+  }
+
+  revalidatePath("/admin/wholesale");
+  revalidatePath("/admin");
+  revalidatePath("/wholesale");
+  revalidatePath("/catalog");
+}
+
+export async function removeWholesalePricingTier(formData: FormData) {
+  const { user } = await requireStaff("/admin/wholesale");
+  const customerId = String(formData.get("customerId") ?? "");
+  const pricingTierId = String(formData.get("pricingTierId") ?? "");
+
+  const supabase = createServiceClient();
+  const { error } = await supabase.rpc("admin_remove_b2b_pricing_tier", {
+    p_customer_id: customerId,
+    p_pricing_tier_id: pricingTierId,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) {
+    throw new Error(`Wholesale pricing tier removal failed: ${error.message}`);
   }
 
   revalidatePath("/admin/wholesale");

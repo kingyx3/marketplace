@@ -21,6 +21,12 @@ Do not describe manual admin workflows as product features.
 - Order/payment admin actions are constrained: packing requires paid,
   shipping requires paid/packing, unpaid cancellation releases allocation
   transactionally, and exception flags persist in `payment_exceptions`.
+- Supplier purchase-order intake is constrained to the protected admin
+  page and records the PO, line item, incoming stock delta, staff actor,
+  and audit entry in one service-role transaction.
+- B2B pricing-tier removal is constrained to the protected admin page and
+  leaves the account approved but inactive for wholesale checkout when no
+  assigned tier remains.
 
 ## Routine runbooks
 
@@ -31,6 +37,17 @@ Do not describe manual admin workflows as product features.
    smallest Supabase data edit required and record the reason externally.
 3. Verify `inventory.allocated <= inventory.on_hand + inventory.incoming`.
 4. Check the public catalog after deploy or data change.
+
+### Supplier purchase order intake
+
+1. Confirm the supplier, SKU, quantity, unit cost, currency, expected date,
+   and reviewer approval before recording a PO.
+2. Use the protected admin purchase-order form. Do not increment
+   `inventory.incoming` with a separate direct edit for the same PO.
+3. Confirm the new PO appears in the purchase-order list and that the
+   inventory row's incoming quantity increased by the recorded quantity.
+4. Keep supplier setup as a reviewed service-role data change until
+   supplier CRUD is productized.
 
 ### Stripe webhook or payment exception
 
@@ -70,9 +87,14 @@ filled preorders because only outstanding quantity is considered.
    customer-visible status as rejected until the customer resubmits.
 4. Re-check pricing tier visibility on catalog, product, and cart pages
    after approval.
+5. Change assigned pricing tiers from the protected admin page when a
+   customer's wholesale terms change.
+6. Remove assigned pricing tiers from the protected admin page when a
+   customer's wholesale terms are suspended.
 
-Pricing-tier removal is not yet productized; use a reviewed service-role
-data change if an approved customer's tier must be removed.
+An approved account with no assigned tier cannot use wholesale checkout;
+assign a replacement tier from the same protected admin list before
+asking the customer to place B2B orders again.
 
 ### Deploy incident
 
@@ -88,7 +110,8 @@ data change if an approved customer's tier must be removed.
 
 - Google/Supabase-authenticated admin entry point.
 - Server-side role checks backed by non-user-editable authorization data.
-- Product, inventory, pricing, and B2B workflows.
+- Product, inventory, pricing, and supplier maintenance workflows.
+- Supplier setup and maintenance UI.
 - Browser UI for payment exception and refund workflows with Stripe
   reconciliation.
 - Allocation review, approval, and customer notification queue.

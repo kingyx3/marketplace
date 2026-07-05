@@ -58,6 +58,13 @@ unit-tested; the seed ships a working example.
 minus deposit and captured balance payments. The app computes candidates
 from live rows, but the database enforces the stock boundary.
 
+**Supplier PO intake is a guarded stock transition.**
+`admin_create_supplier_purchase_order` validates supplier, SKU, quantity,
+unit cost, currency, and actor, then records a confirmed
+`purchase_orders` row, one `purchase_order_items` row, and increments
+`inventory.incoming` in the same service-role transaction. Operators must
+not separately edit incoming stock for the same PO.
+
 **Preorder conversion is idempotent.** Balance PaymentIntent success
 calls `mark_preorder_balance_paid`, which validates amount/currency
 against the remaining allocated balance, records the captured balance
@@ -71,6 +78,8 @@ and rejected applications; approval assigns at least one
 `pricing_tiers` row (basis-point discounts + minimum order) through
 `customer_pricing_tiers`. Pricing tiers are M:N so a customer can hold
 e.g. a regional tier and a promo tier.
+Removing the last assigned tier leaves the account approved but disables
+wholesale checkout because checkout requires at least one current tier.
 
 **Checkout totals are a database contract.** Server code quotes SKU
 prices, B2B discounts, currency, and inventory first, then passes the
@@ -81,7 +90,8 @@ creation fails before Stripe is charged.
 
 **Audit by trigger.** `audit_logs` is written by a generic trigger on
 the money/stock-critical tables (inventory, orders, preorders, payments,
-refunds, allocation_rules, b2b_accounts). Nobody has to remember to log.
+refunds, allocation_rules, b2b_accounts, purchase_orders,
+purchase_order_items). Nobody has to remember to log.
 
 **Webhook idempotency is a table.** `webhook_events` has
 `unique (provider, event_id)`; the Stripe route inserts before
@@ -128,6 +138,6 @@ RLS is enabled on **every** table:
   and `WITH CHECK`; all commercial writes go through the service role so
   state machines and stock checks stay server-side.
 - Supply-side and admin-only tables (`suppliers`, `purchase_orders`,
-  `pricing_tiers`, `allocation_rules`, `refunds`, `audit_logs`,
-  `webhook_events`, `payment_exceptions`): no
+  `purchase_order_items`, `pricing_tiers`, `allocation_rules`, `refunds`,
+  `audit_logs`, `webhook_events`, `payment_exceptions`): no
   anon/authenticated policies at all — service role only.

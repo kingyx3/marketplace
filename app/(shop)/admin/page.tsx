@@ -4,7 +4,9 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import {
   approveWholesale,
+  recordSupplierPurchaseOrder,
   rejectWholesale,
+  removeWholesalePricingTier,
   runAdminOrderAction,
   runPreorderAllocation,
   updateInventory,
@@ -34,6 +36,19 @@ interface AdminB2bApplication {
   createdAt: string;
 }
 
+interface AdminB2bTierAssignment {
+  accountId: string;
+  customerId: string;
+  companyName: string;
+  customerEmail: string | null;
+  customerName: string | null;
+  tierId: string;
+  tierName: string;
+  tierCode: string;
+  discountBps: number;
+  minOrderCents: number;
+}
+
 interface AdminPurchaseOrderRow {
   id: string;
   status: string;
@@ -53,19 +68,34 @@ interface AdminPricingTier {
   currency: string;
 }
 
+interface AdminSupplierOption {
+  id: string;
+  name: string;
+  currency: string;
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const { staff } = await requireStaff("/admin");
   const supabase = createServiceClient();
-  const [inventoryRows, exceptions, b2bApplications, purchaseOrders, pricingTiers] =
-    await Promise.all([
-      fetchInventoryRows(supabase),
-      listAdminOrderExceptions(supabase),
-      fetchPendingB2bApplications(supabase),
-      fetchPurchaseOrders(supabase),
-      fetchPricingTiers(supabase),
-    ]);
+  const [
+    inventoryRows,
+    exceptions,
+    b2bApplications,
+    approvedB2bTierAssignments,
+    purchaseOrders,
+    pricingTiers,
+    suppliers,
+  ] = await Promise.all([
+    fetchInventoryRows(supabase),
+    listAdminOrderExceptions(supabase),
+    fetchPendingB2bApplications(supabase),
+    fetchApprovedB2bTierAssignments(supabase),
+    fetchPurchaseOrders(supabase),
+    fetchPricingTiers(supabase),
+    fetchSupplierOptions(supabase),
+  ]);
   const metrics = adminMetricsFrom({ inventoryRows, exceptions, b2bApplications });
 
   return (
@@ -172,6 +202,7 @@ export default async function AdminPage() {
 
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
             <h2 className="text-xl font-semibold text-zinc-950">Purchase orders</h2>
+            <PurchaseOrderIntakeForm suppliers={suppliers} skus={inventoryRows} />
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {purchaseOrders.length === 0 ? (
                 <p className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
@@ -344,6 +375,66 @@ export default async function AdminPage() {
                 ))
               )}
             </div>
+
+            <div className="mt-6 border-t border-zinc-200 pt-5">
+              <h3 className="text-sm font-semibold text-zinc-950">Assigned pricing tiers</h3>
+              <div className="mt-3 grid gap-3">
+                {approvedB2bTierAssignments.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
+                    No active wholesale tier assignments.
+                  </p>
+                ) : (
+                  approvedB2bTierAssignments.slice(0, 8).map((assignment) => (
+                    <article
+                      key={`${assignment.customerId}:${assignment.tierId}`}
+                      className="rounded-md border border-zinc-200 p-4"
+                    >
+                      <div>
+                        <h4 className="font-semibold text-zinc-950">{assignment.companyName}</h4>
+                        <p className="mt-1 text-sm text-zinc-500">
+                          {assignment.customerName ?? assignment.customerEmail ?? "Customer"}
+                        </p>
+                        <p className="mt-2 text-xs text-zinc-500">
+                          {assignment.tierName} ({formatDiscount(assignment.discountBps)} off, min{" "}
+                          {formatMoney(assignment.minOrderCents, "SGD")})
+                        </p>
+                      </div>
+                      <div className="mt-3 grid gap-2">
+                        <form action={approveWholesale} className="grid gap-2">
+                          <input type="hidden" name="accountId" value={assignment.accountId} />
+                          <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                            Change tier
+                            <select
+                              className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm text-zinc-800"
+                              defaultValue={assignment.tierId}
+                              name="pricingTierId"
+                              required
+                            >
+                              {pricingTiers.map((tier) => (
+                                <option key={tier.id} value={tier.id}>
+                                  {tier.name} ({formatDiscount(tier.discountBps)} off, min{" "}
+                                  {formatMoney(tier.minOrderCents, tier.currency)})
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700">
+                            Save tier
+                          </button>
+                        </form>
+                        <form action={removeWholesalePricingTier}>
+                          <input type="hidden" name="customerId" value={assignment.customerId} />
+                          <input type="hidden" name="pricingTierId" value={assignment.tierId} />
+                          <button className="min-h-10 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:border-rose-400">
+                            Remove tier
+                          </button>
+                        </form>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </div>
           </section>
 
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
@@ -505,6 +596,122 @@ function ManualReconciliationForm({
   );
 }
 
+function PurchaseOrderIntakeForm({
+  suppliers,
+  skus,
+}: {
+  suppliers: AdminSupplierOption[];
+  skus: AdminInventoryRow[];
+}) {
+  const disabled = suppliers.length === 0 || skus.length === 0;
+
+  return (
+    <form
+      action={recordSupplierPurchaseOrder}
+      className="mt-5 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4"
+    >
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Supplier
+          <select
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm text-zinc-800"
+            disabled={disabled}
+            name="supplierId"
+            required
+          >
+            {suppliers.map((supplier) => (
+              <option key={supplier.id} value={supplier.id}>
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          SKU
+          <select
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm text-zinc-800"
+            disabled={disabled}
+            name="skuId"
+            required
+          >
+            {skus.map((sku) => (
+              <option key={sku.skuId} value={sku.skuId}>
+                {sku.productName} - {sku.sku}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="grid gap-3 md:grid-cols-4">
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Quantity
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            disabled={disabled}
+            min={1}
+            name="quantity"
+            required
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Unit cost cents
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            disabled={disabled}
+            min={0}
+            name="unitCostCents"
+            required
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Currency
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm uppercase"
+            defaultValue={suppliers[0]?.currency ?? "SGD"}
+            disabled={disabled}
+            maxLength={3}
+            minLength={3}
+            name="currency"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Expected
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            disabled={disabled}
+            name="expectedAt"
+            type="date"
+          />
+        </label>
+      </div>
+      <label className="grid gap-1 text-xs font-medium text-zinc-600">
+        Notes
+        <input
+          className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+          disabled={disabled}
+          maxLength={500}
+          name="notes"
+          placeholder="Distributor reference or approval note"
+        />
+      </label>
+      {disabled ? (
+        <p className="text-xs text-amber-700">
+          Add at least one supplier and one SKU before recording incoming purchase orders.
+        </p>
+      ) : null}
+      <button
+        className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+        disabled={disabled}
+      >
+        Record incoming PO
+      </button>
+    </form>
+  );
+}
+
 function formatDiscount(discountBps: number) {
   const percent = discountBps / 100;
   return `${Number.isInteger(percent) ? percent.toFixed(0) : percent.toFixed(2)}%`;
@@ -580,6 +787,62 @@ async function fetchPendingB2bApplications(
   }));
 }
 
+async function fetchApprovedB2bTierAssignments(
+  supabase = createServiceClient()
+): Promise<AdminB2bTierAssignment[]> {
+  const { data, error } = await supabase
+    .from("b2b_accounts")
+    .select(
+      "id, company_name, customers(id, email, name, customer_pricing_tiers(pricing_tier_id, pricing_tiers(id, code, name, discount_bps, min_order_cents)))"
+    )
+    .eq("approved", true)
+    .eq("review_status", "approved")
+    .order("approved_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    throw new Error(`Approved wholesale tier query failed: ${error.message}`);
+  }
+
+  return (
+    (data ?? []) as unknown as Array<{
+      id: string;
+      company_name: string;
+      customers: {
+        id: string;
+        email: string | null;
+        name: string | null;
+        customer_pricing_tiers?: Array<{
+          pricing_tier_id: string;
+          pricing_tiers: {
+            id: string;
+            code: string;
+            name: string;
+            discount_bps: number;
+            min_order_cents: number;
+          } | null;
+        }>;
+      } | null;
+    }>
+  ).flatMap((account) =>
+    (account.customers?.customer_pricing_tiers ?? [])
+      .filter((assignment) => Boolean(assignment.pricing_tiers))
+      .map((assignment) => ({
+        accountId: account.id,
+        customerId: account.customers?.id ?? "",
+        companyName: account.company_name,
+        customerEmail: account.customers?.email ?? null,
+        customerName: account.customers?.name ?? null,
+        tierId: assignment.pricing_tier_id,
+        tierName: assignment.pricing_tiers?.name ?? "Unknown tier",
+        tierCode: assignment.pricing_tiers?.code ?? "unknown",
+        discountBps: assignment.pricing_tiers?.discount_bps ?? 0,
+        minOrderCents: assignment.pricing_tiers?.min_order_cents ?? 0,
+      }))
+      .filter((assignment) => assignment.customerId)
+  );
+}
+
 async function fetchPricingTiers(supabase = createServiceClient()): Promise<AdminPricingTier[]> {
   const { data, error } = await supabase
     .from("pricing_tiers")
@@ -606,6 +869,31 @@ async function fetchPricingTiers(supabase = createServiceClient()): Promise<Admi
     discountBps: row.discount_bps,
     minOrderCents: row.min_order_cents,
     currency: "SGD",
+  }));
+}
+
+async function fetchSupplierOptions(
+  supabase = createServiceClient()
+): Promise<AdminSupplierOption[]> {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("id, name, currency")
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Supplier option query failed: ${error.message}`);
+  }
+
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      name: string;
+      currency: string;
+    }>
+  ).map((row) => ({
+    id: row.id,
+    name: row.name,
+    currency: row.currency,
   }));
 }
 

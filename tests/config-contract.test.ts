@@ -36,6 +36,12 @@ describe("platform config contract", () => {
     expect(migrations).toContain("public.current_user_is_staff");
     expect(migrations).toContain("admin_review_b2b_account");
     expect(migrations).toContain("b2b_accounts_review_status_check");
+    expect(migrations).toContain("admin_remove_b2b_pricing_tier");
+    expect(migrations).toContain("pricing tier assignment not found");
+    expect(migrations).toContain("admin_create_supplier_purchase_order");
+    expect(migrations).toContain("ADMIN_SUPPLIER_PO_INTAKE");
+    expect(migrations).toContain("drop trigger if exists audit_log on public.purchase_orders");
+    expect(migrations).toContain("drop trigger if exists audit_log on public.purchase_order_items");
   });
 
   it("runs config verifier scripts in CI", async () => {

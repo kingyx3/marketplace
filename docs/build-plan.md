@@ -35,6 +35,12 @@ docs and README must never describe those as working.
 - ✅ Config-as-code checks for Vercel and Supabase: `vercel.json`
   security/cache headers, product image storage bucket/policies in SQL,
   and verifier scripts covered by CI
+- ✅ Admin supplier purchase-order intake: service-role-only RPC records
+  confirmed supplier POs, line items, incoming inventory deltas, and audit
+  records from the protected admin page
+- ✅ Admin B2B pricing-tier removal: service-role-only RPC removes assigned
+  tiers, records the staff actor, and lets the existing checkout gate disable
+  wholesale access when no tier remains
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks,
   migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
@@ -98,8 +104,8 @@ Sequenced to match the 30/60/90-day plan in
 - [x] Tier pricing visible on catalog/product/cart before checkout for
       approved accounts with assigned tiers
 - [ ] Invoice/PO-style checkout (Stripe invoices or bank transfer + manual confirm)
-- [ ] Supplier purchase-order intake updating `incoming` stock
-- [ ] Admin: B2B pricing-tier removal and purchase-order intake tools
+- [x] Supplier purchase-order intake updating `incoming` stock
+- [x] Admin: B2B pricing-tier removal
 
 ### Phase 4 — scale & polish
 
@@ -120,6 +126,8 @@ Sequenced to match the 30/60/90-day plan in
 The protected admin page now covers live inventory updates, preorder
 allocation, payment-exception visibility, purchase-order visibility, and
 B2B approval/rejection with pricing-tier assignment, and manual payment
-reconciliation from the exception queue. Product/SKU CRUD, pricing-tier
-removal, and supplier PO intake are still manual, reviewed workflows
+reconciliation from the exception queue. Supplier PO intake records a
+confirmed PO and increments incoming stock through an audited service-role
+RPC, and assigned B2B pricing tiers can be removed through an audited
+service-role action. Product/SKU CRUD is still a manual, reviewed workflow
 tracked above and in `docs/admin-operations.md`.

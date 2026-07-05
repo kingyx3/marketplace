@@ -62,12 +62,18 @@ actions, not generic status writes:
   order before it can mark paid.
 - `flag_payment_exception` writes `payment_exceptions` for operator
   review.
+- `admin_create_supplier_purchase_order` validates supplier, SKU,
+  quantity, unit cost, currency, and actor before creating a confirmed
+  PO and incrementing incoming stock.
+- `admin_remove_b2b_pricing_tier` removes one assigned wholesale tier and
+  records the actor; wholesale checkout remains blocked until a current
+  tier is assigned.
 
 Manual admin changes must follow `docs/admin-operations.md` and require
 trusted operator access. B2B approval and rejection are explicit
 service-role transitions; approval requires a pricing tier assignment in
-the same database function. Broader product admin UI remains roadmap
-work.
+the same database function. Broader product and supplier setup UI remains
+roadmap work.
 The admin payment-exception console posts to the same audited action path
 as the API and cannot directly set an order to `paid`.
 
