@@ -68,6 +68,17 @@ Do not describe manual admin workflows as product features.
 5. Review `/api/admin/orders/exceptions` for persisted manual flags and
    derived stale/orphan/failed-payment signals.
 
+### B2B invoice or bank-transfer order
+
+1. Customer creates the invoice order from the B2B cart. This allocates
+   stock and records a `manual_invoice` payment placeholder.
+2. Use the displayed invoice reference (`invoice:<order id>`) when asking
+   the customer to pay by bank transfer or attach their PO.
+3. After funds are verified, use the admin reconciliation form with
+   provider `manual_invoice`, the invoice reference, exact amount,
+   currency, and reason.
+4. Do not mark the order paid by direct status edit.
+
 ### Pre-order allocation
 
 1. Confirm incoming stock and channel reserve rules before customer

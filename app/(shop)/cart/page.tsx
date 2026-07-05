@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
+import { InvoiceCheckoutPanel } from "@/app/(shop)/cart/invoice-checkout-panel";
 import { removeFromCart, updateCartQuantity } from "@/app/actions/cart";
 import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
 import {
@@ -266,6 +267,14 @@ export default async function CartPage({
               supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
               supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
             />
+            {selectedChannel === "b2b" ? (
+              <InvoiceCheckoutPanel
+                disabled={Boolean(quoteError) || belowWholesaleMinimum}
+                items={cartItems}
+                supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+              />
+            ) : null}
           </aside>
         </section>
       )}

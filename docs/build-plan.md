@@ -45,6 +45,9 @@ docs and README must never describe those as working.
   archive forms, SKU create/update/archive forms, Supabase Storage product
   image upload, and reason-coded inventory adjustments backed by audited
   service-role RPCs
+- ✅ B2B invoice/PO checkout: approved wholesale customers can create a
+  pending-payment invoice order with server-derived tier pricing, stock
+  allocation, manual-invoice payment placeholder, and audit record
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks,
   migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
@@ -108,7 +111,8 @@ Sequenced to match the 30/60/90-day plan in
       required pricing-tier assignment
 - [x] Tier pricing visible on catalog/product/cart before checkout for
       approved accounts with assigned tiers
-- [ ] Invoice/PO-style checkout (Stripe invoices or bank transfer + manual confirm)
+- [x] Invoice/PO-style checkout (manual invoice/bank-transfer order request
+      reconciled through the audited admin payment path)
 - [x] Supplier purchase-order intake updating `incoming` stock
 - [x] Admin: B2B pricing-tier removal
 

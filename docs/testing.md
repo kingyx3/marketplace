@@ -40,6 +40,9 @@ workflow YAML parsing and focused contract tests.
   bounded deposits, checkout quantity limits, B2B tier/minimum-order
   enforcement, the PaymentIntent response shape, rollback/cancel
   behavior, and the RPC pricing contract passed to order creation.
+- `tests/invoice-checkout.test.ts` - B2B invoice checkout order/payment
+  placeholder creation, server-derived tier pricing, audit recording, and
+  client-safe response shape.
 - `tests/b2b.test.ts` - wholesale access activation, tier minimums,
   best-discount selection, and integer-cent display pricing.
 - `tests/admin-orders.test.ts` - explicit admin order action contract,

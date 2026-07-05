@@ -102,6 +102,10 @@ as the API and cannot directly set an order to `paid`.
 - Wholesale prices are rendered only from server-verified customer
   approval and tier assignment. Guests and unapproved accounts receive
   retail pricing only.
+- B2B invoice/PO checkout uses the same server-derived quote and checkout
+  order RPC as card checkout. It creates a pending-payment order plus a
+  `manual_invoice` payment placeholder; staff must use audited manual
+  reconciliation before the order can become paid.
 - Checkout order creation persists the server-derived subtotal,
   discount, and total, then rejects the request if the database re-read
   no longer matches those expected values.

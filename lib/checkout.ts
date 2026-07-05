@@ -4,6 +4,7 @@ import { z } from "zod";
 import { badRequest, conflict, internalError, notFound } from "@/lib/api/errors";
 import type { ApiCustomerContext } from "@/lib/api/auth";
 import {
+  cartItemSchema,
   checkoutRequestSchema,
   quoteCheckout,
   type CheckoutQuote,
@@ -23,8 +24,23 @@ export interface CheckoutResult {
   quote: CheckoutQuote;
 }
 
+export interface InvoiceCheckoutResult {
+  orderId: string;
+  paymentId: string;
+  provider: "manual_invoice";
+  providerPaymentId: string;
+  amountCents: number;
+  currency: string;
+  status: "pending_payment";
+}
+
 const cancelCheckoutSchema = z.object({
   paymentIntentId: z.string().trim().min(3).max(200).startsWith("pi_"),
+});
+
+export const invoiceCheckoutRequestSchema = z.object({
+  items: z.array(cartItemSchema).min(1).max(10),
+  purchaseOrderReference: z.string().trim().max(120).optional(),
 });
 
 export function checkoutResponseBody(result: CheckoutResult) {
@@ -38,6 +54,18 @@ export function checkoutResponseBody(result: CheckoutResult) {
     amountCents: result.amountCents,
     currency: result.publishableCurrency,
     quote: result.quote,
+  };
+}
+
+export function invoiceCheckoutResponseBody(result: InvoiceCheckoutResult) {
+  return {
+    orderId: result.orderId,
+    paymentId: result.paymentId,
+    provider: result.provider,
+    providerPaymentId: result.providerPaymentId,
+    amountCents: result.amountCents,
+    currency: result.currency,
+    status: result.status,
   };
 }
 
@@ -56,6 +84,65 @@ export async function createCheckoutPayment(
   return quote.mode === "preorder"
     ? createPreorderPayment(auth, quote, stripe)
     : createOrderPayment(auth, quote, stripe);
+}
+
+export async function createInvoiceCheckout(
+  auth: ApiCustomerContext,
+  body: unknown
+): Promise<InvoiceCheckoutResult> {
+  const input = invoiceCheckoutRequestSchema.parse(body);
+  const quote = await quoteCheckout(
+    auth.supabase,
+    { mode: "order", channel: "b2b", items: input.items },
+    auth.customer
+  );
+
+  if (quote.totalCents <= 0) {
+    throw badRequest("Invoice checkout total must be greater than zero");
+  }
+
+  let orderId: string | null = null;
+
+  try {
+    const order = await auth.supabase
+      .rpc("create_checkout_order_from_cart", checkoutOrderRpcParams(auth.user.id, quote))
+      .single();
+    if (order.error || !order.data) {
+      throw new Error(order.error?.message ?? "invoice order creation failed");
+    }
+    orderId = (order.data as { order_id: string }).order_id;
+
+    const providerPaymentId = `invoice:${orderId}`;
+    const payment = await insertManualInvoicePayment(auth.supabase, {
+      orderId,
+      providerPaymentId,
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+    });
+
+    await recordInvoiceRequestAudit(auth.supabase, {
+      orderId,
+      customerId: auth.customer.id,
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+      purchaseOrderReference: input.purchaseOrderReference,
+    });
+
+    return {
+      orderId,
+      paymentId: payment.id,
+      provider: "manual_invoice",
+      providerPaymentId,
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+      status: "pending_payment",
+    };
+  } catch (error) {
+    if (orderId) {
+      await rollbackAllocatedOrder(auth.supabase, orderId);
+    }
+    throw error instanceof Error ? error : internalError();
+  }
 }
 
 export async function createPreorderBalancePayment(
@@ -353,6 +440,65 @@ async function insertPayment(
   return { id: data.id };
 }
 
+async function insertManualInvoicePayment(
+  supabase: SupabaseClient,
+  input: {
+    orderId: string;
+    providerPaymentId: string;
+    amountCents: number;
+    currency: string;
+  }
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("payments")
+    .insert({
+      order_id: input.orderId,
+      provider: "manual_invoice",
+      provider_payment_id: input.providerPaymentId,
+      kind: "invoice",
+      amount_cents: input.amountCents,
+      currency: input.currency,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "invoice payment insert failed");
+  }
+
+  return { id: data.id };
+}
+
+async function recordInvoiceRequestAudit(
+  supabase: SupabaseClient,
+  input: {
+    orderId: string;
+    customerId: string;
+    amountCents: number;
+    currency: string;
+    purchaseOrderReference?: string;
+  }
+) {
+  const { error } = await supabase.from("audit_logs").insert({
+    actor: `customer:${input.customerId}`,
+    table_name: "orders",
+    record_id: input.orderId,
+    action: "B2B_INVOICE_REQUEST",
+    new_data: {
+      order_id: input.orderId,
+      customer_id: input.customerId,
+      amount_cents: input.amountCents,
+      currency: input.currency,
+      purchase_order_reference: input.purchaseOrderReference?.trim() || null,
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 async function paymentByIntent(supabase: SupabaseClient, paymentIntentId: string) {
   const { data, error } = await supabase
     .from("payments")
@@ -555,12 +701,16 @@ async function rollbackFailedCheckout(
   }
 
   if (input.orderId) {
-    await supabase.rpc("release_order_allocation", { p_order_id: input.orderId });
-    await supabase.from("orders").update({ status: "cancelled" }).eq("id", input.orderId);
+    await rollbackAllocatedOrder(supabase, input.orderId);
   }
   if (input.preorderId) {
     await supabase.from("preorders").update({ status: "cancelled" }).eq("id", input.preorderId);
   }
+}
+
+async function rollbackAllocatedOrder(supabase: SupabaseClient, orderId: string): Promise<void> {
+  await supabase.rpc("release_order_allocation", { p_order_id: orderId });
+  await supabase.from("orders").update({ status: "cancelled" }).eq("id", orderId);
 }
 
 function safeErrorMessage(error: unknown): string {

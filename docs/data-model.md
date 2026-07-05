@@ -94,6 +94,12 @@ expected subtotal/discount/total into
 prices and allocates inventory atomically; if the quote changed, order
 creation fails before Stripe is charged.
 
+**B2B invoice checkout is still an order/payment contract.** Invoice/PO
+checkout creates a `pending_payment` order with the same checkout RPC and
+stores a `manual_invoice` payment placeholder. The order is not paid
+until staff records audited reconciliation with the exact amount,
+currency, provider, and invoice reference.
+
 **Audit by trigger.** `audit_logs` is written by a generic trigger on
 the money/stock-critical tables (inventory, orders, preorders, payments,
 refunds, allocation_rules, b2b_accounts, purchase_orders,
