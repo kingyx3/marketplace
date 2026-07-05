@@ -3,8 +3,8 @@
 Sealed TCG booster box distribution — **B2C retail, B2B wholesale, and
 pre-orders** — for Magic: The Gathering, Pokémon, Yu-Gi-Oh!, One Piece,
 Lorcana, and Flesh and Blood. Singapore/SEA-first, with global benchmarks.
-The deployed display name is supplied by the `APP_NAME` Vercel runtime
-environment variable and validated by CI before deployment.
+The deployed display name is supplied by the `APP_NAME` GitHub Environment
+variable, synced to Vercel, and validated by CI before deployment.
 
 This repository currently contains:
 
@@ -35,12 +35,12 @@ Checks:
 ## Deployment
 
 Three GitHub Environments — `development` (feature branches), `staging`
-(`main`), `production` (tags, human-approved). Configure only the minimal
-GitHub deploy secrets/vars listed in **docs/environments.md**. App runtime
-configuration lives in Vercel Project Environment Variables, which CI pulls
-and validates before deploy. CI/deploy validate the env contracts, run app
-and migration checks, push database migrations, deploy to Vercel, and smoke
-test `/api/health`.
+(`main`), `production` (tags, human-approved). Configure the minimal GitHub
+deploy secrets/vars listed in **docs/environments.md**, including `APP_NAME`.
+Provider runtime configuration lives in Vercel Project Environment Variables;
+CI syncs `APP_NAME`, pulls Vercel env, validates it, runs app and migration
+checks, pushes database migrations, deploys to Vercel, and smoke tests
+`/api/health`.
 
 ## Documentation map
 
