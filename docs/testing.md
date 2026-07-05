@@ -8,6 +8,7 @@
 | Types (`tsc --noEmit`, strict) | `npm run typecheck`                                           | `typecheck`             |
 | Unit tests (Vitest)            | `npm test`                                                    | `test`                  |
 | Production build               | `npm run build`                                               | `build`                 |
+| Browser smoke (Playwright)     | `npm run build && npm run test:e2e`                           | `e2e-smoke`             |
 | Migrations apply cleanly       | `npx supabase db reset` (local)                               | `migrations`            |
 | Env contract                   | `npm run env:check`                                           | `validate-env` (deploy) |
 | Platform config contract       | `npm run config:check`                                        | `config-contract`       |
@@ -70,6 +71,9 @@ workflow YAML parsing and focused contract tests.
 - `tests/live-customer-pages.test.ts` - customer order/preorder display
   helpers and a guard that authenticated account/order/preorder pages do
   not import fixture data.
+- `e2e/public-smoke.spec.ts` - Playwright smoke coverage for the built
+  storefront, preview catalog fallback, product detail route, empty cart,
+  and shallow `/api/health` response without requiring runtime secrets.
 
 ## Writing tests
 
@@ -80,11 +84,11 @@ it's testable without mocking Supabase or Stripe.
 Recommended before pushing:
 
 ```bash
-npm run lint && npm run typecheck && npm test && npm run build
+npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e
 ```
 
 ## Not yet in place (see docs/build-plan.md)
 
 Integration tests against a local Supabase (RLS policy assertions),
-Stripe flow tests with `stripe-mock`, and Playwright smoke tests are
-planned alongside the features that need them.
+Stripe flow tests with `stripe-mock`, and authenticated browser flows
+are planned alongside the features that need them.

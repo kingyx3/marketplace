@@ -6,7 +6,15 @@ import { createUserClient } from "@/lib/supabase";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const next = sanitizeNextPath(requestUrl.searchParams.get("next"));
-  const supabase = await createUserClient();
+  let supabase;
+  try {
+    supabase = await createUserClient();
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Supabase is not configured")) {
+      return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error`);
+    }
+    throw error;
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",

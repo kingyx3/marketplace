@@ -70,7 +70,11 @@ describe("platform config contract", () => {
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
+    expect(packageJson.scripts["test:e2e"]).toBe("playwright test");
     expect(ci).toContain("npm run config:check");
+    expect(ci).toContain("e2e-smoke:");
+    expect(ci).toContain("npx playwright install --with-deps chromium");
+    expect(ci).toContain("npm run test:e2e");
     expect(ci).toContain("tests/config-contract.test.ts");
   });
 });

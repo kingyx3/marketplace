@@ -29,7 +29,8 @@ npx supabase db reset        # apply migrations + seed
 npm run dev                  # http://localhost:3000
 ```
 
-Checks: `npm run lint && npm run typecheck && npm test && npm run build`
+Checks:
+`npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e`
 
 ## Deployment
 

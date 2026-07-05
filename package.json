@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.1.7",
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.5",

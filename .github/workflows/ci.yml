@@ -40,6 +40,8 @@ jobs:
               - 'next.config.ts'
               - 'eslint.config.mjs'
               - 'vitest.config.ts'
+              - 'playwright.config.ts'
+              - 'e2e/**'
               - 'postcss.config.mjs'
               - 'vercel.json'
               - 'supabase/**'
@@ -116,6 +118,21 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  e2e-smoke:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+
   config-contract:
     needs: changes
     if: needs.changes.outputs.config == 'true'
@@ -146,7 +163,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
-        ports: ['5432:5432']
+        ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready
           --health-interval 5s

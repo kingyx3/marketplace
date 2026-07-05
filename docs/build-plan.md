@@ -56,6 +56,9 @@ docs and README must never describe those as working.
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
 - ✅ Explicit Supabase Data API grants paired with RLS policies for the public
   catalog and authenticated own-row reads
+- ✅ Playwright browser smoke tests for the built storefront, preview
+  catalog fallback, product detail route, empty cart, and shallow health
+  endpoint
 - ✅ Admin operations runbook (`docs/admin-operations.md`) for workflows that
   are not yet productized
 
@@ -123,7 +126,8 @@ Sequenced to match the 30/60/90-day plan in
 
 - [ ] shadcn/ui component layer; proper design pass
 - [ ] Search upgrade (Typesense/Algolia) when FTS relevance fails
-- [ ] Integration tests: RLS assertions, Stripe flows, Playwright smoke
+- [ ] Integration tests: RLS assertions, Stripe flows, authenticated
+      browser flows
 - [ ] Analytics/metrics dashboard (sell-through, margin, preorder conversion)
 - [ ] Shipping-rate integration (SingPost/Ninja Van/J&T APIs)
 
