@@ -34,6 +34,8 @@ describe("platform config contract", () => {
     expect(migrations).toContain("staff can update product images");
     expect(migrations).toContain("staff can delete product images");
     expect(migrations).toContain("public.current_user_is_staff");
+    expect(migrations).toContain("admin_review_b2b_account");
+    expect(migrations).toContain("b2b_accounts_review_status_check");
   });
 
   it("runs config verifier scripts in CI", async () => {

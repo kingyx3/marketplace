@@ -64,7 +64,9 @@ actions, not generic status writes:
   review.
 
 Manual admin changes must follow `docs/admin-operations.md` and require
-trusted operator access. Broader product/B2B admin UI remains roadmap
+trusted operator access. B2B approval and rejection are explicit
+service-role transitions; approval requires a pricing tier assignment in
+the same database function. Broader product admin UI remains roadmap
 work.
 
 ## Webhooks (Stripe)
@@ -85,6 +87,9 @@ work.
 - B2B checkout fails closed unless the customer has an approved wholesale
   account and an assigned pricing tier; tier minimum order values are
   enforced before any PaymentIntent is created.
+- Wholesale prices are rendered only from server-verified customer
+  approval and tier assignment. Guests and unapproved accounts receive
+  retail pricing only.
 - Checkout order creation persists the server-derived subtotal,
   discount, and total, then rejects the request if the database re-read
   no longer matches those expected values.

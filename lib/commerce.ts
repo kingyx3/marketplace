@@ -2,6 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { badRequest, forbidden, notFound } from "@/lib/api/errors";
 import type { CustomerRecord } from "@/lib/api/auth";
+import {
+  bestDiscountBpsForSubtotal,
+  minimumOrderCents,
+  type B2bPricingTier,
+} from "@/lib/b2b";
 
 export const MAX_CHECKOUT_LINES = 10;
 export const MAX_QUANTITY_PER_LINE = 24;
@@ -303,33 +308,41 @@ async function findB2bPricing(
 
   const tiers = await supabase
     .from("pricing_tiers")
-    .select("discount_bps, min_order_cents")
+    .select("id, code, name, discount_bps, min_order_cents")
     .in("id", tierIds);
   if (tiers.error) {
     throw new Error(tiers.error.message);
   }
 
-  const tierRows = tiers.data ?? [];
+  const tierRows = ((tiers.data ?? []) as PricingTierRow[]).map(mapPricingTier);
   if (tierRows.length === 0) {
     throw forbidden("B2B pricing tier assignment required");
   }
 
-  const minimumOrderCents = tierRows.reduce((minimum: number, tier) => {
-    const minOrder = Number(tier.min_order_cents ?? 0);
-    return Math.min(minimum, minOrder);
-  }, Number.POSITIVE_INFINITY);
-  if (subtotalCents < minimumOrderCents) {
-    throw badRequest(`B2B minimum order is ${minimumOrderCents} cents`);
+  const minimumOrder = minimumOrderCents(tierRows);
+  if (subtotalCents < minimumOrder) {
+    throw badRequest(`B2B minimum order is ${minimumOrder} cents`);
   }
 
-  const discountBps = tierRows.reduce((best: number, tier) => {
-    const discount = Number(tier.discount_bps ?? 0);
-    const minOrder = Number(tier.min_order_cents ?? 0);
-    if (subtotalCents >= minOrder && discount > best) {
-      return discount;
-    }
-    return best;
-  }, 0);
+  const discountBps = bestDiscountBpsForSubtotal(tierRows, subtotalCents);
 
-  return { discountBps, minimumOrderCents };
+  return { discountBps, minimumOrderCents: minimumOrder };
+}
+
+function mapPricingTier(row: PricingTierRow): B2bPricingTier {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    discountBps: Number(row.discount_bps ?? 0),
+    minOrderCents: Number(row.min_order_cents ?? 0),
+  };
+}
+
+interface PricingTierRow {
+  id: string;
+  code: string;
+  name: string;
+  discount_bps: number;
+  min_order_cents: number;
 }

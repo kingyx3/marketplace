@@ -38,7 +38,7 @@ export default async function AccountPage({
       listCustomerPreorders(supabase, customer, 5),
       supabase
         .from("b2b_accounts")
-        .select("id, company_name, approved, approved_at, payment_terms")
+        .select("id, company_name, approved, approved_at, payment_terms, review_status")
         .eq("customer_id", customer.id)
         .maybeSingle(),
     ]);
@@ -60,9 +60,11 @@ export default async function AccountPage({
     .filter((order) => !["cancelled", "refunded"].includes(order.status))
     .reduce((sum, order) => sum + order.total_cents, 0);
   const b2bStatus = b2bAccount
-    ? b2bAccount.approved
+    ? b2bAccount.review_status === "approved" || b2bAccount.approved
       ? "Approved"
-      : "Pending review"
+      : b2bAccount.review_status === "rejected"
+        ? "Rejected"
+        : "Pending review"
     : "Not applied";
 
   return (
@@ -270,4 +272,5 @@ type B2bAccount = {
   approved: boolean;
   approved_at: string | null;
   payment_terms: string;
+  review_status: "pending" | "approved" | "rejected";
 };

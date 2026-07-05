@@ -66,9 +66,11 @@ on the preorder. Duplicate Stripe events return the existing order id
 instead of creating another order or decrementing inventory twice.
 
 **B2B is an approval layer on customers.** Any customer can _apply_ for
-a `b2b_accounts` row; only `approved` accounts see wholesale pricing via
-`pricing_tiers` (basis-point discounts + minimum order). Pricing tiers
-are M:N so a customer can hold e.g. a regional tier and a promo tier.
+a `b2b_accounts` row. `review_status` distinguishes pending, approved,
+and rejected applications; approval assigns at least one
+`pricing_tiers` row (basis-point discounts + minimum order) through
+`customer_pricing_tiers`. Pricing tiers are M:N so a customer can hold
+e.g. a regional tier and a promo tier.
 
 **Checkout totals are a database contract.** Server code quotes SKU
 prices, B2B discounts, currency, and inventory first, then passes the

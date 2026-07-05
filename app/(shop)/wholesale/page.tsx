@@ -4,6 +4,13 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { applyForWholesale } from "@/app/actions/account";
 import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
+import {
+  formatDiscountBps,
+  getWholesaleAccess,
+  minimumOrderCents,
+  maxDiscountBps,
+} from "@/lib/b2b";
+import { formatMoney } from "@/lib/money";
 import { createServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +18,13 @@ export const dynamic = "force-dynamic";
 export default async function WholesalePage() {
   const user = await getCurrentUser();
   const customer = user ? await getCustomerProfile(user.id) : null;
-  const account = customer ? await getB2bAccount(customer.id) : null;
+  const supabase = customer ? createServiceClient() : null;
+  const account = supabase && customer ? await getB2bAccount(supabase, customer.id) : null;
+  const wholesaleAccess =
+    supabase && customer ? await getWholesaleAccess(supabase, customer.id) : null;
+  const status = accountStatus(account);
+  const assignedDiscount = maxDiscountBps(wholesaleAccess?.tiers ?? []);
+  const assignedMinimum = minimumOrderCents(wholesaleAccess?.tiers ?? []);
 
   return (
     <div className="space-y-8">
@@ -20,8 +33,14 @@ export default async function WholesalePage() {
         title="B2B sealed allocation"
         description="Approved retailers can request wholesale pricing, case quantities, and purchase-order style fulfillment. Approval is reviewed by staff before discounts apply."
         action={
-          <StatusBadge tone={account?.approved ? "success" : account ? "warning" : "neutral"}>
-            {account?.approved ? "Approved" : account ? "Under review" : "Application required"}
+          <StatusBadge tone={statusTone(status)}>
+            {status === "approved"
+              ? "Approved"
+              : status === "pending"
+                ? "Under review"
+                : status === "rejected"
+                  ? "Rejected"
+                  : "Application required"}
           </StatusBadge>
         }
       />
@@ -63,7 +82,7 @@ export default async function WholesalePage() {
                 />
               </label>
               <button className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
-                Submit for review
+                {status === "rejected" ? "Resubmit for review" : "Submit for review"}
               </button>
             </form>
           )}
@@ -81,12 +100,41 @@ export default async function WholesalePage() {
           <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-zinc-950">Current status</h2>
             <p className="mt-3 text-sm text-zinc-600">
-              {account
-                ? account.approved
-                  ? "Your wholesale account is approved."
-                  : "Your application is waiting for staff review."
-                : "No wholesale application has been submitted for this account."}
+              {status === "approved"
+                ? "Your wholesale account is approved."
+                : status === "pending"
+                  ? "Your application is waiting for staff review."
+                  : status === "rejected"
+                    ? "Your application was rejected. Update the details and resubmit when ready."
+                    : "No wholesale application has been submitted for this account."}
             </p>
+            {status === "approved" && assignedDiscount > 0 ? (
+              <dl className="mt-4 grid gap-3 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">Assigned tier</dt>
+                  <dd className="font-semibold text-zinc-950">
+                    {wholesaleAccess?.tiers.map((tier) => tier.name).join(", ")}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">Best discount</dt>
+                  <dd className="font-semibold text-zinc-950">
+                    {formatDiscountBps(assignedDiscount)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">Minimum order</dt>
+                  <dd className="font-semibold text-zinc-950">
+                    {formatMoney(assignedMinimum)}
+                  </dd>
+                </div>
+              </dl>
+            ) : null}
+            {status === "approved" && assignedDiscount === 0 ? (
+              <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                Your account is approved, but a pricing tier has not been assigned yet.
+              </p>
+            ) : null}
           </div>
         </aside>
       </section>
@@ -94,11 +142,10 @@ export default async function WholesalePage() {
   );
 }
 
-async function getB2bAccount(customerId: string) {
-  const supabase = createServiceClient();
+async function getB2bAccount(supabase: ReturnType<typeof createServiceClient>, customerId: string) {
   const { data, error } = await supabase
     .from("b2b_accounts")
-    .select("id, company_name, business_reg_no, approved, approved_at")
+    .select("id, company_name, business_reg_no, approved, approved_at, review_status, reviewed_at, review_note")
     .eq("customer_id", customerId)
     .maybeSingle();
 
@@ -112,5 +159,22 @@ async function getB2bAccount(customerId: string) {
     business_reg_no: string | null;
     approved: boolean;
     approved_at: string | null;
+    review_status: "pending" | "approved" | "rejected";
+    reviewed_at: string | null;
+    review_note: string | null;
   } | null;
+}
+
+function accountStatus(account: Awaited<ReturnType<typeof getB2bAccount>>) {
+  if (!account) return "none" as const;
+  if (account.review_status === "approved" || account.approved) return "approved" as const;
+  if (account.review_status === "rejected") return "rejected" as const;
+  return "pending" as const;
+}
+
+function statusTone(status: ReturnType<typeof accountStatus>) {
+  if (status === "approved") return "success" as const;
+  if (status === "rejected") return "danger" as const;
+  if (status === "pending") return "warning" as const;
+  return "neutral" as const;
 }

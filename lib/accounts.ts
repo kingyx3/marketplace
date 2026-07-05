@@ -19,7 +19,7 @@ export async function getAccountProfile(supabase: SupabaseClient, customer: Cust
   const b2b = await supabase
     .from("b2b_accounts")
     .select(
-      "id, company_name, business_reg_no, billing_address, credit_limit_cents, payment_terms, approved, approved_at, created_at, updated_at"
+      "id, company_name, business_reg_no, billing_address, credit_limit_cents, payment_terms, approved, approved_at, review_status, reviewed_at, review_note, created_at, updated_at"
     )
     .eq("customer_id", customer.id)
     .maybeSingle();
@@ -80,11 +80,14 @@ export async function upsertB2bApplication(
         payment_terms: "prepaid",
         approved: false,
         approved_at: null,
+        review_status: "pending",
+        reviewed_at: null,
+        review_note: null,
       },
       { onConflict: "customer_id" }
     )
     .select(
-      "id, company_name, business_reg_no, billing_address, credit_limit_cents, payment_terms, approved, approved_at, created_at, updated_at"
+      "id, company_name, business_reg_no, billing_address, credit_limit_cents, payment_terms, approved, approved_at, review_status, reviewed_at, review_note, created_at, updated_at"
     )
     .single();
 

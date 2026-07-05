@@ -7,6 +7,12 @@ import {
   type MarketplaceProduct,
 } from "@/app/_data/marketplace-fixtures";
 import { StatusBadge } from "@/app/_components/status-badge";
+import {
+  discountedPriceCents,
+  formatDiscountBps,
+  maxDiscountBps,
+  type WholesaleAccess,
+} from "@/lib/b2b";
 
 function getStatusTone(status: MarketplaceProduct["setStatus"]) {
   if (status === "preorder_open") return "success";
@@ -16,8 +22,21 @@ function getStatusTone(status: MarketplaceProduct["setStatus"]) {
   return "neutral";
 }
 
-export function ProductCard({ product, sourceLabel }: { product: MarketplaceProduct; sourceLabel?: string }) {
+export function ProductCard({
+  product,
+  sourceLabel,
+  wholesaleAccess,
+}: {
+  product: MarketplaceProduct;
+  sourceLabel?: string;
+  wholesaleAccess?: WholesaleAccess | null;
+}) {
   const available = getAvailable(product);
+  const wholesaleDiscountBps = maxDiscountBps(wholesaleAccess?.tiers ?? []);
+  const wholesalePriceCents =
+    wholesaleDiscountBps > 0
+      ? discountedPriceCents(product.priceCents, wholesaleDiscountBps)
+      : product.priceCents;
 
   return (
     <article className="grid overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
@@ -63,6 +82,17 @@ export function ProductCard({ product, sourceLabel }: { product: MarketplaceProd
             <p className="mt-1 text-xs text-zinc-500">Limit</p>
           </div>
         </div>
+
+        {wholesaleDiscountBps > 0 ? (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+            <p className="font-semibold">
+              Wholesale {formatMoney(wholesalePriceCents, product.currency)}
+            </p>
+            <p className="mt-1 text-xs">
+              Your approved tier: {formatDiscountBps(wholesaleDiscountBps)} off list.
+            </p>
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           {product.tags.map((tag) => (

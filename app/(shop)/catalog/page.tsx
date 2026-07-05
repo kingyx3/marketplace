@@ -8,7 +8,10 @@ import {
   type SetStatus,
 } from "@/app/_data/marketplace-fixtures";
 import { hasSupabasePublicEnv } from "@/lib/env";
+import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
+import { getWholesaleAccess, wholesaleIsActive, type WholesaleAccess } from "@/lib/b2b";
 import { createAnonClient } from "@/lib/supabase";
+import { createServiceClient } from "@/lib/supabase";
 
 // Always render at request time: the catalog reads live inventory and
 // must not be frozen into the build. It also builds without DB creds.
@@ -150,6 +153,7 @@ async function fetchProducts(): Promise<{ products: MarketplaceProduct[]; source
 
 export default async function CatalogPage() {
   const { products, source } = await fetchProducts();
+  const wholesaleAccess = await currentWholesaleAccess();
 
   return (
     <div className="space-y-8">
@@ -207,10 +211,30 @@ export default async function CatalogPage() {
               key={product.slug}
               product={product}
               sourceLabel={source === "live" ? "Live" : "Preview"}
+              wholesaleAccess={wholesaleAccess}
             />
           ))}
         </section>
       )}
     </div>
   );
+}
+
+async function currentWholesaleAccess(): Promise<WholesaleAccess | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const customer = await getCustomerProfile(user.id);
+  if (!customer) return null;
+
+  try {
+    const access = await getWholesaleAccess(createServiceClient(), customer.id);
+    return wholesaleIsActive(access) ? access : null;
+  } catch (error) {
+    console.error("wholesale pricing lookup failed:", safeError(error));
+    return null;
+  }
+}
+
+function safeError(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown";
 }

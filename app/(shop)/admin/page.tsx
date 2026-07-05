@@ -2,7 +2,12 @@ import Link from "next/link";
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { approveWholesale, runPreorderAllocation, updateInventory } from "@/app/actions/admin";
+import {
+  approveWholesale,
+  rejectWholesale,
+  runPreorderAllocation,
+  updateInventory,
+} from "@/app/actions/admin";
 import { requireStaff } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { listAdminOrderExceptions, type AdminOrderException } from "@/lib/orders";
@@ -38,17 +43,28 @@ interface AdminPurchaseOrderRow {
   currency: string;
 }
 
+interface AdminPricingTier {
+  id: string;
+  name: string;
+  code: string;
+  discountBps: number;
+  minOrderCents: number;
+  currency: string;
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const { staff } = await requireStaff("/admin");
   const supabase = createServiceClient();
-  const [inventoryRows, exceptions, b2bApplications, purchaseOrders] = await Promise.all([
-    fetchInventoryRows(supabase),
-    listAdminOrderExceptions(supabase),
-    fetchPendingB2bApplications(supabase),
-    fetchPurchaseOrders(supabase),
-  ]);
+  const [inventoryRows, exceptions, b2bApplications, purchaseOrders, pricingTiers] =
+    await Promise.all([
+      fetchInventoryRows(supabase),
+      listAdminOrderExceptions(supabase),
+      fetchPendingB2bApplications(supabase),
+      fetchPurchaseOrders(supabase),
+      fetchPricingTiers(supabase),
+    ]);
   const metrics = adminMetricsFrom({ inventoryRows, exceptions, b2bApplications });
 
   return (
@@ -255,10 +271,45 @@ export default async function AdminPage() {
                         </p>
                       ) : null}
                     </div>
-                    <form action={approveWholesale} className="mt-4">
+                    <form action={approveWholesale} className="mt-4 grid gap-3">
                       <input type="hidden" name="accountId" value={application.id} />
-                      <button className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700">
-                        Approve
+                      <label className="grid gap-1 text-xs font-medium text-zinc-600">
+                        Pricing tier
+                        <select
+                          className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm text-zinc-800"
+                          name="pricingTierId"
+                          required
+                        >
+                          {pricingTiers.map((tier) => (
+                            <option key={tier.id} value={tier.id}>
+                              {tier.name} ({formatDiscount(tier.discountBps)} off, min{" "}
+                              {formatMoney(tier.minOrderCents, tier.currency)})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {pricingTiers.length === 0 ? (
+                        <p className="text-xs text-amber-700">
+                          Create a wholesale pricing tier before approving accounts.
+                        </p>
+                      ) : null}
+                      <button
+                        className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+                        disabled={pricingTiers.length === 0}
+                      >
+                        Approve with tier
+                      </button>
+                    </form>
+                    <form action={rejectWholesale} className="mt-3 grid gap-2">
+                      <input type="hidden" name="accountId" value={application.id} />
+                      <input
+                        className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+                        maxLength={240}
+                        name="reviewNote"
+                        placeholder="Optional rejection note"
+                      />
+                      <button className="min-h-10 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:border-rose-400">
+                        Reject
                       </button>
                     </form>
                   </article>
@@ -335,6 +386,11 @@ function formatExceptionType(value: string) {
     .join(" ");
 }
 
+function formatDiscount(discountBps: number) {
+  const percent = discountBps / 100;
+  return `${Number.isInteger(percent) ? percent.toFixed(0) : percent.toFixed(2)}%`;
+}
+
 async function fetchInventoryRows(supabase = createServiceClient()): Promise<AdminInventoryRow[]> {
   const { data, error } = await supabase
     .from("inventory")
@@ -379,7 +435,7 @@ async function fetchPendingB2bApplications(
   const { data, error } = await supabase
     .from("b2b_accounts")
     .select("id, company_name, business_reg_no, created_at, customers(email, name)")
-    .eq("approved", false)
+    .eq("review_status", "pending")
     .order("created_at", { ascending: true })
     .limit(10);
 
@@ -402,6 +458,35 @@ async function fetchPendingB2bApplications(
     customerName: row.customers?.name ?? null,
     customerEmail: row.customers?.email ?? null,
     createdAt: row.created_at,
+  }));
+}
+
+async function fetchPricingTiers(supabase = createServiceClient()): Promise<AdminPricingTier[]> {
+  const { data, error } = await supabase
+    .from("pricing_tiers")
+    .select("id, code, name, discount_bps, min_order_cents")
+    .gt("discount_bps", 0)
+    .order("min_order_cents", { ascending: true });
+
+  if (error) {
+    throw new Error(`Pricing tier query failed: ${error.message}`);
+  }
+
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      code: string;
+      name: string;
+      discount_bps: number;
+      min_order_cents: number;
+    }>
+  ).map((row) => ({
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    discountBps: row.discount_bps,
+    minOrderCents: row.min_order_cents,
+    currency: "SGD",
   }));
 }
 

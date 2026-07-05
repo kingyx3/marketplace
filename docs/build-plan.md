@@ -90,14 +90,15 @@ Sequenced to match the 30/60/90-day plan in
 ### Phase 3 — B2B/wholesale
 
 - [x] Customer B2B application page plus server-side approved-account
-      channel gate, assigned-tier pricing, and minimum-order enforcement
-      in quote/checkout
-- [x] Admin B2B application review list and approval action
-- [ ] Admin B2B rejection flow and pricing-tier assignment/removal
-- [ ] Tier pricing visible on catalog/product/cart before checkout
+      channel gate, assigned-tier pricing, visible wholesale prices, and
+      minimum-order enforcement in quote/checkout
+- [x] Admin B2B application review list, rejection flow, and approval with
+      required pricing-tier assignment
+- [x] Tier pricing visible on catalog/product/cart before checkout for
+      approved accounts with assigned tiers
 - [ ] Invoice/PO-style checkout (Stripe invoices or bank transfer + manual confirm)
 - [ ] Supplier purchase-order intake updating `incoming` stock
-- [ ] Admin: B2B pricing-tier assignment and purchase-order intake tools
+- [ ] Admin: B2B pricing-tier removal and purchase-order intake tools
 
 ### Phase 4 — scale & polish
 
@@ -117,6 +118,7 @@ Sequenced to match the 30/60/90-day plan in
 
 The protected admin page now covers live inventory updates, preorder
 allocation, payment-exception visibility, purchase-order visibility, and
-B2B approval. Product/SKU CRUD, payment reconciliation UI, pricing-tier
-assignment, B2B rejection, and supplier PO intake are still manual,
-reviewed workflows tracked above and in `docs/admin-operations.md`.
+B2B approval/rejection with pricing-tier assignment. Product/SKU CRUD,
+payment reconciliation UI, pricing-tier removal, and supplier PO intake
+are still manual, reviewed workflows tracked above and in
+`docs/admin-operations.md`.

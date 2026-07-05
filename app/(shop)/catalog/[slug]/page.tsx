@@ -7,6 +7,16 @@ import { Timeline } from "@/app/_components/timeline";
 import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
 import { addToCart } from "@/app/actions/cart";
 import { getAppName } from "@/lib/app-config";
+import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
+import {
+  discountedPriceCents,
+  formatDiscountBps,
+  getWholesaleAccess,
+  maxDiscountBps,
+  minimumOrderCents,
+  type WholesaleAccess,
+} from "@/lib/b2b";
+import { formatMoney as formatSharedMoney } from "@/lib/money";
 import {
   formatMoney,
   formatStatus,
@@ -15,6 +25,7 @@ import {
   type MarketplaceProduct,
 } from "@/app/_data/marketplace-fixtures";
 import { getCatalogProduct, type CatalogProduct } from "@/lib/catalog";
+import { createServiceClient } from "@/lib/supabase";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
@@ -38,6 +49,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const product = mergeProduct(liveProduct, getProduct(slug));
   if (!product) notFound();
 
+  const wholesaleAccess = await currentWholesaleAccess();
+  const wholesaleDiscountBps = maxDiscountBps(wholesaleAccess?.tiers ?? []);
+  const wholesaleMinimumCents = minimumOrderCents(wholesaleAccess?.tiers ?? []);
+  const wholesalePriceCents =
+    wholesaleDiscountBps > 0
+      ? discountedPriceCents(product.priceCents, wholesaleDiscountBps)
+      : product.priceCents;
   const available = getAvailable(product);
   const skuId = liveProduct?.skus[0]?.id ?? null;
   const preorderTimeline = [
@@ -125,6 +143,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <p className="mt-2 text-sm text-zinc-500">
                 MSRP {formatMoney(product.msrpCents, product.currency)}
               </p>
+            ) : null}
+            {wholesaleDiscountBps > 0 ? (
+              <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                <p className="font-semibold">
+                  Approved wholesale price {formatMoney(wholesalePriceCents, product.currency)}
+                </p>
+                <p className="mt-1 text-xs">
+                  {formatDiscountBps(wholesaleDiscountBps)} off list after the{" "}
+                  {formatSharedMoney(wholesaleMinimumCents, product.currency)} wholesale minimum.
+                </p>
+              </div>
             ) : null}
             <div className="mt-5 grid gap-2">
               {skuId ? (
@@ -242,4 +271,23 @@ function mergeProduct(
     tags: fixture?.tags ?? ["Live catalog"],
     channels: fixture?.channels ?? ["b2c"],
   };
+}
+
+async function currentWholesaleAccess(): Promise<WholesaleAccess | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const customer = await getCustomerProfile(user.id);
+  if (!customer) return null;
+
+  try {
+    const access = await getWholesaleAccess(createServiceClient(), customer.id);
+    return access.status === "approved" && access.tiers.length > 0 ? access : null;
+  } catch (error) {
+    console.error("product wholesale pricing lookup failed:", safeError(error));
+    return null;
+  }
+}
+
+function safeError(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown";
 }

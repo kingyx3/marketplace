@@ -51,14 +51,17 @@ export async function shipOrder(formData: FormData) {
 }
 
 export async function approveWholesale(formData: FormData) {
-  await requireStaff("/admin/wholesale");
+  const { user } = await requireStaff("/admin/wholesale");
   const accountId = String(formData.get("accountId") ?? "");
+  const pricingTierId = String(formData.get("pricingTierId") ?? "");
 
   const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("b2b_accounts")
-    .update({ approved: true, approved_at: new Date().toISOString() })
-    .eq("id", accountId);
+  const { error } = await supabase.rpc("admin_review_b2b_account", {
+    p_account_id: accountId,
+    p_decision: "approved",
+    p_pricing_tier_id: pricingTierId,
+    p_actor: `staff:${user.id}`,
+  });
 
   if (error) {
     throw new Error(`Wholesale approval failed: ${error.message}`);
@@ -66,6 +69,31 @@ export async function approveWholesale(formData: FormData) {
 
   revalidatePath("/admin/wholesale");
   revalidatePath("/admin");
+  revalidatePath("/wholesale");
+  revalidatePath("/catalog");
+}
+
+export async function rejectWholesale(formData: FormData) {
+  const { user } = await requireStaff("/admin/wholesale");
+  const accountId = String(formData.get("accountId") ?? "");
+  const reviewNote = String(formData.get("reviewNote") ?? "");
+
+  const supabase = createServiceClient();
+  const { error } = await supabase.rpc("admin_review_b2b_account", {
+    p_account_id: accountId,
+    p_decision: "rejected",
+    p_review_note: reviewNote,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) {
+    throw new Error(`Wholesale rejection failed: ${error.message}`);
+  }
+
+  revalidatePath("/admin/wholesale");
+  revalidatePath("/admin");
+  revalidatePath("/wholesale");
+  revalidatePath("/catalog");
 }
 
 export async function runPreorderAllocation(formData: FormData) {

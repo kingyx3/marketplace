@@ -12,6 +12,9 @@ describe("admin surface", () => {
     expect(source).toContain("listAdminOrderExceptions");
     expect(source).toContain("fetchPendingB2bApplications");
     expect(source).toContain("fetchPurchaseOrders");
+    expect(source).toContain("fetchPricingTiers");
     expect(source).toContain("approveWholesale");
+    expect(source).toContain("rejectWholesale");
+    expect(source).toContain("pricingTierId");
   });
 });
