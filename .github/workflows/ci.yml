@@ -40,10 +40,15 @@ jobs:
               - 'next.config.ts'
               - 'eslint.config.mjs'
               - 'vitest.config.ts'
+              - 'playwright.config.ts'
+              - 'e2e/**'
               - 'postcss.config.mjs'
+              - 'vercel.json'
+              - 'supabase/**'
             config:
               - '.env.example'
               - '.github/workflows/**'
+              - '.github/ci/**'
               - 'docs/admin-operations.md'
               - 'docs/build-plan.md'
               - 'docs/cost-controls.md'
@@ -51,9 +56,13 @@ jobs:
               - 'docs/environments.md'
               - 'docs/security.md'
               - 'docs/testing.md'
+              - 'supabase/config.toml'
+              - 'supabase/migrations/**'
+              - 'vercel.json'
               - 'scripts/**'
               - 'tests/env.test.ts'
               - 'tests/deploy-workflow.test.ts'
+              - 'tests/config-contract.test.ts'
             migrations:
               - 'supabase/**'
 
@@ -109,6 +118,21 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  e2e-smoke:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+
   config-contract:
     needs: changes
     if: needs.changes.outputs.config == 'true'
@@ -125,7 +149,8 @@ jobs:
           for file in .github/workflows/*.yml; do
             npx --yes js-yaml "$file" >/dev/null
           done
-      - run: npm test -- tests/env.test.ts tests/deploy-workflow.test.ts
+      - run: npm run config:check
+      - run: npm test -- tests/env.test.ts tests/deploy-workflow.test.ts tests/config-contract.test.ts
 
   # Apply every migration + seed against a clean postgres to catch
   # SQL errors before they reach `supabase db push` in deploy.
@@ -138,7 +163,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
-        ports: ['5432:5432']
+        ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready
           --health-interval 5s

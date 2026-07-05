@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { configuredChannels, sendOrderConfirmationEmail } from "@/lib/notifications";
+import { configuredChannels, providers, sendOrderConfirmationEmail } from "@/lib/notifications";
 
 describe("order confirmation notifications", () => {
   it("records a skipped notification when Resend is not configured", async () => {
@@ -37,10 +37,14 @@ describe("order confirmation notifications", () => {
 
   it("sends through Resend once and persists the provider message id", async () => {
     const { supabase, calls } = fakeSupabase();
-    const fetcher = vi.fn(async () => Response.json({ id: "resend-message-123" }, { status: 200 }));
+    const fetcher = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      void args;
+      return Response.json({ id: "resend-message-123" }, { status: 200 });
+    });
 
     const result = await sendOrderConfirmationEmail(supabase as never, "order-123", {
       env: {
+        APP_NAME: "Card Vault",
         NEXT_PUBLIC_SITE_URL: "https://shop.example.test",
         RESEND_API_KEY: "re_test_123",
         RESEND_FROM_EMAIL: "orders@example.test",
@@ -64,6 +68,11 @@ describe("order confirmation notifications", () => {
         }),
       })
     );
+    const [, requestInit] = fetcher.mock.calls[0] as [RequestInfo | URL, RequestInit];
+    const body = JSON.parse(String(requestInit.body));
+    expect(body.subject).toContain("Card Vault order confirmation");
+    expect(body.text).toContain("Your Card Vault order is confirmed.");
+    expect(body.html).toContain("Card Vault has received your payment");
     expect(calls.updates[0]).toMatchObject({
       table: "notifications",
       update: {
@@ -124,6 +133,94 @@ describe("order confirmation notifications", () => {
         RESEND_FROM_EMAIL: "orders@example.test",
       })
     ).toContain("email");
+  });
+
+  it("sends Telegram messages through the Bot API", async () => {
+    const fetcher = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      void args;
+      return Response.json({ ok: true, result: { message_id: 42 } }, { status: 200 });
+    });
+
+    const result = await providers.telegram.send(
+      {
+        channel: "telegram",
+        customerId: "customer-123",
+        to: "123456789",
+        template: "drop_alert",
+        payload: {},
+        text: "Drop is live",
+      },
+      {
+        env: { TELEGRAM_BOT_TOKEN: "telegram-token" },
+        fetcher: fetcher as never,
+      }
+    );
+
+    expect(result).toEqual({ ok: true, providerMessageId: "42" });
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.telegram.org/bottelegram-token/sendMessage",
+      expect.objectContaining({ method: "POST" })
+    );
+    const [, requestInit] = fetcher.mock.calls[0] as [RequestInfo | URL, RequestInit];
+    expect(JSON.parse(String(requestInit.body))).toMatchObject({
+      chat_id: "123456789",
+      text: "Drop is live",
+      disable_web_page_preview: true,
+    });
+  });
+
+  it("sends WhatsApp messages through the Cloud API", async () => {
+    const fetcher = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      void args;
+      return Response.json({ messages: [{ id: "wamid.123" }] }, { status: 200 });
+    });
+
+    const result = await providers.whatsapp.send(
+      {
+        channel: "whatsapp",
+        customerId: "customer-123",
+        to: "6591234567",
+        template: "drop_alert",
+        payload: {},
+        text: "Drop is live",
+      },
+      {
+        env: {
+          WHATSAPP_ACCESS_TOKEN: "whatsapp-token",
+          WHATSAPP_PHONE_NUMBER_ID: "phone-number-id",
+        },
+        fetcher: fetcher as never,
+      }
+    );
+
+    expect(result).toEqual({ ok: true, providerMessageId: "wamid.123" });
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://graph.facebook.com/v20.0/phone-number-id/messages",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer whatsapp-token" }),
+      })
+    );
+    const [, requestInit] = fetcher.mock.calls[0] as [RequestInfo | URL, RequestInit];
+    expect(JSON.parse(String(requestInit.body))).toMatchObject({
+      messaging_product: "whatsapp",
+      to: "6591234567",
+      type: "text",
+      text: { body: "Drop is live" },
+    });
+  });
+
+  it("reports Telegram and WhatsApp as configured only with complete provider keys", () => {
+    expect(configuredChannels({ TELEGRAM_BOT_TOKEN: "telegram-token" })).toContain("telegram");
+    expect(configuredChannels({ WHATSAPP_ACCESS_TOKEN: "whatsapp-token" })).not.toContain(
+      "whatsapp"
+    );
+    expect(
+      configuredChannels({
+        WHATSAPP_ACCESS_TOKEN: "whatsapp-token",
+        WHATSAPP_PHONE_NUMBER_ID: "phone-number-id",
+      })
+    ).toContain("whatsapp");
   });
 });
 

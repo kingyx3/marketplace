@@ -4,7 +4,7 @@ Derived from the market gaps in [§02](02-competitive-benchmarking.md)
 and the segments in [§05](05-customer-segmentation.md). Each feature is
 marked against whether it exists in the current scaffold or is
 roadmap (`docs/build-plan.md` is the authoritative status list — this
-section is the *rationale*, not a duplicate status tracker).
+section is the _rationale_, not a duplicate status tracker).
 
 ## Core catalog & discovery
 
@@ -48,9 +48,12 @@ section is the *rationale*, not a duplicate status tracker).
 - Multi-channel (email first, then Telegram/WhatsApp/SMS — the
   audience for this category in SEA is heavily Telegram/WhatsApp-native)
   for: pre-order confirmed, allocation result, balance due, shipped.
-  Provider-agnostic interface already stubbed (`lib/notifications.ts`).
+  Provider-agnostic interface lives in `lib/notifications.ts`; Resend
+  email and Telegram/WhatsApp drop alerts are implemented, with SMS
+  still feature-gated.
 
 ## Admin / operator surface (not customer-facing, but required to run
+
 the business)
 
 - Inventory view against `inventory.on_hand/allocated/incoming` with

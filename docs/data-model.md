@@ -45,16 +45,47 @@ column. Pre-orders may be taken against confirmed incoming stock, but
 the constraint makes overselling a transaction failure rather than a
 support ticket.
 
+**Product and SKU archive are state, not destructive deletes.**
+`products.active` removes a product from the storefront while preserving
+historical order/preorder references. `booster_box_skus.active` does the
+same for individual sellable SKUs, and checkout RPCs refuse inactive SKUs
+even if a stale cart still contains one.
+
 **Allocation is data, not code branches.** `allocation_rules` (priority,
 channel, reserve quantity, per-customer cap) drives who gets scarce
 stock — e.g. "reserve 8 boxes for B2C at max 2/customer; B2B takes the
 rest FIFO". The pure engine in `lib/allocation.ts` mirrors this and is
 unit-tested; the seed ships a working example.
 
+**Preorder allocation is a guarded state transition.**
+`apply_preorder_allocations` increments `preorders.allocated_qty` and
+`inventory.allocated` together, refuses allocations beyond
+`on_hand + incoming`, and derives `balance_cents` from allocated units
+minus deposit and captured balance payments. The app computes candidates
+from live rows, but the database enforces the stock boundary.
+
+**Supplier PO intake is a guarded stock transition.**
+`admin_create_supplier_purchase_order` validates supplier, SKU, quantity,
+unit cost, currency, and actor, then records a confirmed
+`purchase_orders` row, one `purchase_order_items` row, and increments
+`inventory.incoming` in the same service-role transaction. Operators must
+not separately edit incoming stock for the same PO.
+
+**Preorder conversion is idempotent.** Balance PaymentIntent success
+calls `mark_preorder_balance_paid`, which validates amount/currency
+against the remaining allocated balance, records the captured balance
+payment, creates one paid order and order item, and stores the order id
+on the preorder. Duplicate Stripe events return the existing order id
+instead of creating another order or decrementing inventory twice.
+
 **B2B is an approval layer on customers.** Any customer can _apply_ for
-a `b2b_accounts` row; only `approved` accounts see wholesale pricing via
-`pricing_tiers` (basis-point discounts + minimum order). Pricing tiers
-are M:N so a customer can hold e.g. a regional tier and a promo tier.
+a `b2b_accounts` row. `review_status` distinguishes pending, approved,
+and rejected applications; approval assigns at least one
+`pricing_tiers` row (basis-point discounts + minimum order) through
+`customer_pricing_tiers`. Pricing tiers are M:N so a customer can hold
+e.g. a regional tier and a promo tier.
+Removing the last assigned tier leaves the account approved but disables
+wholesale checkout because checkout requires at least one current tier.
 
 **Checkout totals are a database contract.** Server code quotes SKU
 prices, B2B discounts, currency, and inventory first, then passes the
@@ -63,9 +94,16 @@ expected subtotal/discount/total into
 prices and allocates inventory atomically; if the quote changed, order
 creation fails before Stripe is charged.
 
+**B2B invoice checkout is still an order/payment contract.** Invoice/PO
+checkout creates a `pending_payment` order with the same checkout RPC and
+stores a `manual_invoice` payment placeholder. The order is not paid
+until staff records audited reconciliation with the exact amount,
+currency, provider, and invoice reference.
+
 **Audit by trigger.** `audit_logs` is written by a generic trigger on
 the money/stock-critical tables (inventory, orders, preorders, payments,
-refunds, allocation_rules, b2b_accounts). Nobody has to remember to log.
+refunds, allocation_rules, b2b_accounts, purchase_orders,
+purchase_order_items). Nobody has to remember to log.
 
 **Webhook idempotency is a table.** `webhook_events` has
 `unique (provider, event_id)`; the Stripe route inserts before
@@ -74,12 +112,25 @@ processing and treats a duplicate-key error as "already handled".
 stored order total before releasing allocation and decrementing stock, so
 duplicate or underpaid payment events fail closed.
 
+**Waitlist entries are customer-owned state.** `waitlist_entries` binds a
+customer, SKU, notification channel, and contact target under a unique
+`customer_id, sku_id, channel` constraint. The API validates active SKUs
+and contact formats server-side, and customers can only read their own
+rows through RLS.
+
 **Notification delivery is deduped.** `notifications` stores provider,
 provider message id, a unique `dedupe_key`, `sent_at`, and delivery
 error state. Order-confirmation email uses `order_confirmation:<order
 id>` so duplicate payment webhooks cannot send duplicate customer email.
-Missing providers are recorded as `skipped` instead of being treated as
-checkout failures.
+Drop alerts use a waitlist-entry dedupe key before calling email,
+Telegram, or WhatsApp providers. Missing providers are recorded as
+`skipped` instead of being treated as checkout failures.
+
+**Product images use managed storage.** Supabase Storage bucket
+`product-images` is created by migration with image-only MIME limits and
+a 5 MiB object cap. Catalog image URLs can point at public objects in
+that bucket, while object writes require active staff or service-role
+server code.
 
 **Admin payment exceptions are durable.** `payment_exceptions` records
 manual flags and operator-visible payment anomalies without exposing the
@@ -93,6 +144,12 @@ manual reconciliation, and exception flagging. Direct `paid` status
 updates are not an API contract; reconciliation must include provider,
 payment reference, amount, currency, reason, and actor.
 
+**Admin catalog and inventory mutations are explicit database actions.**
+Product/SKU create, update, archive, image assignment, and inventory
+adjustment go through service-role-only functions. Inventory adjustment
+requires a reason code and keeps the stock invariant enforced in the
+database.
+
 ## Row-level security
 
 RLS is enabled on **every** table:
@@ -101,11 +158,12 @@ RLS is enabled on **every** table:
   (`tcg_categories` → `booster_box_skus`) and `inventory` availability:
   public read.
 - `customers`, `preorders`, `orders`, `order_items`, `payments`,
-  `shipments`, `b2b_accounts`, `notifications`: customers read their own
-  rows via `auth.uid()`; customer profile updates include both `USING`
-  and `WITH CHECK`; all commercial writes go through the service role so
-  state machines and stock checks stay server-side.
+  `shipments`, `b2b_accounts`, `notifications`, `waitlist_entries`:
+  customers read their own rows via `auth.uid()`; customer profile
+  updates include both `USING` and `WITH CHECK`; all commercial writes
+  go through the service role so state machines and stock checks stay
+  server-side.
 - Supply-side and admin-only tables (`suppliers`, `purchase_orders`,
-  `pricing_tiers`, `allocation_rules`, `refunds`, `audit_logs`,
-  `webhook_events`, `payment_exceptions`): no
+  `purchase_order_items`, `pricing_tiers`, `allocation_rules`, `refunds`,
+  `audit_logs`, `webhook_events`, `payment_exceptions`): no
   anon/authenticated policies at all — service role only.

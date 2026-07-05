@@ -12,7 +12,7 @@ Browser ──▶ Vercel (Next.js 15, App Router)
             Supabase (managed Postgres)
               ├─ RLS-enforced anon access (catalog, own orders)
               ├─ Auth (customer accounts)
-              └─ Storage (product images — future)
+              └─ Storage (public product images)
                     ▲
             Stripe (PaymentIntents, manual capture for pre-orders)
 ```
@@ -28,8 +28,11 @@ Browser ──▶ Vercel (Next.js 15, App Router)
 - **Search**: Postgres full-text (GIN index on products). Upgrade path:
   Typesense or Algolia when the catalog outgrows FTS relevance.
 - **Notifications**: provider-agnostic interface (`lib/notifications.ts`).
-  Resend order-confirmation email is implemented; SMS, Telegram, and
-  WhatsApp remain feature-gated stubs.
+  Resend order-confirmation email and email/Telegram/WhatsApp drop
+  alerts are implemented; SMS remains a feature-gated stub.
+- **Product media**: Supabase Storage `product-images` bucket is created
+  by migration. Product images are publicly readable; writes require
+  service-role server code or an authenticated active staff user.
 - **Admin operations**: no browser admin console exists yet. Production
   admin work follows `docs/admin-operations.md` until the protected admin
   UI is built.

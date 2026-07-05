@@ -1,15 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getAppName } from "@/lib/app-config";
 import { formatMoney } from "@/lib/money";
 
 export type NotificationChannel = "email" | "sms" | "telegram" | "whatsapp";
 
-type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
+export type NotificationStatus = "queued" | "sent" | "failed" | "skipped";
 
 interface EnvLike {
   RESEND_API_KEY?: string;
   RESEND_FROM_EMAIL?: string;
   SUPPORT_EMAIL?: string;
   NEXT_PUBLIC_SITE_URL?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  WHATSAPP_ACCESS_TOKEN?: string;
+  WHATSAPP_PHONE_NUMBER_ID?: string;
   [key: string]: string | undefined;
 }
 
@@ -80,6 +84,99 @@ const resendEmailProvider: NotificationProvider = {
   },
 };
 
+const telegramProvider: NotificationProvider = {
+  channel: "telegram",
+  isConfigured(env = process.env) {
+    return Boolean(env.TELEGRAM_BOT_TOKEN);
+  },
+  async send(message, options = {}) {
+    const env = options.env ?? process.env;
+    const fetcher = options.fetcher ?? fetch;
+    if (!env.TELEGRAM_BOT_TOKEN) {
+      return { ok: false, error: "telegram provider disabled" };
+    }
+
+    const text = message.text ?? message.subject ?? "";
+    if (!text.trim()) {
+      return { ok: false, error: "telegram message body is required" };
+    }
+
+    const response = await fetcher(
+      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: message.to,
+          text,
+          disable_web_page_preview: true,
+        }),
+      }
+    );
+
+    const body = await safeJson(response);
+    if (!response.ok) {
+      return { ok: false, error: telegramErrorMessage(body, response.status) };
+    }
+
+    const result = body?.result;
+    const providerMessageId =
+      result && typeof result === "object" && "message_id" in result
+        ? String((result as { message_id?: unknown }).message_id)
+        : undefined;
+    return { ok: true, providerMessageId };
+  },
+};
+
+const whatsappProvider: NotificationProvider = {
+  channel: "whatsapp",
+  isConfigured(env = process.env) {
+    return Boolean(env.WHATSAPP_ACCESS_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID);
+  },
+  async send(message, options = {}) {
+    const env = options.env ?? process.env;
+    const fetcher = options.fetcher ?? fetch;
+    if (!env.WHATSAPP_ACCESS_TOKEN || !env.WHATSAPP_PHONE_NUMBER_ID) {
+      return { ok: false, error: "whatsapp provider disabled" };
+    }
+
+    const text = message.text ?? message.subject ?? "";
+    if (!text.trim()) {
+      return { ok: false, error: "whatsapp message body is required" };
+    }
+
+    const response = await fetcher(
+      `https://graph.facebook.com/v20.0/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: message.to,
+          type: "text",
+          text: { body: text },
+        }),
+      }
+    );
+
+    const body = await safeJson(response);
+    if (!response.ok) {
+      return { ok: false, error: whatsappErrorMessage(body, response.status) };
+    }
+
+    const messages = Array.isArray(body?.messages) ? body.messages : [];
+    const first = messages[0];
+    const providerMessageId =
+      first && typeof first === "object" && "id" in first
+        ? String((first as { id?: unknown }).id)
+        : undefined;
+    return { ok: true, providerMessageId };
+  },
+};
+
 function stubProvider(
   channel: NotificationChannel,
   requiredEnvKeys: string[]
@@ -96,8 +193,8 @@ function stubProvider(
 export const providers: Record<NotificationChannel, NotificationProvider> = {
   email: resendEmailProvider,
   sms: stubProvider("sms", ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"]),
-  telegram: stubProvider("telegram", ["TELEGRAM_BOT_TOKEN"]),
-  whatsapp: stubProvider("whatsapp", ["WHATSAPP_ACCESS_TOKEN"]),
+  telegram: telegramProvider,
+  whatsapp: whatsappProvider,
 };
 
 export function configuredChannels(env: EnvLike = process.env): NotificationChannel[] {
@@ -188,7 +285,7 @@ async function fetchOrderForConfirmation(
   return data as OrderConfirmationRow;
 }
 
-async function claimNotification(
+export async function claimNotification(
   supabase: SupabaseClient,
   message: NotificationMessage,
   options: { provider: string; dedupeKey: string }
@@ -219,7 +316,7 @@ async function claimNotification(
   return { id: data.id as string, duplicate: false };
 }
 
-async function updateNotification(
+export async function updateNotification(
   supabase: SupabaseClient,
   id: string,
   update: {
@@ -242,6 +339,7 @@ function buildOrderConfirmationMessage(
 ): NotificationMessage {
   const siteUrl = (env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
   const supportEmail = env.SUPPORT_EMAIL ?? env.RESEND_FROM_EMAIL ?? "support@example.invalid";
+  const appName = getAppName(env);
   const items = (order.order_items ?? []).map((item) => ({
     name: productNameForItem(item),
     sku: skuForItem(item),
@@ -256,13 +354,14 @@ function buildOrderConfirmationMessage(
     currency: order.currency,
     status: order.status,
     placedAt: order.placed_at,
+    appName,
     items,
     supportEmail,
   };
 
-  const subject = `Order confirmation ${order.id.slice(0, 8)}`;
+  const subject = `${appName} order confirmation ${order.id.slice(0, 8)}`;
   const text = [
-    `Thanks${customer.name ? `, ${customer.name}` : ""}. Your order is confirmed.`,
+    `Thanks${customer.name ? `, ${customer.name}` : ""}. Your ${appName} order is confirmed.`,
     `Order: ${order.id}`,
     `Status: ${order.status}`,
     `Total: ${formatMoney(order.total_cents, order.currency)}`,
@@ -274,6 +373,7 @@ function buildOrderConfirmationMessage(
   const html = `
     <div>
       <p>Thanks${customer.name ? `, ${escapeHtml(customer.name)}` : ""}. Your order is confirmed.</p>
+      <p>${escapeHtml(appName)} has received your payment and queued the order for fulfillment.</p>
       <p><strong>Order:</strong> ${escapeHtml(order.id)}</p>
       <p><strong>Status:</strong> ${escapeHtml(order.status)}</p>
       <p><strong>Total:</strong> ${escapeHtml(formatMoney(order.total_cents, order.currency))}</p>
@@ -319,6 +419,24 @@ function resendErrorMessage(body: Record<string, unknown> | null, status: number
   return typeof message === "string" && message.trim()
     ? `Resend error ${status}: ${message}`
     : `Resend error ${status}`;
+}
+
+function telegramErrorMessage(body: Record<string, unknown> | null, status: number): string {
+  const message = body?.description ?? body?.error;
+  return typeof message === "string" && message.trim()
+    ? `Telegram error ${status}: ${message}`
+    : `Telegram error ${status}`;
+}
+
+function whatsappErrorMessage(body: Record<string, unknown> | null, status: number): string {
+  const error = body?.error;
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? (error as { message?: unknown }).message
+      : body?.message;
+  return typeof message === "string" && message.trim()
+    ? `WhatsApp error ${status}: ${message}`
+    : `WhatsApp error ${status}`;
 }
 
 function productNameForItem(item: OrderItemRow): string {

@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { getAppName } from "@/lib/app-config";
 import { getCurrentUser } from "@/lib/auth";
 
 import "./globals.css";
 
+const appName = getAppName();
+
 export const metadata: Metadata = {
-  title: "Marketplace | TCG Booster Boxes",
+  title: `${appName} | TCG Booster Boxes`,
   description:
     "Sealed TCG booster boxes for players, collectors, and retailers. B2C, wholesale, and pre-orders.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  const appName = getAppName();
 
   return (
     <html lang="en">
@@ -20,7 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
             <Link href="/" className="text-lg font-semibold text-zinc-950">
-              Marketplace
+              {appName}
             </Link>
             <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-zinc-600">
               <Link href="/" className="hover:text-zinc-950">

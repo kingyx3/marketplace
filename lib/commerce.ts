@@ -2,6 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { badRequest, forbidden, notFound } from "@/lib/api/errors";
 import type { CustomerRecord } from "@/lib/api/auth";
+import {
+  bestDiscountBpsForSubtotal,
+  minimumOrderCents,
+  type B2bPricingTier,
+} from "@/lib/b2b";
 
 export const MAX_CHECKOUT_LINES = 10;
 export const MAX_QUANTITY_PER_LINE = 24;
@@ -68,6 +73,7 @@ export interface CheckoutQuote {
 interface SkuRecord {
   id: string;
   sku: string;
+  active: boolean;
   price_cents: number;
   currency: string;
   product_variant_id: string;
@@ -144,7 +150,8 @@ export async function quoteCheckout(
     lines.push(line);
   }
 
-  const discountBps = await findBestDiscountBps(supabase, customer.id, subtotalCents, channel);
+  const pricing = await findB2bPricing(supabase, customer.id, subtotalCents, channel);
+  const discountBps = pricing.discountBps;
   const discountCents = calculateDiscountCents(subtotalCents, discountBps);
   const totalCents = subtotalCents - discountCents;
   const depositCents =
@@ -194,7 +201,7 @@ async function quoteLine(
 ): Promise<CheckoutLine> {
   const { data: sku, error: skuError } = await supabase
     .from("booster_box_skus")
-    .select("id, sku, price_cents, currency, product_variant_id")
+    .select("id, sku, active, price_cents, currency, product_variant_id")
     .eq("id", item.skuId)
     .single();
   if (skuError || !sku) {
@@ -202,6 +209,10 @@ async function quoteLine(
   }
 
   const skuRecord = sku as SkuRecord;
+  if (!skuRecord.active) {
+    throw badRequest("SKU is not active");
+  }
+
   const productName = await productNameForSku(supabase, skuRecord.product_variant_id);
   const inventory = await inventoryForSku(supabase, skuRecord.id);
   const availableToSell = availableQuantity(inventory, mode);
@@ -277,13 +288,13 @@ function availableQuantity(inventory: InventoryRecord, mode: CheckoutMode): numb
   return Math.max(0, physicalAvailable - stockBuffer);
 }
 
-async function findBestDiscountBps(
+async function findB2bPricing(
   supabase: SupabaseClient,
   customerId: string,
   subtotalCents: number,
   channel: SalesChannel
-): Promise<number> {
-  if (channel !== "b2b") return 0;
+): Promise<{ discountBps: number; minimumOrderCents: number }> {
+  if (channel !== "b2b") return { discountBps: 0, minimumOrderCents: 0 };
 
   const assigned = await supabase
     .from("customer_pricing_tiers")
@@ -296,22 +307,47 @@ async function findBestDiscountBps(
   const tierIds = (assigned.data ?? [])
     .map((row: { pricing_tier_id?: string }) => row.pricing_tier_id)
     .filter((id): id is string => Boolean(id));
-  if (tierIds.length === 0) return 0;
+  if (tierIds.length === 0) {
+    throw forbidden("B2B pricing tier assignment required");
+  }
 
   const tiers = await supabase
     .from("pricing_tiers")
-    .select("discount_bps, min_order_cents")
+    .select("id, code, name, discount_bps, min_order_cents")
     .in("id", tierIds);
   if (tiers.error) {
     throw new Error(tiers.error.message);
   }
 
-  return (tiers.data ?? []).reduce((best: number, tier) => {
-    const discount = Number(tier.discount_bps ?? 0);
-    const minOrder = Number(tier.min_order_cents ?? 0);
-    if (subtotalCents >= minOrder && discount > best) {
-      return discount;
-    }
-    return best;
-  }, 0);
+  const tierRows = ((tiers.data ?? []) as PricingTierRow[]).map(mapPricingTier);
+  if (tierRows.length === 0) {
+    throw forbidden("B2B pricing tier assignment required");
+  }
+
+  const minimumOrder = minimumOrderCents(tierRows);
+  if (subtotalCents < minimumOrder) {
+    throw badRequest(`B2B minimum order is ${minimumOrder} cents`);
+  }
+
+  const discountBps = bestDiscountBpsForSubtotal(tierRows, subtotalCents);
+
+  return { discountBps, minimumOrderCents: minimumOrder };
+}
+
+function mapPricingTier(row: PricingTierRow): B2bPricingTier {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    discountBps: Number(row.discount_bps ?? 0),
+    minOrderCents: Number(row.min_order_cents ?? 0),
+  };
+}
+
+interface PricingTierRow {
+  id: string;
+  code: string;
+  name: string;
+  discount_bps: number;
+  min_order_cents: number;
 }

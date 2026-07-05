@@ -17,6 +17,13 @@
 - `TARGET_ENV` is a non-secret deploy guard. It must match the selected
   GitHub Environment before migrations or Vercel changes run.
 
+## Response headers
+
+`vercel.json` defines production-safe response headers for every route:
+frame embedding is denied, MIME sniffing is disabled, referrers are
+trimmed cross-origin, browser permissions are minimized, and API routes
+return `Cache-Control: no-store, max-age=0`.
+
 ## Row-level security
 
 RLS is enabled on every table and Data API exposure is granted
@@ -33,6 +40,13 @@ All writes to commercial tables go through server code using the
 service role, so price calculation, stock checks, and state machines
 cannot be bypassed from a browser.
 
+## Storage
+
+Product images live in the public Supabase Storage bucket
+`product-images`, created by SQL migration. Public reads are allowed for
+catalog media; object insert/update/delete is limited to the service
+role or authenticated active staff through `current_user_is_staff()`.
+
 ## Admin boundary
 
 Admin routes require server-verified staff access from `staff_users` or
@@ -48,10 +62,24 @@ actions, not generic status writes:
   order before it can mark paid.
 - `flag_payment_exception` writes `payment_exceptions` for operator
   review.
+- `admin_create_supplier_purchase_order` validates supplier, SKU,
+  quantity, unit cost, currency, and actor before creating a confirmed
+  PO and incrementing incoming stock.
+- `admin_remove_b2b_pricing_tier` removes one assigned wholesale tier and
+  records the actor; wholesale checkout remains blocked until a current
+  tier is assigned.
+- `admin_upsert_catalog_product`, `admin_upsert_booster_box_sku`, and
+  archive/restore functions validate slug/SKU/currency/integer-cent
+  fields and preserve historical rows instead of deleting product data.
+- `admin_adjust_inventory` requires a reason code and actor before
+  changing stock counters.
 
 Manual admin changes must follow `docs/admin-operations.md` and require
-trusted operator access. Broader product/B2B admin UI remains roadmap
-work.
+trusted operator access. B2B approval and rejection are explicit
+service-role transitions; approval requires a pricing tier assignment in
+the same database function. Supplier setup UI remains roadmap work.
+The admin payment-exception console posts to the same audited action path
+as the API and cannot directly set an order to `paid`.
 
 ## Webhooks (Stripe)
 
@@ -68,6 +96,16 @@ work.
 
 - Amounts are integer cents; the client never supplies a price — the
   server derives it from `booster_box_skus` + `pricing_tiers`.
+- B2B checkout fails closed unless the customer has an approved wholesale
+  account and an assigned pricing tier; tier minimum order values are
+  enforced before any PaymentIntent is created.
+- Wholesale prices are rendered only from server-verified customer
+  approval and tier assignment. Guests and unapproved accounts receive
+  retail pricing only.
+- B2B invoice/PO checkout uses the same server-derived quote and checkout
+  order RPC as card checkout. It creates a pending-payment order plus a
+  `manual_invoice` payment placeholder; staff must use audited manual
+  reconciliation before the order can become paid.
 - Checkout order creation persists the server-derived subtotal,
   discount, and total, then rejects the request if the database re-read
   no longer matches those expected values.
@@ -90,6 +128,14 @@ work.
 - Pre-order deposits use PaymentIntents with `capture_method: manual`
   (authorize now, capture at allocation) so uncaptured funds are
   releasable on cancellation without a refund flow.
+- Pre-order allocation is admin-only and persists through
+  `apply_preorder_allocations`, which refuses deltas beyond
+  `inventory.on_hand + inventory.incoming` and only considers
+  outstanding preorder quantity.
+- Pre-order balances are created from server-side preorder rows. The
+  client sends only auth plus the preorder id; `mark_preorder_balance_paid`
+  validates provider amount/currency against the remaining allocated
+  balance before creating the converted paid order.
 - Live Stripe keys exist only in the `production` GitHub Environment,
   which requires human approval to deploy.
 
@@ -101,6 +147,15 @@ work.
 - Resend secrets stay server-side. Transactional email payloads include
   order number, item names/SKUs, amount, status, order link, and support
   contact, but never provider secrets or raw payment credentials.
+- Waitlist/drop-alert writes are server-authorized: the API binds alert
+  rows to the authenticated customer and validates the SKU, channel, and
+  contact target before saving. Customers can read only their own alert
+  rows through RLS.
+- Telegram and WhatsApp drop alerts use server-side provider adapters.
+  Delivery is claimed with a unique notification dedupe key before the
+  provider call, and staff-triggered delivery returns only status counts.
+  Provider tokens, phone-number IDs, and customer contact targets are not
+  logged by the app.
 
 ## Readiness checks
 

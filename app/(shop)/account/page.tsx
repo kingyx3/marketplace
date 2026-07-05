@@ -3,6 +3,7 @@ import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { requireCustomer } from "@/lib/auth";
+import { getAppName } from "@/lib/app-config";
 import { createServiceClient } from "@/lib/supabase";
 import { listCustomerOrders, listCustomerPreorders } from "@/lib/orders";
 import { formatMoney } from "@/lib/money";
@@ -14,30 +15,40 @@ import {
   type LiveOrder,
   type LivePreorder,
 } from "@/lib/order-display";
+import { listCustomerWaitlist, type CustomerWaitlistEntry } from "@/lib/waitlist";
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ welcome?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const appName = getAppName();
   const { customer } = await requireCustomer("/account");
   const supabase = createServiceClient();
   let recentOrders: LiveOrder[] = [];
   let recentPreorders: LivePreorder[] = [];
+  let recentWaitlist: CustomerWaitlistEntry[] = [];
   let b2bAccount: B2bAccount | null = null;
   let dataError = false;
 
   try {
-    const [orders, preorders, b2b] = await Promise.all([
+    const [orders, preorders, waitlist, b2b] = await Promise.all([
       listCustomerOrders(supabase, customer, 5),
       listCustomerPreorders(supabase, customer, 5),
+      listCustomerWaitlist(supabase, customer.id, 5),
       supabase
         .from("b2b_accounts")
-        .select("id, company_name, approved, approved_at, payment_terms")
+        .select("id, company_name, approved, approved_at, payment_terms, review_status")
         .eq("customer_id", customer.id)
         .maybeSingle(),
     ]);
 
     recentOrders = orders as LiveOrder[];
     recentPreorders = preorders as LivePreorder[];
+    recentWaitlist = waitlist;
     if (b2b.error) throw new Error(b2b.error.message);
     b2bAccount = (b2b.data as B2bAccount | null) ?? null;
   } catch (error) {
@@ -53,9 +64,11 @@ export default async function AccountPage() {
     .filter((order) => !["cancelled", "refunded"].includes(order.status))
     .reduce((sum, order) => sum + order.total_cents, 0);
   const b2bStatus = b2bAccount
-    ? b2bAccount.approved
+    ? b2bAccount.review_status === "approved" || b2bAccount.approved
       ? "Approved"
-      : "Pending review"
+      : b2bAccount.review_status === "rejected"
+        ? "Rejected"
+        : "Pending review"
     : "Not applied";
 
   return (
@@ -74,6 +87,11 @@ export default async function AccountPage() {
       {dataError ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
           Account activity could not be loaded right now.
+        </div>
+      ) : null}
+      {params.welcome === "1" ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          Welcome to {appName}. Your Google account is connected, and your dashboard is ready.
         </div>
       ) : null}
 
@@ -101,7 +119,7 @@ export default async function AccountPage() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-zinc-950">
-                  {customer.name ?? "Marketplace customer"}
+                  {customer.name ?? `${appName} customer`}
                 </h2>
                 <p className="mt-1 text-sm text-zinc-500">{customer.email}</p>
               </div>
@@ -202,6 +220,33 @@ export default async function AccountPage() {
               )}
             </div>
           </section>
+
+          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-zinc-950">Drop alerts</h2>
+            <div className="mt-4 grid gap-3">
+              {recentWaitlist.length === 0 ? (
+                <EmptyState href="/catalog" label="Browse catalog" text="No drop alerts yet." />
+              ) : (
+                recentWaitlist.slice(0, 3).map((entry) => (
+                  <Link
+                    className="rounded-md border border-zinc-200 p-4 hover:border-emerald-500"
+                    href={entry.productSlug ? `/catalog/${entry.productSlug}` : "/catalog"}
+                    key={entry.id}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-zinc-950">{entry.productName}</span>
+                      <StatusBadge tone={waitlistTone(entry.status)}>
+                        {formatStatus(entry.status)}
+                      </StatusBadge>
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-500">
+                      {entry.sku} / {formatStatus(entry.channel)}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
         </aside>
       </section>
     </div>
@@ -242,6 +287,12 @@ function preorderTone(status: string) {
   return "info" as const;
 }
 
+function waitlistTone(status: string) {
+  if (status === "notified") return "success" as const;
+  if (status === "cancelled") return "danger" as const;
+  return "info" as const;
+}
+
 function provisioningTone(status: string) {
   if (status === "active") return "success" as const;
   if (status === "error") return "danger" as const;
@@ -258,4 +309,5 @@ type B2bAccount = {
   approved: boolean;
   approved_at: string | null;
   payment_terms: string;
+  review_status: "pending" | "approved" | "rejected";
 };

@@ -1,8 +1,10 @@
-# marketplace
+# Marketplace
 
 Sealed TCG booster box distribution — **B2C retail, B2B wholesale, and
 pre-orders** — for Magic: The Gathering, Pokémon, Yu-Gi-Oh!, One Piece,
 Lorcana, and Flesh and Blood. Singapore/SEA-first, with global benchmarks.
+The deployed display name is supplied by the `APP_NAME` GitHub
+Environment variable and propagated into the generated runtime env.
 
 This repository currently contains:
 
@@ -27,7 +29,8 @@ npx supabase db reset        # apply migrations + seed
 npm run dev                  # http://localhost:3000
 ```
 
-Checks: `npm run lint && npm run typecheck && npm test && npm run build`
+Checks:
+`npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e`
 
 ## Deployment
 

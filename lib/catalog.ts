@@ -4,6 +4,7 @@ import { createAnonClient, createServiceClient } from "@/lib/supabase";
 export interface CatalogSku {
   id: string;
   sku: string;
+  active: boolean;
   priceCents: number;
   currency: string;
   available: number;
@@ -38,6 +39,7 @@ interface ProductRow {
     booster_box_skus: Array<{
       id: string;
       sku: string;
+      active: boolean;
       price_cents: number;
       currency: string;
       inventory: Array<{ available: number; incoming: number }>;
@@ -51,7 +53,7 @@ export async function getCatalogProducts(): Promise<CatalogProduct[] | null> {
   const { data, error } = await supabase
     .from("products")
     .select(
-      "id, name, slug, product_type, description, image_url, tcg_categories(name), sets_releases(name, code, status, release_date), product_variants(booster_box_skus(id, sku, price_cents, currency, inventory(available, incoming)))"
+      "id, name, slug, product_type, description, image_url, tcg_categories(name), sets_releases(name, code, status, release_date), product_variants(booster_box_skus(id, sku, active, price_cents, currency, inventory(available, incoming)))"
     )
     .eq("active", true)
     .order("name")
@@ -71,7 +73,7 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
   const { data, error } = await supabase
     .from("products")
     .select(
-      "id, name, slug, product_type, description, image_url, tcg_categories(name), sets_releases(name, code, status, release_date), product_variants(booster_box_skus(id, sku, price_cents, currency, inventory(available, incoming)))"
+      "id, name, slug, product_type, description, image_url, tcg_categories(name), sets_releases(name, code, status, release_date), product_variants(booster_box_skus(id, sku, active, price_cents, currency, inventory(available, incoming)))"
     )
     .eq("slug", slug)
     .eq("active", true)
@@ -95,7 +97,7 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
   const { data, error } = await supabase
     .from("booster_box_skus")
     .select(
-      "id, sku, price_cents, currency, product_variants(products(name, slug, image_url)), inventory(available, incoming)"
+      "id, sku, active, price_cents, currency, product_variants(products(name, slug, image_url, active)), inventory(available, incoming)"
     )
     .in("id", skuIds);
 
@@ -106,16 +108,19 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
   const rows = (data ?? []) as unknown as Array<{
     id: string;
     sku: string;
+    active: boolean;
     price_cents: number;
     currency: string;
-    product_variants: { products: { name: string; slug: string; image_url: string | null } | null } | null;
+    product_variants: {
+      products: { name: string; slug: string; image_url: string | null; active: boolean } | null;
+    } | null;
     inventory: Array<{ available: number; incoming: number }>;
   }>;
 
   const bySku = new Map(rows.map((row) => [row.id, row]));
   const lines = items.map((item) => {
     const row = bySku.get(item.skuId);
-    if (!row) {
+    if (!row || !row.active || !row.product_variants?.products?.active) {
       throw new Error("A cart item is no longer available");
     }
     const product = row.product_variants?.products;
@@ -148,14 +153,17 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
 
 function mapProduct(row: ProductRow): CatalogProduct {
   const skus = row.product_variants.flatMap((variant) =>
-    variant.booster_box_skus.map((sku) => ({
-      id: sku.id,
-      sku: sku.sku,
-      priceCents: sku.price_cents,
-      currency: sku.currency,
-      available: sku.inventory.reduce((sum, inv) => sum + inv.available, 0),
-      incoming: sku.inventory.reduce((sum, inv) => sum + inv.incoming, 0),
-    }))
+    variant.booster_box_skus
+      .filter((sku) => sku.active)
+      .map((sku) => ({
+        id: sku.id,
+        sku: sku.sku,
+        active: sku.active,
+        priceCents: sku.price_cents,
+        currency: sku.currency,
+        available: sku.inventory.reduce((sum, inv) => sum + inv.available, 0),
+        incoming: sku.inventory.reduce((sum, inv) => sum + inv.incoming, 0),
+      }))
   );
 
   return {

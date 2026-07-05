@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { appendWelcomeParam, isFreshSignup } from "@/lib/signup-welcome";
 import { createUserClient } from "@/lib/supabase";
 
 export async function GET(request: Request) {
@@ -11,12 +12,16 @@ export async function GET(request: Request) {
     const supabase = await createUserClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const redirectPath = user && isFreshSignup(user) ? appendWelcomeParam(next) : next;
       const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocal = process.env.NODE_ENV === "development";
       if (!isLocal && forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+        return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`);
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${origin}${redirectPath}`);
     }
   }
 

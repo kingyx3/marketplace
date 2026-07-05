@@ -4,6 +4,7 @@ import { z } from "zod";
 import { badRequest, conflict, internalError, notFound } from "@/lib/api/errors";
 import type { ApiCustomerContext } from "@/lib/api/auth";
 import {
+  cartItemSchema,
   checkoutRequestSchema,
   quoteCheckout,
   type CheckoutQuote,
@@ -23,8 +24,23 @@ export interface CheckoutResult {
   quote: CheckoutQuote;
 }
 
+export interface InvoiceCheckoutResult {
+  orderId: string;
+  paymentId: string;
+  provider: "manual_invoice";
+  providerPaymentId: string;
+  amountCents: number;
+  currency: string;
+  status: "pending_payment";
+}
+
 const cancelCheckoutSchema = z.object({
   paymentIntentId: z.string().trim().min(3).max(200).startsWith("pi_"),
+});
+
+export const invoiceCheckoutRequestSchema = z.object({
+  items: z.array(cartItemSchema).min(1).max(10),
+  purchaseOrderReference: z.string().trim().max(120).optional(),
 });
 
 export function checkoutResponseBody(result: CheckoutResult) {
@@ -38,6 +54,18 @@ export function checkoutResponseBody(result: CheckoutResult) {
     amountCents: result.amountCents,
     currency: result.publishableCurrency,
     quote: result.quote,
+  };
+}
+
+export function invoiceCheckoutResponseBody(result: InvoiceCheckoutResult) {
+  return {
+    orderId: result.orderId,
+    paymentId: result.paymentId,
+    provider: result.provider,
+    providerPaymentId: result.providerPaymentId,
+    amountCents: result.amountCents,
+    currency: result.currency,
+    status: result.status,
   };
 }
 
@@ -56,6 +84,117 @@ export async function createCheckoutPayment(
   return quote.mode === "preorder"
     ? createPreorderPayment(auth, quote, stripe)
     : createOrderPayment(auth, quote, stripe);
+}
+
+export async function createInvoiceCheckout(
+  auth: ApiCustomerContext,
+  body: unknown
+): Promise<InvoiceCheckoutResult> {
+  const input = invoiceCheckoutRequestSchema.parse(body);
+  const quote = await quoteCheckout(
+    auth.supabase,
+    { mode: "order", channel: "b2b", items: input.items },
+    auth.customer
+  );
+
+  if (quote.totalCents <= 0) {
+    throw badRequest("Invoice checkout total must be greater than zero");
+  }
+
+  let orderId: string | null = null;
+
+  try {
+    const order = await auth.supabase
+      .rpc("create_checkout_order_from_cart", checkoutOrderRpcParams(auth.user.id, quote))
+      .single();
+    if (order.error || !order.data) {
+      throw new Error(order.error?.message ?? "invoice order creation failed");
+    }
+    orderId = (order.data as { order_id: string }).order_id;
+
+    const providerPaymentId = `invoice:${orderId}`;
+    const payment = await insertManualInvoicePayment(auth.supabase, {
+      orderId,
+      providerPaymentId,
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+    });
+
+    await recordInvoiceRequestAudit(auth.supabase, {
+      orderId,
+      customerId: auth.customer.id,
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+      purchaseOrderReference: input.purchaseOrderReference,
+    });
+
+    return {
+      orderId,
+      paymentId: payment.id,
+      provider: "manual_invoice",
+      providerPaymentId,
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+      status: "pending_payment",
+    };
+  } catch (error) {
+    if (orderId) {
+      await rollbackAllocatedOrder(auth.supabase, orderId);
+    }
+    throw error instanceof Error ? error : internalError();
+  }
+}
+
+export async function createPreorderBalancePayment(
+  auth: ApiCustomerContext,
+  preorderId: string,
+  stripe: Stripe = createStripeClient()
+): Promise<CheckoutResult> {
+  const preorder = await payablePreorderBalance(auth, preorderId);
+  await assertNoOpenBalancePayment(auth.supabase, preorder.id);
+
+  let paymentIntentId: string | null = null;
+
+  try {
+    const intent = await stripe.paymentIntents.create({
+      amount: preorder.balance_cents,
+      currency: preorder.currency.toLowerCase(),
+      automatic_payment_methods: { enabled: true },
+      receipt_email: auth.customer.email,
+      metadata: {
+        kind: "balance",
+        preorder_id: preorder.id,
+        customer_id: auth.customer.id,
+      },
+    });
+    paymentIntentId = intent.id;
+
+    const payment = await insertPayment(auth.supabase, {
+      preorderId: preorder.id,
+      providerPaymentId: intent.id,
+      kind: "balance",
+      amountCents: preorder.balance_cents,
+      currency: preorder.currency,
+      status: "pending",
+    });
+
+    return checkoutResultFromIntent({
+      mode: "preorder",
+      preorderId: preorder.id,
+      paymentId: payment.id,
+      intent,
+      quote: balanceQuoteFromPreorder(preorder),
+    });
+  } catch (error) {
+    if (paymentIntentId) {
+      try {
+        await stripe.paymentIntents.cancel(paymentIntentId);
+      } catch (cancelError) {
+        console.error("Stripe balance payment cancellation failed:", safeErrorMessage(cancelError));
+      }
+    }
+    throw error instanceof Error ? error : internalError();
+  }
 }
 
 export function checkoutOrderRpcParams(authUserId: string, quote: CheckoutQuote) {
@@ -144,7 +283,7 @@ export async function cancelPendingCheckoutPayment(
     await assertCustomerOrderIsCancellable(auth, payment.order_id);
   }
   if (payment.preorder_id) {
-    await assertCustomerPreorderIsCancellable(auth, payment.preorder_id);
+    await assertCustomerPreorderIsCancellable(auth, payment.preorder_id, payment.kind);
   }
 
   try {
@@ -179,7 +318,7 @@ export async function cancelPendingCheckoutPayment(
     }
   }
 
-  if (payment.preorder_id) {
+  if (payment.preorder_id && payment.kind !== "balance") {
     const preorderUpdate = await auth.supabase
       .from("preorders")
       .update({ status: "cancelled" })
@@ -301,10 +440,69 @@ async function insertPayment(
   return { id: data.id };
 }
 
+async function insertManualInvoicePayment(
+  supabase: SupabaseClient,
+  input: {
+    orderId: string;
+    providerPaymentId: string;
+    amountCents: number;
+    currency: string;
+  }
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("payments")
+    .insert({
+      order_id: input.orderId,
+      provider: "manual_invoice",
+      provider_payment_id: input.providerPaymentId,
+      kind: "invoice",
+      amount_cents: input.amountCents,
+      currency: input.currency,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "invoice payment insert failed");
+  }
+
+  return { id: data.id };
+}
+
+async function recordInvoiceRequestAudit(
+  supabase: SupabaseClient,
+  input: {
+    orderId: string;
+    customerId: string;
+    amountCents: number;
+    currency: string;
+    purchaseOrderReference?: string;
+  }
+) {
+  const { error } = await supabase.from("audit_logs").insert({
+    actor: `customer:${input.customerId}`,
+    table_name: "orders",
+    record_id: input.orderId,
+    action: "B2B_INVOICE_REQUEST",
+    new_data: {
+      order_id: input.orderId,
+      customer_id: input.customerId,
+      amount_cents: input.amountCents,
+      currency: input.currency,
+      purchase_order_reference: input.purchaseOrderReference?.trim() || null,
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 async function paymentByIntent(supabase: SupabaseClient, paymentIntentId: string) {
   const { data, error } = await supabase
     .from("payments")
-    .select("id, order_id, preorder_id, status")
+    .select("id, order_id, preorder_id, kind, status")
     .eq("provider", "stripe")
     .eq("provider_payment_id", paymentIntentId)
     .maybeSingle();
@@ -317,6 +515,7 @@ async function paymentByIntent(supabase: SupabaseClient, paymentIntentId: string
     id: string;
     order_id: string | null;
     preorder_id: string | null;
+    kind: "full" | "deposit" | "balance";
     status: string;
   } | null;
 }
@@ -345,7 +544,8 @@ async function assertCustomerOrderIsCancellable(
 
 async function assertCustomerPreorderIsCancellable(
   auth: ApiCustomerContext,
-  preorderId: string
+  preorderId: string,
+  paymentKind: string
 ): Promise<void> {
   const { data, error } = await auth.supabase
     .from("preorders")
@@ -360,9 +560,102 @@ async function assertCustomerPreorderIsCancellable(
   if (!data) {
     throw notFound("Pre-order not found");
   }
-  if (!["pending_deposit", "deposited"].includes(String(data.status))) {
+  const cancellableStatuses =
+    paymentKind === "balance" ? ["balance_due"] : ["pending_deposit", "deposited"];
+  if (!cancellableStatuses.includes(String(data.status))) {
     throw conflict("Pre-order can no longer be cancelled");
   }
+}
+
+async function payablePreorderBalance(
+  auth: ApiCustomerContext,
+  preorderId: string
+): Promise<PayablePreorder> {
+  const { data, error } = await auth.supabase
+    .from("preorders")
+    .select(
+      "id, customer_id, sku_id, channel, quantity, unit_price_cents, deposit_cents, balance_cents, currency, status, allocated_qty, booster_box_skus(sku, product_variants(products(name)))"
+    )
+    .eq("id", preorderId)
+    .eq("customer_id", auth.customer.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw notFound("Pre-order not found");
+  }
+
+  const preorder = data as PayablePreorder;
+  if (preorder.status !== "balance_due") {
+    throw conflict("Pre-order balance is not due");
+  }
+  if (preorder.allocated_qty <= 0) {
+    throw conflict("Pre-order has not been allocated");
+  }
+  const remaining = Math.max(
+    0,
+    preorder.allocated_qty * preorder.unit_price_cents - preorder.deposit_cents
+  );
+  if (preorder.balance_cents <= 0 || preorder.balance_cents > remaining) {
+    throw conflict("Pre-order balance is invalid");
+  }
+
+  return preorder;
+}
+
+async function assertNoOpenBalancePayment(supabase: SupabaseClient, preorderId: string) {
+  const { data, error } = await supabase
+    .from("payments")
+    .select("id, status")
+    .eq("preorder_id", preorderId)
+    .eq("kind", "balance")
+    .in("status", ["pending", "authorized", "captured"])
+    .limit(1);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const existing = data?.[0];
+  if (!existing) return;
+  throw conflict(
+    existing.status === "captured"
+      ? "Pre-order balance is already paid"
+      : "Pre-order balance payment is already in progress"
+  );
+}
+
+function balanceQuoteFromPreorder(preorder: PayablePreorder): CheckoutQuote {
+  const sku = one(preorder.booster_box_skus);
+  const variant = one(sku?.product_variants);
+  const product = one(variant?.products);
+  const subtotalCents = preorder.allocated_qty * preorder.unit_price_cents;
+
+  return {
+    mode: "preorder",
+    channel: preorder.channel,
+    currency: preorder.currency,
+    lines: [
+      {
+        skuId: preorder.sku_id,
+        sku: sku?.sku ?? preorder.sku_id,
+        productName: product?.name ?? "Pre-order allocation",
+        quantity: preorder.allocated_qty,
+        unitPriceCents: preorder.unit_price_cents,
+        lineTotalCents: subtotalCents,
+        currency: preorder.currency,
+        availableToSell: preorder.allocated_qty,
+      },
+    ],
+    subtotalCents,
+    discountBps: 0,
+    discountCents: 0,
+    totalCents: subtotalCents,
+    depositCents: preorder.balance_cents,
+    balanceCents: 0,
+  };
 }
 
 function checkoutResultFromIntent(input: {
@@ -408,14 +701,43 @@ async function rollbackFailedCheckout(
   }
 
   if (input.orderId) {
-    await supabase.rpc("release_order_allocation", { p_order_id: input.orderId });
-    await supabase.from("orders").update({ status: "cancelled" }).eq("id", input.orderId);
+    await rollbackAllocatedOrder(supabase, input.orderId);
   }
   if (input.preorderId) {
     await supabase.from("preorders").update({ status: "cancelled" }).eq("id", input.preorderId);
   }
 }
 
+async function rollbackAllocatedOrder(supabase: SupabaseClient, orderId: string): Promise<void> {
+  await supabase.rpc("release_order_allocation", { p_order_id: orderId });
+  await supabase.from("orders").update({ status: "cancelled" }).eq("id", orderId);
+}
+
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "unknown";
+}
+
+function one<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+type MaybeArray<T> = T | T[] | null | undefined;
+
+interface PayablePreorder {
+  id: string;
+  customer_id: string;
+  sku_id: string;
+  channel: "b2c" | "b2b";
+  quantity: number;
+  unit_price_cents: number;
+  deposit_cents: number;
+  balance_cents: number;
+  currency: string;
+  status: string;
+  allocated_qty: number;
+  booster_box_skus?: MaybeArray<{
+    sku: string;
+    product_variants?: MaybeArray<{ products?: MaybeArray<{ name: string }> }>;
+  }>;
 }

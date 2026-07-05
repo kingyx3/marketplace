@@ -75,6 +75,13 @@ export const ENV_CONTRACT = [
     pattern: /^https?:\/\/.+/,
     hint: "canonical public URL of this environment",
   },
+  {
+    key: "APP_NAME",
+    required: true,
+    secret: false,
+    pattern: /\S/,
+    hint: "display name used in app chrome, metadata, health, and transactional copy",
+  },
   // --- Deploy-time only (not written to .env) ---
   {
     key: "TARGET_ENV",
@@ -134,6 +141,12 @@ export const ENV_CONTRACT = [
   { key: "TWILIO_AUTH_TOKEN", required: false, secret: true, hint: "SMS via Twilio" },
   { key: "TELEGRAM_BOT_TOKEN", required: false, secret: true, hint: "Telegram Bot API" },
   { key: "WHATSAPP_ACCESS_TOKEN", required: false, secret: true, hint: "WhatsApp Cloud API" },
+  {
+    key: "WHATSAPP_PHONE_NUMBER_ID",
+    required: false,
+    secret: false,
+    hint: "WhatsApp Cloud API sender phone-number id",
+  },
 ];
 
 /**
@@ -162,9 +175,16 @@ export function renderDotenv(env) {
     if (entry.deployOnly) continue;
     const value = env[entry.key];
     if (value === undefined || value === "") continue;
-    lines.push(`${entry.key}=${value}`);
+    lines.push(`${entry.key}=${formatDotenvValue(value)}`);
   }
   return lines.join("\n") + "\n";
+}
+
+function formatDotenvValue(value) {
+  if (/[\s#"'\\]/.test(value)) {
+    return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  }
+  return value;
 }
 
 export function parseDotenv(content) {

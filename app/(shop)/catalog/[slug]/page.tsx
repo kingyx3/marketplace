@@ -4,7 +4,20 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
+import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
+import { WaitlistSignupPanel } from "@/app/(shop)/catalog/[slug]/waitlist-signup-panel";
 import { addToCart } from "@/app/actions/cart";
+import { getAppName } from "@/lib/app-config";
+import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
+import {
+  discountedPriceCents,
+  formatDiscountBps,
+  getWholesaleAccess,
+  maxDiscountBps,
+  minimumOrderCents,
+  type WholesaleAccess,
+} from "@/lib/b2b";
+import { formatMoney as formatSharedMoney } from "@/lib/money";
 import {
   formatMoney,
   formatStatus,
@@ -13,6 +26,7 @@ import {
   type MarketplaceProduct,
 } from "@/app/_data/marketplace-fixtures";
 import { getCatalogProduct, type CatalogProduct } from "@/lib/catalog";
+import { createServiceClient } from "@/lib/supabase";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
@@ -23,9 +37,10 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
   const product = getProduct(slug);
+  const appName = getAppName();
 
   return {
-    title: product ? `${product.name} | Marketplace` : "Product | Marketplace",
+    title: product ? `${product.name} | ${appName}` : `Product | ${appName}`,
   };
 }
 
@@ -35,6 +50,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const product = mergeProduct(liveProduct, getProduct(slug));
   if (!product) notFound();
 
+  const wholesaleAccess = await currentWholesaleAccess();
+  const wholesaleDiscountBps = maxDiscountBps(wholesaleAccess?.tiers ?? []);
+  const wholesaleMinimumCents = minimumOrderCents(wholesaleAccess?.tiers ?? []);
+  const wholesalePriceCents =
+    wholesaleDiscountBps > 0
+      ? discountedPriceCents(product.priceCents, wholesaleDiscountBps)
+      : product.priceCents;
   const available = getAvailable(product);
   const skuId = liveProduct?.skus[0]?.id ?? null;
   const preorderTimeline = [
@@ -50,7 +72,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
         eyebrow={`${product.game} / ${product.setCode}`}
         title={product.name}
         description={product.description}
-        action={<StatusBadge tone={product.setStatus === "preorder_open" ? "success" : "neutral"}>{formatStatus(product.setStatus)}</StatusBadge>}
+        action={
+          <StatusBadge tone={product.setStatus === "preorder_open" ? "success" : "neutral"}>
+            {formatStatus(product.setStatus)}
+          </StatusBadge>
+        }
       />
 
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -119,6 +145,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 MSRP {formatMoney(product.msrpCents, product.currency)}
               </p>
             ) : null}
+            {wholesaleDiscountBps > 0 ? (
+              <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                <p className="font-semibold">
+                  Approved wholesale price {formatMoney(wholesalePriceCents, product.currency)}
+                </p>
+                <p className="mt-1 text-xs">
+                  {formatDiscountBps(wholesaleDiscountBps)} off list after the{" "}
+                  {formatSharedMoney(wholesaleMinimumCents, product.currency)} wholesale minimum.
+                </p>
+              </div>
+            ) : null}
             <div className="mt-5 grid gap-2">
               {skuId ? (
                 <form action={addToCart} className="grid gap-3">
@@ -147,12 +184,30 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </Link>
               )}
               {product.setStatus === "preorder_open" ? (
-                <Link
-                  href="/preorders"
-                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-5 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700"
-                >
-                  Place preorder
-                </Link>
+                skuId ? (
+                  <CartCheckoutPanel
+                    authRedirectPath={`/catalog/${product.slug}`}
+                    clearCartOnSuccess={false}
+                    items={[{ skuId, quantity: 1 }]}
+                    mode="preorder"
+                    publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                    returnPath="/preorders?checkout=processing"
+                    startLabel="Pay preorder deposit"
+                    successHref="/preorders"
+                    successLabel="View preorders"
+                    supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                    supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+                  />
+                ) : null
+              ) : null}
+              {skuId ? (
+                <WaitlistSignupPanel
+                  authRedirectPath={`/catalog/${product.slug}`}
+                  inStock={available > 0}
+                  skuId={skuId}
+                  supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                  supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+                />
               ) : null}
             </div>
           </section>
@@ -202,8 +257,12 @@ function mergeProduct(
     setName: liveProduct?.setName ?? fixture?.setName ?? "Set pending",
     setCode: liveProduct?.setCode ?? fixture?.setCode ?? "TBD",
     releaseDate: liveProduct?.releaseDate ?? fixture?.releaseDate ?? "TBD",
-    setStatus: (liveProduct?.setStatus as MarketplaceProduct["setStatus"] | null) ?? fixture?.setStatus ?? "announced",
-    productType: liveProduct?.productType.replaceAll("_", " ") ?? fixture?.productType ?? "Booster box",
+    setStatus:
+      (liveProduct?.setStatus as MarketplaceProduct["setStatus"] | null) ??
+      fixture?.setStatus ??
+      "announced",
+    productType:
+      liveProduct?.productType.replaceAll("_", " ") ?? fixture?.productType ?? "Booster box",
     sku: sku?.sku ?? fixture?.sku ?? "SKU",
     language: fixture?.language ?? "EN",
     priceCents: sku?.priceCents ?? fixture?.priceCents ?? 0,
@@ -222,4 +281,23 @@ function mergeProduct(
     tags: fixture?.tags ?? ["Live catalog"],
     channels: fixture?.channels ?? ["b2c"],
   };
+}
+
+async function currentWholesaleAccess(): Promise<WholesaleAccess | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const customer = await getCustomerProfile(user.id);
+  if (!customer) return null;
+
+  try {
+    const access = await getWholesaleAccess(createServiceClient(), customer.id);
+    return access.status === "approved" && access.tiers.length > 0 ? access : null;
+  } catch (error) {
+    console.error("product wholesale pricing lookup failed:", safeError(error));
+    return null;
+  }
+}
+
+function safeError(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown";
 }

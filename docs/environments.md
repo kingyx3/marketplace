@@ -36,21 +36,23 @@ GitHub Environment name.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`       | anon/publishable key (safe to expose; RLS-enforced)       |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`  | `pk_test_...` in dev/staging, `pk_live_...` in production |
 | `NEXT_PUBLIC_SITE_URL`                | `https://staging.example.com`                             |
+| `APP_NAME`                            | `Marketplace`                                             |
 | `TARGET_ENV`                          | `development`, `staging`, or `production`                 |
 | `SUPABASE_PROJECT_REF`                | `abcd1234`                                                |
 | `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | from `vercel link` → `.vercel/project.json`               |
 
 ### Optional (notification channels — missing key = channel disabled)
 
-| Key                     | Type   | Channel  |
-| ----------------------- | ------ | -------- |
-| `RESEND_API_KEY`        | secret | email    |
-| `RESEND_FROM_EMAIL`     | var    | email    |
-| `SUPPORT_EMAIL`         | var    | email    |
-| `TWILIO_ACCOUNT_SID`    | var    | SMS      |
-| `TWILIO_AUTH_TOKEN`     | secret | SMS      |
-| `TELEGRAM_BOT_TOKEN`    | secret | Telegram |
-| `WHATSAPP_ACCESS_TOKEN` | secret | WhatsApp |
+| Key                        | Type   | Channel  |
+| -------------------------- | ------ | -------- |
+| `RESEND_API_KEY`           | secret | email    |
+| `RESEND_FROM_EMAIL`        | var    | email    |
+| `SUPPORT_EMAIL`            | var    | email    |
+| `TWILIO_ACCOUNT_SID`       | var    | SMS      |
+| `TWILIO_AUTH_TOKEN`        | secret | SMS      |
+| `TELEGRAM_BOT_TOKEN`       | secret | Telegram |
+| `WHATSAPP_ACCESS_TOKEN`    | secret | WhatsApp |
+| `WHATSAPP_PHONE_NUMBER_ID` | var    | WhatsApp |
 
 ## One-time bootstrap (manual, per environment)
 
@@ -65,3 +67,10 @@ CI cannot create provider accounts. Once, per environment:
 
 After bootstrap, everything flows from git: migrations, env sync to
 Vercel, deploys, smoke tests.
+
+Provider settings that still remain manual: creating the provider
+accounts/projects, entering GitHub Environment vars/secrets, enabling
+Google OAuth credentials in Supabase Auth, and creating the Stripe
+webhook endpoint. Vercel build/header config, Supabase schema, and
+product-image storage bucket/policies are checked in and validated by
+CI.

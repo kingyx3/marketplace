@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
+import { getAppName } from "@/lib/app-config";
 import { ApiError } from "@/lib/api/errors";
 import { requireCustomer } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase";
@@ -27,7 +28,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: OrderPageProps) {
   const { id } = await params;
-  return { title: `${id} | Marketplace` };
+  return { title: `${id} | ${getAppName()}` };
 }
 
 export default async function OrderPage({ params }: OrderPageProps) {
