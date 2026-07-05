@@ -5,6 +5,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import {
   approveWholesale,
   rejectWholesale,
+  runAdminOrderAction,
   runPreorderAllocation,
   updateInventory,
 } from "@/app/actions/admin";
@@ -217,6 +218,7 @@ export default async function AdminPage() {
         <aside className="space-y-5">
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-zinc-950">Payment exceptions</h2>
+            <ManualReconciliationForm />
             <div className="mt-5 grid gap-3">
               {exceptions.length === 0 ? (
                 <p className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
@@ -244,6 +246,32 @@ export default async function AdminPage() {
                         <dd>{exception.paymentId ?? exception.providerPaymentId ?? "None"}</dd>
                       </div>
                     </dl>
+                    {exception.orderId ? (
+                      <div className="mt-4 grid gap-3">
+                        {exception.providerPaymentId ? (
+                          <ManualReconciliationForm
+                            compact
+                            defaultOrderId={exception.orderId}
+                            defaultProviderPaymentId={exception.providerPaymentId}
+                            defaultReason={`Resolve ${formatExceptionType(exception.exceptionType)}`}
+                          />
+                        ) : null}
+                        {exception.exceptionType === "failed_payment_allocation" ? (
+                          <form action={runAdminOrderAction} className="grid gap-2">
+                            <input type="hidden" name="action" value="cancel_unpaid" />
+                            <input type="hidden" name="orderId" value={exception.orderId} />
+                            <input
+                              type="hidden"
+                              name="reason"
+                              value="Cancelled from payment exception queue after failed payment"
+                            />
+                            <button className="min-h-10 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:border-rose-400">
+                              Cancel unpaid order
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </article>
                 ))
               )}
@@ -384,6 +412,97 @@ function formatExceptionType(value: string) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function ManualReconciliationForm({
+  compact = false,
+  defaultOrderId = "",
+  defaultProviderPaymentId = "",
+  defaultReason = "",
+}: {
+  compact?: boolean;
+  defaultOrderId?: string;
+  defaultProviderPaymentId?: string;
+  defaultReason?: string;
+}) {
+  return (
+    <form
+      action={runAdminOrderAction}
+      className={
+        compact
+          ? "grid gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3"
+          : "mt-4 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"
+      }
+    >
+      <input type="hidden" name="action" value="record_manual_reconciliation" />
+      <div className={compact ? "grid gap-2" : "grid gap-2 sm:grid-cols-2"}>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Order ID
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue={defaultOrderId}
+            name="orderId"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Provider
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            defaultValue="stripe"
+            name="provider"
+            required
+          />
+        </label>
+      </div>
+      <label className="grid gap-1 text-xs font-medium text-zinc-600">
+        Payment reference
+        <input
+          className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+          defaultValue={defaultProviderPaymentId}
+          name="providerPaymentId"
+          placeholder="pi_..."
+          required
+        />
+      </label>
+      <div className={compact ? "grid gap-2" : "grid gap-2 sm:grid-cols-2"}>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Amount cents
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+            min={1}
+            name="amountCents"
+            required
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          Currency
+          <input
+            className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm uppercase"
+            defaultValue="SGD"
+            maxLength={3}
+            minLength={3}
+            name="currency"
+            required
+          />
+        </label>
+      </div>
+      <label className="grid gap-1 text-xs font-medium text-zinc-600">
+        Reason
+        <input
+          className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
+          defaultValue={defaultReason}
+          maxLength={500}
+          name="reason"
+          required
+        />
+      </label>
+      <button className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700">
+        Record reconciliation
+      </button>
+    </form>
+  );
 }
 
 function formatDiscount(discountBps: number) {

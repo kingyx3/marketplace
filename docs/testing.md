@@ -44,9 +44,11 @@ workflow YAML parsing and focused contract tests.
   best-discount selection, and integer-cent display pricing.
 - `tests/admin-orders.test.ts` - explicit admin order action contract,
   manual reconciliation RPC dispatch, unpaid cancellation dispatch, and
-  derived payment exception queue behavior.
+  derived payment exception queue behavior, including admin form payload
+  validation for manual reconciliation.
 - `tests/admin-surface.test.ts` - protected admin page guard against
-  fixture-backed work queues, plus B2B tiered approval/rejection wiring.
+  fixture-backed work queues, plus B2B tiered approval/rejection and
+  reconciliation-console wiring.
 - `tests/notifications.test.ts` - Resend order-confirmation delivery,
   disabled-provider skip behavior, dedupe, provider failure recording,
   and configured-channel detection.

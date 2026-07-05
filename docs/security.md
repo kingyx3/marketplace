@@ -68,6 +68,8 @@ trusted operator access. B2B approval and rejection are explicit
 service-role transitions; approval requires a pricing tier assignment in
 the same database function. Broader product admin UI remains roadmap
 work.
+The admin payment-exception console posts to the same audited action path
+as the API and cannot directly set an order to `paid`.
 
 ## Webhooks (Stripe)
 

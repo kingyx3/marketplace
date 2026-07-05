@@ -71,7 +71,8 @@ Sequenced to match the 30/60/90-day plan in
 - [x] Admin API: order/payment exception queue backed by persisted manual
       flags plus derived stale/orphan/failed-payment signals
 - [x] Admin UI: live order/payment exception queue visibility
-- [ ] Admin UI: reconciliation console for manual payment correction
+- [x] Admin UI: reconciliation console for manual payment correction through
+      the audited admin order action path
 
 ### Phase 2 — pre-orders (the differentiator)
 
@@ -118,7 +119,7 @@ Sequenced to match the 30/60/90-day plan in
 
 The protected admin page now covers live inventory updates, preorder
 allocation, payment-exception visibility, purchase-order visibility, and
-B2B approval/rejection with pricing-tier assignment. Product/SKU CRUD,
-payment reconciliation UI, pricing-tier removal, and supplier PO intake
-are still manual, reviewed workflows tracked above and in
-`docs/admin-operations.md`.
+B2B approval/rejection with pricing-tier assignment, and manual payment
+reconciliation from the exception queue. Product/SKU CRUD, pricing-tier
+removal, and supplier PO intake are still manual, reviewed workflows
+tracked above and in `docs/admin-operations.md`.

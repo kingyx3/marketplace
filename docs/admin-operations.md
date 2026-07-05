@@ -39,8 +39,9 @@ Do not describe manual admin workflows as product features.
 3. If the event was verified but ignored, inspect the route behavior
    before retrying. Verified duplicates should remain idempotent.
 4. If a manual correction is unavoidable, use the admin reconciliation
-   action so the payment row, order transition, inventory release, reason,
-   and audit log are recorded together.
+   form in the protected admin payment-exception queue so the payment
+   row, order transition, inventory release, reason, and audit log are
+   recorded together.
 5. Review `/api/admin/orders/exceptions` for persisted manual flags and
    derived stale/orphan/failed-payment signals.
 

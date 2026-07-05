@@ -15,6 +15,8 @@ describe("admin surface", () => {
     expect(source).toContain("fetchPricingTiers");
     expect(source).toContain("approveWholesale");
     expect(source).toContain("rejectWholesale");
+    expect(source).toContain("runAdminOrderAction");
+    expect(source).toContain("ManualReconciliationForm");
     expect(source).toContain("pricingTierId");
   });
 });

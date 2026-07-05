@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
+import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
 import {
   adminOrderActionSchema,
   buildAdminOrderExceptionQueue,
@@ -146,6 +147,42 @@ describe("admin order actions", () => {
     expect(migration).toContain("returning public.payments.id into v_payment_id");
     expect(migration).toContain("order already has a captured payment");
     expect(migration).toContain("create or replace function public.mark_order_paid");
+  });
+
+  it("builds manual reconciliation actions from required admin form fields", () => {
+    const form = new FormData();
+    form.set("action", "record_manual_reconciliation");
+    form.set("orderId", "11111111-1111-4111-8111-111111111111");
+    form.set("provider", "stripe");
+    form.set("providerPaymentId", "pi_manual_123");
+    form.set("amountCents", "19900");
+    form.set("currency", "sgd");
+    form.set("reason", "operator matched Stripe dashboard payment");
+
+    expect(adminOrderActionFromForm(form)).toEqual({
+      orderId: "11111111-1111-4111-8111-111111111111",
+      body: {
+        action: "record_manual_reconciliation",
+        provider: "stripe",
+        providerPaymentId: "pi_manual_123",
+        amountCents: 19900,
+        currency: "SGD",
+        reason: "operator matched Stripe dashboard payment",
+      },
+    });
+  });
+
+  it("rejects reconciliation forms without a positive integer amount", () => {
+    const form = new FormData();
+    form.set("action", "record_manual_reconciliation");
+    form.set("orderId", "11111111-1111-4111-8111-111111111111");
+    form.set("provider", "stripe");
+    form.set("providerPaymentId", "pi_manual_123");
+    form.set("amountCents", "0");
+    form.set("currency", "SGD");
+    form.set("reason", "operator matched Stripe dashboard payment");
+
+    expect(() => adminOrderActionFromForm(form)).toThrow("amountCents must be a positive integer");
   });
 });
 

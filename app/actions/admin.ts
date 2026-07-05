@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { requireStaff } from "@/lib/auth";
+import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
+import { performAdminOrderAction } from "@/lib/orders";
 import { runPreorderAllocationForSku } from "@/lib/preorders";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -48,6 +50,17 @@ export async function shipOrder(formData: FormData) {
 
   revalidatePath("/admin/orders");
   revalidatePath(`/account/orders/${orderId}`);
+}
+
+export async function runAdminOrderAction(formData: FormData) {
+  const { user } = await requireStaff("/admin/orders");
+  const { orderId, body } = adminOrderActionFromForm(formData);
+
+  await performAdminOrderAction(createServiceClient(), orderId, body, `staff:${user.id}`);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/orders");
+  revalidatePath(`/orders/${orderId}`);
 }
 
 export async function approveWholesale(formData: FormData) {
