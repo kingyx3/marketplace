@@ -17,13 +17,14 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("migration-check:");
     expect(workflow).toContain("needs: [validate-env, migration-check]");
     expect(workflow).toContain("needs: [app-checks, migrate]");
-    expect(workflow).toContain("TARGET_ENV: ${{ inputs.environment }}");
+    expect(workflow).toContain("TARGET_ENV:");
+    expect(workflow).toContain("APP_NAME:");
     expect(workflow).toContain("Validate minimal GitHub deploy environment");
+    expect(workflow).toContain("Sync APP_NAME to Vercel");
     expect(workflow).toContain("npx vercel pull");
     expect(workflow).toContain("node scripts/generate-env.mjs --check");
-    expect(workflow).not.toContain("vercel env add");
-    expect(workflow).not.toContain("vercel env rm");
     expect(workflow).not.toContain("Sync runtime env to Vercel");
+    expect(workflow).not.toContain(".env.deploy");
     expect(workflow).toContain("Deep readiness check");
     expect(workflow).toContain("$URL/api/health?deep=1");
   });
