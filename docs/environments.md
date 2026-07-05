@@ -1,47 +1,68 @@
 # Environments & configuration contract
 
-Three GitHub Environments, mapped by trigger:
+Three GitHub Environments map to deploy triggers, but GitHub now stores only
+deploy/migration configuration. Runtime application configuration is owned by
+Vercel.
 
-| Environment   | Trigger                       | Stripe mode | Approval               |
-| ------------- | ----------------------------- | ----------- | ---------------------- |
-| `development` | push to any non-`main` branch | test        | none                   |
-| `staging`     | push to `main`                | test        | none                   |
-| `production`  | tag `v*` / release published  | **live**    | **required reviewers** |
+| Environment   | Trigger                       | Vercel env source                | Stripe mode | Approval               |
+| ------------- | ----------------------------- | -------------------------------- | ----------- | ---------------------- |
+| `development` | push to any non-`main` branch | Vercel Preview / branch override | test        | none                   |
+| `staging`     | push to `main`                | Vercel Preview / `main` override | test        | none                   |
+| `production`  | tag `v*` / release published  | Vercel Production                | **live**    | **required reviewers** |
 
-The canonical machine-readable contract is `ENV_CONTRACT` in
+The canonical machine-readable runtime contract is `ENV_CONTRACT` in
 [`scripts/generate-env.mjs`](../scripts/generate-env.mjs); `.env.example`
-and `lib/env.ts` mirror it. CI fails fast (before touching infra) if an
-environment is missing or malformed — key names only, values never logged.
-`TARGET_ENV` is deploy-time only and must exactly match the selected
-GitHub Environment name.
+and `lib/env.ts` mirror it. CI validates key names only — values are never
+logged.
 
-## Required per environment
+## Minimal GitHub Environment configuration
+
+These are the only GitHub Environment entries required for CI/CD. Do not copy
+app runtime values such as Supabase runtime keys, Stripe runtime keys,
+notification tokens, `APP_NAME`, or `NEXT_PUBLIC_*` values into GitHub. Those
+belong in Vercel.
 
 ### Secrets (GitHub Environment → Secrets)
 
-| Key                         | Used by                         | Where to get it                                       |
-| --------------------------- | ------------------------------- | ----------------------------------------------------- |
-| `SUPABASE_ACCESS_TOKEN`     | migrations (`supabase db push`) | supabase.com → Account → Access Tokens                |
-| `SUPABASE_DB_PASSWORD`      | `supabase link`                 | Supabase project → Settings → Database                |
-| `SUPABASE_SERVICE_ROLE_KEY` | app runtime (server only)       | Supabase project → Settings → API                     |
-| `STRIPE_SECRET_KEY`         | app runtime                     | Stripe dashboard → Developers → API keys              |
-| `STRIPE_WEBHOOK_SECRET`     | webhook verification            | Stripe dashboard → Webhooks → endpoint signing secret |
-| `VERCEL_TOKEN`              | deploy                          | vercel.com → Account → Tokens                         |
+| Key                     | Used by                         | Where to get it                        |
+| ----------------------- | ------------------------------- | -------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN` | migrations (`supabase db push`) | supabase.com → Account → Access Tokens |
+| `SUPABASE_DB_PASSWORD`  | `supabase link`                 | Supabase project → Settings → Database |
+| `VERCEL_TOKEN`          | Vercel CLI deploy/pull          | vercel.com → Account → Tokens          |
 
 ### Vars (GitHub Environment → Variables, non-secret)
 
-| Key                                   | Example                                                   |
-| ------------------------------------- | --------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`            | `https://abcd1234.supabase.co`                            |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`       | anon/publishable key (safe to expose; RLS-enforced)       |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`  | `pk_test_...` in dev/staging, `pk_live_...` in production |
-| `NEXT_PUBLIC_SITE_URL`                | `https://staging.example.com`                             |
-| `APP_NAME`                            | `Marketplace`                                             |
-| `TARGET_ENV`                          | `development`, `staging`, or `production`                 |
-| `SUPABASE_PROJECT_REF`                | `abcd1234`                                                |
-| `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | from `vercel link` → `.vercel/project.json`               |
+| Key                                   | Example                                     |
+| ------------------------------------- | ------------------------------------------- |
+| `SUPABASE_PROJECT_REF`                | `abcdefghijklmnopqrs`                       |
+| `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | from `vercel link` → `.vercel/project.json` |
 
-### Optional (notification channels — missing key = channel disabled)
+`TARGET_ENV` is generated by the reusable workflow from the caller input and
+should not be stored as a GitHub variable.
+
+## Runtime app configuration in Vercel
+
+Set these in Vercel Project Settings → Environment Variables. Use Vercel
+Preview variables for `development`/`staging` and Production variables for
+`production`. If development and staging need different values while both use
+Preview deploys, use Vercel branch-specific Preview overrides.
+
+### Required runtime variables
+
+| Key                                  | Type   | Notes                                                 |
+| ------------------------------------ | ------ | ----------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`           | var    | `https://<project-ref>.supabase.co`                   |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | var    | anon/publishable key; safe to expose, RLS-enforced    |
+| `SUPABASE_SERVICE_ROLE_KEY`          | secret | server-side only; bypasses RLS                        |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | var    | `pk_test_...` in preview, `pk_live_...` in production |
+| `STRIPE_SECRET_KEY`                  | secret | `sk_test_...` in preview, `sk_live_...` in production |
+| `STRIPE_WEBHOOK_SECRET`              | secret | webhook endpoint signing secret                       |
+| `NEXT_PUBLIC_SITE_URL`               | var    | canonical public URL for the environment              |
+| `APP_NAME`                           | var    | display name used in UI, metadata, health, and email  |
+
+### Optional runtime variables
+
+Missing optional keys disable the related notification channel.
 
 | Key                        | Type   | Channel  |
 | -------------------------- | ------ | -------- |
@@ -54,23 +75,32 @@ GitHub Environment name.
 | `WHATSAPP_ACCESS_TOKEN`    | secret | WhatsApp |
 | `WHATSAPP_PHONE_NUMBER_ID` | var    | WhatsApp |
 
+## Automated validation
+
+- `npm run env:check` validates runtime app configuration from `.env`.
+- Deploy CI validates the minimal GitHub deploy keys before migrations or
+  Vercel deployment.
+- Deploy CI runs `vercel pull`, copies the pulled Vercel runtime env to a
+  temporary gitignored `.env`, runs `scripts/generate-env.mjs --check`, and
+  only then deploys.
+
 ## One-time bootstrap (manual, per environment)
 
 CI cannot create provider accounts. Once, per environment:
 
-1. Create a Supabase project; note ref, DB password, anon + service keys.
+1. Create a Supabase project; note ref, database password, anon key, and server key.
 2. Create a Vercel project (`vercel link` locally gives org/project ids).
-3. Create a Stripe webhook endpoint pointing at
-   `<site-url>/api/webhooks/stripe`; note the signing secret.
-4. Create the GitHub Environment and enter the tables above.
-5. `production` only: add required reviewers under Environment protection.
+3. Enter the minimal GitHub Environment secrets/vars from the tables above.
+4. Enter runtime app variables in Vercel Preview/Production environments.
+5. Create a Stripe webhook endpoint pointing at `<site-url>/api/webhooks/stripe`;
+   store its signing secret in Vercel.
+6. `production` only: add required reviewers under GitHub Environment protection.
 
-After bootstrap, everything flows from git: migrations, env sync to
-Vercel, deploys, smoke tests.
+After bootstrap, GitHub connects Supabase migrations and Vercel deploys from
+source control while Vercel remains the source of truth for app runtime env.
 
-Provider settings that still remain manual: creating the provider
-accounts/projects, entering GitHub Environment vars/secrets, enabling
-Google OAuth credentials in Supabase Auth, and creating the Stripe
-webhook endpoint. Vercel build/header config, Supabase schema, and
-product-image storage bucket/policies are checked in and validated by
-CI.
+Provider settings that still remain manual: creating provider accounts/projects,
+entering GitHub deploy-only vars/secrets, entering Vercel runtime environment
+variables, enabling Google OAuth credentials in Supabase Auth, and creating the
+Stripe webhook endpoint. Vercel build/header config, Supabase schema, and
+product-image storage bucket/policies are checked in and validated by CI.
