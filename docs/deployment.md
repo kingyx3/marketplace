@@ -31,12 +31,14 @@ Notes:
   and migration SQL validation before database changes or Vercel deploys
   can run.
 - **Minimal GitHub env**: GitHub stores only the deploy/migration values
-  listed in `docs/environments.md`. The target environment is generated
-  from the workflow input and is not stored as a GitHub variable.
-- **Vercel-owned runtime env**: app runtime configuration lives in Vercel
-  Project Environment Variables. The deploy job runs `vercel pull`, validates
-  the pulled env with `scripts/generate-env.mjs`, and deploys only if it is
-  complete.
+  listed in `docs/environments.md`, plus the non-secret `APP_NAME` input.
+  The target environment is generated from the workflow input and is not
+  stored as a GitHub variable.
+- **Vercel-owned runtime env**: provider runtime configuration lives in Vercel
+  Project Environment Variables. `APP_NAME` is synced from GitHub vars to
+  Vercel as the only GitHub-owned app value. The deploy job then runs
+  `vercel pull`, validates the pulled env with `scripts/generate-env.mjs`,
+  and deploys only if it is complete.
 - **Vercel config**: `vercel.json` is checked in with the Next.js
   framework, build/install commands, security headers, and API no-store
   cache policy. `npm run config:check` validates this contract in CI.
@@ -57,9 +59,10 @@ Notes:
 - **Database**: migrations are forward-only. To undo schema, write a new
   reverting migration; never edit or delete an applied migration. Supabase
   point-in-time recovery (paid tier) is the disaster path.
-- **Runtime env**: rotate in the provider dashboard, update Vercel Project
-  Environment Variables, then re-run deploy. For deploy-only credentials,
-  rotate the GitHub Environment entries listed in `docs/environments.md`.
+- **Runtime env**: rotate provider values in the provider dashboard and update
+  Vercel Project Environment Variables, then re-run deploy. Rotate deploy-only
+  credentials and `APP_NAME` through the GitHub Environment entries listed in
+  `docs/environments.md`.
 
 ## Releasing to production
 
