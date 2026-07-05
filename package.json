@@ -16,7 +16,6 @@
     "format:check": "prettier --check .",
     "config:check": "node scripts/verify-vercel-config.mjs && node scripts/verify-supabase-config.mjs",
     "env:check": "node scripts/generate-env.mjs --check",
-    "env:check:deploy": "node scripts/verify-deploy-env.mjs",
     "env:write": "node scripts/generate-env.mjs --write"
   },
   "engines": {
