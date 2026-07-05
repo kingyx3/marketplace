@@ -66,3 +66,10 @@ CI cannot create provider accounts. Once, per environment:
 
 After bootstrap, everything flows from git: migrations, env sync to
 Vercel, deploys, smoke tests.
+
+Provider settings that still remain manual: creating the provider
+accounts/projects, entering GitHub Environment vars/secrets, enabling
+Google OAuth credentials in Supabase Auth, and creating the Stripe
+webhook endpoint. Vercel build/header config, Supabase schema, and
+product-image storage bucket/policies are checked in and validated by
+CI.

@@ -17,6 +17,13 @@
 - `TARGET_ENV` is a non-secret deploy guard. It must match the selected
   GitHub Environment before migrations or Vercel changes run.
 
+## Response headers
+
+`vercel.json` defines production-safe response headers for every route:
+frame embedding is denied, MIME sniffing is disabled, referrers are
+trimmed cross-origin, browser permissions are minimized, and API routes
+return `Cache-Control: no-store, max-age=0`.
+
 ## Row-level security
 
 RLS is enabled on every table and Data API exposure is granted
@@ -32,6 +39,13 @@ explicitly in migrations. Policy tiers:
 All writes to commercial tables go through server code using the
 service role, so price calculation, stock checks, and state machines
 cannot be bypassed from a browser.
+
+## Storage
+
+Product images live in the public Supabase Storage bucket
+`product-images`, created by SQL migration. Public reads are allowed for
+catalog media; object insert/update/delete is limited to the service
+role or authenticated active staff through `current_user_is_staff()`.
 
 ## Admin boundary
 

@@ -10,6 +10,7 @@
 | Production build               | `npm run build`                                               | `build`                 |
 | Migrations apply cleanly       | `npx supabase db reset` (local)                               | `migrations`            |
 | Env contract                   | `npm run env:check`                                           | `validate-env` (deploy) |
+| Platform config contract       | `npm run config:check`                                        | `config-contract`       |
 | Deploy config contract         | `npm test -- tests/env.test.ts tests/deploy-workflow.test.ts` | `config-contract`       |
 
 CI runs these **in parallel** on every PR with no secrets. The
@@ -27,6 +28,9 @@ workflow YAML parsing and focused contract tests.
 - `tests/deploy-workflow.test.ts` — deploy workflow guardrails:
   app/migration checks before mutable jobs and expected caller-to-
   environment mapping, including staging/production deep readiness.
+- `tests/config-contract.test.ts` — checked-in Vercel security/cache
+  headers, Supabase product-image storage migration markers, and CI
+  config verifier wiring.
 - `tests/health.test.ts` — shallow health without dependencies, app-name
   propagation, and deep readiness success/failure responses without
   secret values.

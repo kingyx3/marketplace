@@ -32,6 +32,9 @@ docs and README must never describe those as working.
 - ✅ CI (lint/typecheck/test/build/migrations, parallel, secretless)
 - ✅ Deploy pipeline: reusable workflow, 3 environments, env→Vercel sync,
   migration gating, smoke test, production approval gate
+- ✅ Config-as-code checks for Vercel and Supabase: `vercel.json`
+  security/cache headers, product image storage bucket/policies in SQL,
+  and verifier scripts covered by CI
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks,
   migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
@@ -49,8 +52,9 @@ Sequenced to match the 30/60/90-day plan in
 
 - [x] Auth flows (Supabase Auth: Google sign-in/out, session handling,
       customer row provisioning)
-- [x] Product detail page backed by database catalog rows (Supabase Storage
-      product-image workflow still TODO)
+- [x] Product detail page backed by database catalog rows
+- [x] Supabase Storage `product-images` bucket and RLS policies for public
+      image reads plus staff/service-role writes
 - [x] Cart + checkout backend and browser PaymentIntent confirmation UI
       (server-derived pricing, inventory checks, Stripe Elements, retry/cancel
       states, and cart clearing only after confirmed client-side success)
@@ -60,7 +64,7 @@ Sequenced to match the 30/60/90-day plan in
       provider-message tracking, disabled-provider skip state, and
       failure recording that does not roll back paid orders
 - [ ] Admin: complete product/inventory CRUD (inventory update exists; product
-      create/update/delete and richer validation are still TODO)
+      create/update/delete, image upload UI, and richer validation are still TODO)
 - [x] Admin API: explicit order/payment actions for packing, shipping,
       unpaid cancellation, manual reconciliation, and payment exception
       flagging; generic order `status` PATCH is removed

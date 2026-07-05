@@ -41,9 +41,12 @@ jobs:
               - 'eslint.config.mjs'
               - 'vitest.config.ts'
               - 'postcss.config.mjs'
+              - 'vercel.json'
+              - 'supabase/**'
             config:
               - '.env.example'
               - '.github/workflows/**'
+              - '.github/ci/**'
               - 'docs/admin-operations.md'
               - 'docs/build-plan.md'
               - 'docs/cost-controls.md'
@@ -51,9 +54,13 @@ jobs:
               - 'docs/environments.md'
               - 'docs/security.md'
               - 'docs/testing.md'
+              - 'supabase/config.toml'
+              - 'supabase/migrations/**'
+              - 'vercel.json'
               - 'scripts/**'
               - 'tests/env.test.ts'
               - 'tests/deploy-workflow.test.ts'
+              - 'tests/config-contract.test.ts'
             migrations:
               - 'supabase/**'
 
@@ -125,7 +132,8 @@ jobs:
           for file in .github/workflows/*.yml; do
             npx --yes js-yaml "$file" >/dev/null
           done
-      - run: npm test -- tests/env.test.ts tests/deploy-workflow.test.ts
+      - run: npm run config:check
+      - run: npm test -- tests/env.test.ts tests/deploy-workflow.test.ts tests/config-contract.test.ts
 
   # Apply every migration + seed against a clean postgres to catch
   # SQL errors before they reach `supabase db push` in deploy.

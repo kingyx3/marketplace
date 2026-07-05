@@ -95,6 +95,12 @@ id>` so duplicate payment webhooks cannot send duplicate customer email.
 Missing providers are recorded as `skipped` instead of being treated as
 checkout failures.
 
+**Product images use managed storage.** Supabase Storage bucket
+`product-images` is created by migration with image-only MIME limits and
+a 5 MiB object cap. Catalog image URLs can point at public objects in
+that bucket, while object writes require active staff or service-role
+server code.
+
 **Admin payment exceptions are durable.** `payment_exceptions` records
 manual flags and operator-visible payment anomalies without exposing the
 table to browser roles. Derived queues can also surface stale pending

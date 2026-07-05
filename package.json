@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "config:check": "node scripts/verify-vercel-config.mjs && node scripts/verify-supabase-config.mjs",
     "env:check": "node scripts/generate-env.mjs --check",
     "env:write": "node scripts/generate-env.mjs --write"
   },
