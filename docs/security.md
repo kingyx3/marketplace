@@ -147,6 +147,15 @@ as the API and cannot directly set an order to `paid`.
 - Resend secrets stay server-side. Transactional email payloads include
   order number, item names/SKUs, amount, status, order link, and support
   contact, but never provider secrets or raw payment credentials.
+- Waitlist/drop-alert writes are server-authorized: the API binds alert
+  rows to the authenticated customer and validates the SKU, channel, and
+  contact target before saving. Customers can read only their own alert
+  rows through RLS.
+- Telegram and WhatsApp drop alerts use server-side provider adapters.
+  Delivery is claimed with a unique notification dedupe key before the
+  provider call, and staff-triggered delivery returns only status counts.
+  Provider tokens, phone-number IDs, and customer contact targets are not
+  logged by the app.
 
 ## Readiness checks
 

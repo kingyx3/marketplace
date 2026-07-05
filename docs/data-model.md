@@ -112,12 +112,19 @@ processing and treats a duplicate-key error as "already handled".
 stored order total before releasing allocation and decrementing stock, so
 duplicate or underpaid payment events fail closed.
 
+**Waitlist entries are customer-owned state.** `waitlist_entries` binds a
+customer, SKU, notification channel, and contact target under a unique
+`customer_id, sku_id, channel` constraint. The API validates active SKUs
+and contact formats server-side, and customers can only read their own
+rows through RLS.
+
 **Notification delivery is deduped.** `notifications` stores provider,
 provider message id, a unique `dedupe_key`, `sent_at`, and delivery
 error state. Order-confirmation email uses `order_confirmation:<order
 id>` so duplicate payment webhooks cannot send duplicate customer email.
-Missing providers are recorded as `skipped` instead of being treated as
-checkout failures.
+Drop alerts use a waitlist-entry dedupe key before calling email,
+Telegram, or WhatsApp providers. Missing providers are recorded as
+`skipped` instead of being treated as checkout failures.
 
 **Product images use managed storage.** Supabase Storage bucket
 `product-images` is created by migration with image-only MIME limits and
@@ -151,10 +158,11 @@ RLS is enabled on **every** table:
   (`tcg_categories` → `booster_box_skus`) and `inventory` availability:
   public read.
 - `customers`, `preorders`, `orders`, `order_items`, `payments`,
-  `shipments`, `b2b_accounts`, `notifications`: customers read their own
-  rows via `auth.uid()`; customer profile updates include both `USING`
-  and `WITH CHECK`; all commercial writes go through the service role so
-  state machines and stock checks stay server-side.
+  `shipments`, `b2b_accounts`, `notifications`, `waitlist_entries`:
+  customers read their own rows via `auth.uid()`; customer profile
+  updates include both `USING` and `WITH CHECK`; all commercial writes
+  go through the service role so state machines and stock checks stay
+  server-side.
 - Supply-side and admin-only tables (`suppliers`, `purchase_orders`,
   `purchase_order_items`, `pricing_tiers`, `allocation_rules`, `refunds`,
   `audit_logs`, `webhook_events`, `payment_exceptions`): no

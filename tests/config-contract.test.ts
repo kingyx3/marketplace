@@ -27,8 +27,12 @@ describe("platform config contract", () => {
 
     expect(migrations).toContain("insert into storage.buckets");
     expect(migrations).toContain("'product-images'");
-    expect(migrations).toContain("grant select on table storage.objects to anon, authenticated, service_role");
-    expect(migrations).toContain("grant insert, update, delete on table storage.objects to authenticated, service_role");
+    expect(migrations).toContain(
+      "grant select on table storage.objects to anon, authenticated, service_role"
+    );
+    expect(migrations).toContain(
+      "grant insert, update, delete on table storage.objects to authenticated, service_role"
+    );
     expect(migrations).toContain("product images are publicly readable");
     expect(migrations).toContain("staff can upload product images");
     expect(migrations).toContain("staff can update product images");
@@ -47,11 +51,22 @@ describe("platform config contract", () => {
     expect(migrations).toContain("admin_set_product_image");
     expect(migrations).toContain("admin_adjust_inventory");
     expect(migrations).toContain("ADMIN_INVENTORY_ADJUSTMENT");
+    expect(migrations).toContain("create table if not exists public.waitlist_entries");
+    expect(migrations).toContain("alter table public.waitlist_entries enable row level security");
+    expect(migrations).toContain(
+      "grant select on table public.waitlist_entries to authenticated, service_role"
+    );
+    expect(migrations).toContain(
+      "grant insert, update, delete on table public.waitlist_entries to service_role"
+    );
+    expect(migrations).toContain("own waitlist entries");
   });
 
   it("runs config verifier scripts in CI", async () => {
     const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
-    const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    const packageJson = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8")
+    );
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");

@@ -60,7 +60,10 @@ workflow YAML parsing and focused contract tests.
   wiring.
 - `tests/notifications.test.ts` - Resend order-confirmation delivery,
   disabled-provider skip behavior, dedupe, provider failure recording,
-  and configured-channel detection.
+  Telegram/WhatsApp provider payloads, and configured-channel detection.
+- `tests/waitlist.test.ts` - waitlist contact normalization, server-side
+  SKU/customer binding, notification claiming, provider dispatch, and
+  notified-state persistence for drop alerts.
 - `tests/preorder-flow.test.ts` - live preorder allocation dispatch,
   duplicate-safe allocation, balance PaymentIntent creation, over-balance
   rejection, Stripe balance conversion, and SQL state-machine guards.

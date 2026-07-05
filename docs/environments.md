@@ -43,15 +43,16 @@ GitHub Environment name.
 
 ### Optional (notification channels — missing key = channel disabled)
 
-| Key                     | Type   | Channel  |
-| ----------------------- | ------ | -------- |
-| `RESEND_API_KEY`        | secret | email    |
-| `RESEND_FROM_EMAIL`     | var    | email    |
-| `SUPPORT_EMAIL`         | var    | email    |
-| `TWILIO_ACCOUNT_SID`    | var    | SMS      |
-| `TWILIO_AUTH_TOKEN`     | secret | SMS      |
-| `TELEGRAM_BOT_TOKEN`    | secret | Telegram |
-| `WHATSAPP_ACCESS_TOKEN` | secret | WhatsApp |
+| Key                        | Type   | Channel  |
+| -------------------------- | ------ | -------- |
+| `RESEND_API_KEY`           | secret | email    |
+| `RESEND_FROM_EMAIL`        | var    | email    |
+| `SUPPORT_EMAIL`            | var    | email    |
+| `TWILIO_ACCOUNT_SID`       | var    | SMS      |
+| `TWILIO_AUTH_TOKEN`        | secret | SMS      |
+| `TELEGRAM_BOT_TOKEN`       | secret | Telegram |
+| `WHATSAPP_ACCESS_TOKEN`    | secret | WhatsApp |
+| `WHATSAPP_PHONE_NUMBER_ID` | var    | WhatsApp |
 
 ## One-time bootstrap (manual, per environment)
 

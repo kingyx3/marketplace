@@ -30,6 +30,8 @@ Do not describe manual admin workflows as product features.
 - Product, SKU, product-image, and inventory changes are constrained to
   protected admin actions. Inventory adjustments require a reason code and
   preserve the database oversell invariant.
+- Drop-alert delivery is constrained to the staff-only API and writes
+  notification rows with dedupe keys before calling external providers.
 
 ## Routine runbooks
 
@@ -94,6 +96,18 @@ The allocation action reads live `allocation_rules`, open deposited
 preorders, and inventory capacity, then persists deltas through
 `apply_preorder_allocations`. Re-running the action is safe for already
 filled preorders because only outstanding quantity is considered.
+
+### Drop-alert notification
+
+1. Confirm the SKU is active and has on-hand or incoming availability.
+2. Confirm the target notification channel is configured in the selected
+   GitHub Environment (`RESEND_*`, `TELEGRAM_BOT_TOKEN`, or
+   `WHATSAPP_*`).
+3. Use `POST /api/admin/waitlist/notify` with the SKU id from a staff
+   session. The response returns sent/skipped/failed/duplicate counts
+   only.
+4. Review failed rows in `notifications`; do not resend by directly
+   calling provider dashboards because that bypasses dedupe/audit state.
 
 ### B2B approval
 

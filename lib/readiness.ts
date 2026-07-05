@@ -16,6 +16,7 @@ interface EnvLike {
   TWILIO_AUTH_TOKEN?: string;
   TELEGRAM_BOT_TOKEN?: string;
   WHATSAPP_ACCESS_TOKEN?: string;
+  WHATSAPP_PHONE_NUMBER_ID?: string;
   APP_NAME?: string;
   [key: string]: string | undefined;
 }

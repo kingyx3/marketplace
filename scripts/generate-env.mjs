@@ -141,6 +141,12 @@ export const ENV_CONTRACT = [
   { key: "TWILIO_AUTH_TOKEN", required: false, secret: true, hint: "SMS via Twilio" },
   { key: "TELEGRAM_BOT_TOKEN", required: false, secret: true, hint: "Telegram Bot API" },
   { key: "WHATSAPP_ACCESS_TOKEN", required: false, secret: true, hint: "WhatsApp Cloud API" },
+  {
+    key: "WHATSAPP_PHONE_NUMBER_ID",
+    required: false,
+    secret: false,
+    hint: "WhatsApp Cloud API sender phone-number id",
+  },
 ];
 
 /**

@@ -28,8 +28,8 @@ Browser ──▶ Vercel (Next.js 15, App Router)
 - **Search**: Postgres full-text (GIN index on products). Upgrade path:
   Typesense or Algolia when the catalog outgrows FTS relevance.
 - **Notifications**: provider-agnostic interface (`lib/notifications.ts`).
-  Resend order-confirmation email is implemented; SMS, Telegram, and
-  WhatsApp remain feature-gated stubs.
+  Resend order-confirmation email and email/Telegram/WhatsApp drop
+  alerts are implemented; SMS remains a feature-gated stub.
 - **Product media**: Supabase Storage `product-images` bucket is created
   by migration. Product images are publicly readable; writes require
   service-role server code or an authenticated active staff user.

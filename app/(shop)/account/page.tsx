@@ -15,6 +15,7 @@ import {
   type LiveOrder,
   type LivePreorder,
 } from "@/lib/order-display";
+import { listCustomerWaitlist, type CustomerWaitlistEntry } from "@/lib/waitlist";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +30,15 @@ export default async function AccountPage({
   const supabase = createServiceClient();
   let recentOrders: LiveOrder[] = [];
   let recentPreorders: LivePreorder[] = [];
+  let recentWaitlist: CustomerWaitlistEntry[] = [];
   let b2bAccount: B2bAccount | null = null;
   let dataError = false;
 
   try {
-    const [orders, preorders, b2b] = await Promise.all([
+    const [orders, preorders, waitlist, b2b] = await Promise.all([
       listCustomerOrders(supabase, customer, 5),
       listCustomerPreorders(supabase, customer, 5),
+      listCustomerWaitlist(supabase, customer.id, 5),
       supabase
         .from("b2b_accounts")
         .select("id, company_name, approved, approved_at, payment_terms, review_status")
@@ -45,6 +48,7 @@ export default async function AccountPage({
 
     recentOrders = orders as LiveOrder[];
     recentPreorders = preorders as LivePreorder[];
+    recentWaitlist = waitlist;
     if (b2b.error) throw new Error(b2b.error.message);
     b2bAccount = (b2b.data as B2bAccount | null) ?? null;
   } catch (error) {
@@ -216,6 +220,33 @@ export default async function AccountPage({
               )}
             </div>
           </section>
+
+          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-zinc-950">Drop alerts</h2>
+            <div className="mt-4 grid gap-3">
+              {recentWaitlist.length === 0 ? (
+                <EmptyState href="/catalog" label="Browse catalog" text="No drop alerts yet." />
+              ) : (
+                recentWaitlist.slice(0, 3).map((entry) => (
+                  <Link
+                    className="rounded-md border border-zinc-200 p-4 hover:border-emerald-500"
+                    href={entry.productSlug ? `/catalog/${entry.productSlug}` : "/catalog"}
+                    key={entry.id}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-zinc-950">{entry.productName}</span>
+                      <StatusBadge tone={waitlistTone(entry.status)}>
+                        {formatStatus(entry.status)}
+                      </StatusBadge>
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-500">
+                      {entry.sku} / {formatStatus(entry.channel)}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
         </aside>
       </section>
     </div>
@@ -253,6 +284,12 @@ function preorderTone(status: string) {
   if (status === "balance_due") return "warning" as const;
   if (["allocated", "paid", "converted"].includes(status)) return "success" as const;
   if (["cancelled", "refunded"].includes(status)) return "danger" as const;
+  return "info" as const;
+}
+
+function waitlistTone(status: string) {
+  if (status === "notified") return "success" as const;
+  if (status === "cancelled") return "danger" as const;
   return "info" as const;
 }
 

@@ -5,6 +5,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
 import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
+import { WaitlistSignupPanel } from "@/app/(shop)/catalog/[slug]/waitlist-signup-panel";
 import { addToCart } from "@/app/actions/cart";
 import { getAppName } from "@/lib/app-config";
 import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
@@ -198,6 +199,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
                     supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
                   />
                 ) : null
+              ) : null}
+              {skuId ? (
+                <WaitlistSignupPanel
+                  authRedirectPath={`/catalog/${product.slug}`}
+                  inStock={available > 0}
+                  skuId={skuId}
+                  supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                  supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+                />
               ) : null}
             </div>
           </section>

@@ -23,9 +23,9 @@ Telegram is broadly used across SEA for exactly this kind of
 merchant-community interaction (order updates, restock alerts), and
 Discord is the default hub for competitive-play communities globally.
 Both should be tied into the notification system (`lib/notifications.ts`
-already stubs a Telegram provider) so allocation results and restock
-alerts land where the audience already is, rather than relying on email
-alone.
+now implements Telegram and WhatsApp drop-alert providers) so allocation
+results and restock alerts land where the audience already is, rather
+than relying on email alone.
 
 ## Content
 

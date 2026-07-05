@@ -48,6 +48,9 @@ docs and README must never describe those as working.
 - ✅ B2B invoice/PO checkout: approved wholesale customers can create a
   pending-payment invoice order with server-derived tier pricing, stock
   allocation, manual-invoice payment placeholder, and audit record
+- ✅ Waitlist + drop notifications: authenticated customers can save
+  SKU-level email, Telegram, or WhatsApp alerts; staff can trigger
+  deduped drop delivery through server-side providers
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks,
   migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
@@ -100,7 +103,7 @@ Sequenced to match the 30/60/90-day plan in
       PaymentIntent API and idempotent Stripe webhook conversion
 - [x] Customer pre-order dashboard (read-only status, allocated quantity,
       deposit, and balance due from live rows)
-- [ ] Waitlist + drop notifications (Telegram/WhatsApp adapters)
+- [x] Waitlist + drop notifications (Telegram/WhatsApp adapters)
 
 ### Phase 3 — B2B/wholesale
 
