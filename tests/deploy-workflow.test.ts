@@ -24,6 +24,7 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("APP_NAME: ${{ vars.APP_NAME }}");
     expect(workflow).toContain("RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}");
     expect(workflow).toContain("SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}");
+    expect(workflow).toContain("WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}");
     expect(workflow).toContain('if [ "$TARGET_ENV" != "${{ inputs.environment }}" ]; then');
     expect(workflow).toContain("Deep readiness check");
     expect(workflow).toContain("$URL/api/health?deep=1");

@@ -42,6 +42,7 @@ jobs:
       TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+      WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -169,6 +170,7 @@ jobs:
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
         run: |
           node scripts/generate-env.mjs --write .env.deploy
           VERCEL_ENV=$([ "${{ inputs.environment }}" = "production" ] && echo production || echo preview)
