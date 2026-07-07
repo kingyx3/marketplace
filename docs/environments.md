@@ -4,15 +4,15 @@ GitHub Environments are the source of truth for deployed configuration. CI reads
 GitHub Environment variables and secrets, validates them, syncs runtime values to
 Vercel, links the selected Supabase project, pushes migrations, and deploys.
 
-Use one Supabase project and one Vercel project per long-lived deployed
-environment. This keeps runtime variables, domains, deployment history, auth
-redirects, and database state isolated.
+For the current free-tier setup, use two hosted environments only:
+`development` and `production`. Keep `staging` reserved and empty until the app
+moves to paid Supabase/Vercel plans.
 
-| Environment   | Trigger                       | Vercel project             | Stripe mode | Approval               |
-| ------------- | ----------------------------- | -------------------------- | ----------- | ---------------------- |
-| `development` | push to any non-`main` branch | `marketplace-development`  | test        | none                   |
-| `staging`     | push to `main`                | `marketplace-staging`      | test        | none                   |
-| `production`  | tag `v*` / release published  | `marketplace-production`   | **live**    | **required reviewers** |
+| Environment   | Trigger                       | Vercel project             | Supabase project             | Status |
+| ------------- | ----------------------------- | -------------------------- | ---------------------------- | ------ |
+| `development` | push to any non-`main` branch | `marketplace-development`  | `marketplace-development`    | active |
+| `staging`     | none                          | none                       | none                         | reserved |
+| `production`  | tag `v*` / release published  | `marketplace-production`   | `marketplace-production`     | active |
 
 The canonical machine-readable contract is `ENV_CONTRACT` in
 [`scripts/generate-env.mjs`](../scripts/generate-env.mjs); `.env.example` and
@@ -50,6 +50,9 @@ The canonical machine-readable contract is `ENV_CONTRACT` in
 | `TWILIO_ACCOUNT_SID` | Optional SMS provider account id |
 | `WHATSAPP_PHONE_NUMBER_ID` | Optional WhatsApp sender phone-number id |
 
+Do not configure the `staging` GitHub Environment yet. It should remain empty
+until a third hosted Vercel/Supabase pair exists.
+
 ## Downstream sync
 
 Deployment never treats Vercel as the source of truth. The deploy workflow:
@@ -64,14 +67,13 @@ Deployment never treats Vercel as the source of truth. The deploy workflow:
 The generated `.env.deploy` file is temporary, gitignored, and removed during the
 deploy job.
 
-## Supabase and Vercel projects
+## Projects
 
-Use one project per long-lived deployed environment:
+Use one project pair per active hosted environment:
 
 | Environment | Supabase project | Vercel project |
 | --- | --- | --- |
-| `development` | Hosted development project, or local CLI for local-only work | Development project |
-| `staging` | Hosted staging project | Staging project |
+| `development` | Hosted development project | Development project |
 | `production` | Hosted production project | Production project |
 
 Each hosted Supabase project has its own database, Auth settings, Storage
@@ -79,10 +81,15 @@ buckets, API URL, publishable key, secret key, and database password. Each Verce
 project has its own deployment history, domains, project id, and runtime env.
 Store each project's values only in the matching GitHub Environment.
 
+When paid plans allow a third hosted environment, add `staging` by creating a
+third project pair, enabling a staging deploy workflow, and extending the
+`TARGET_ENV` validation from `development|production` to
+`development|staging|production`.
+
 ## Bootstrap per environment
 
 Provider accounts/projects are created once, then reconciled by CI. Once per
-environment:
+active environment:
 
 1. Create the Supabase project and record its project ref, database password,
    API URL, publishable key, and secret key.
@@ -92,8 +99,8 @@ environment:
 4. Configure provider dashboard settings that cannot be fully represented in
    this repo yet, such as Supabase Auth redirect URLs and the Stripe webhook
    endpoint.
-5. Run **Bootstrap Environment** from GitHub Actions for the selected
-   environment. It reuses the deploy pipeline to validate GitHub config, sync
+5. Run **Bootstrap Environment** from GitHub Actions for `development` or
+   `production`. It reuses the deploy pipeline to validate GitHub config, sync
    Vercel runtime env, link Supabase, push migrations, deploy, and smoke test.
 6. For production, add required reviewers under GitHub Environment protection.
 
