@@ -12,22 +12,29 @@ custom environment or a separate staging Vercel project.
 
 ## State
 
-Use HCP Terraform for remote state. Each HCP Terraform workspace stores its own
-state and state history, so the state file is not committed to this repository.
+Use Google Cloud Storage for remote Terraform state. The GCS bucket must already
+exist before `terraform init`. Enable object versioning on the bucket so state can
+be recovered after accidental deletion or operator error.
 
-1. Create an HCP Terraform organization and a workspace named
-   `marketplace-platform`.
-2. Copy `state.tf.example` to `state.tf` and set your organization name.
-3. Do not commit `state.tf` if it contains account-specific configuration.
-4. Run Terraform from this directory.
+Recommended bucket settings:
+
+- Location: `us-central1`, `us-east1`, or `us-west1`
+- Storage class: Standard
+- Public access prevention: enforced
+- Uniform bucket-level access: enabled
+- Object versioning: enabled
+
+Create the bucket once, then copy `state.tf.example` to `backend.tf` and set the
+bucket name. Do not commit `backend.tf`.
 
 ## Credentials
 
 Set provider credentials outside git:
 
+- Google Application Default Credentials for the Terraform GCS backend.
 - `VERCEL_API_TOKEN` for the Vercel provider.
 - `SUPABASE_ACCESS_TOKEN` for the Supabase provider.
-- `supabase_db_secret_by_environment` as a sensitive HCP Terraform variable.
+- `supabase_db_secret_by_environment` as a sensitive local or CI variable.
 
 Do not put runtime app env values in Terraform. Runtime env belongs in GitHub
 Environments and is synced to Vercel by the bootstrap/deploy workflows.
@@ -36,7 +43,7 @@ Environments and is synced to Vercel by the bootstrap/deploy workflows.
 
 ```bash
 cd infra/terraform/platform
-cp state.tf.example state.tf
+cp state.tf.example backend.tf
 terraform init
 terraform plan -var-file=terraform.tfvars
 terraform apply -var-file=terraform.tfvars
