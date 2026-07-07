@@ -18,33 +18,46 @@ applies migrations. It does not run the regular app deployment job.
 
 ## What is code-managed today
 
+- GCS Terraform state bucket through `infra/terraform/bootstrap`.
 - Vercel project shell and Supabase project shells through
   `infra/terraform/platform`.
-- Next.js/Vercel build and headers through `vercel.json`.
 - Runtime env contract through `.env.example`, `scripts/generate-env.mjs`, and
   `lib/env.ts`.
 - Vercel runtime env reconciliation through `scripts/sync-vercel-env.mjs`.
-- Supabase schema, RLS, storage bucket, grants, and seed data through
-  `supabase/migrations` and `supabase/seed.sql`.
-- Deployment wiring through `.github/workflows/deploy*.yml` and
-  `.github/workflows/bootstrap-environment.yml`.
+- Supabase schema and seed data through `supabase/migrations` and
+  `supabase/seed.sql`.
+- Deployment wiring through `.github/workflows/*.yml`.
 
 ## Terraform state
 
-Use Google Cloud Storage for remote Terraform state. The GCS bucket must exist
-before `terraform init`, and object versioning should be enabled so state can be
-recovered after accidental deletion or operator error.
+Use Google Cloud Storage for remote Terraform state. The GCS state bucket is
+created by the **Terraform State Bootstrap** workflow from CI/CD variables. The
+bootstrap stack uses local state because the remote backend does not exist until
+that first bucket has been created. On reruns, CI imports the existing bucket
+before planning so the bucket settings can still be reconciled.
 
-Recommended bucket settings:
+Recommended bucket settings are encoded in Terraform:
 
-- Location: `us-central1`, `us-east1`, or `us-west1`
+- Location: `us-central1` by default
 - Storage class: Standard
 - Public access prevention: enforced
 - Uniform bucket-level access: enabled
 - Object versioning: enabled
 
-The platform stack includes `infra/terraform/platform/state.tf.example`; copy it
-to `backend.tf`, set the bucket name, and leave `backend.tf` untracked.
+The platform stack has a committed empty `backend "gcs" {}` block. The
+**Terraform Platform** workflow passes the real bucket and prefix at
+`terraform init` time.
+
+## CI/CD inputs
+
+Set the repository variables and secrets referenced by these workflows:
+
+- `.github/workflows/terraform-state-bootstrap.yml`
+- `.github/workflows/terraform-platform.yml`
+
+Those workflows pass provider settings, backend settings, and Terraform variables
+through CI/CD as environment variables. Do not commit real `terraform.tfvars` or
+backend override files.
 
 ## Terraform boundary
 
@@ -69,22 +82,21 @@ remove it from the GitHub-owned sync contract, and vice versa.
 
 ## Bootstrap checklist
 
-For each active environment:
-
-1. Create the GCS state bucket once and copy `state.tf.example` to `backend.tf`.
-2. Run or import Terraform in `infra/terraform/platform`.
-3. Copy Terraform outputs into GitHub Environment variables:
+1. Set the CI/CD variables and secrets referenced by the Terraform workflows.
+2. Run **Terraform State Bootstrap** with `apply=true`.
+3. Run **Terraform Platform** with `apply=true`.
+4. Copy Terraform outputs into GitHub Environment variables:
    - `vercel_project_id` into both `development` and `production` as
      `VERCEL_PROJECT_ID`.
    - each `supabase_project_refs[...]` into the matching GitHub Environment as
      `SUPABASE_PROJECT_REF`.
-4. Configure dashboard-only provider settings such as Supabase Auth redirect
+5. Configure dashboard-only provider settings such as Supabase Auth redirect
    URLs and Stripe webhook endpoints.
-5. Set the remaining GitHub Environment variables and secrets from
+6. Set the remaining GitHub Environment variables and secrets from
    `docs/environments.md`.
-6. Run **Bootstrap Environment** in GitHub Actions for `development` and
+7. Run **Bootstrap Environment** in GitHub Actions for `development` and
    `production`.
-7. Confirm `/api/health` and, for production, `/api/health?deep=1` after the
+8. Confirm `/api/health` and, for production, `/api/health?deep=1` after the
    regular deploy workflow runs.
 
 ## Scaling path
