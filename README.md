@@ -42,8 +42,10 @@ Production. Supabase stays split into one development project and one production
 project. `staging` is intentionally reserved and empty until paid plans justify a
 third data environment.
 
-Terraform state for provider project shells is stored in a private GCS bucket;
-see `docs/provisioning.md` and `infra/terraform/platform`.
+Terraform provisioning is CI/CD-driven. Run **Terraform State Bootstrap** to
+create/reconcile the GCS state bucket, then **Terraform Platform** to create the
+shared Vercel project and Supabase projects. Variables are passed through GitHub
+Actions vars/secrets, not committed tfvars files.
 
 ## Documentation map
 
