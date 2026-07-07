@@ -1,21 +1,19 @@
 locals {
-  active_environments = var.environments
+  active_supabase_environments = var.supabase_environments
 }
 
 resource "vercel_project" "app" {
-  for_each = local.active_environments
-
-  name              = each.value.vercel_project_name
-  framework         = "nextjs"
-  install_command  = "npm ci"
-  build_command    = "npm run build"
-  root_directory   = var.vercel_root_directory
-  team_id          = var.vercel_team_id
+  name                         = var.vercel_project_name
+  framework                    = "nextjs"
+  install_command             = "npm ci"
+  build_command               = "npm run build"
+  root_directory              = var.vercel_root_directory
+  team_id                     = var.vercel_team_id
   preview_deployments_disabled = false
 }
 
 resource "supabase_project" "app" {
-  for_each = local.active_environments
+  for_each = local.active_supabase_environments
 
   organization_id         = var.supabase_organization_id
   name                    = each.value.supabase_project_name
