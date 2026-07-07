@@ -10,5 +10,5 @@ output "supabase_project_refs" {
 
 output "active_supabase_environments" {
   description = "Hosted Supabase environments managed by this Terraform stack."
-  value       = keys(local.active_supabase_environments)
+  value       = sort(tolist(local.active_supabase_environments))
 }
