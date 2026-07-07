@@ -50,15 +50,17 @@ describe("deployment workflow contract", () => {
     expect(bootstrap).not.toContain("npx vercel deploy");
   });
 
-  it("runs Terraform from CI/CD variables", async () => {
+  it("runs Terraform from lean CI/CD variables", async () => {
     const stateBootstrap = await readWorkflow(".github/workflows/terraform-state-bootstrap.yml");
     const platform = await readWorkflow(".github/workflows/terraform-platform.yml");
 
-    expect(stateBootstrap).toContain("TF_VAR_gcp_project_id:");
-    expect(stateBootstrap).toContain("TF_VAR_state_bucket_name:");
+    expect(stateBootstrap).toContain("GCP_PROJECT_ID:");
+    expect(stateBootstrap).toContain("TF_STATE_BUCKET_NAME_OVERRIDE:");
     expect(stateBootstrap).toContain("terraform import google_storage_bucket.terraform_state");
-    expect(platform).toContain("TF_VAR_supabase_environments:");
-    expect(platform).toContain("TF_VAR_supabase_db_secret_by_environment:");
+    expect(platform).toContain("TF_VAR_project_slug:");
+    expect(platform).toContain("TF_VAR_supabase_organization_id:");
+    expect(platform).not.toContain("SUPABASE_DEVELOPMENT_DB_PASSWORD");
+    expect(platform).not.toContain("TF_VAR_supabase_db_secret_by_environment");
     expect(platform).toContain('terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME"');
   });
 });
