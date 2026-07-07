@@ -8,26 +8,25 @@ const REQUIRED_SECURITY_HEADERS = new Map([
   ["Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"],
 ]);
 
-const REQUIRED_DEPLOY_ENV = ["APP_NAME", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "VERCEL_TOKEN"];
-
-const RUNTIME_FROM_GITHUB_MARKERS = [
-  "NEXT_PUBLIC_SUPABASE_URL: ${{ vars.",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.",
-  "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.",
-  "NEXT_PUBLIC_SITE_URL: ${{ vars.",
-  "SUPABASE_SECRET_KEY: ${{ secrets.",
-  "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.",
-  "STRIPE_SECRET_KEY: ${{ secrets.",
-  "STRIPE_WEBHOOK_SECRET: ${{ secrets.",
-  "RESEND_API_KEY: ${{ secrets.",
-  "RESEND_FROM_EMAIL: ${{ vars.",
-  "SUPPORT_EMAIL: ${{ vars.",
-  "TWILIO_ACCOUNT_SID: ${{ vars.",
-  "TWILIO_AUTH_TOKEN: ${{ secrets.",
-  "TELEGRAM_BOT_TOKEN: ${{ secrets.",
-  "WHATSAPP_ACCESS_TOKEN: ${{ secrets.",
-  "WHATSAPP_PHONE_NUMBER_ID: ${{ vars.",
+const REQUIRED_WORKFLOW_MARKERS = [
+  "NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}",
+  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}",
+  "SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}",
+  "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}",
+  "STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}",
+  "STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}",
+  "NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}",
+  "APP_NAME: ${{ vars.APP_NAME }}",
+  "SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}",
+  "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}",
+  "SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}",
+  "VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}",
+  "VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}",
+  "VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}",
+  "Generate runtime env from GitHub",
+  "node scripts/generate-env.mjs --write .env.deploy",
+  "Sync runtime env to Vercel",
+  "node scripts/sync-vercel-env.mjs .env.deploy",
 ];
 
 async function main() {
@@ -38,14 +37,11 @@ async function main() {
   if (vercel) {
     if (vercel.framework !== "nextjs") errors.push("vercel.json must set framework=nextjs");
     if (vercel.installCommand !== "npm ci") errors.push("vercel.json must set installCommand=npm ci");
-    if (vercel.buildCommand !== "npm run build") {
-      errors.push("vercel.json must set buildCommand=npm run build");
-    }
+    if (vercel.buildCommand !== "npm run build") errors.push("vercel.json must set buildCommand=npm run build");
+
     const allHeaders = flattenHeaders(vercel.headers);
     for (const [key, value] of REQUIRED_SECURITY_HEADERS) {
-      if (allHeaders.get(key) !== value) {
-        errors.push(`vercel.json missing security header ${key}`);
-      }
+      if (allHeaders.get(key) !== value) errors.push(`vercel.json missing security header ${key}`);
     }
 
     const apiHeaders = headersForSource(vercel.headers, "/api/(.*)");
@@ -55,27 +51,11 @@ async function main() {
   }
 
   if (deployWorkflow) {
-    for (const key of REQUIRED_DEPLOY_ENV) {
-      if (!deployWorkflow.includes(`${key}: \${{`)) {
-        errors.push(`deploy workflow must map ${key} by name`);
-      }
+    for (const marker of REQUIRED_WORKFLOW_MARKERS) {
+      if (!deployWorkflow.includes(marker)) errors.push(`deploy workflow missing required marker: ${marker}`);
     }
-    for (const marker of RUNTIME_FROM_GITHUB_MARKERS) {
-      if (deployWorkflow.includes(marker)) {
-        errors.push(`deploy workflow must not source runtime app env from GitHub: ${marker.split(":")[0]}`);
-      }
-    }
-    if (!deployWorkflow.includes("Sync APP_NAME to Vercel")) {
-      errors.push("deploy workflow must sync APP_NAME from GitHub vars to Vercel");
-    }
-    if (!deployWorkflow.includes("npx vercel pull")) {
-      errors.push("deploy workflow must pull Vercel runtime env before deploy");
-    }
-    if (!deployWorkflow.includes("node scripts/generate-env.mjs --check")) {
-      errors.push("deploy workflow must validate pulled runtime env before deploy");
-    }
-    if (deployWorkflow.includes(".env.deploy")) {
-      errors.push("deploy workflow must not generate and sync the full runtime env from GitHub");
+    if (deployWorkflow.includes("npx vercel pull")) {
+      errors.push("deploy workflow must not pull Vercel env as the runtime source of truth");
     }
     if (!deployWorkflow.includes("npx vercel deploy")) {
       errors.push("deploy workflow must deploy through Vercel CLI");
@@ -112,9 +92,7 @@ async function readText(path, errors) {
 function flattenHeaders(entries = []) {
   const headers = new Map();
   for (const entry of entries) {
-    for (const header of entry.headers ?? []) {
-      headers.set(header.key, header.value);
-    }
+    for (const header of entry.headers ?? []) headers.set(header.key, header.value);
   }
   return headers;
 }
@@ -122,9 +100,7 @@ function flattenHeaders(entries = []) {
 function headersForSource(entries = [], source) {
   const entry = entries.find((candidate) => candidate.source === source);
   const headers = new Map();
-  for (const header of entry?.headers ?? []) {
-    headers.set(header.key, header.value);
-  }
+  for (const header of entry?.headers ?? []) headers.set(header.key, header.value);
   return headers;
 }
 
