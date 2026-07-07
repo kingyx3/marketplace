@@ -8,7 +8,25 @@ const REQUIRED_SECURITY_HEADERS = new Map([
   ["Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"],
 ]);
 
-const REQUIRED_DEPLOY_ENV = ["VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "VERCEL_TOKEN"];
+const REQUIRED_DEPLOY_ENV = ["APP_NAME", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "VERCEL_TOKEN"];
+
+const RUNTIME_FROM_GITHUB_MARKERS = [
+  "NEXT_PUBLIC_SUPABASE_URL: ${{ vars.",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.",
+  "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.",
+  "NEXT_PUBLIC_SITE_URL: ${{ vars.",
+  "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.",
+  "STRIPE_SECRET_KEY: ${{ secrets.",
+  "STRIPE_WEBHOOK_SECRET: ${{ secrets.",
+  "RESEND_API_KEY: ${{ secrets.",
+  "RESEND_FROM_EMAIL: ${{ vars.",
+  "SUPPORT_EMAIL: ${{ vars.",
+  "TWILIO_ACCOUNT_SID: ${{ vars.",
+  "TWILIO_AUTH_TOKEN: ${{ secrets.",
+  "TELEGRAM_BOT_TOKEN: ${{ secrets.",
+  "WHATSAPP_ACCESS_TOKEN: ${{ secrets.",
+  "WHATSAPP_PHONE_NUMBER_ID: ${{ vars.",
+];
 
 async function main() {
   const errors = [];
@@ -40,8 +58,22 @@ async function main() {
         errors.push(`deploy workflow must map ${key} by name`);
       }
     }
+    for (const marker of RUNTIME_FROM_GITHUB_MARKERS) {
+      if (deployWorkflow.includes(marker)) {
+        errors.push(`deploy workflow must not source runtime app env from GitHub: ${marker.split(":")[0]}`);
+      }
+    }
+    if (!deployWorkflow.includes("Sync APP_NAME to Vercel")) {
+      errors.push("deploy workflow must sync APP_NAME from GitHub vars to Vercel");
+    }
     if (!deployWorkflow.includes("npx vercel pull")) {
-      errors.push("deploy workflow must use checked-in Vercel project config via vercel pull");
+      errors.push("deploy workflow must pull Vercel runtime env before deploy");
+    }
+    if (!deployWorkflow.includes("node scripts/generate-env.mjs --check")) {
+      errors.push("deploy workflow must validate pulled runtime env before deploy");
+    }
+    if (deployWorkflow.includes(".env.deploy")) {
+      errors.push("deploy workflow must not generate and sync the full runtime env from GitHub");
     }
     if (!deployWorkflow.includes("npx vercel deploy")) {
       errors.push("deploy workflow must deploy through Vercel CLI");

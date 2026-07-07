@@ -17,15 +17,14 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("migration-check:");
     expect(workflow).toContain("needs: [validate-env, migration-check]");
     expect(workflow).toContain("needs: [app-checks, migrate]");
-    expect(workflow).toContain("TARGET_ENV: ${{ vars.TARGET_ENV }}");
-    expect(workflow).toContain(
-      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}"
-    );
-    expect(workflow).toContain("APP_NAME: ${{ vars.APP_NAME }}");
-    expect(workflow).toContain("RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}");
-    expect(workflow).toContain("SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}");
-    expect(workflow).toContain("WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}");
-    expect(workflow).toContain('if [ "$TARGET_ENV" != "${{ inputs.environment }}" ]; then');
+    expect(workflow).toContain("TARGET_ENV:");
+    expect(workflow).toContain("APP_NAME:");
+    expect(workflow).toContain("Validate minimal GitHub deploy environment");
+    expect(workflow).toContain("Sync APP_NAME to Vercel");
+    expect(workflow).toContain("npx vercel pull");
+    expect(workflow).toContain("node scripts/generate-env.mjs --check");
+    expect(workflow).not.toContain("Sync runtime env to Vercel");
+    expect(workflow).not.toContain(".env.deploy");
     expect(workflow).toContain("Deep readiness check");
     expect(workflow).toContain("$URL/api/health?deep=1");
   });
