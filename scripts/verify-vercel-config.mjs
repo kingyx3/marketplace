@@ -33,6 +33,8 @@ async function main() {
   const errors = [];
   const vercel = await readJson("vercel.json", errors);
   const deployWorkflow = await readText(".github/workflows/deploy.yml", errors);
+  const syncScript = await readText("scripts/sync-vercel-env.mjs", errors);
+  const bootstrapWorkflow = await readText(".github/workflows/bootstrap-environment.yml", errors);
 
   if (vercel) {
     if (vercel.framework !== "nextjs") errors.push("vercel.json must set framework=nextjs");
@@ -59,6 +61,21 @@ async function main() {
     }
     if (!deployWorkflow.includes("npx vercel deploy")) {
       errors.push("deploy workflow must deploy through Vercel CLI");
+    }
+  }
+
+  if (syncScript) {
+    if (!syncScript.includes('targetEnv === "production" ? "production" : "preview"')) {
+      errors.push("sync script must map development to preview and production to production");
+    }
+  }
+
+  if (bootstrapWorkflow) {
+    if (bootstrapWorkflow.includes("uses: ./.github/workflows/deploy.yml")) {
+      errors.push("bootstrap workflow must stay separate from regular deploy workflow");
+    }
+    if (bootstrapWorkflow.includes("npx vercel deploy")) {
+      errors.push("bootstrap workflow must not deploy the app");
     }
   }
 
