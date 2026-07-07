@@ -1,5 +1,7 @@
 locals {
   active_supabase_environments = var.supabase_environments
+  vercel_team_id               = var.vercel_team_id == "" ? null : var.vercel_team_id
+  vercel_root_directory        = var.vercel_root_directory == "" ? null : var.vercel_root_directory
 }
 
 resource "vercel_project" "app" {
@@ -7,8 +9,8 @@ resource "vercel_project" "app" {
   framework                    = "nextjs"
   install_command             = "npm ci"
   build_command               = "npm run build"
-  root_directory              = var.vercel_root_directory
-  team_id                     = var.vercel_team_id
+  root_directory              = local.vercel_root_directory
+  team_id                     = local.vercel_team_id
   preview_deployments_disabled = false
 }
 
