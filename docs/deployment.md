@@ -2,9 +2,9 @@
 
 ## Pipeline
 
-`deploy.yml` is a reusable workflow (`workflow_call`) invoked by three
-thin callers. Checks run in parallel where safe, and mutable deploy work
-waits for the checks it depends on:
+`deploy.yml` is a reusable workflow (`workflow_call`) invoked by three thin
+callers. Checks run in parallel where safe, and mutable deploy work waits for
+the checks it depends on:
 
 ```
 validate-env ─────┐
@@ -21,36 +21,31 @@ app-checks ─────────────────────┴─
 Notes:
 
 - **Docs-only guard**: both push-triggered callers ignore `docs/**` and
-  `**/*.md`, so documentation changes never trigger a deploy. CI's
-  `changes` job does the same for test jobs on PRs.
+  `**/*.md`, so documentation changes never trigger a deploy. CI's `changes`
+  job does the same for test jobs on PRs.
 - **CI gating**: `ci.yml` runs lint / typecheck / unit tests / build /
-  migration-apply in parallel on every PR. Enable branch protection on
-  `main` with those as required checks so staging only ever deploys
-  already-green code.
-- **Deploy gating**: branch, main, and release deploys run app checks
-  and migration SQL validation before database changes or Vercel deploys
-  can run.
-- **Minimal GitHub env**: GitHub stores only the deploy/migration values
-  listed in `docs/environments.md`, plus the non-secret `APP_NAME` input.
-  The target environment is generated from the workflow input and is not
-  stored as a GitHub variable.
-- **Vercel-owned runtime env**: provider runtime configuration lives in Vercel
-  Project Environment Variables. `APP_NAME` is synced from GitHub vars to
-  Vercel as the only GitHub-owned app value. The deploy job then runs
-  `vercel pull`, validates the pulled env with `scripts/generate-env.mjs`,
-  and deploys only if it is complete.
-- **Vercel config**: `vercel.json` is checked in with the Next.js
-  framework, build/install commands, security headers, and API no-store
-  cache policy. `npm run config:check` validates this contract in CI.
-- **Supabase config**: durable database/storage state is SQL migration
-  driven. `npm run config:check` validates local Supabase config,
-  product-image storage setup, explicit storage grants, and RLS coverage.
+  migration-apply in parallel on every PR. Enable branch protection on `main`
+  with those as required checks so staging only ever deploys already-green code.
+- **Deploy gating**: branch, main, and release deploys run app checks and
+  migration SQL validation before database changes or Vercel deploys can run.
+- **GitHub-owned config**: each GitHub Environment stores the complete desired
+  configuration for that environment. CI validates it before any mutable work.
+- **Downstream env sync**: deploy generates `.env.deploy` from GitHub
+  Environment values, syncs runtime keys to Vercel with
+  `scripts/sync-vercel-env.mjs`, removes unset optional keys from Vercel, and
+  then deploys.
+- **Vercel config**: `vercel.json` is checked in with the Next.js framework,
+  build/install commands, security headers, and API no-store cache policy.
+  `npm run config:check` validates this contract in CI.
+- **Supabase config**: durable database/storage state is SQL migration driven.
+  `npm run config:check` validates local Supabase config, product-image storage
+  setup, explicit storage grants, and RLS coverage.
 - **Migrations before app**: a failed migration push stops the rollout; the
   previous app version keeps running against the old schema.
 - **Smoke/readiness**: every deploy checks shallow `/api/health`. Staging and
   production also call `/api/health?deep=1` after deploy to verify Supabase
-  connectivity, Stripe config presence, and notification channel status
-  without printing sensitive values.
+  connectivity, Stripe config presence, and notification channel status without
+  printing sensitive values.
 
 ## Rollback
 
@@ -59,10 +54,8 @@ Notes:
 - **Database**: migrations are forward-only. To undo schema, write a new
   reverting migration; never edit or delete an applied migration. Supabase
   point-in-time recovery (paid tier) is the disaster path.
-- **Runtime env**: rotate provider values in the provider dashboard and update
-  Vercel Project Environment Variables, then re-run deploy. Rotate deploy-only
-  credentials and `APP_NAME` through the GitHub Environment entries listed in
-  `docs/environments.md`.
+- **Config**: change the GitHub Environment value, then re-run deploy so CI
+  re-syncs Vercel and redeploys from the corrected source of truth.
 
 ## Releasing to production
 
