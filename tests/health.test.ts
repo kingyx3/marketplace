@@ -27,7 +27,7 @@ describe("health and readiness", () => {
       webhookSecret: "fail",
     });
     expect(JSON.stringify(readiness)).not.toContain("sk_test");
-    expect(JSON.stringify(readiness)).not.toContain("service-role");
+    expect(JSON.stringify(readiness)).not.toContain("sb_secret");
   });
 
   it("passes deep readiness with configured Stripe and a successful Supabase probe", async () => {
@@ -44,7 +44,7 @@ describe("health and readiness", () => {
       env: {
         APP_NAME: "Ops Console",
         NEXT_PUBLIC_SUPABASE_URL: "https://abc123.supabase.co",
-        SUPABASE_SERVICE_ROLE_KEY: "service-role-secret",
+        SUPABASE_SECRET_KEY: "sb_secret_test_123",
         STRIPE_SECRET_KEY: "sk_test_123",
         STRIPE_WEBHOOK_SECRET: "whsec_123",
         RESEND_API_KEY: "re_test_123",
@@ -57,7 +57,7 @@ describe("health and readiness", () => {
     expect(readiness.service).toBe("Ops Console");
     expect(readiness.checks.supabase).toEqual({ status: "ok" });
     expect(readiness.checks.notifications.email).toBe("configured");
-    expect(JSON.stringify(readiness)).not.toContain("service-role-secret");
+    expect(JSON.stringify(readiness)).not.toContain("sb_secret_test_123");
     expect(JSON.stringify(readiness)).not.toContain("sk_test_123");
   });
 });
