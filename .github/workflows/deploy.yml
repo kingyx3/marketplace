@@ -14,5 +14,177 @@ permissions:
 jobs:
   validate-env:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env: &github_environment
+      TARGET_ENV: ${{ inputs.environment }}
+      APP_NAME: ${{ vars.APP_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
+      SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+      TWILIO_ACCOUNT_SID: ${{ vars.TWILIO_ACCOUNT_SID }}
+      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+      WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
     steps:
-      - run: echo ok
+      - uses: actions/checkout@v4
+      - name: Validate GitHub Environment contract
+        run: |
+          case "$TARGET_ENV" in
+            development|staging|production) ;;
+            *) echo "Unsupported deployment environment: $TARGET_ENV" >&2; exit 1 ;;
+          esac
+          missing=0
+          for key in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required deploy key: $key" >&2
+              missing=1
+            fi
+          done
+          if ! printf '%s' "$SUPABASE_PROJECT_REF" | grep -Eq '^[a-z0-9]{15,30}$'; then
+            echo "SUPABASE_PROJECT_REF is malformed" >&2
+            missing=1
+          fi
+          [ "$missing" = "0" ] || exit 1
+          node scripts/generate-env.mjs --check
+
+  app-checks:
+    name: App check (${{ matrix.check }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: lint
+            command: npm run lint
+          - check: typecheck
+            command: npm run typecheck
+          - check: test
+            command: npm test
+          - check: build
+            command: npm run build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: ${{ matrix.command }}
+
+  migration-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply auth shim (emulates Supabase-managed schema)
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql
+      - name: Apply migrations in order
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "applying $f"
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
+          done
+      - name: Apply seed
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql
+
+  migrate:
+    needs: [validate-env, migration-check]
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+      - name: Push migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push
+
+  deploy:
+    needs: [app-checks, migrate]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.vercel.outputs.deployment_url }}
+    outputs:
+      deployment_url: ${{ steps.vercel.outputs.deployment_url }}
+    env: *github_environment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Generate runtime env from GitHub
+        run: node scripts/generate-env.mjs --write .env.deploy
+      - name: Sync runtime env to Vercel
+        run: node scripts/sync-vercel-env.mjs .env.deploy
+      - name: Deploy to Vercel
+        id: vercel
+        run: |
+          rm -f .env.deploy
+          FLAGS="--token $VERCEL_TOKEN --yes"
+          if [ "${{ inputs.environment }}" = "production" ]; then FLAGS="$FLAGS --prod"; fi
+          URL=$(npx vercel deploy $FLAGS)
+          echo "deployment_url=$URL" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check
+        run: |
+          URL="${{ needs.deploy.outputs.deployment_url }}"
+          echo "smoke testing $URL/api/health"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/health") && [ "$code" = "200" ] && exit 0
+            echo "attempt $i: HTTP $code — retrying in $((i*5))s"
+            sleep $((i*5))
+          done
+          echo "health check failed" >&2
+          exit 1
+      - name: Deep readiness check
+        if: ${{ inputs.environment == 'staging' || inputs.environment == 'production' }}
+        run: |
+          URL="${{ needs.deploy.outputs.deployment_url }}"
+          echo "readiness testing $URL/api/health?deep=1"
+          code=$(curl -s -o readiness.json -w '%{http_code}' "$URL/api/health?deep=1")
+          cat readiness.json
+          if [ "$code" != "200" ]; then
+            echo "readiness check failed with HTTP $code" >&2
+            exit 1
+          fi
