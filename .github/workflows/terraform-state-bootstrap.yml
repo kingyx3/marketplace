@@ -1,0 +1,54 @@
+name: Terraform State Bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the state bucket changes
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-state:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_CREDENTIALS: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
+      TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_VAR_state_bucket_location: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Validate CI/CD variables
+        run: |
+          missing=0
+          for key in GOOGLE_CREDENTIALS TF_VAR_gcp_project_id TF_VAR_state_bucket_name TF_VAR_state_bucket_location; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required variable: $key" >&2
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ] || exit 1
+      - name: Terraform init
+        working-directory: infra/terraform/bootstrap
+        run: terraform init
+      - name: Terraform fmt
+        working-directory: infra/terraform/bootstrap
+        run: terraform fmt -check
+      - name: Terraform validate
+        working-directory: infra/terraform/bootstrap
+        run: terraform validate
+      - name: Import state bucket if it already exists
+        working-directory: infra/terraform/bootstrap
+        run: terraform import google_storage_bucket.terraform_state "$TF_VAR_state_bucket_name" || true
+      - name: Terraform plan
+        working-directory: infra/terraform/bootstrap
+        run: terraform plan -out=tfplan
+      - name: Terraform apply
+        if: ${{ inputs.apply }}
+        working-directory: infra/terraform/bootstrap
+        run: terraform apply -auto-approve tfplan
