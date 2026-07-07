@@ -1,19 +1,25 @@
-variable "vercel_team_id" {
-  description = "Optional Vercel team id. Leave null for personal accounts."
-  type        = string
-  default     = null
-}
-
-variable "vercel_project_name" {
-  description = "Single Vercel project used for preview development deploys and production deploys."
+variable "project_slug" {
+  description = "Stable project slug used to derive provider resource names."
   type        = string
   default     = "marketplace"
 }
 
-variable "vercel_root_directory" {
-  description = "Root directory for the Vercel project."
+variable "vercel_team_id" {
+  description = "Optional Vercel team id. Leave empty for personal accounts."
   type        = string
-  default     = null
+  default     = ""
+}
+
+variable "vercel_project_name" {
+  description = "Optional Vercel project name override. Defaults to project_slug."
+  type        = string
+  default     = ""
+}
+
+variable "vercel_root_directory" {
+  description = "Optional root directory for the Vercel project."
+  type        = string
+  default     = ""
 }
 
 variable "supabase_organization_id" {
@@ -21,22 +27,14 @@ variable "supabase_organization_id" {
   type        = string
 }
 
-variable "supabase_environments" {
-  description = "Active Supabase environments. Current setup uses development and production only."
-  type = map(object({
-    supabase_project_name  = string
-    supabase_region        = string
-    supabase_instance_size = optional(string, "micro")
-  }))
-
-  validation {
-    condition     = alltrue([for env_name in keys(var.supabase_environments) : contains(["development", "production"], env_name)])
-    error_message = "Only development and production are active hosted Supabase environments right now. Keep staging empty until a third project is available."
-  }
+variable "supabase_region" {
+  description = "Region for active Supabase projects."
+  type        = string
+  default     = "ap-southeast-1"
 }
 
-variable "supabase_db_secret_by_environment" {
-  description = "Per-environment database credential for Supabase project creation. Set through HCP Terraform sensitive variables or TF_VAR locally."
-  type        = map(string)
-  sensitive   = true
+variable "supabase_instance_size" {
+  description = "Instance size for active Supabase projects."
+  type        = string
+  default     = "micro"
 }
