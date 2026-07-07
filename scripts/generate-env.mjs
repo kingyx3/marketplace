@@ -1,158 +1,29 @@
-/**
- * generate-env.mjs — the single source of truth for the environment
- * contract, and the bridge between GitHub Environment secrets/vars and a
- * runnable `.env`.
- *
- * Dependency-free on purpose: CI can run it before `npm install`.
- * The zod schema in lib/env.ts mirrors this contract for app runtime.
- *
- * Usage:
- *   node scripts/generate-env.mjs --check           # validate process.env, exit 1 on failure
- *   node scripts/generate-env.mjs --write [path]    # validate, then write .env (default ./.env)
- *
- * If a local .env file exists, it is loaded before validation without
- * overriding already-exported environment variables.
- *
- * Security invariants:
- *   * Secret VALUES are never printed — only key names.
- *   * The written .env is chmod 600 and is gitignored.
- */
-
-/**
- * The contract. `secret: true` keys belong in GitHub Environment secrets;
- * the rest are GitHub Environment variables. `deployOnly` keys are consumed
- * by the deploy workflow itself and are not written to .env.
- * Keep this table in sync with .env.example and docs/environments.md.
- */
 export const ENV_CONTRACT = [
-  // --- Supabase ---
-  {
-    key: "NEXT_PUBLIC_SUPABASE_URL",
-    required: true,
-    secret: false,
-    pattern: /^https:\/\/.+/,
-    hint: "https://<project-ref>.supabase.co",
-  },
-  {
-    key: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-    required: true,
-    secret: false,
-    hint: "publishable key (sb_publishable_... in hosted Supabase; RLS-enforced)",
-  },
-  {
-    key: "SUPABASE_SECRET_KEY",
-    required: true,
-    secret: true,
-    hint: "secret key (sb_secret_...) — server only",
-  },
-  // --- Stripe ---
-  {
-    key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-    required: true,
-    secret: false,
-    pattern: /^pk_/,
-    hint: "pk_test_... in dev/staging, pk_live_... in production",
-  },
-  {
-    key: "STRIPE_SECRET_KEY",
-    required: true,
-    secret: true,
-    pattern: /^sk_/,
-    hint: "sk_test_... in dev/staging, sk_live_... in production",
-  },
-  {
-    key: "STRIPE_WEBHOOK_SECRET",
-    required: true,
-    secret: true,
-    pattern: /^whsec_/,
-    hint: "from the Stripe webhook endpoint config",
-  },
-  // --- App ---
-  {
-    key: "NEXT_PUBLIC_SITE_URL",
-    required: true,
-    secret: false,
-    pattern: /^https?:\/\/.+/,
-    hint: "canonical public URL of this environment",
-  },
-  {
-    key: "APP_NAME",
-    required: true,
-    secret: false,
-    pattern: /\S/,
-    hint: "display name used in app chrome, metadata, health, and transactional copy",
-  },
-  // --- Deploy-time only (not written to .env) ---
-  {
-    key: "TARGET_ENV",
-    required: true,
-    secret: false,
-    deployOnly: true,
-    pattern: /^(development|staging|production)$/,
-    hint: "GitHub Environment name; must match the workflow target",
-  },
-  {
-    key: "SUPABASE_ACCESS_TOKEN",
-    required: false,
-    secret: true,
-    deployOnly: true,
-    hint: "Supabase CLI auth for `supabase db push`",
-  },
-  {
-    key: "SUPABASE_DB_PASSWORD",
-    required: false,
-    secret: true,
-    deployOnly: true,
-    hint: "database password for `supabase link`",
-  },
-  {
-    key: "SUPABASE_PROJECT_REF",
-    required: false,
-    secret: false,
-    deployOnly: true,
-    hint: "project ref for `supabase link`",
-  },
-  { key: "VERCEL_TOKEN", required: false, secret: true, deployOnly: true, hint: "Vercel CLI auth" },
+  { key: "NEXT_PUBLIC_SUPABASE_URL", required: true, secret: false, pattern: /^https:\/\/.+/, hint: "Supabase project API URL" },
+  { key: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", required: true, secret: false, hint: "Supabase publishable key" },
+  { key: "SUPABASE_SECRET_KEY", required: true, secret: true, hint: "Supabase server key" },
+  { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", required: true, secret: false, pattern: /^pk_/, hint: "Stripe publishable key" },
+  { key: "STRIPE_SECRET_KEY", required: true, secret: true, pattern: /^sk_/, hint: "Stripe server key" },
+  { key: "STRIPE_WEBHOOK_SECRET", required: true, secret: true, pattern: /^whsec_/, hint: "Stripe webhook signing key" },
+  { key: "NEXT_PUBLIC_SITE_URL", required: true, secret: false, pattern: /^https?:\/\/.+/, hint: "canonical public URL" },
+  { key: "APP_NAME", required: true, secret: false, pattern: /\S/, hint: "display name" },
+  { key: "TARGET_ENV", required: true, secret: false, deployOnly: true, pattern: /^(development|production)$/, hint: "deployment environment" },
+  { key: "SUPABASE_ACCESS_TOKEN", required: false, secret: true, deployOnly: true, hint: "Supabase CLI access" },
+  { key: "SUPABASE_DB_PASSWORD", required: false, secret: true, deployOnly: true, hint: "Supabase database credential" },
+  { key: "SUPABASE_PROJECT_REF", required: false, secret: false, deployOnly: true, hint: "Supabase project reference" },
+  { key: "VERCEL_TOKEN", required: false, secret: true, deployOnly: true, hint: "Vercel CLI access" },
   { key: "VERCEL_ORG_ID", required: false, secret: false, deployOnly: true, hint: "Vercel org id" },
-  {
-    key: "VERCEL_PROJECT_ID",
-    required: false,
-    secret: false,
-    deployOnly: true,
-    hint: "Vercel project id",
-  },
-  // --- Notifications (optional; a missing key disables the channel) ---
-  { key: "RESEND_API_KEY", required: false, secret: true, hint: "email via Resend" },
-  {
-    key: "RESEND_FROM_EMAIL",
-    required: false,
-    secret: false,
-    pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
-    hint: "verified Resend sender address",
-  },
-  {
-    key: "SUPPORT_EMAIL",
-    required: false,
-    secret: false,
-    pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
-    hint: "support contact shown in transactional emails",
-  },
-  { key: "TWILIO_ACCOUNT_SID", required: false, secret: false, hint: "SMS via Twilio" },
-  { key: "TWILIO_AUTH_TOKEN", required: false, secret: true, hint: "SMS via Twilio" },
-  { key: "TELEGRAM_BOT_TOKEN", required: false, secret: true, hint: "Telegram Bot API" },
-  { key: "WHATSAPP_ACCESS_TOKEN", required: false, secret: true, hint: "WhatsApp Cloud API" },
-  {
-    key: "WHATSAPP_PHONE_NUMBER_ID",
-    required: false,
-    secret: false,
-    hint: "WhatsApp Cloud API sender phone-number id",
-  },
+  { key: "VERCEL_PROJECT_ID", required: false, secret: false, deployOnly: true, hint: "Vercel project id" },
+  { key: "RESEND_API_KEY", required: false, secret: true, hint: "email provider" },
+  { key: "RESEND_FROM_EMAIL", required: false, secret: false, pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, hint: "sender email" },
+  { key: "SUPPORT_EMAIL", required: false, secret: false, pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, hint: "support email" },
+  { key: "TWILIO_ACCOUNT_SID", required: false, secret: false, hint: "SMS provider account" },
+  { key: "TWILIO_AUTH_TOKEN", required: false, secret: true, hint: "SMS provider token" },
+  { key: "TELEGRAM_BOT_TOKEN", required: false, secret: true, hint: "Telegram provider token" },
+  { key: "WHATSAPP_ACCESS_TOKEN", required: false, secret: true, hint: "WhatsApp provider token" },
+  { key: "WHATSAPP_PHONE_NUMBER_ID", required: false, secret: false, hint: "WhatsApp phone-number id" },
 ];
 
-/**
- * Validate an env object against the contract.
- * Returns { ok, errors } — errors mention key NAMES only, never values.
- */
 export function validateEnv(env) {
   const errors = [];
   for (const entry of ENV_CONTRACT) {
@@ -168,7 +39,6 @@ export function validateEnv(env) {
   return { ok: errors.length === 0, errors };
 }
 
-/** Render .env content from an env object (runtime keys only). */
 export function renderDotenv(env) {
   const lines = ["# Generated by scripts/generate-env.mjs — do not commit."];
   for (const entry of ENV_CONTRACT) {
@@ -181,9 +51,7 @@ export function renderDotenv(env) {
 }
 
 function formatDotenvValue(value) {
-  if (/[\s#"'\\]/.test(value)) {
-    return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
-  }
+  if (/[\s#"'\\]/.test(value)) return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
   return value;
 }
 
@@ -192,18 +60,11 @@ export function parseDotenv(content) {
   for (const rawLine of content.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
-
     const equalsAt = line.indexOf("=");
     if (equalsAt <= 0) continue;
-
     const key = line.slice(0, equalsAt).trim();
     let value = line.slice(equalsAt + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
     parsed[key] = value;
   }
   return parsed;
@@ -213,9 +74,7 @@ export async function loadLocalDotenv(env = process.env, path = ".env") {
   try {
     const { readFile } = await import("node:fs/promises");
     const parsed = parseDotenv(await readFile(path, "utf8"));
-    for (const [key, value] of Object.entries(parsed)) {
-      if (env[key] === undefined) env[key] = value;
-    }
+    for (const [key, value] of Object.entries(parsed)) if (env[key] === undefined) env[key] = value;
     return true;
   } catch (error) {
     if (error?.code === "ENOENT") return false;
@@ -240,9 +99,7 @@ async function main() {
     const target = outPath || ".env";
     await writeFile(target, renderDotenv(process.env), "utf8");
     await chmod(target, 0o600);
-    const written = ENV_CONTRACT.filter((e) => !e.deployOnly && process.env[e.key]).map(
-      (e) => e.key
-    );
+    const written = ENV_CONTRACT.filter((e) => !e.deployOnly && process.env[e.key]).map((e) => e.key);
     console.log(`wrote ${target} with keys: ${written.join(", ")}`);
   } else if (mode === "--check" || mode === undefined) {
     console.log("environment contract OK");
@@ -252,7 +109,4 @@ async function main() {
   }
 }
 
-// Only run as a CLI, not when imported by tests.
-if (import.meta.url === `file://${process.argv[1]}`) {
-  await main();
-}
+if (import.meta.url === `file://${process.argv[1]}`) await main();
