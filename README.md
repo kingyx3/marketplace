@@ -36,12 +36,11 @@ Checks:
 ## Deployment
 
 Two hosted GitHub Environments are active for now: `development` for feature
-branches and `production` for release tags. `staging` is intentionally reserved
-and empty until there is a third Vercel/Supabase project pair. Configure the
-required GitHub Environment secrets/vars listed in **docs/environments.md**. CI
-validates the GitHub contract, syncs runtime env to Vercel, runs app and
-migration checks, pushes Supabase migrations, deploys to Vercel, and smoke tests
-`/api/health`.
+branches and `production` for release tags. They share one Vercel project:
+development syncs to Vercel Preview, while production syncs to Vercel
+Production. Supabase stays split into one development project and one production
+project. `staging` is intentionally reserved and empty until paid plans justify a
+third data environment.
 
 ## Documentation map
 
