@@ -14,7 +14,7 @@ if (!token) {
   fail("VERCEL_TOKEN is required");
 }
 
-const vercelEnv = targetEnv === "production" ? "production" : "preview";
+const vercelEnv = "production";
 const dotenv = parseDotenv(await readFile(dotenvPath, "utf8"));
 const runtimeEntries = ENV_CONTRACT.filter((entry) => !entry.deployOnly);
 let synced = 0;
