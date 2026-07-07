@@ -31,10 +31,20 @@ applies migrations. It does not run the regular app deployment job.
 
 ## Terraform state
 
-Use HCP Terraform for remote state. Each HCP Terraform workspace stores separate
-state and state history, so state files do not belong in this repo. The platform
-stack includes `infra/terraform/platform/state.tf.example`; copy it to
-`state.tf`, set your HCP Terraform organization, and leave `state.tf` untracked.
+Use Google Cloud Storage for remote Terraform state. The GCS bucket must exist
+before `terraform init`, and object versioning should be enabled so state can be
+recovered after accidental deletion or operator error.
+
+Recommended bucket settings:
+
+- Location: `us-central1`, `us-east1`, or `us-west1`
+- Storage class: Standard
+- Public access prevention: enforced
+- Uniform bucket-level access: enabled
+- Object versioning: enabled
+
+The platform stack includes `infra/terraform/platform/state.tf.example`; copy it
+to `backend.tf`, set the bucket name, and leave `backend.tf` untracked.
 
 ## Terraform boundary
 
@@ -51,7 +61,7 @@ Recommended boundary:
 - Avoid putting runtime application secrets into Terraform-managed Vercel env
   resources. Let CI sync those from GitHub Environments instead.
 - The Supabase project database credential is required for project creation and
-  will be present in Terraform state; use HCP Terraform with strict access.
+  will be present in Terraform state; keep the GCS bucket private and locked down.
 - Database schema still belongs in Supabase migrations, not Terraform.
 
 Do not duplicate ownership: if Terraform manages a Vercel environment variable,
@@ -61,19 +71,20 @@ remove it from the GitHub-owned sync contract, and vice versa.
 
 For each active environment:
 
-1. Run or import Terraform in `infra/terraform/platform`.
-2. Copy Terraform outputs into GitHub Environment variables:
+1. Create the GCS state bucket once and copy `state.tf.example` to `backend.tf`.
+2. Run or import Terraform in `infra/terraform/platform`.
+3. Copy Terraform outputs into GitHub Environment variables:
    - `vercel_project_id` into both `development` and `production` as
      `VERCEL_PROJECT_ID`.
    - each `supabase_project_refs[...]` into the matching GitHub Environment as
      `SUPABASE_PROJECT_REF`.
-3. Configure dashboard-only provider settings such as Supabase Auth redirect
+4. Configure dashboard-only provider settings such as Supabase Auth redirect
    URLs and Stripe webhook endpoints.
-4. Set the remaining GitHub Environment variables and secrets from
+5. Set the remaining GitHub Environment variables and secrets from
    `docs/environments.md`.
-5. Run **Bootstrap Environment** in GitHub Actions for `development` and
+6. Run **Bootstrap Environment** in GitHub Actions for `development` and
    `production`.
-6. Confirm `/api/health` and, for production, `/api/health?deep=1` after the
+7. Confirm `/api/health` and, for production, `/api/health?deep=1` after the
    regular deploy workflow runs.
 
 ## Scaling path
