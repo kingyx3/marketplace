@@ -22,11 +22,11 @@ jobs:
       TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
       TF_STATE_PREFIX: marketplace/platform
       TF_VAR_vercel_team_id: ${{ vars.VERCEL_TEAM_ID }}
-      TF_VAR_vercel_project_name: ${{ vars.VERCEL_PROJECT_NAME }}
+      TF_VAR_vercel_project_name: ${{ vars.VERCEL_PROJECT_NAME || 'marketplace' }}
       TF_VAR_vercel_root_directory: ${{ vars.VERCEL_ROOT_DIRECTORY }}
       TF_VAR_supabase_organization_id: ${{ vars.SUPABASE_ORGANIZATION_ID }}
       TF_VAR_supabase_environments: >-
-        {"development":{"supabase_project_name":"${{ vars.SUPABASE_DEVELOPMENT_PROJECT_NAME }}","supabase_region":"${{ vars.SUPABASE_REGION }}","supabase_instance_size":"${{ vars.SUPABASE_INSTANCE_SIZE }}"},"production":{"supabase_project_name":"${{ vars.SUPABASE_PRODUCTION_PROJECT_NAME }}","supabase_region":"${{ vars.SUPABASE_REGION }}","supabase_instance_size":"${{ vars.SUPABASE_INSTANCE_SIZE }}"}}
+        {"development":{"supabase_project_name":"${{ vars.SUPABASE_DEVELOPMENT_PROJECT_NAME }}","supabase_region":"${{ vars.SUPABASE_REGION || 'ap-southeast-1' }}","supabase_instance_size":"${{ vars.SUPABASE_INSTANCE_SIZE || 'micro' }}"},"production":{"supabase_project_name":"${{ vars.SUPABASE_PRODUCTION_PROJECT_NAME }}","supabase_region":"${{ vars.SUPABASE_REGION || 'ap-southeast-1' }}","supabase_instance_size":"${{ vars.SUPABASE_INSTANCE_SIZE || 'micro' }}"}}
       TF_VAR_supabase_db_secret_by_environment: >-
         {"development":"${{ secrets.SUPABASE_DEVELOPMENT_DB_PASSWORD }}","production":"${{ secrets.SUPABASE_PRODUCTION_DB_PASSWORD }}"}
     steps:
@@ -41,7 +41,16 @@ jobs:
               missing=1
             fi
           done
+          for key in SUPABASE_DEVELOPMENT_PROJECT_NAME SUPABASE_PRODUCTION_PROJECT_NAME; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required GitHub variable: $key" >&2
+              missing=1
+            fi
+          done
           [ "$missing" = "0" ] || exit 1
+        env:
+          SUPABASE_DEVELOPMENT_PROJECT_NAME: ${{ vars.SUPABASE_DEVELOPMENT_PROJECT_NAME }}
+          SUPABASE_PRODUCTION_PROJECT_NAME: ${{ vars.SUPABASE_PRODUCTION_PROJECT_NAME }}
       - name: Terraform init
         working-directory: infra/terraform/platform
         run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
