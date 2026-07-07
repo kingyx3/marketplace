@@ -1,8 +1,0 @@
-# Copy this file to backend.tf and set your globally unique bucket name.
-# The GCS bucket must already exist before `terraform init`.
-terraform {
-  backend "gcs" {
-    bucket = "your-globally-unique-marketplace-tfstate-bucket"
-    prefix = "marketplace/platform"
-  }
-}
