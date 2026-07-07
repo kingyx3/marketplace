@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: GitHub Environment to deploy (development | staging | production)
+        description: GitHub Environment to deploy (development | production)
         required: true
         type: string
 
@@ -44,7 +44,7 @@ jobs:
       - name: Validate GitHub Environment contract
         run: |
           case "$TARGET_ENV" in
-            development|staging|production) ;;
+            development|production) ;;
             *) echo "Unsupported deployment environment: $TARGET_ENV" >&2; exit 1 ;;
           esac
           missing=0
@@ -178,7 +178,7 @@ jobs:
           echo "health check failed" >&2
           exit 1
       - name: Deep readiness check
-        if: ${{ inputs.environment == 'staging' || inputs.environment == 'production' }}
+        if: ${{ inputs.environment == 'production' }}
         run: |
           URL="${{ needs.deploy.outputs.deployment_url }}"
           echo "readiness testing $URL/api/health?deep=1"
