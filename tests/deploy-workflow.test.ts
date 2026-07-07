@@ -38,4 +38,15 @@ describe("deployment workflow contract", () => {
     expect(production).toContain("environment: production");
     expect(production).toContain("types: [published]");
   });
+
+  it("keeps bootstrap separate from regular deployment", async () => {
+    const bootstrap = await readWorkflow(".github/workflows/bootstrap-environment.yml");
+
+    expect(bootstrap).toContain("workflow_dispatch:");
+    expect(bootstrap).toContain("options: [development, production]");
+    expect(bootstrap).toContain("Sync runtime env to Vercel");
+    expect(bootstrap).toContain("Apply Supabase migrations");
+    expect(bootstrap).not.toContain("uses: ./.github/workflows/deploy.yml");
+    expect(bootstrap).not.toContain("npx vercel deploy");
+  });
 });
