@@ -19,7 +19,7 @@ jobs:
       GOOGLE_CREDENTIALS: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
-      TF_VAR_state_bucket_location: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+      TF_VAR_state_bucket_location: ${{ vars.TF_STATE_BUCKET_LOCATION || 'us-central1' }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
