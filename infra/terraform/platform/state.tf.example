@@ -1,0 +1,11 @@
+# Copy this file to state.tf and set your HCP Terraform organization.
+# Do not commit state.tf if it contains account-specific configuration.
+terraform {
+  cloud {
+    organization = "your-hcp-terraform-organization"
+
+    workspaces {
+      name = "marketplace-platform"
+    }
+  }
+}
