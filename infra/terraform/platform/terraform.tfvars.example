@@ -1,25 +1,9 @@
 supabase_organization_id = "your-supabase-org-slug"
-vercel_team_id           = null
-vercel_root_directory    = null
-vercel_project_name      = "marketplace"
 
-supabase_environments = {
-  development = {
-    supabase_project_name  = "marketplace-development"
-    supabase_region        = "ap-southeast-1"
-    supabase_instance_size = "micro"
-  }
-
-  production = {
-    supabase_project_name  = "marketplace-production"
-    supabase_region        = "ap-southeast-1"
-    supabase_instance_size = "micro"
-  }
-}
-
-# Do not put real values in this example file.
-# Set the real map in HCP Terraform as a sensitive variable.
-supabase_db_secret_by_environment = {
-  development = "replace-me"
-  production  = "replace-me"
-}
+# Optional overrides. CI derives sane defaults when these are omitted.
+project_slug            = "marketplace"
+vercel_project_name     = ""
+vercel_team_id          = ""
+vercel_root_directory   = ""
+supabase_region         = "ap-southeast-1"
+supabase_instance_size  = "micro"
