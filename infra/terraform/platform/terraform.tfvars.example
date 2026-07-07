@@ -1,17 +1,16 @@
 supabase_organization_id = "your-supabase-org-slug"
 vercel_team_id           = null
 vercel_root_directory    = null
+vercel_project_name      = "marketplace"
 
-environments = {
+supabase_environments = {
   development = {
-    vercel_project_name    = "marketplace-development"
     supabase_project_name  = "marketplace-development"
     supabase_region        = "ap-southeast-1"
     supabase_instance_size = "micro"
   }
 
   production = {
-    vercel_project_name    = "marketplace-production"
     supabase_project_name  = "marketplace-production"
     supabase_region        = "ap-southeast-1"
     supabase_instance_size = "micro"
