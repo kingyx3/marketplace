@@ -67,6 +67,10 @@ describe("platform config contract", () => {
     const packageJson = JSON.parse(
       await readFile(new URL("../package.json", import.meta.url), "utf8")
     );
+    const syncScript = await readFile(
+      new URL("../scripts/sync-vercel-env.mjs", import.meta.url),
+      "utf8"
+    );
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
@@ -76,6 +80,8 @@ describe("platform config contract", () => {
     expect(ci).toContain("npx playwright install --with-deps chromium");
     expect(ci).toContain("npm run test:e2e");
     expect(ci).toContain("tests/config-contract.test.ts");
+    expect(syncScript).toContain("ENV_CONTRACT");
+    expect(syncScript).toContain("parseDotenv");
   });
 });
 
