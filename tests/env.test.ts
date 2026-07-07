@@ -7,9 +7,9 @@ let loadLocalDotenv: (env: Record<string, string>, path: string) => Promise<bool
 
 const validEnv: Record<string, string> = {
   NEXT_PUBLIC_SUPABASE_URL: "https://abc123.supabase.co",
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_123",
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
-  SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+  SUPABASE_SECRET_KEY: "sb_secret_test_123",
   STRIPE_SECRET_KEY: "sk_test_123",
   STRIPE_WEBHOOK_SECRET: "whsec_123",
   APP_NAME: "Marketplace",
