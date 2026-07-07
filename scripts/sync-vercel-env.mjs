@@ -7,8 +7,8 @@ const dotenvPath = process.argv[2] || ".env.deploy";
 const targetEnv = process.env.TARGET_ENV;
 const token = process.env.VERCEL_TOKEN;
 
-if (!targetEnv || !/^(development|staging|production)$/.test(targetEnv)) {
-  fail("TARGET_ENV must be development, staging, or production");
+if (!targetEnv || !/^(development|production)$/.test(targetEnv)) {
+  fail("TARGET_ENV must be development or production");
 }
 if (!token) {
   fail("VERCEL_TOKEN is required");
