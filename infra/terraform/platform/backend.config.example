@@ -1,0 +1,2 @@
+bucket = "your-globally-unique-marketplace-tfstate-bucket"
+prefix = "marketplace/platform"
