@@ -1,14 +1,14 @@
 # Platform Terraform
 
-This stack manages the provider project shells for the active hosted
-environments:
+This stack manages the provider project shells for the current hosted topology:
 
-- `development`
-- `production`
+- one Vercel project named `marketplace`
+- one Supabase project for `development`
+- one Supabase project for `production`
 
-`staging` is intentionally absent while the free tiers limit the app to two
-hosted project pairs. Add staging later by adding a third environment object and
-reenabling a staging deploy workflow.
+`staging` is intentionally absent while the app uses the free-tier setup. Add
+staging later by adding a third Supabase environment and choosing either a Vercel
+custom environment or a separate staging Vercel project.
 
 ## State
 
@@ -30,7 +30,7 @@ Set provider credentials outside git:
 - `supabase_db_secret_by_environment` as a sensitive HCP Terraform variable.
 
 Do not put runtime app env values in Terraform. Runtime env belongs in GitHub
-Environments and is synced to Vercel by the deploy/bootstrap workflows.
+Environments and is synced to Vercel by the bootstrap/deploy workflows.
 
 ## First-time use
 
@@ -45,12 +45,10 @@ terraform apply -var-file=terraform.tfvars
 Use `terraform.tfvars.example` as a template, but do not commit a real
 `terraform.tfvars` file.
 
-After apply, copy outputs into the matching GitHub Environments:
+After apply, copy outputs into GitHub Environments:
 
-- `vercel_project_ids[development]` → `development` GitHub Environment
-  `VERCEL_PROJECT_ID`
-- `vercel_project_ids[production]` → `production` GitHub Environment
-  `VERCEL_PROJECT_ID`
+- `vercel_project_id` → both `development` and `production` GitHub Environments
+  as `VERCEL_PROJECT_ID`
 - `supabase_project_refs[development]` → `development` GitHub Environment
   `SUPABASE_PROJECT_REF`
 - `supabase_project_refs[production]` → `production` GitHub Environment
