@@ -22,11 +22,6 @@ backend config template.
 
 ## CI/CD inputs
 
-Required repository variables:
-
-- `GCP_PROJECT_ID`
-- `SUPABASE_ORGANIZATION_ID`
-
 Required repository secrets:
 
 - `GCP_TERRAFORM_CREDENTIALS_JSON`
@@ -35,9 +30,11 @@ Required repository secrets:
 
 Optional repository variables:
 
+- `GCP_PROJECT_ID` (derived from Google credential JSON when omitted)
+- `SUPABASE_ORGANIZATION_ID` (set this when the token can access multiple organizations)
 - `PROJECT_SLUG` (defaults to the repository name)
-- `TF_STATE_BUCKET_NAME` (defaults to a name derived from `GCP_PROJECT_ID` and `PROJECT_SLUG`)
-- `TF_STATE_BUCKET_LOCATION` (defaults to `us-central1` in the state bootstrap workflow)
+- `TF_STATE_BUCKET_NAME` (defaults to a derived bucket name)
+- `TF_STATE_BUCKET_LOCATION` (defaults to `us-central1`)
 - `VERCEL_PROJECT_NAME` (defaults to `PROJECT_SLUG`)
 - `VERCEL_TEAM_ID`
 - `VERCEL_ROOT_DIRECTORY`
