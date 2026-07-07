@@ -1,11 +1,8 @@
-# Copy this file to state.tf and set your HCP Terraform organization.
-# Do not commit state.tf if it contains account-specific configuration.
+# Copy this file to backend.tf and set your globally unique bucket name.
+# The GCS bucket must already exist before `terraform init`.
 terraform {
-  cloud {
-    organization = "your-hcp-terraform-organization"
-
-    workspaces {
-      name = "marketplace-platform"
-    }
+  backend "gcs" {
+    bucket = "your-globally-unique-marketplace-tfstate-bucket"
+    prefix = "marketplace/platform"
   }
 }
