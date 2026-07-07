@@ -9,6 +9,8 @@ Do not describe manual admin workflows as product features.
 
 - Infrastructure and deployment config live in git, GitHub Environments,
   Supabase, Stripe, and Vercel.
+- GitHub Environments are the source of truth for deployed configuration;
+  CI syncs runtime keys to Vercel during deployment.
 - Runtime data lives in Supabase Postgres. Production data changes must
   be traceable in an issue or PR, even when the change is made through
   Supabase Studio.
@@ -134,8 +136,8 @@ asking the customer to place B2B orders again.
 2. Roll back the Vercel deployment if the app deploy caused the issue.
 3. For schema mistakes, ship a new forward migration; never edit an
    applied migration.
-4. Rotate provider secrets in the provider dashboard, then update the
-   GitHub Environment and rerun deploy.
+4. Update the matching GitHub Environment and rerun deploy so CI re-syncs
+   downstream configuration.
 
 ## Admin tooling backlog
 
