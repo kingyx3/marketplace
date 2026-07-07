@@ -14,12 +14,15 @@ cp .env.example .env
 npx supabase start        # boots local Postgres/Auth/Studio in Docker
 ```
 
-`supabase start` prints local credentials. Put these into `.env`:
+For hosted Supabase projects, use the Project Settings API keys named
+`sb_publishable_...` and `sb_secret_...`. The local Supabase CLI can expose
+older local JWT values instead; use those only for the local Docker stack while
+keeping the app's environment variable names below.
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key from supabase start>
-SUPABASE_SERVICE_ROLE_KEY=<service_role key from supabase start>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<local public Supabase API key>
+SUPABASE_SECRET_KEY=<local elevated Supabase API key>
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 TARGET_ENV=development
 STRIPE_SECRET_KEY=sk_test_...        # your Stripe TEST key
