@@ -12,45 +12,52 @@ custom environment or a separate staging Vercel project.
 
 ## State
 
-Use Google Cloud Storage for remote Terraform state. The GCS bucket must already
-exist before `terraform init`. Enable object versioning on the bucket so state can
-be recovered after accidental deletion or operator error.
+This stack uses the committed empty `backend "gcs" {}` block in `backend.tf`.
+The bucket and prefix are passed by CI/CD during `terraform init`, so no real
+backend config is committed.
 
-Recommended bucket settings:
+Run **Terraform State Bootstrap** first to create/reconcile the GCS bucket, then
+run **Terraform Platform**. For local runs, use `backend.config.example` as a
+backend config template.
 
-- Location: `us-central1`, `us-east1`, or `us-west1`
-- Storage class: Standard
-- Public access prevention: enforced
-- Uniform bucket-level access: enabled
-- Object versioning: enabled
+## CI/CD inputs
 
-Create the bucket once, then copy `state.tf.example` to `backend.tf` and set the
-bucket name. Do not commit `backend.tf`.
+Repository variables:
 
-## Credentials
+- `GCP_PROJECT_ID`
+- `TF_STATE_BUCKET_NAME`
+- `TF_STATE_BUCKET_LOCATION` (optional; defaults to `us-central1` in CI)
+- `VERCEL_PROJECT_NAME` (optional; defaults to `marketplace` in CI)
+- `VERCEL_TEAM_ID` (optional)
+- `VERCEL_ROOT_DIRECTORY` (optional)
+- `SUPABASE_ORGANIZATION_ID`
+- `SUPABASE_DEVELOPMENT_PROJECT_NAME`
+- `SUPABASE_PRODUCTION_PROJECT_NAME`
+- `SUPABASE_REGION` (optional; defaults to `ap-southeast-1` in CI)
+- `SUPABASE_INSTANCE_SIZE` (optional; defaults to `micro` in CI)
 
-Set provider credentials outside git:
+Repository secrets:
 
-- Google Application Default Credentials for the Terraform GCS backend.
-- `VERCEL_API_TOKEN` for the Vercel provider.
-- `SUPABASE_ACCESS_TOKEN` for the Supabase provider.
-- `supabase_db_secret_by_environment` as a sensitive local or CI variable.
+- `GCP_TERRAFORM_CREDENTIALS_JSON`
+- `VERCEL_API_TOKEN`
+- `SUPABASE_ACCESS_TOKEN`
+- `SUPABASE_DEVELOPMENT_DB_PASSWORD`
+- `SUPABASE_PRODUCTION_DB_PASSWORD`
 
-Do not put runtime app env values in Terraform. Runtime env belongs in GitHub
-Environments and is synced to Vercel by the bootstrap/deploy workflows.
+The workflows pass these as `TF_VAR_*` values and backend config. Do not commit a
+real `terraform.tfvars` file.
 
-## First-time use
+## Local use
+
+Prefer the GitHub Actions workflows. For a local plan:
 
 ```bash
 cd infra/terraform/platform
-cp state.tf.example backend.tf
-terraform init
-terraform plan -var-file=terraform.tfvars
-terraform apply -var-file=terraform.tfvars
+terraform init -backend-config=backend.config.example
+terraform plan
 ```
 
-Use `terraform.tfvars.example` as a template, but do not commit a real
-`terraform.tfvars` file.
+Set provider credentials and `TF_VAR_*` values in your shell first.
 
 After apply, copy outputs into GitHub Environments:
 
