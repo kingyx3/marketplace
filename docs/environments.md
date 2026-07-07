@@ -4,11 +4,15 @@ GitHub Environments are the source of truth for deployed configuration. CI reads
 GitHub Environment variables and secrets, validates them, syncs runtime values to
 Vercel, links the selected Supabase project, pushes migrations, and deploys.
 
-| Environment   | Trigger                       | Vercel target                    | Stripe mode | Approval               |
-| ------------- | ----------------------------- | -------------------------------- | ----------- | ---------------------- |
-| `development` | push to any non-`main` branch | Vercel Preview / branch override | test        | none                   |
-| `staging`     | push to `main`                | Vercel Preview / `main` override | test        | none                   |
-| `production`  | tag `v*` / release published  | Vercel Production                | **live**    | **required reviewers** |
+Use one Supabase project and one Vercel project per long-lived deployed
+environment. This keeps runtime variables, domains, deployment history, auth
+redirects, and database state isolated.
+
+| Environment   | Trigger                       | Vercel project             | Stripe mode | Approval               |
+| ------------- | ----------------------------- | -------------------------- | ----------- | ---------------------- |
+| `development` | push to any non-`main` branch | `marketplace-development`  | test        | none                   |
+| `staging`     | push to `main`                | `marketplace-staging`      | test        | none                   |
+| `production`  | tag `v*` / release published  | `marketplace-production`   | **live**    | **required reviewers** |
 
 The canonical machine-readable contract is `ENV_CONTRACT` in
 [`scripts/generate-env.mjs`](../scripts/generate-env.mjs); `.env.example` and
@@ -40,7 +44,7 @@ The canonical machine-readable contract is `ENV_CONTRACT` in
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...`; browser-safe and RLS-enforced |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` or `pk_live_...` |
 | `SUPABASE_PROJECT_REF` | Project ref used by `supabase link` |
-| `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | From `vercel link` → `.vercel/project.json` |
+| `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | Vercel project for this GitHub Environment only |
 | `RESEND_FROM_EMAIL` | Optional verified sender address |
 | `SUPPORT_EMAIL` | Optional customer support address |
 | `TWILIO_ACCOUNT_SID` | Optional SMS provider account id |
@@ -52,7 +56,7 @@ Deployment never treats Vercel as the source of truth. The deploy workflow:
 
 1. Validates the selected GitHub Environment.
 2. Generates `.env.deploy` from GitHub Environment values.
-3. Syncs every runtime key in `.env.deploy` to the matching Vercel environment.
+3. Syncs every runtime key in `.env.deploy` to the selected Vercel project.
 4. Removes unset optional runtime keys from Vercel to avoid stale config.
 5. Pushes Supabase migrations to `SUPABASE_PROJECT_REF`.
 6. Deploys to Vercel and smoke tests `/api/health`.
@@ -60,33 +64,38 @@ Deployment never treats Vercel as the source of truth. The deploy workflow:
 The generated `.env.deploy` file is temporary, gitignored, and removed during the
 deploy job.
 
-## Supabase projects
+## Supabase and Vercel projects
 
-Use one Supabase project per long-lived deployed environment:
+Use one project per long-lived deployed environment:
 
-| Environment | Supabase project |
-| --- | --- |
-| `development` | Hosted development project, or local CLI for local-only work |
-| `staging` | Hosted staging project |
-| `production` | Hosted production project |
+| Environment | Supabase project | Vercel project |
+| --- | --- | --- |
+| `development` | Hosted development project, or local CLI for local-only work | Development project |
+| `staging` | Hosted staging project | Staging project |
+| `production` | Hosted production project | Production project |
 
-Each hosted project has its own database, Auth settings, Storage buckets, API
-URL, publishable key, secret key, and database password. Store the selected
-project's values only in the matching GitHub Environment.
+Each hosted Supabase project has its own database, Auth settings, Storage
+buckets, API URL, publishable key, secret key, and database password. Each Vercel
+project has its own deployment history, domains, project id, and runtime env.
+Store each project's values only in the matching GitHub Environment.
 
 ## Bootstrap per environment
 
-CI can reconcile downstream config after the provider projects exist. Once per
+Provider accounts/projects are created once, then reconciled by CI. Once per
 environment:
 
 1. Create the Supabase project and record its project ref, database password,
    API URL, publishable key, and secret key.
-2. Create or link the Vercel project and record `VERCEL_ORG_ID` and
+2. Create the dedicated Vercel project and record `VERCEL_ORG_ID` and
    `VERCEL_PROJECT_ID`.
 3. Enter all required values in the matching GitHub Environment.
-4. Configure provider dashboards that cannot be represented in repo code, such
-   as Supabase Auth redirect URLs and the Stripe webhook endpoint.
-5. For production, add required reviewers under GitHub Environment protection.
+4. Configure provider dashboard settings that cannot be fully represented in
+   this repo yet, such as Supabase Auth redirect URLs and the Stripe webhook
+   endpoint.
+5. Run **Bootstrap Environment** from GitHub Actions for the selected
+   environment. It reuses the deploy pipeline to validate GitHub config, sync
+   Vercel runtime env, link Supabase, push migrations, deploy, and smoke test.
+6. For production, add required reviewers under GitHub Environment protection.
 
 After bootstrap, normal deploys create/update the downstream Vercel runtime env,
 apply Supabase schema changes, and deploy the app from GitHub source control.
