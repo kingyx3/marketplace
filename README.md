@@ -42,6 +42,9 @@ Production. Supabase stays split into one development project and one production
 project. `staging` is intentionally reserved and empty until paid plans justify a
 third data environment.
 
+Terraform state for provider project shells is stored in a private GCS bucket;
+see `docs/provisioning.md` and `infra/terraform/platform`.
+
 ## Documentation map
 
 | Doc                                                  | What it covers                                  |
