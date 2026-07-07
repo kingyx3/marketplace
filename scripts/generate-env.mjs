@@ -1,6 +1,6 @@
 /**
  * generate-env.mjs — the single source of truth for the environment
- * contract, and the bridge between provider runtime configuration and a
+ * contract, and the bridge between GitHub Environment secrets/vars and a
  * runnable `.env`.
  *
  * Dependency-free on purpose: CI can run it before `npm install`.
@@ -19,9 +19,9 @@
  */
 
 /**
- * The contract. `secret: true` keys belong in secret stores; the rest are
- * non-secret vars. `deployOnly` keys are consumed by the deploy workflow
- * itself and are not written to .env.
+ * The contract. `secret: true` keys belong in GitHub Environment secrets;
+ * the rest are GitHub Environment variables. `deployOnly` keys are consumed
+ * by the deploy workflow itself and are not written to .env.
  * Keep this table in sync with .env.example and docs/environments.md.
  */
 export const ENV_CONTRACT = [
@@ -43,7 +43,7 @@ export const ENV_CONTRACT = [
     key: "SUPABASE_SECRET_KEY",
     required: true,
     secret: true,
-    hint: "secret key (sb_secret_...) — bypasses RLS, server only",
+    hint: "secret key (sb_secret_...) — server only",
   },
   // --- Stripe ---
   {
