@@ -14,26 +14,28 @@ if (!token) {
   fail("VERCEL_TOKEN is required");
 }
 
-const vercelEnv = "production";
+const vercelTargets = ["production", "preview"];
 const dotenv = parseDotenv(await readFile(dotenvPath, "utf8"));
 const runtimeEntries = ENV_CONTRACT.filter((entry) => !entry.deployOnly);
 let synced = 0;
 let removed = 0;
 
-for (const entry of runtimeEntries) {
-  const value = dotenv[entry.key];
-  run(["env", "rm", entry.key, vercelEnv, "--yes", "--token", token], true);
+for (const vercelEnv of vercelTargets) {
+  for (const entry of runtimeEntries) {
+    const value = dotenv[entry.key];
+    run(["env", "rm", entry.key, vercelEnv, "--yes", "--token", token], true);
 
-  if (value === undefined || value === "") {
-    removed += 1;
-    continue;
+    if (value === undefined || value === "") {
+      removed += 1;
+      continue;
+    }
+
+    run(["env", "add", entry.key, vercelEnv, "--token", token], false, value);
+    synced += 1;
   }
-
-  run(["env", "add", entry.key, vercelEnv, "--token", token], false, value);
-  synced += 1;
 }
 
-console.log(`synced ${synced} runtime key(s) to Vercel ${vercelEnv}; removed ${removed} unset key(s)`);
+console.log(`synced ${synced} runtime key(s) to Vercel; removed ${removed} unset key target(s)`);
 
 function run(args, allowFailure = false, input = undefined) {
   const result = spawnSync("npx", ["vercel", ...args], {
