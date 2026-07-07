@@ -17,22 +17,39 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GOOGLE_CREDENTIALS: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
-      TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
-      TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
-      TF_VAR_state_bucket_location: ${{ vars.TF_STATE_BUCKET_LOCATION || 'us-central1' }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      PROJECT_SLUG_OVERRIDE: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME_OVERRIDE: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION_OVERRIDE: ${{ vars.TF_STATE_BUCKET_LOCATION }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-      - name: Validate CI/CD variables
+      - name: Resolve CI/CD variables
         run: |
-          missing=0
-          for key in GOOGLE_CREDENTIALS TF_VAR_gcp_project_id TF_VAR_state_bucket_name TF_VAR_state_bucket_location; do
-            if [ -z "${!key}" ]; then
-              echo "Missing required variable: $key" >&2
-              missing=1
-            fi
-          done
-          [ "$missing" = "0" ] || exit 1
+          set -euo pipefail
+          if [ -z "$GOOGLE_CREDENTIALS" ]; then
+            echo "Missing required secret: GCP_TERRAFORM_CREDENTIALS_JSON" >&2
+            exit 1
+          fi
+          if [ -z "$GCP_PROJECT_ID" ]; then
+            echo "Missing required variable: GCP_PROJECT_ID" >&2
+            exit 1
+          fi
+          project_slug="$PROJECT_SLUG_OVERRIDE"
+          if [ -z "$project_slug" ]; then
+            project_slug=$(basename "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+|-+$//g')
+          fi
+          bucket_name="$TF_STATE_BUCKET_NAME_OVERRIDE"
+          if [ -z "$bucket_name" ]; then
+            bucket_name=$(printf '%s-%s-tfstate' "$GCP_PROJECT_ID" "$project_slug" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g')
+          fi
+          bucket_location="${TF_STATE_BUCKET_LOCATION_OVERRIDE:-us-central1}"
+          {
+            echo "TF_VAR_gcp_project_id=$GCP_PROJECT_ID"
+            echo "TF_VAR_project_slug=$project_slug"
+            echo "TF_VAR_state_bucket_name=$bucket_name"
+            echo "TF_VAR_state_bucket_location=$bucket_location"
+          } >> "$GITHUB_ENV"
       - name: Terraform init
         working-directory: infra/terraform/bootstrap
         run: terraform init
