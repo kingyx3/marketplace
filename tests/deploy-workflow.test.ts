@@ -29,15 +29,12 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("$URL/api/health?deep=1");
   });
 
-  it("maps deployment callers to the expected GitHub Environments", async () => {
+  it("maps deployment callers to the active GitHub Environments", async () => {
     const development = await readWorkflow(".github/workflows/deploy-development.yml");
-    const staging = await readWorkflow(".github/workflows/deploy-staging.yml");
     const production = await readWorkflow(".github/workflows/deploy-production.yml");
 
     expect(development).toContain("environment: development");
     expect(development).toContain("branches-ignore: [main]");
-    expect(staging).toContain("environment: staging");
-    expect(staging).toContain("branches: [main]");
     expect(production).toContain("environment: production");
     expect(production).toContain("types: [published]");
   });
