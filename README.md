@@ -35,11 +35,13 @@ Checks:
 
 ## Deployment
 
-Three GitHub Environments — `development` (feature branches), `staging`
-(`main`), `production` (tags, human-approved). Configure the required GitHub
-Environment secrets/vars listed in **docs/environments.md**. CI validates the
-GitHub contract, syncs runtime env to Vercel, runs app and migration checks,
-pushes Supabase migrations, deploys to Vercel, and smoke tests `/api/health`.
+Two hosted GitHub Environments are active for now: `development` for feature
+branches and `production` for release tags. `staging` is intentionally reserved
+and empty until there is a third Vercel/Supabase project pair. Configure the
+required GitHub Environment secrets/vars listed in **docs/environments.md**. CI
+validates the GitHub contract, syncs runtime env to Vercel, runs app and
+migration checks, pushes Supabase migrations, deploys to Vercel, and smoke tests
+`/api/health`.
 
 ## Documentation map
 
@@ -48,6 +50,7 @@ pushes Supabase migrations, deploys to Vercel, and smoke tests `/api/health`.
 | [docs/architecture.md](docs/architecture.md)         | Stack, rationale, alternatives considered       |
 | [docs/environments.md](docs/environments.md)         | Every secret/var, per environment               |
 | [docs/deployment.md](docs/deployment.md)             | Pipeline flow, gates, rollback                  |
+| [docs/provisioning.md](docs/provisioning.md)         | Terraform bootstrap and state management        |
 | [docs/data-model.md](docs/data-model.md)             | Schema reference and key decisions              |
 | [docs/security.md](docs/security.md)                 | RLS, webhooks, secrets handling                 |
 | [docs/cost-controls.md](docs/cost-controls.md)       | Keeping the bill near zero pre-launch           |
