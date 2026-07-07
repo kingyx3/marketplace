@@ -7,5 +7,7 @@ bucket does not exist until this stack runs. CI imports the bucket when it alrea
 exists, so reruns can reconcile the bucket settings without committing local
 state.
 
-Variables are passed by CI/CD through `TF_VAR_*` environment variables. Do not
-commit real values.
+Required CI/CD inputs are `GCP_TERRAFORM_CREDENTIALS_JSON` and `GCP_PROJECT_ID`.
+`PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, and `TF_STATE_BUCKET_LOCATION` are
+optional; the workflow derives defaults when they are omitted. Do not commit real
+state or tfvars files.
