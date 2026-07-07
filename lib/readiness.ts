@@ -1,13 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAppName } from "@/lib/app-config";
 import { configuredChannels } from "@/lib/notifications";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 type CheckStatus = "ok" | "fail" | "disabled" | "configured";
 
 interface EnvLike {
   NEXT_PUBLIC_SUPABASE_URL?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
+  SUPABASE_SECRET_KEY?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   RESEND_API_KEY?: string;
@@ -83,12 +83,12 @@ async function checkSupabase(
   env: EnvLike,
   injectedClient?: SupabaseClient
 ): Promise<{ status: "ok" | "fail"; reason?: string }> {
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
     return { status: "fail", reason: "missing_config" };
   }
 
   try {
-    const client = injectedClient ?? createServiceClient();
+    const client = injectedClient ?? createSecretClient();
     const { error } = await client
       .from("products")
       .select("id", { count: "exact", head: true })

@@ -1,7 +1,7 @@
 /**
  * generate-env.mjs — the single source of truth for the environment
- * contract, and the bridge between GitHub Environment secrets/vars
- * and a runnable `.env`.
+ * contract, and the bridge between provider runtime configuration and a
+ * runnable `.env`.
  *
  * Dependency-free on purpose: CI can run it before `npm install`.
  * The zod schema in lib/env.ts mirrors this contract for app runtime.
@@ -19,9 +19,9 @@
  */
 
 /**
- * The contract. `secret: true` keys belong in GitHub Environment
- * *secrets*; the rest are non-secret *vars*. `deployOnly` keys are
- * consumed by the deploy workflow itself and are not written to .env.
+ * The contract. `secret: true` keys belong in secret stores; the rest are
+ * non-secret vars. `deployOnly` keys are consumed by the deploy workflow
+ * itself and are not written to .env.
  * Keep this table in sync with .env.example and docs/environments.md.
  */
 export const ENV_CONTRACT = [
@@ -34,16 +34,16 @@ export const ENV_CONTRACT = [
     hint: "https://<project-ref>.supabase.co",
   },
   {
-    key: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    key: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     required: true,
     secret: false,
-    hint: "anon/publishable key (RLS-enforced)",
+    hint: "publishable key (sb_publishable_... in hosted Supabase; RLS-enforced)",
   },
   {
-    key: "SUPABASE_SERVICE_ROLE_KEY",
+    key: "SUPABASE_SECRET_KEY",
     required: true,
     secret: true,
-    hint: "service role key — bypasses RLS, server only",
+    hint: "secret key (sb_secret_...) — bypasses RLS, server only",
   },
   // --- Stripe ---
   {

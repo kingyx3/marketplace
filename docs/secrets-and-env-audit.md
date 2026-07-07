@@ -7,11 +7,10 @@ foundation: Next.js deploy config is checked in, Supabase migrations and
 storage policies are validated in CI, and deploys are gated behind app and
 migration checks.
 
-The main issue was configuration ownership. GitHub Environment values were
-being treated as the source of truth for the full app runtime configuration
-and then synced into Vercel on each deploy. This PR changes that so GitHub
-keeps only what CI/CD needs to connect to Supabase and Vercel, plus the safe
-non-secret `APP_NAME` input, while Vercel owns provider runtime configuration.
+Configuration ownership remains split intentionally: GitHub Environment values
+are only for CI/CD and migrations, while Vercel owns provider runtime
+configuration. This update also replaces the legacy Supabase runtime key names
+with the current publishable/secret key names throughout the app contract.
 
 ## Required GitHub Environment entries
 
@@ -29,6 +28,18 @@ Keep only these values in each GitHub Environment.
 
 `TARGET_ENV` is generated from the workflow input and should not be stored as
 a GitHub variable.
+
+## Runtime Supabase key-name migration
+
+Use the current Supabase API key names for runtime configuration.
+
+| Remove old name | Add new name | Store as |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Vercel var |
+| `SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SECRET_KEY` | Vercel secret |
+
+The app no longer reads the old names. If they exist in GitHub Environments,
+remove them; runtime provider values belong in Vercel.
 
 ## Values to remove from GitHub
 
@@ -50,21 +61,25 @@ The full runtime list is maintained in `docs/environments.md` and
 - Deploy CI syncs only `APP_NAME` from GitHub vars to Vercel.
 - Deploy CI runs `vercel pull`, validates the pulled Vercel runtime env using
   `scripts/generate-env.mjs --check`, and deploys only after validation passes.
-- `scripts/verify-vercel-config.mjs` now fails if the deploy workflow maps
-  provider runtime env from GitHub or reintroduces full runtime env syncing.
+- `scripts/verify-vercel-config.mjs` fails if the deploy workflow maps provider
+  runtime env from GitHub or reintroduces full runtime env syncing, including
+  either the old or new Supabase runtime key names.
 
 ## Manual cleanup checklist
 
-1. In Vercel Project Settings → Environment Variables, add the required
-   provider runtime values for Preview and Production.
-2. If staging and development need different values while both use Vercel
+1. In Vercel Project Settings → Environment Variables, add
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` for Preview
+   and Production.
+2. Remove `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from
+   Vercel after confirming the new names are present.
+3. If staging and development need different values while both use Vercel
    Preview deploys, add branch-specific Preview overrides.
-3. In GitHub Environments, keep only the deploy entries listed above, including
+4. In GitHub Environments, keep only the deploy entries listed above, including
    `APP_NAME`.
-4. Remove `TARGET_ENV` from GitHub vars; the workflow now generates it.
-5. Remove provider runtime values from GitHub after confirming Vercel has the
+5. Remove `TARGET_ENV` from GitHub vars; the workflow now generates it.
+6. Remove provider runtime values from GitHub after confirming Vercel has the
    corresponding values.
-6. Re-run the deploy workflow and confirm `/api/health` and deep readiness
+7. Re-run the deploy workflow and confirm `/api/health` and deep readiness
    checks pass.
 
 ## Safety notes

@@ -10,7 +10,7 @@ Browser ──▶ Vercel (Next.js 15, App Router)
                     │
                     ▼
             Supabase (managed Postgres)
-              ├─ RLS-enforced anon access (catalog, own orders)
+              ├─ RLS-enforced publishable-key access (catalog, own orders)
               ├─ Auth (customer accounts)
               └─ Storage (public product images)
                     ▲
@@ -32,7 +32,7 @@ Browser ──▶ Vercel (Next.js 15, App Router)
   alerts are implemented; SMS remains a feature-gated stub.
 - **Product media**: Supabase Storage `product-images` bucket is created
   by migration. Product images are publicly readable; writes require
-  service-role server code or an authenticated active staff user.
+  trusted server code or an authenticated active staff user.
 - **Admin operations**: no browser admin console exists yet. Production
   admin work follows `docs/admin-operations.md` until the protected admin
   UI is built.
@@ -41,8 +41,8 @@ Browser ──▶ Vercel (Next.js 15, App Router)
 
 | Requirement               | How it's met                                                      |
 | ------------------------- | ----------------------------------------------------------------- |
-| Minimal secrets to deploy | Required secrets + vars per environment (docs/environments.md)    |
-| `.env` generated in CI    | `scripts/generate-env.mjs` from GitHub Environment values         |
+| Minimal secrets to deploy | GitHub stores only deploy/migration credentials                   |
+| Runtime config ownership  | Vercel Project Environment Variables own provider runtime values  |
 | Scale-to-zero cost        | Vercel and Supabase free/low tiers; no always-on servers          |
 | Env separation            | GitHub Environments → separate Supabase projects + Vercel targets |
 | Config as code            | Migrations, workflows, env contract all in-repo                   |
@@ -78,6 +78,7 @@ One Supabase project and one Vercel project per environment
 environments — separate databases, separate Stripe modes (test keys in
 dev/staging, live keys only in production), separate URLs.
 
-`TARGET_ENV` in each GitHub Environment must match the reusable deploy
-workflow input. The deploy fails before migrations or Vercel changes if
-that mapping drifts.
+The reusable deploy workflow generates `TARGET_ENV` from its caller input and
+validates it before migrations or Vercel changes run. Runtime Supabase keys use
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in Vercel, not
+legacy anon/service-role API key env names.

@@ -8,15 +8,15 @@ import { z } from "zod";
  * If you add a variable here, add it there and to `.env.example` too.
  *
  * Parsing is lazy (via `getEnv()`) so `next build` succeeds without
- * runtime secrets; only code paths that actually need a variable fail.
+ * runtime configuration; only code paths that actually need a variable fail.
  */
 const serverEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   NEXT_PUBLIC_SITE_URL: z.string().url(),
   APP_NAME: z.string().trim().min(1).max(80),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().startsWith("pk_"),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  SUPABASE_SECRET_KEY: z.string().min(1),
   STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
   // Optional, feature-gated notification providers
@@ -48,5 +48,7 @@ export function getEnv(): ServerEnv {
 
 /** True when the public Supabase variables are present (used to degrade gracefully in dev). */
 export function hasSupabasePublicEnv(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  );
 }

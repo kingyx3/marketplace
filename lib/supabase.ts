@@ -3,44 +3,50 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 /**
- * Anonymous (RLS-enforced) client for public catalog reads and
- * user-scoped queries. Safe to use in Server Components.
+ * Publishable-key client for public catalog reads and user-scoped queries.
+ * Safe to use in Server Components because access is still RLS-enforced.
  */
-export function createAnonClient(): SupabaseClient {
+export function createPublishableClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
     throw new Error(
-      "Supabase is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)"
+      "Supabase is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)"
     );
   }
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
 /**
- * Service-role client. Bypasses RLS — server-side only, never import
- * from client components. Used by webhooks and admin operations.
+ * Secret-key client. Bypasses RLS — server-side only, never import from
+ * client components. Used by webhooks and admin operations.
  */
-export function createServiceClient(): SupabaseClient {
+export function createSecretClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
-    throw new Error("Supabase service role is not configured (SUPABASE_SERVICE_ROLE_KEY)");
+    throw new Error("Supabase secret key is not configured (SUPABASE_SECRET_KEY)");
   }
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+/** Backwards-compatible alias for older imports. Prefer createPublishableClient. */
+export const createAnonClient = createPublishableClient;
+
+/** Backwards-compatible alias for older imports. Prefer createSecretClient. */
+export const createServiceClient = createSecretClient;
+
 /**
  * Cookie-backed Supabase client for Server Components, Route Handlers,
- * and Server Actions. Uses the anon key plus httpOnly auth cookies, so
- * RLS still applies for user-scoped reads.
+ * and Server Actions. Uses the publishable key plus httpOnly auth cookies,
+ * so RLS still applies for user-scoped reads.
  */
 export async function createUserClient(): Promise<SupabaseClient> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
     throw new Error(
-      "Supabase is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)"
+      "Supabase is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)"
     );
   }
 
