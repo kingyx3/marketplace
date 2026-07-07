@@ -16,40 +16,20 @@ jobs:
   bootstrap-state:
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CREDENTIALS: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      PROJECT_SLUG_OVERRIDE: ${{ vars.PROJECT_SLUG }}
-      TF_STATE_BUCKET_NAME_OVERRIDE: ${{ vars.TF_STATE_BUCKET_NAME }}
-      TF_STATE_BUCKET_LOCATION_OVERRIDE: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
       - uses: hashicorp/setup-terraform@v3
       - name: Resolve CI/CD variables
-        run: |
-          set -euo pipefail
-          if [ -z "$GOOGLE_CREDENTIALS" ]; then
-            echo "Missing required secret: GCP_TERRAFORM_CREDENTIALS_JSON" >&2
-            exit 1
-          fi
-          if [ -z "$GCP_PROJECT_ID" ]; then
-            echo "Missing required variable: GCP_PROJECT_ID" >&2
-            exit 1
-          fi
-          project_slug="$PROJECT_SLUG_OVERRIDE"
-          if [ -z "$project_slug" ]; then
-            project_slug=$(basename "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+|-+$//g')
-          fi
-          bucket_name="$TF_STATE_BUCKET_NAME_OVERRIDE"
-          if [ -z "$bucket_name" ]; then
-            bucket_name=$(printf '%s-%s-tfstate' "$GCP_PROJECT_ID" "$project_slug" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g')
-          fi
-          bucket_location="${TF_STATE_BUCKET_LOCATION_OVERRIDE:-us-central1}"
-          {
-            echo "TF_VAR_gcp_project_id=$GCP_PROJECT_ID"
-            echo "TF_VAR_project_slug=$project_slug"
-            echo "TF_VAR_state_bucket_name=$bucket_name"
-            echo "TF_VAR_state_bucket_location=$bucket_location"
-          } >> "$GITHUB_ENV"
+        run: node scripts/resolve-terraform-inputs.mjs state
       - name: Terraform init
         working-directory: infra/terraform/bootstrap
         run: terraform init
