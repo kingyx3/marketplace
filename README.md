@@ -44,8 +44,9 @@ third data environment.
 
 Terraform provisioning is CI/CD-driven. Run **Terraform State Bootstrap** to
 create/reconcile the GCS state bucket, then **Terraform Platform** to create the
-shared Vercel project and Supabase projects. Variables are passed through GitHub
-Actions vars/secrets, not committed tfvars files.
+shared Vercel project and Supabase projects. GitHub inputs are kept lean:
+required provider credentials and external IDs are stored as vars/secrets, while
+project names, bucket names, and Supabase DB passwords are derived or generated.
 
 ## Documentation map
 
