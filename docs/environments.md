@@ -55,15 +55,29 @@ validating runtime env.
 
 ### Required runtime variables
 
-| Key                                  | Type   | Notes                                                 |
-| ------------------------------------ | ------ | ----------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`           | var    | `https://<project-ref>.supabase.co`                   |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | var    | anon/publishable key; safe to expose, RLS-enforced    |
-| `SUPABASE_SERVICE_ROLE_KEY`          | secret | server-side only; bypasses RLS                        |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | var    | `pk_test_...` in preview, `pk_live_...` in production |
-| `STRIPE_SECRET_KEY`                  | secret | `sk_test_...` in preview, `sk_live_...` in production |
-| `STRIPE_WEBHOOK_SECRET`              | secret | webhook endpoint signing secret                       |
-| `NEXT_PUBLIC_SITE_URL`               | var    | canonical public URL for the environment              |
+| Key                                      | Type   | Notes                                                     |
+| ---------------------------------------- | ------ | --------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`               | var    | `https://<project-ref>.supabase.co`                       |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`   | var    | `sb_publishable_...`; safe to expose, RLS-enforced        |
+| `SUPABASE_SECRET_KEY`                    | secret | `sb_secret_...`; server-side only, bypasses RLS           |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`     | var    | `pk_test_...` in preview, `pk_live_...` in production     |
+| `STRIPE_SECRET_KEY`                      | secret | `sk_test_...` in preview, `sk_live_...` in production     |
+| `STRIPE_WEBHOOK_SECRET`                  | secret | webhook endpoint signing secret                           |
+| `NEXT_PUBLIC_SITE_URL`                   | var    | canonical public URL for the environment                  |
+
+### Supabase key-name migration
+
+Use Supabase's current API key types and update environment names everywhere:
+
+| Old legacy runtime name              | New runtime name                            | Storage location |
+| ------------------------------------ | ------------------------------------------- | ---------------- |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`      | Vercel var       |
+| `SUPABASE_SERVICE_ROLE_KEY`          | `SUPABASE_SECRET_KEY`                       | Vercel secret    |
+
+Remove the old names from Vercel and from any GitHub Environment variables or
+secrets where they may still exist. The app no longer reads those legacy env
+names. GitHub should only keep the deploy-only Supabase keys listed above:
+`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_PROJECT_REF`.
 
 ### Optional runtime variables
 
@@ -93,7 +107,7 @@ Missing optional keys disable the related notification channel.
 
 CI cannot create provider accounts. Once, per environment:
 
-1. Create a Supabase project; note ref, database password, anon key, and server key.
+1. Create a Supabase project; note ref, database password, publishable key, and secret key.
 2. Create a Vercel project (`vercel link` locally gives org/project ids).
 3. Enter the minimal GitHub Environment secrets/vars from the tables above,
    including `APP_NAME`.
