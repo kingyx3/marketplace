@@ -7,7 +7,7 @@ on:
         description: GitHub Environment to bootstrap
         required: true
         type: choice
-        options: [development, staging, production]
+        options: [development, production]
 
 permissions:
   contents: read
