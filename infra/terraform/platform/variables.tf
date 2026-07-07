@@ -4,9 +4,10 @@ variable "vercel_team_id" {
   default     = null
 }
 
-variable "supabase_organization_id" {
-  description = "Supabase organization slug/id from the dashboard."
+variable "vercel_project_name" {
+  description = "Single Vercel project used for preview development deploys and production deploys."
   type        = string
+  default     = "marketplace"
 }
 
 variable "vercel_root_directory" {
@@ -15,18 +16,22 @@ variable "vercel_root_directory" {
   default     = null
 }
 
-variable "environments" {
-  description = "Active hosted environments. Current setup uses development and production only."
+variable "supabase_organization_id" {
+  description = "Supabase organization slug/id from the dashboard."
+  type        = string
+}
+
+variable "supabase_environments" {
+  description = "Active Supabase environments. Current setup uses development and production only."
   type = map(object({
-    vercel_project_name    = string
     supabase_project_name  = string
     supabase_region        = string
     supabase_instance_size = optional(string, "micro")
   }))
 
   validation {
-    condition     = alltrue([for env_name in keys(var.environments) : contains(["development", "production"], env_name)])
-    error_message = "Only development and production are active hosted environments right now. Keep staging empty until a third project pair is available."
+    condition     = alltrue([for env_name in keys(var.supabase_environments) : contains(["development", "production"], env_name)])
+    error_message = "Only development and production are active hosted Supabase environments right now. Keep staging empty until a third project is available."
   }
 }
 
