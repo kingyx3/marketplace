@@ -1,0 +1,3 @@
+steps:
+  - name: Sync runtime env to Vercel
+    run: node scripts/sync-vercel-env.mjs .env.deploy
