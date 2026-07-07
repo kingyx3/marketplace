@@ -1,4 +1,5 @@
 .terraform/
+backend.tf
 state.tf
 terraform.tfvars
 terraform.tfvars.json
