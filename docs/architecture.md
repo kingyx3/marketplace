@@ -44,16 +44,14 @@ Browser ──▶ Vercel (Next.js 15, App Router)
 | Config source of truth   | GitHub Environments own deploy and runtime configuration           |
 | Downstream reconciliation| CI syncs runtime env to Vercel and pushes Supabase migrations      |
 | Scale-to-zero cost       | Vercel and Supabase free/low tiers; no always-on servers           |
-| Env separation           | Separate GitHub Environments, Supabase projects, and Vercel targets|
+| Env separation           | Vercel Preview/Production plus separate Supabase projects          |
 | Config as code           | Terraform, migrations, workflows, env contract, and validation     |
 
 ## Alternatives considered
 
 **GCP Cloud Run + Cloud SQL + Terraform.** Full IaC and no vendor platform
-lock-in, but: Cloud SQL has no genuine scale-to-zero, Terraform state needs a
-backend + bootstrap credentials, and the GitHub-secrets surface roughly doubles.
-Right choice later if the business needs VPC-level control or leaves the
-Vercel/Supabase envelope.
+lock-in, but Cloud SQL has no genuine scale-to-zero and adds more bootstrap
+credentials. Right choice later if the business needs VPC-level control.
 
 **Cloudflare Pages/Workers + D1.** Cheapest at scale and excellent edge latency,
 but D1 lacks the relational depth this data model leans on, and Workers' Node
@@ -65,11 +63,12 @@ tiering all become app-subscription workarounds.
 
 ## Environment topology
 
-The current hosted topology uses two active project pairs: `development` and
-`production`. `staging` is reserved but empty until paid plans allow a third
-Vercel/Supabase pair. Nothing is shared between active environments: separate
-databases, Auth config, Storage, Stripe mode, and URLs.
+The current hosted topology uses one Vercel project with two targets:
+`development` deploys to Vercel Preview, and `production` deploys to Vercel
+Production. Supabase remains split by data environment: one development project
+and one production project. `staging` is reserved but empty until paid plans
+allow a third data environment.
 
 The reusable deploy workflow generates `TARGET_ENV` from its caller input,
-validates the matching GitHub Environment, syncs runtime env to Vercel, pushes
-migrations to the selected Supabase project, and deploys.
+validates the matching GitHub Environment, syncs runtime env to the matching
+Vercel target, pushes migrations to the selected Supabase project, and deploys.
