@@ -16,31 +16,28 @@ jobs:
   platform:
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CREDENTIALS: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME || format('{0}-{1}-tfstate', vars.GCP_PROJECT_ID, github.event.repository.name) }}
-      TF_STATE_PREFIX: marketplace/platform
-      TF_VAR_project_slug: ${{ vars.PROJECT_SLUG || github.event.repository.name }}
-      TF_VAR_vercel_team_id: ${{ vars.VERCEL_TEAM_ID }}
-      TF_VAR_vercel_project_name: ${{ vars.VERCEL_PROJECT_NAME }}
-      TF_VAR_vercel_root_directory: ${{ vars.VERCEL_ROOT_DIRECTORY }}
-      TF_VAR_supabase_organization_id: ${{ vars.SUPABASE_ORGANIZATION_ID }}
-      TF_VAR_supabase_region: ${{ vars.SUPABASE_REGION || 'ap-southeast-1' }}
-      TF_VAR_supabase_instance_size: ${{ vars.SUPABASE_INSTANCE_SIZE || 'micro' }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      SUPABASE_ORGANIZATION_ID: ${{ vars.SUPABASE_ORGANIZATION_ID }}
+      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+      VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME }}
+      VERCEL_ROOT_DIRECTORY: ${{ vars.VERCEL_ROOT_DIRECTORY }}
+      SUPABASE_REGION: ${{ vars.SUPABASE_REGION }}
+      SUPABASE_INSTANCE_SIZE: ${{ vars.SUPABASE_INSTANCE_SIZE }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
       - uses: hashicorp/setup-terraform@v3
-      - name: Validate CI/CD variables
-        run: |
-          missing=0
-          for key in GOOGLE_CREDENTIALS VERCEL_API_TOKEN SUPABASE_ACCESS_TOKEN TF_STATE_BUCKET_NAME TF_VAR_project_slug TF_VAR_supabase_organization_id; do
-            if [ -z "${!key}" ]; then
-              echo "Missing required variable: $key" >&2
-              missing=1
-            fi
-          done
-          [ "$missing" = "0" ] || exit 1
+      - name: Resolve CI/CD variables
+        run: node scripts/resolve-terraform-inputs.mjs platform
       - name: Terraform init
         working-directory: infra/terraform/platform
         run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
