@@ -39,13 +39,13 @@ Browser ──▶ Vercel (Next.js 15, App Router)
 
 ## Why this stack
 
-| Requirement               | How it's met                                                      |
-| ------------------------- | ----------------------------------------------------------------- |
-| Minimal secrets to deploy | GitHub stores only deploy/migration credentials                   |
-| Runtime config ownership  | Vercel Project Environment Variables own provider runtime values  |
-| Scale-to-zero cost        | Vercel and Supabase free/low tiers; no always-on servers          |
-| Env separation            | GitHub Environments → separate Supabase projects + Vercel targets |
-| Config as code            | Migrations, workflows, env contract all in-repo                   |
+| Requirement              | How it's met                                                       |
+| ------------------------ | ------------------------------------------------------------------ |
+| Config source of truth   | GitHub Environments own deploy and runtime configuration           |
+| Downstream reconciliation| CI syncs runtime env to Vercel and pushes Supabase migrations      |
+| Scale-to-zero cost       | Vercel and Supabase free/low tiers; no always-on servers           |
+| Env separation           | Separate GitHub Environments, Supabase projects, and Vercel targets|
+| Config as code           | Migrations, workflows, env contract, and validation all in-repo    |
 
 ## Alternatives considered
 
@@ -73,12 +73,11 @@ demand on a hosted platform if speed matters more than control.
 
 ## Environment topology
 
-One Supabase project and one Vercel project per environment
-(`development`, `staging`, `production`). Nothing is shared across
-environments — separate databases, separate Stripe modes (test keys in
-dev/staging, live keys only in production), separate URLs.
+Use one Supabase project and one Vercel target per long-lived environment
+(`development`, `staging`, `production`). Nothing is shared across environments:
+separate databases, separate Auth config, separate Storage, separate Stripe
+modes, and separate URLs.
 
-The reusable deploy workflow generates `TARGET_ENV` from its caller input and
-validates it before migrations or Vercel changes run. Runtime Supabase keys use
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in Vercel, not
-legacy anon/service-role API key env names.
+The reusable deploy workflow generates `TARGET_ENV` from its caller input,
+validates the matching GitHub Environment, syncs runtime env to Vercel, pushes
+migrations to the selected Supabase project, and deploys.
