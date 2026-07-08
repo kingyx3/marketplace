@@ -1,0 +1,47 @@
+name: Configure Stripe
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment to configure
+        required: true
+        type: choice
+        options: [development, production]
+      mode:
+        description: Plan, apply, or verify the Stripe webhook endpoint
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, verify]
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      TARGET_ENV: ${{ inputs.environment }}
+      APP_NAME: ${{ vars.APP_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
+      STRIPE_WEBHOOK_ENABLED_EVENTS: ${{ vars.STRIPE_WEBHOOK_ENABLED_EVENTS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Configure Stripe webhook endpoint
+        id: stripe
+        run: node scripts/configure-stripe.mjs --${{ inputs.mode }}
+      - name: Webhook secret follow-up
+        if: ${{ steps.stripe.outputs.stripe_webhook_secret != '' }}
+        run: |
+          echo "::warning::A Stripe webhook endpoint was created. Store its signing secret as STRIPE_WEBHOOK_SECRET in the ${{ inputs.environment }} GitHub Environment before deploying."
+          echo "Stripe webhook endpoint id: ${{ steps.stripe.outputs.stripe_webhook_endpoint_id }}" >> "$GITHUB_STEP_SUMMARY"
