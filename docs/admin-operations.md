@@ -8,22 +8,23 @@ This repo ships a protected admin surface and staff-only APIs for core operator 
 - GitHub Environments are the source of truth for deployed configuration; CI syncs runtime keys to Vercel during bootstrap and deployment.
 - Runtime data lives in Supabase Postgres. Production data changes must be traceable in an issue or PR, even when the change is made through a protected admin form or Supabase Studio.
 - Money state is Stripe-first and webhook-driven. Never mark a payment or order as paid from client-provided state. Admin reconciliation must use the explicit manual reconciliation path with provider, payment reference, amount, currency, reason, and actor.
-- Admin changes that affect inventory, pricing, allocation, B2B status, refunds, or payment state require a second human review in production.
+- Admin changes that affect inventory, pricing, allocation, B2B status, refunds, payment state, storefront visibility, or customer communication require a second human review in production.
 - Order/payment admin actions are constrained: packing requires paid, shipping requires paid/packing, unpaid cancellation releases allocation transactionally, and exception flags persist in `payment_exceptions`.
 - Supplier purchase-order intake is constrained to the protected admin page and records the PO, line item, incoming stock delta, staff actor, and audit entry in one service-role transaction.
 - B2B pricing-tier removal is constrained to the protected admin page and leaves the account approved but inactive for wholesale checkout when no assigned tier remains.
-- Product, SKU, product-image, and inventory changes are constrained to protected admin actions. Inventory adjustments require a reason code and preserve the database oversell invariant.
+- Product, SKU, product-image, listing, storefront-configuration, and inventory changes are constrained to protected admin actions. Inventory adjustments require a reason code and preserve the database oversell invariant.
 - Drop-alert delivery is constrained to the staff-only API and writes notification rows with dedupe keys before calling external providers.
 
 ## Routine runbooks
 
-### Catalog or inventory correction
+### Catalog, listing, or inventory correction
 
-1. Confirm the requested SKU, set, quantity, currency, and price source.
+1. Confirm the requested product/SKU, set, quantity, currency, price source, listing visibility, and storefront-copy change.
 2. Use the protected admin catalog forms for product/SKU create, update, archive, restore, and product-image upload.
-3. Use the protected inventory form for stock corrections and choose the closest reason code (`stock_count`, `supplier_update`, `damage`, `correction`, or `other`).
-4. Verify `inventory.allocated <= inventory.on_hand + inventory.incoming`.
-5. Check the public catalog after deploy or data change.
+3. Use the protected admin listing forms for title overrides, badges, tags, B2C/B2B channel metadata, featured/published state, sort order, max-per-customer display/input limits, pre-order-reserve display, and catalog header copy.
+4. Use the protected inventory form for stock corrections and choose the closest reason code (`stock_count`, `supplier_update`, `damage`, `correction`, or `other`).
+5. Verify `inventory.allocated <= inventory.on_hand + inventory.incoming`.
+6. Check the public catalog and product detail page after deploy or data change.
 
 ### Supplier purchase order intake
 
@@ -85,7 +86,7 @@ An approved account with no assigned tier cannot use wholesale checkout; assign 
 ## Admin tooling backlog
 
 - Supplier setup and maintenance UI beyond current PO intake.
-- Rich audit views for inventory, payment, order, provider event, and admin changes.
+- Rich audit views for inventory, payment, order, provider event, listing/configuration, and admin changes.
 - Analytics/metrics dashboard for sell-through, margin, pre-order conversion, and wholesale account performance.
 - Deeper allocation review and customer communication queue.
 - Expanded integration tests for authenticated admin flows, RLS, Stripe, and provider webhooks.

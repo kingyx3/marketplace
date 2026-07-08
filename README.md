@@ -1,10 +1,10 @@
 # Marketplace
 
-Sealed TCG booster box distribution — **B2C retail, B2B wholesale, and pre-orders** — for Magic: The Gathering, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana, and Flesh and Blood. Singapore/SEA-first, with global benchmarks. The deployed display name is supplied by the `APP_NAME` GitHub Environment variable, synced to Vercel, and validated by CI before deployment.
+Sealed TCG booster box distribution — **B2C retail, B2B wholesale, and pre-orders** — for Magic: The Gathering, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana, and Flesh and Blood. Singapore/SEA-first, with global benchmarks. The deployed display name comes from the `APP_NAME` GitHub Environment variable, is synced to Vercel, and is validated by CI before deployment.
 
 This repository currently contains:
 
-- **A deployable commerce foundation** — Next.js 15 + Supabase (Postgres/RLS/Auth/Storage) + Stripe, deployed to Vercel through GitHub Actions with GitHub Environments as the source of truth for deployment and runtime configuration. Catalog, Google auth, account APIs, cart validation, checkout/payment primitives, guarded order state transitions, B2B invoice checkout, waitlist/drop notifications, and protected admin operations are implemented; remaining polish is tracked honestly in `docs/build-plan.md`.
+- **A deployable commerce foundation** — Next.js 15 + Supabase (Postgres/RLS/Auth/Storage) + Stripe, deployed to Vercel through GitHub Actions. Implemented coverage includes live catalog and storefront listing controls, Google auth, account/order/pre-order APIs, cookie cart validation, Stripe checkout/payment primitives, guarded order state transitions, B2B invoice checkout, pre-order allocation/balance conversion, waitlist/drop notifications, and staff-gated admin operations for catalog, listings, inventory, orders, pre-orders, wholesale review, and supplier PO intake. Remaining polish is tracked in `docs/build-plan.md`.
 - **Infrastructure and deployment automation** — Terraform bootstraps the GCS state bucket, shared Vercel project, and active Supabase project shells; GitHub Actions bootstrap environments, configure hosted Supabase Google OAuth, sync env to Vercel, push migrations, deploy, and smoke test.
 - **A research report** — `docs/research/` covers the market, business models, supplier routes, customer segments, pre-order design, financials, and go-to-market for a TCG booster box business.
 
@@ -24,7 +24,7 @@ Checks:
 
 ## Hosted setup and deployment
 
-Two hosted GitHub Environments are active for now: `development` for feature branches and `production` for release tags/published releases. They share one Vercel project: development syncs to Vercel Preview, while production syncs to Vercel Production. Supabase stays split into one development project and one production project. `staging` is intentionally reserved and empty until paid plans justify a third data environment.
+Two hosted GitHub Environments are active: `development` for feature branches and `production` for release tags/published releases. They share one Vercel project: development syncs to Vercel Preview, while production syncs to Vercel Production. Supabase stays split into one development project and one production project. `staging` is intentionally reserved and empty until paid plans justify a third data environment.
 
 Start with the full bootstrap runbook:
 
@@ -36,7 +36,7 @@ Start with the full bootstrap runbook:
 6. Run **Bootstrap Environment** for each active environment.
 7. Deploy development from a feature branch or production from a `v*` tag/release.
 
-See [`docs/bootstrap.md`](docs/bootstrap.md) for the step-by-step start-to-finish flow, including provider setup outside the repo, every necessary GitHub repository/environment secret and variable, and the bootstrap process inside the repo.
+See [`docs/bootstrap.md`](docs/bootstrap.md) for the start-to-finish provider, GitHub Environment, bootstrap, and deploy flow.
 
 ## Documentation map
 

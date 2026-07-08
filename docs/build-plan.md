@@ -22,11 +22,12 @@ Honest status ledger. **Unchecked roadmap items are not built yet** — docs and
 - ✅ Admin supplier purchase-order intake: service-role-only RPC records confirmed supplier POs, line items, incoming inventory deltas, and audit records from the protected admin page
 - ✅ Admin B2B pricing-tier removal: service-role-only RPC removes assigned tiers, records the staff actor, and lets the existing checkout gate disable wholesale access when no tier remains
 - ✅ Admin product/SKU/inventory management: protected product create/update/archive forms, SKU create/update/archive forms, Supabase Storage product image upload, and reason-coded inventory adjustments backed by audited service-role RPCs
+- ✅ Admin storefront listing management: protected listing/configuration forms control title overrides, tags, B2C/B2B channel metadata, max-per-customer display/input limits, preorder reserve display, sort order, featured/published state, and catalog header copy
 - ✅ B2B invoice/PO checkout: approved wholesale customers can create a pending-payment invoice order with server-derived tier pricing, stock allocation, manual-invoice payment placeholder, and audit record
 - ✅ Waitlist + drop notifications: authenticated customers can save SKU-level email, Telegram, or WhatsApp alerts; staff can trigger deduped drop delivery through server-side providers
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks, migration SQL validation, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
-- ✅ Explicit Supabase Data API grants paired with RLS policies for the public catalog and authenticated own-row reads
+- ✅ Explicit Supabase Data API grants paired with RLS policies for the public catalog, published listing rows, active storefront configuration, and authenticated own-row reads
 - ✅ Playwright browser smoke tests for the built storefront, preview catalog fallback, product detail route, empty cart, and shallow health endpoint
 - ✅ Admin operations runbook (`docs/admin-operations.md`) for workflows that remain reviewed/runbook-driven even where protected admin UI exists
 
@@ -43,6 +44,7 @@ Sequenced to match the 30/60/90-day plan in `docs/research/14-final-recommendati
 - [x] Webhook → `payments`/`orders` state machine for successful, failed, authorized, and refunded Stripe events
 - [x] Order confirmation email via Resend, with notification-row dedupe, provider-message tracking, disabled-provider skip state, and failure recording that does not roll back paid orders
 - [x] Admin: complete product/inventory CRUD (product create/update/archive, SKU create/update/archive, product image upload, integer-cent validation, and reason-coded inventory adjustment)
+- [x] Admin: storefront listing/configuration management for merchandising controls and catalog page copy
 - [x] Admin API: explicit order/payment actions for packing, shipping, unpaid cancellation, manual reconciliation, and payment exception flagging; generic order `status` PATCH is removed
 - [x] Admin API: order/payment exception queue backed by persisted manual flags plus derived stale/orphan/failed-payment signals
 - [x] Admin UI: live order/payment exception queue visibility
@@ -83,6 +85,6 @@ Sequenced to match the 30/60/90-day plan in `docs/research/14-final-recommendati
 
 ## Admin workflow status
 
-The protected admin page now covers live inventory updates, preorder allocation, payment-exception visibility, purchase-order visibility, B2B approval/rejection with pricing-tier assignment, and manual payment reconciliation from the exception queue. Supplier PO intake records a confirmed PO and increments incoming stock through an audited service-role RPC, assigned B2B pricing tiers can be removed through an audited service-role action, and product/SKU/image/inventory management is available through audited admin actions.
+The protected admin page now covers live inventory updates, product/SKU/image/catalog management, storefront listing and catalog-copy management, preorder allocation, payment-exception visibility, purchase-order visibility, B2B approval/rejection with pricing-tier assignment, and manual payment reconciliation from the exception queue. Supplier PO intake records a confirmed PO and increments incoming stock through an audited service-role RPC, assigned B2B pricing tiers can be removed through an audited service-role action, and product/listing/inventory management is available through audited admin actions.
 
-Admin work still requires runbook discipline for production review, supplier onboarding/maintenance, provider dashboard reconciliation, and data changes that affect money, inventory, allocations, B2B status, or customer communication.
+Admin work still requires runbook discipline for production review, supplier onboarding/maintenance, provider dashboard reconciliation, and data changes that affect money, inventory, storefront visibility, allocations, B2B status, or customer communication.
