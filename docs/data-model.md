@@ -8,9 +8,11 @@ needs these shapes) is `docs/research/09-data-model.md`.
 
 ```
 tcg_categories ─▶ sets_releases ─▶ products ─▶ product_variants ─▶ booster_box_skus
-                                                                        │
-        suppliers ─▶ purchase_orders ─▶ purchase_order_items ───────────┤
-                                                                        ▼
+                                      │                                  │
+                                      └──▶ listing_items                 │
+                                                                         │
+         suppliers ─▶ purchase_orders ─▶ purchase_order_items ───────────┤
+                                                                         ▼
 customers ─▶ b2b_accounts                                          inventory
    │  └──▶ customer_pricing_tiers ◀─ pricing_tiers
    ├──▶ preorders ──(convert)──▶ orders ─▶ order_items
@@ -21,6 +23,8 @@ customers ─▶ b2b_accounts                                          inventory
               allocation_rules          audit_logs   webhook_events
                                              ▲             │
                                              └── payment_exceptions
+
+storefront_configurations ──▶ public catalog copy/configuration
 ```
 
 ## Key decisions
@@ -50,6 +54,18 @@ support ticket.
 historical order/preorder references. `booster_box_skus.active` does the
 same for individual sellable SKUs, and checkout RPCs refuse inactive SKUs
 even if a stale cart still contains one.
+
+**Storefront listings are merchandising state.** `listing_items` is a
+one-row-per-product layer for title overrides, badges, tags, B2C/B2B
+channel metadata, max-per-customer display/input limits,
+pre-order-reserve display, featured/sort order, and published visibility.
+A trigger creates a default listing row for new products, and the public
+catalog only reads published listing rows.
+
+**Storefront configuration is data, not code deploys.**
+`storefront_configurations` stores active JSON objects such as
+`catalog_header` copy. Staff update it through a service-role RPC, while
+anon/authenticated clients can only read active rows.
 
 **Allocation is data, not code branches.** `allocation_rules` (priority,
 channel, reserve quantity, per-customer cap) drives who gets scarce
@@ -101,9 +117,10 @@ until staff records audited reconciliation with the exact amount,
 currency, provider, and invoice reference.
 
 **Audit by trigger.** `audit_logs` is written by a generic trigger on
-the money/stock-critical tables (inventory, orders, preorders, payments,
-refunds, allocation_rules, b2b_accounts, purchase_orders,
-purchase_order_items). Nobody has to remember to log.
+the money/stock/admin-critical tables (inventory, orders, preorders,
+payments, refunds, allocation_rules, b2b_accounts, purchase_orders,
+purchase_order_items, listing_items, storefront_configurations). Nobody
+has to remember to log.
 
 **Webhook idempotency is a table.** `webhook_events` has
 `unique (provider, event_id)`; the Stripe route inserts before
@@ -144,18 +161,19 @@ manual reconciliation, and exception flagging. Direct `paid` status
 updates are not an API contract; reconciliation must include provider,
 payment reference, amount, currency, reason, and actor.
 
-**Admin catalog and inventory mutations are explicit database actions.**
-Product/SKU create, update, archive, image assignment, and inventory
-adjustment go through service-role-only functions. Inventory adjustment
-requires a reason code and keeps the stock invariant enforced in the
-database.
+**Admin catalog, listing, and inventory mutations are explicit database
+actions.** Product/SKU create, update, archive, image assignment,
+listing/configuration upserts, and inventory adjustment go through
+service-role-only functions. Inventory adjustment requires a reason code
+and keeps the stock invariant enforced in the database.
 
 ## Row-level security
 
 RLS is enabled on **every** table:
 
 - Supabase Data API grants are explicit and paired with RLS. Catalog
-  (`tcg_categories` → `booster_box_skus`) and `inventory` availability:
+  (`tcg_categories` → `booster_box_skus`), `inventory` availability,
+  published `listing_items`, and active `storefront_configurations`:
   public read.
 - `customers`, `preorders`, `orders`, `order_items`, `payments`,
   `shipments`, `b2b_accounts`, `notifications`, `waitlist_entries`:
