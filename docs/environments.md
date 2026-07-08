@@ -26,17 +26,17 @@ Configure repository-level entries under **Settings â†’ Secrets and variables â†
 | Environment | `NEXT_PUBLIC_SUPABASE_URL` | Variable | App runtime, OAuth | `https://<project-ref>.supabase.co`. |
 | Environment | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Variable | Browser/runtime Supabase access, OAuth verification | Project publishable key; RLS still controls access. |
 | Environment | `SUPABASE_SECRET_KEY` | Secret | Server runtime | Server-only Supabase key. |
-| Environment | `SUPABASE_ACCESS_TOKEN` | Secret | Bootstrap/deploy, OAuth config | Supabase access token; may match repository secret. |
+| Environment | `SUPABASE_ACCESS_TOKEN` | Secret | Bootstrap/deploy, provider config | Supabase access token; may match repository secret. |
 | Environment | `SUPABASE_DB_PASSWORD` | Secret | `supabase link` | Matching hosted database password. Terraform-generated passwords are in remote state unless reset in Supabase. |
-| Environment | `SUPABASE_PROJECT_REF` | Variable | Bootstrap/deploy, OAuth config | Terraform output `supabase_project_refs[environment]`. |
+| Environment | `SUPABASE_PROJECT_REF` | Variable | Bootstrap/deploy, provider config | Terraform output `supabase_project_refs[environment]`. |
 | Environment | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Variable | Browser Stripe | `pk_test_...` in development, `pk_live_...` in production. |
-| Environment | `STRIPE_SECRET_KEY` | Secret | Server Stripe, Stripe config | `sk_test_...` in development, `sk_live_...` in production. |
+| Environment | `STRIPE_SECRET_KEY` | Secret | Server Stripe, provider config | `sk_test_...` in development, `sk_live_...` in production. |
 | Environment | `STRIPE_WEBHOOK_SECRET` | Secret | Stripe webhook route | Signing secret for `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`. Required before deploy. |
 | Environment | `VERCEL_TOKEN` | Secret | Vercel env sync/deploy | Vercel token; may match `VERCEL_API_TOKEN`. |
 | Environment | `VERCEL_ORG_ID` | Variable | Vercel CLI | Vercel account/team id. |
 | Environment | `VERCEL_PROJECT_ID` | Variable | Vercel CLI | Terraform output `vercel_project_id`; same value in both active environments. |
-| Environment | `GOOGLE_OAUTH_CLIENT_ID` | Variable | Configure Google OAuth, Bootstrap Environment | Google Cloud Web OAuth client id. |
-| Environment | `GOOGLE_OAUTH_CLIENT_SECRET` | Secret | Configure Google OAuth, Bootstrap Environment | Google Cloud Web OAuth client secret. |
+| Environment | `GOOGLE_OAUTH_CLIENT_ID` | Variable | Configure Providers, Bootstrap Environment | Google Cloud Web OAuth client id. |
+| Environment | `GOOGLE_OAUTH_CLIENT_SECRET` | Secret | Configure Providers, Bootstrap Environment | Google Cloud Web OAuth client secret. |
 
 Do not store `TARGET_ENV`; workflows derive it from the selected environment and only allow `development` or `production`.
 
@@ -56,8 +56,8 @@ Unset optional notification keys disable that channel. During Vercel sync, unset
 | Repository | `VERCEL_ROOT_DIRECTORY` | Variable | Terraform Platform | Empty while the app lives at repo root. |
 | Repository | `SUPABASE_REGION` | Variable | Terraform Platform | Defaults to `ap-southeast-1`. |
 | Repository | `SUPABASE_INSTANCE_SIZE` | Variable | Terraform Platform | Defaults to `micro`. |
-| Environment | `STRIPE_WEBHOOK_ENDPOINT_ID` | Variable | Configure Stripe, Bootstrap Environment | Optional `we_...` id to pin automation to a specific Stripe endpoint after creation. |
-| Environment | `STRIPE_WEBHOOK_ENABLED_EVENTS` | Variable | Configure Stripe, Bootstrap Environment | Optional comma/space-separated override. Defaults to `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`, `payment_intent.payment_failed`, and `charge.refunded`. |
+| Environment | `STRIPE_WEBHOOK_ENDPOINT_ID` | Variable | Configure Providers, Bootstrap Environment | Optional `we_...` id to pin automation to a specific Stripe endpoint after creation. |
+| Environment | `STRIPE_WEBHOOK_ENABLED_EVENTS` | Variable | Configure Providers, Bootstrap Environment | Optional comma/space-separated override. Defaults to `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`, `payment_intent.payment_failed`, and `charge.refunded`. |
 | Environment | `RESEND_API_KEY` | Secret | Email notifications | Set only after Resend is configured. |
 | Environment | `RESEND_FROM_EMAIL` | Variable | Email notifications | Verified sender address. |
 | Environment | `SUPPORT_EMAIL` | Variable | Emails/support copy | Customer support contact. |
@@ -76,15 +76,13 @@ SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=<Google web client id>
 SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=<Google web client secret>
 ```
 
-The old local aliases `SUPABASE_AUTH_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_GOOGLE_CLIENT_SECRET` are tolerated for compatibility but should not be used for new setup.
-
 ## Config flow
 
 1. Terraform workflows use repository-level entries to create/reconcile the GCS state bucket, Vercel project, and Supabase project shells.
 2. Terraform outputs and provider dashboard values are stored in the `development` and `production` GitHub Environments.
-3. **Configure Google OAuth** or **Bootstrap Environment** applies hosted Supabase Google provider settings after the Google Cloud OAuth client exists.
-4. **Configure Stripe** or **Bootstrap Environment** creates/updates the Stripe webhook endpoint; `STRIPE_WEBHOOK_SECRET` must be stored before deploy.
-5. **Bootstrap Environment** validates one GitHub Environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, and pushes migrations.
+3. **Configure Providers** applies hosted Supabase Google provider settings after the Google Cloud OAuth client exists.
+4. **Configure Providers** creates/updates the Stripe webhook endpoint; `STRIPE_WEBHOOK_SECRET` must be stored before deploy.
+5. **Bootstrap Environment** reruns provider config in `--apply-if-configured` mode, validates one GitHub Environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, and pushes migrations.
 6. Normal deploys repeat validation, Vercel env sync, migration push, Vercel deploy, and smoke tests.
 
 The machine-readable deploy contract is `ENV_CONTRACT` in [`scripts/generate-env.mjs`](../scripts/generate-env.mjs). Keep it aligned with [`lib/env.ts`](../lib/env.ts), [`.env.example`](../.env.example), workflow `env:` blocks, and this document.
