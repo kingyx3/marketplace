@@ -9,7 +9,16 @@ export async function GET(request: Request) {
   const next = sanitizeNextPath(searchParams.get("next"));
 
   if (code) {
-    const supabase = await createUserClient();
+    let supabase;
+    try {
+      supabase = await createUserClient();
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("Supabase is not configured")) {
+        return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+      }
+      throw error;
+    }
+
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const {
