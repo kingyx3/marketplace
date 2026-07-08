@@ -79,15 +79,15 @@ export function CartCheckoutPanel({
   const [phase, setPhase] = useState<CheckoutPhase>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutResponse | null>(null);
+  const supabaseKey = supabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
 
   const stripePromise = useMemo(
     () => (publishableKey ? loadStripe(publishableKey) : null),
     [publishableKey]
   );
   const supabase = useMemo(
-    () =>
-      supabaseUrl && supabaseAnonKey ? createBrowserClient(supabaseUrl, supabaseAnonKey) : null,
-    [supabaseUrl, supabaseAnonKey]
+    () => (supabaseUrl && supabaseKey ? createBrowserClient(supabaseUrl, supabaseKey) : null),
+    [supabaseUrl, supabaseKey]
   );
 
   async function accessToken(): Promise<string> {

@@ -23,9 +23,12 @@ The canonical machine-readable contract is `ENV_CONTRACT` in
 
 | Key | Used by |
 | --- | --- |
-| `SUPABASE_ACCESS_TOKEN` | Supabase CLI authentication for migration pushes |
+| `SUPABASE_ACCESS_TOKEN` | Supabase CLI authentication for migration pushes and hosted Auth configuration |
 | `SUPABASE_DB_PASSWORD` | `supabase link` database connection |
 | `SUPABASE_SECRET_KEY` | Server-side Supabase runtime access in Vercel |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Hosted Supabase Auth Google provider secret from Google Cloud |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET` | Optional local Supabase Auth Google provider secret |
+| `SUPABASE_AUTH_GOOGLE_CLIENT_SECRET` | Deprecated local Google OAuth secret alias |
 | `VERCEL_TOKEN` | Vercel env sync and deploy |
 | `STRIPE_SECRET_KEY` | Server-side Stripe runtime access |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
@@ -43,8 +46,11 @@ The canonical machine-readable contract is `ENV_CONTRACT` in
 | `NEXT_PUBLIC_SITE_URL` | Canonical public URL for the environment |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...`; browser-safe and RLS-enforced |
+| `GOOGLE_OAUTH_CLIENT_ID` | Hosted Supabase Auth Google provider client id from Google Cloud |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Optional local Supabase Auth Google provider client id |
+| `SUPABASE_AUTH_GOOGLE_CLIENT_ID` | Deprecated local Google OAuth client id alias |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` or `pk_live_...` |
-| `SUPABASE_PROJECT_REF` | Project ref used by `supabase link` |
+| `SUPABASE_PROJECT_REF` | Project ref used by `supabase link` and hosted Auth configuration |
 | `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | Same Vercel project id in both active GitHub Environments |
 | `RESEND_FROM_EMAIL` | Optional verified sender address |
 | `SUPPORT_EMAIL` | Optional customer support address |
@@ -54,6 +60,40 @@ The canonical machine-readable contract is `ENV_CONTRACT` in
 Do not configure the `staging` GitHub Environment yet. It should remain empty
 until a third Supabase project and either a paid Vercel custom environment or a
 separate staging Vercel project exists.
+
+## Google OAuth setup
+
+The app code is wired for Supabase Auth + Google OAuth:
+
+- `/auth/sign-in` starts `signInWithOAuth({ provider: "google" })` and redirects to `/auth/callback`.
+- `/auth/callback` exchanges the PKCE code for a Supabase session cookie.
+- Middleware refreshes Supabase SSR cookies with `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- The sign-in request asks Google for `access_type=offline` and `prompt=consent select_account` so Google can issue provider refresh tokens when allowed.
+
+What the repo can generate/apply:
+
+1. Run `npm run oauth:google:plan` to print the exact Google Cloud origins, Google redirect URIs, Supabase redirect allow-list entries, and local `.env` names for the current environment.
+2. Add the Google OAuth client ID to the target GitHub Environment as `GOOGLE_OAUTH_CLIENT_ID`.
+3. Add the Google OAuth client secret to the target GitHub Environment as `GOOGLE_OAUTH_CLIENT_SECRET`.
+4. Run **Configure Google OAuth** for `development` or `production`. The workflow calls the Supabase Management API to enable the Google provider on `SUPABASE_PROJECT_REF`, then verifies `/auth/v1/settings` reports Google as enabled.
+
+What cannot be generated from this repo:
+
+- The Google OAuth client ID and client secret. These must be created in Google Cloud as a **Web application** OAuth client.
+- Google consent screen branding, audience, verification status, and scopes. Configure at least `openid`, email, and profile scopes in Google Cloud.
+- Hosted Supabase redirect allow-list entries if your Supabase project requires manual dashboard edits for URL configuration. Use the URLs printed by `npm run oauth:google:plan`.
+
+Google Cloud values to add for a hosted environment:
+
+- Authorized JavaScript origins: the origin from `NEXT_PUBLIC_SITE_URL`.
+- Authorized redirect URI: `${NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`.
+
+Local development values:
+
+- `.env`: `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=<Google web client id>`
+- `.env`: `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=<Google web client secret>`
+- Google Authorized JavaScript origin: `http://localhost:3000`
+- Google Authorized redirect URI: `http://127.0.0.1:54321/auth/v1/callback`
 
 ## Downstream sync
 
@@ -81,8 +121,9 @@ environment:
 | `production` | Hosted production project | Production |
 
 Each hosted Supabase project has its own database, Auth settings, Storage
-buckets, API URL, publishable key, secret key, and database password. Vercel uses
-one project with separate Preview and Production env targets.
+buckets, API URL, publishable key, secret key, database password, OAuth provider
+client IDs/secrets, and redirect URLs. Vercel uses one project with separate
+Preview and Production env targets.
 
 When paid plans allow a third hosted environment, add `staging` by creating a
 third Supabase project and either adding a Vercel custom environment or splitting
@@ -98,13 +139,16 @@ manual bootstrap workflow. Once per active environment:
    `VERCEL_PROJECT_ID`; copy each Supabase project ref into the matching GitHub
    Environment as `SUPABASE_PROJECT_REF`.
 3. Enter all required runtime values in the matching GitHub Environment.
-4. Configure provider dashboard settings that cannot be fully represented in
-   this repo yet, such as Supabase Auth redirect URLs and the Stripe webhook
-   endpoint.
-5. Run **Bootstrap Environment** for `development` or `production`. Bootstrap
+4. Create a Google Cloud Web OAuth client for each hosted environment, add the
+   `GOOGLE_OAUTH_CLIENT_ID` variable and `GOOGLE_OAUTH_CLIENT_SECRET` secret, and
+   run **Configure Google OAuth** for that environment.
+5. Configure any provider dashboard settings that cannot be fully represented in
+   this repo, such as Supabase Auth redirect allow-list entries and the Stripe
+   webhook endpoint.
+6. Run **Bootstrap Environment** for `development` or `production`. Bootstrap
    validates GitHub config, syncs Vercel env, links Supabase, and applies
    migrations. It does not perform a regular app deployment.
-6. For production, add required reviewers under GitHub Environment protection.
+7. For production, add required reviewers under GitHub Environment protection.
 
 After bootstrap, normal deploys create/update the downstream Vercel runtime env,
 apply Supabase schema changes, deploy the app, and smoke test it.
