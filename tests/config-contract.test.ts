@@ -184,7 +184,7 @@ describe("platform config contract", () => {
     expect(providerWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
     expect(providerWorkflow).not.toContain("vars.GOOGLE_OAUTH_CLIENT_ID");
     expect(providerWorkflow).not.toContain("stripe_webhook_secret");
-    expect(bootstrapWorkflow).toContain("npm run bootstrap:environment");
+    expect(bootstrapWorkflow).toContain("node scripts/bootstrap-environment.mjs");
     expect(bootstrapWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
     expect(bootstrapWorkflow).not.toContain("stripe_webhook_secret");
     expect(bootstrapScript).toContain("configure-providers.mjs");
