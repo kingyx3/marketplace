@@ -49,6 +49,7 @@ jobs:
               - '.env.example'
               - '.github/workflows/**'
               - '.github/ci/**'
+              - 'config/**'
               - 'docs/admin-operations.md'
               - 'docs/bootstrap.md'
               - 'docs/build-plan.md'
