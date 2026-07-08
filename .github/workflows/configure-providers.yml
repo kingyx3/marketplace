@@ -6,8 +6,7 @@ on:
       environment:
         description: GitHub Environment to configure
         required: true
-        type: choice
-        options: [development, production]
+        type: environment
       mode:
         description: Plan, apply, or verify provider configuration
         required: true
