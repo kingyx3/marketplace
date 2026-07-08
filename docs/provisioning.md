@@ -38,6 +38,16 @@ The platform stack has an empty committed `backend "gcs" {}` block. **Terraform 
 
 Terraform-generated Supabase database passwords are stored in remote state. Keep the GCS bucket locked down, and copy/reset each password into the matching GitHub Environment as `SUPABASE_DB_PASSWORD` for `supabase link`.
 
+## Vercel scope model
+
+The current default is a Vercel Hobby/personal project:
+
+- Leave repository-level `VERCEL_TEAM_ID` empty so Terraform creates/manages the Vercel project under the personal account attached to `VERCEL_API_TOKEN`.
+- Store the personal Vercel user id as environment-level `VERCEL_ORG_ID` in both active GitHub Environments. The name is kept because the Vercel CLI expects that project-linking variable.
+- Keep `VERCEL_PROJECT_ID` as the Terraform output for the project.
+
+When moving to a team/org later, set repository-level `VERCEL_TEAM_ID`, reconcile Terraform for the team-owned project, replace environment-level `VERCEL_ORG_ID` with the team/org id, and update `VERCEL_PROJECT_ID` if Vercel creates a new project id.
+
 ## Provider bootstrap scripts
 
 Provider scripts are intentionally outside Terraform when secrets, one-time values, or dashboard-owned account state make Terraform state a poor fit.
