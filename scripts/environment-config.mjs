@@ -16,12 +16,13 @@ export async function loadEnvironmentConfig(targetEnv = process.env.TARGET_ENV) 
 export async function applyVersionedEnvironmentConfig(env = process.env, options = {}) {
   const targetEnv = options.targetEnv ?? env.TARGET_ENV;
   const values = await loadEnvironmentConfig(targetEnv);
+  const override = options.override ?? env.GITHUB_ACTIONS === "true";
   const applied = [];
 
   for (const [key, rawValue] of Object.entries(values)) {
     const value = normalizeValue(rawValue);
     if (!value) continue;
-    if (hasValue(env[key]) && !options.override) continue;
+    if (hasValue(env[key]) && !override) continue;
     env[key] = value;
     applied.push(key);
   }
