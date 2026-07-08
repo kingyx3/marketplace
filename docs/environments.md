@@ -1,6 +1,6 @@
 # Environments & configuration
 
-GitHub Environments are the source of truth for secrets and approval boundaries. Non-secret deployment topology should live in [`config/environments.json`](../config/environments.json) whenever it is stable enough to review in code. Vercel runtime values are reconciled from the resolved environment during bootstrap and deploy.
+GitHub Environments are the source of truth for secrets and approval boundaries. Non-secret deployment topology lives in [`config/environments.json`](../config/environments.json). Vercel runtime values are reconciled from the resolved environment during bootstrap and deploy.
 
 ## Active topology
 
@@ -14,15 +14,15 @@ GitHub Environments are the source of truth for secrets and approval boundaries.
 
 ## Resolution order
 
-The provider/bootstrap/env scripts resolve configuration in this order:
+Local scripts resolve configuration in this order:
 
-1. Values already present in the process environment, including GitHub secrets, GitHub vars, local shell exports, and `.env`.
+1. Values already present in the process environment, including local shell exports and `.env`.
 2. Non-empty values in [`config/environments.json`](../config/environments.json): first `shared`, then the selected `development` or `production` block.
-3. Empty strings and `null` entries in `config/environments.json` are ignored so existing GitHub vars can remain as migration fallback.
+3. Empty strings and `null` entries in `config/environments.json` are ignored.
 
-This means public runtime/provider values such as `NEXT_PUBLIC_SITE_URL`, `APP_NAME`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `STRIPE_WEBHOOK_ENDPOINT_ID`, and `STRIPE_WEBHOOK_ENABLED_EVENTS` do not need to be GitHub vars after they are committed to `config/environments.json`.
+In GitHub Actions, `config/environments.json` is authoritative for public values and intentionally overrides any leftover GitHub vars for the same keys. This prevents public topology drift between repo config and hidden GitHub settings.
 
-Deploy routing values such as `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` are also represented in `config/environments.json`, but keep them as GitHub vars until every workflow job that consumes them has been migrated to resolve public config before shell/CLI usage.
+Public values such as `NEXT_PUBLIC_SITE_URL`, `APP_NAME`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `GOOGLE_OAUTH_CLIENT_ID`, `STRIPE_WEBHOOK_ENDPOINT_ID`, and `STRIPE_WEBHOOK_ENABLED_EVENTS` do not need to be GitHub vars after they are committed to `config/environments.json`.
 
 Secrets must remain GitHub Environment secrets for now, or move later to an external secret manager accessed through CI identity/OIDC. Do not pass secrets through `workflow_dispatch` inputs or commit them to `config/environments.json`.
 
@@ -43,7 +43,6 @@ Add these separately to both `development` and `production`.
 | `SUPABASE_SECRET_KEY` | Server runtime | Server-only Supabase key. |
 | `SUPABASE_ACCESS_TOKEN` | Bootstrap/deploy, provider config | May match repository value. |
 | `SUPABASE_DB_PASSWORD` | `supabase link` | Matching hosted database password. |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Browser Stripe | Public value; may move to `config/environments.json` after known. |
 | `STRIPE_SECRET_KEY` | Server Stripe, provider config | Test key in development, live key in production. |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook route | Signing value for `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`; required before deploy. |
 | `VERCEL_TOKEN` | Vercel env sync/deploy | Vercel deploy token. |
@@ -60,9 +59,9 @@ Fill non-secret values in [`config/environments.json`](../config/environments.js
 | `NEXT_PUBLIC_SUPABASE_URL` | App runtime, OAuth | `https://<project-ref>.supabase.co`. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser/runtime Supabase access, OAuth verification | RLS still controls access. |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Browser Stripe | Test publishable key in development, live publishable key in production. |
-| `SUPABASE_PROJECT_REF` | Bootstrap/deploy, provider config | Terraform output for the environment; keep GitHub var until deploy workflow routing is fully migrated. |
-| `VERCEL_ORG_ID` | Vercel CLI | Personal user id on Hobby; keep GitHub var until deploy workflow routing is fully migrated. |
-| `VERCEL_PROJECT_ID` | Vercel CLI | Terraform output `vercel_project_id`; keep GitHub var until deploy workflow routing is fully migrated. |
+| `SUPABASE_PROJECT_REF` | Bootstrap/deploy, provider config | Terraform output for the environment. |
+| `VERCEL_ORG_ID` | Vercel CLI | Personal user id on Hobby; team/org id after moving the project to a team. |
+| `VERCEL_PROJECT_ID` | Vercel CLI | Terraform output `vercel_project_id`; same value in both active environments. |
 | `GOOGLE_OAUTH_CLIENT_ID` | Configure Providers, Bootstrap Environment | Google Cloud Web OAuth client id. |
 | `STRIPE_WEBHOOK_ENDPOINT_ID` | Configure Providers, Bootstrap Environment | Recommended endpoint id to pin Stripe automation after the first webhook endpoint is created. |
 | `STRIPE_WEBHOOK_ENABLED_EVENTS` | Configure Providers, Bootstrap Environment | Shared default lives in `config/environments.json`; override only when app webhook coverage changes. |
@@ -84,13 +83,11 @@ Do not store `TARGET_ENV`; workflows derive it from the selected environment.
 | Repository | `SUPABASE_REGION` | Terraform Platform | Defaults to `ap-southeast-1`. |
 | Repository | `SUPABASE_INSTANCE_SIZE` | Terraform Platform | Defaults to `micro`. |
 | Environment | `RESEND_API_KEY` | Email notifications | Set only after Resend is configured. |
-| Environment | `RESEND_FROM_EMAIL` | Email notifications | Verified sender address; can move to `config/environments.json` if stable. |
-| Environment | `SUPPORT_EMAIL` | Emails/support copy | Customer support contact; can move to `config/environments.json` if stable. |
-| Environment | `TWILIO_ACCOUNT_SID` | SMS notifications | Twilio account id; can move to `config/environments.json` if stable. |
 | Environment | `TWILIO_AUTH_TOKEN` | SMS notifications | Twilio auth token. |
 | Environment | `TELEGRAM_BOT_TOKEN` | Telegram alerts | Telegram Bot API token. |
 | Environment | `WHATSAPP_ACCESS_TOKEN` | WhatsApp alerts | WhatsApp Cloud API token. |
-| Environment | `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp alerts | WhatsApp sender phone-number id; can move to `config/environments.json` if stable. |
+
+Optional public notification values such as `RESEND_FROM_EMAIL`, `SUPPORT_EMAIL`, `TWILIO_ACCOUNT_SID`, and `WHATSAPP_PHONE_NUMBER_ID` may also be added to `config/environments.json` when stable.
 
 ## Vercel Hobby now, team/org later
 
@@ -110,10 +107,10 @@ SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=<Google web client secret>
 ## Config flow
 
 1. Terraform workflows create/reconcile the GCS state bucket, Vercel project, and Supabase project shells.
-2. Terraform outputs and provider dashboard public values are committed to `config/environments.json` where supported; secrets stay in GitHub Environments.
+2. Terraform outputs and provider dashboard public values are committed to `config/environments.json`; secrets stay in GitHub Environments.
 3. The first Stripe webhook endpoint is created explicitly from a trusted local shell with `npm run providers:apply -- --print-created-secret`, or in the Stripe dashboard, so the returned signing secret can be stored immediately.
 4. **Configure Providers** applies hosted Supabase Google provider settings and safely updates/verifies Stripe webhook configuration.
-5. **Bootstrap Environment** reruns provider config in `--apply-if-configured` mode, validates one resolved environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, and pushes migrations.
+5. **Bootstrap Environment** runs the codified `scripts/bootstrap-environment.mjs` flow: provider config, resolved environment validation, `.env.deploy` generation, Vercel env sync, Supabase link, and migrations.
 6. Normal deploys repeat validation, Vercel env sync, migration push, Vercel deploy, and smoke tests.
 
 The machine-readable deploy contract is `ENV_CONTRACT` in [`scripts/generate-env.mjs`](../scripts/generate-env.mjs), merged with [`config/environments.json`](../config/environments.json) by [`scripts/environment-config.mjs`](../scripts/environment-config.mjs). Keep those aligned with [`lib/env.ts`](../lib/env.ts), [`.env.example`](../.env.example), workflow `env:` blocks, and this document.
