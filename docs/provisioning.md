@@ -2,17 +2,18 @@
 
 ## Scope
 
-Terraform manages provider project shells; provider bootstrap scripts manage safe SaaS configuration; GitHub Environments manage runtime/deploy config; Supabase migrations manage database schema.
+Terraform manages provider project shells; provider bootstrap scripts manage safe SaaS configuration; versioned public config manages non-secret topology; GitHub Environments manage secrets and approval boundaries; Supabase migrations manage database schema.
 
 | Layer | Owner |
 | --- | --- |
 | GCS Terraform state bucket | `infra/terraform/bootstrap` via **Terraform State Bootstrap** |
 | Shared Vercel project | `infra/terraform/platform` via **Terraform Platform** |
 | Active Supabase project shells | `infra/terraform/platform` via **Terraform Platform** |
+| Public environment topology | `config/environments.json` resolved by `scripts/environment-config.mjs` |
 | Hosted Supabase Google Auth provider | `scripts/configure-google-oauth.mjs` orchestrated by `scripts/configure-providers.mjs` |
 | Stripe webhook endpoint | `scripts/configure-stripe.mjs` orchestrated by `scripts/configure-providers.mjs` |
-| Runtime/deploy secrets and vars | GitHub repository settings + GitHub Environments; see [`docs/environments.md`](environments.md) |
-| Vercel runtime env | Synced from GitHub by `scripts/sync-vercel-env.mjs` |
+| Runtime/deploy secrets | GitHub repository settings + GitHub Environments; see [`docs/environments.md`](environments.md) |
+| Vercel runtime env | Synced from the resolved environment by `scripts/sync-vercel-env.mjs` |
 | Database schema, storage, grants, RLS, RPCs | `supabase/migrations` + `supabase/seed.sql` |
 
 ## Hosted model
@@ -38,21 +39,41 @@ The platform stack has an empty committed `backend "gcs" {}` block. **Terraform 
 
 Terraform-generated Supabase database passwords are stored in remote state. Keep the GCS bucket locked down, and copy/reset each password into the matching GitHub Environment as `SUPABASE_DB_PASSWORD` for `supabase link`.
 
+## Versioned public config
+
+Use [`config/environments.json`](../config/environments.json) for public, stable topology:
+
+- `APP_NAME`
+- `NEXT_PUBLIC_SITE_URL`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `SUPABASE_PROJECT_REF`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `STRIPE_WEBHOOK_ENDPOINT_ID`
+- `STRIPE_WEBHOOK_ENABLED_EVENTS`
+
+Empty values are ignored so GitHub vars can remain as fallback while migrating. Secrets never belong in this file.
+
 ## Vercel scope model
 
 The current default is a Vercel Hobby/personal project:
 
 - Leave repository-level `VERCEL_TEAM_ID` empty so Terraform creates/manages the Vercel project under the personal account attached to `VERCEL_API_TOKEN`.
-- Store the personal Vercel user id as environment-level `VERCEL_ORG_ID` in both active GitHub Environments. The name is kept because the Vercel CLI expects that project-linking variable.
+- Store the personal Vercel user id as `VERCEL_ORG_ID` in `config/environments.json`. The name is kept because the Vercel CLI expects that project-linking variable.
 - Keep `VERCEL_PROJECT_ID` as the Terraform output for the project.
 
-When moving to a team/org later, set repository-level `VERCEL_TEAM_ID`, reconcile Terraform for the team-owned project, replace environment-level `VERCEL_ORG_ID` with the team/org id, and update `VERCEL_PROJECT_ID` if Vercel creates a new project id.
+When moving to a team/org later, set repository-level `VERCEL_TEAM_ID`, reconcile Terraform for the team-owned project, replace `VERCEL_ORG_ID` in `config/environments.json` with the team/org id, and update `VERCEL_PROJECT_ID` if Vercel creates a new project id.
 
 ## Provider bootstrap scripts
 
 Provider scripts are intentionally outside Terraform when secrets, one-time values, or dashboard-owned account state make Terraform state a poor fit.
 
-- `scripts/configure-providers.mjs` is the single entry point for provider plan/apply/verify flows.
+- `scripts/environment-config.mjs` merges versioned public config into the process environment without overriding explicit shell/GitHub values.
+- `scripts/generate-env.mjs` validates the resolved contract and writes `.env.deploy` for Vercel runtime sync.
+- `scripts/configure-providers.mjs` is the single entry point for provider plan/apply/verify flows and resolves public config before invoking provider-specific scripts.
 - `scripts/configure-google-oauth.mjs` applies and verifies the hosted Supabase Google provider after the Google Cloud OAuth client exists.
 - `scripts/configure-stripe.mjs` idempotently updates/verifies the Stripe webhook endpoint in CI and can create the first endpoint only from a trusted local shell with `--print-created-secret`.
 - **Configure Providers** runs the orchestrator explicitly with `plan`, `apply`, or `verify`.
@@ -64,7 +85,7 @@ GitHub Actions must not create the first Stripe webhook endpoint because Stripe 
 
 These remain outside Terraform/provider automation:
 
-- GitHub repository secrets/vars and GitHub Environment secrets/vars.
+- GitHub repository secrets and GitHub Environment secrets.
 - GitHub Environment protection rules, especially production required reviewers.
 - Google Cloud OAuth clients and consent screen settings.
 - Hosted Supabase redirect allow-list entries when the dashboard is required.
@@ -75,10 +96,10 @@ These remain outside Terraform/provider automation:
 
 Use [`docs/bootstrap.md`](bootstrap.md) for the full sequence. In short:
 
-1. Add required GitHub entries from [`docs/environments.md`](environments.md#required-repository-entries) and [`docs/environments.md`](environments.md#required-environment-entries).
+1. Add required GitHub secrets from [`docs/environments.md`](environments.md#required-repository-secrets) and [`docs/environments.md`](environments.md#required-environment-secrets).
 2. Run **Terraform State Bootstrap**: plan, then apply.
 3. Run **Terraform Platform**: plan, then apply.
-4. Copy Terraform outputs into GitHub Environments.
+4. Copy non-secret Terraform outputs into `config/environments.json`; store secret outputs in GitHub Environments.
 5. Finish provider dashboard prerequisites for Supabase, Google Cloud OAuth, Stripe account settings, and Vercel.
 6. Create the first Stripe webhook endpoint locally or in Stripe dashboard, then store `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_ENDPOINT_ID`.
 7. Run **Configure Providers**: plan, then apply for both active environments.
