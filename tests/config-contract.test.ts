@@ -67,6 +67,7 @@ describe("platform config contract", () => {
 
     expect(migrations).toContain("create table if not exists public.listing_items");
     expect(migrations).toContain("create table if not exists public.storefront_configurations");
+    expect(migrations).toContain("key text not null unique");
     expect(migrations).toContain("alter table public.listing_items enable row level security");
     expect(migrations).toContain(
       "alter table public.storefront_configurations enable row level security"

@@ -41,9 +41,14 @@ describe("deployment workflow contract", () => {
     const development = await readWorkflow(".github/workflows/deploy-development.yml");
     const production = await readWorkflow(".github/workflows/deploy-production.yml");
 
+    expect(development).toContain("deploy-ready:");
+    expect(development).toContain("Check development deploy prerequisites");
     expect(development).toContain("environment: development");
     expect(development).toContain("branches-ignore: [main]");
+    expect(development).toContain("GCP_TERRAFORM_CREDENTIALS_JSON");
+    expect(development).toContain("SUPABASE_ACCESS_TOKEN");
     expect(development).not.toContain("config-ready");
+    expect(development).not.toContain("config/environments.json");
     expect(production).toContain("environment: production");
     expect(production).toContain("types: [published]");
   });

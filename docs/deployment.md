@@ -6,7 +6,7 @@
 
 | Caller | Trigger | Environment | Notes |
 | --- | --- | --- | --- |
-| `deploy-development.yml` | Push to non-`main` branches | `development` | Skips docs-only changes. |
+| `deploy-development.yml` | Push to non-`main` branches | `development` | Skips docs-only changes and skips branch deploys until the development deploy prerequisites are configured. |
 | `deploy-production.yml` | Push tag `v*` or publish a release | `production` | Pauses on required GitHub Environment reviewers before mutable production jobs run. |
 
 `staging` is intentionally empty for now. Recreate a staging caller only when a third hosted Vercel/Supabase project pair is available.
@@ -23,6 +23,7 @@ app-checks -----------------------+--> deploy --> smoke
 
 | Job | Purpose |
 | --- | --- |
+| `deploy-ready` | Development caller only: checks that deployment bootstrap secrets exist before invoking the reusable deploy. It logs missing key names only. |
 | `validate-env` | Targets the selected GitHub Environment, initializes Terraform state, resolves Terraform/provider values with `scripts/resolve-environment.mjs`, validates `SUPABASE_PROJECT_REF`, and runs `scripts/generate-env.mjs --check`. |
 | `app-checks` | Runs lint, typecheck, unit tests, and build in parallel after `npm ci`. |
 | `migration-check` | Applies the auth shim, every SQL migration, and seed data to a clean Postgres service. |
@@ -32,7 +33,7 @@ app-checks -----------------------+--> deploy --> smoke
 
 ## Notes
 
-- Development deploys ignore docs-only changes.
+- Development deploys ignore docs-only changes. Until `GCP_TERRAFORM_CREDENTIALS_JSON`, `VERCEL_TOKEN`, and `SUPABASE_ACCESS_TOKEN` exist in the development GitHub Environment, branch deploys skip cleanly; once those prerequisites are present, branch pushes run the full development deploy suite.
 - Pull request CI is secretless and separate from deploys. Protect `main` with lint, typecheck, unit tests, build, config checks, and migration checks before production releases are tagged.
 - Public runtime and deploy-routing values come from Terraform outputs, provider APIs, GitHub Environment vars, and optional local fallback. Do not copy Terraform outputs into committed config.
 - Vercel dashboard env is not canonical. The deploy workflow always pushes runtime env from the resolved environment.

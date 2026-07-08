@@ -21,7 +21,8 @@ create table if not exists public.listing_items (
 );
 
 create table if not exists public.storefront_configurations (
-  key text primary key,
+  id uuid primary key default gen_random_uuid(),
+  key text not null unique,
   label text not null,
   description text,
   value jsonb not null default '{}'::jsonb,
