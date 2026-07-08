@@ -12,6 +12,7 @@ Terraform manages provider project shells; provider bootstrap scripts manage saf
 | Public environment topology | `config/environments.json` resolved by `scripts/environment-config.mjs` |
 | Hosted Supabase Google Auth provider | `scripts/configure-google-oauth.mjs` orchestrated by `scripts/configure-providers.mjs` |
 | Stripe webhook endpoint | `scripts/configure-stripe.mjs` orchestrated by `scripts/configure-providers.mjs` |
+| Environment bootstrap | `scripts/bootstrap-environment.mjs` through **Bootstrap Environment** |
 | Runtime/deploy secrets | GitHub repository settings + GitHub Environments; see [`docs/environments.md`](environments.md) |
 | Vercel runtime env | Synced from the resolved environment by `scripts/sync-vercel-env.mjs` |
 | Database schema, storage, grants, RLS, RPCs | `supabase/migrations` + `supabase/seed.sql` |
@@ -55,7 +56,7 @@ Use [`config/environments.json`](../config/environments.json) for public, stable
 - `STRIPE_WEBHOOK_ENDPOINT_ID`
 - `STRIPE_WEBHOOK_ENABLED_EVENTS`
 
-Empty values are ignored so GitHub vars can remain as fallback while migrating. Secrets never belong in this file.
+Empty values are ignored. In GitHub Actions, non-empty versioned public config overrides leftover GitHub vars for the same keys so CI follows the reviewed repo topology. Secrets never belong in this file.
 
 ## Vercel scope model
 
@@ -71,13 +72,15 @@ When moving to a team/org later, set repository-level `VERCEL_TEAM_ID`, reconcil
 
 Provider scripts are intentionally outside Terraform when secrets, one-time values, or dashboard-owned account state make Terraform state a poor fit.
 
-- `scripts/environment-config.mjs` merges versioned public config into the process environment without overriding explicit shell/GitHub values.
+- `scripts/environment-config.mjs` merges versioned public config into the process environment. It preserves explicit local shell values, but GitHub Actions treats the versioned public config as authoritative.
 - `scripts/generate-env.mjs` validates the resolved contract and writes `.env.deploy` for Vercel runtime sync.
 - `scripts/configure-providers.mjs` is the single entry point for provider plan/apply/verify flows and resolves public config before invoking provider-specific scripts.
 - `scripts/configure-google-oauth.mjs` applies and verifies the hosted Supabase Google provider after the Google Cloud OAuth client exists.
 - `scripts/configure-stripe.mjs` idempotently updates/verifies the Stripe webhook endpoint in CI and can create the first endpoint only from a trusted local shell with `--print-created-secret`.
-- **Configure Providers** runs the orchestrator explicitly with `plan`, `apply`, or `verify`.
-- **Bootstrap Environment** reruns the orchestrator with `--apply-if-configured` before validating and syncing runtime env.
+- `scripts/bootstrap-environment.mjs` codifies the full bootstrap flow: provider config, resolved env validation, `.env.deploy` generation, Vercel env sync, Supabase link, and migration push.
+- `scripts/deploy-vercel.mjs` keeps Vercel deploy invocation out of workflow shell snippets while preserving GitHub Environment approval and secret scoping.
+- **Configure Providers** runs the provider orchestrator explicitly with `plan`, `apply`, or `verify`.
+- **Bootstrap Environment** runs the bootstrap script once per active environment.
 
 GitHub Actions must not create the first Stripe webhook endpoint because Stripe returns the signing secret only once and this repo does not grant Actions permission to write GitHub Environment secrets. First endpoint creation is therefore an explicit local/dashboard bootstrap step; subsequent endpoint reconciliation is automated.
 
