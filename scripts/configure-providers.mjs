@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { loadLocalDotenv } from "./generate-env.mjs";
+import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";
 
 const PROVIDERS = Object.freeze([
   ["Google OAuth", "scripts/configure-google-oauth.mjs"],
@@ -15,6 +17,12 @@ const mode = rawArgs.includes("--apply")
       ? "--verify"
       : "--plan";
 const passthroughArgs = rawArgs.filter((arg) => arg !== mode);
+
+await loadLocalDotenv(process.env);
+const appliedConfig = await applyVersionedEnvironmentConfig(process.env);
+if (appliedConfig.length > 0) {
+  console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
+}
 
 for (const [name, script] of PROVIDERS) {
   console.log(`\n==> ${name}: ${mode.slice(2)}`);
