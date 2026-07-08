@@ -31,15 +31,18 @@ cross-origin, browser permissions are minimized, and API routes return
 RLS is enabled on every table and Data API exposure is granted explicitly in
 migrations. Policy tiers:
 
-1. **Public read** — catalog + availability only.
+1. **Public read** — catalog products/SKUs, availability, published listing
+   items, and active storefront configuration only.
 2. **Own rows** — customers select their own commercial documents via
    `auth.uid()`; customer profile updates include `WITH CHECK` so a row cannot
    be reassigned to another auth user.
-3. **Trusted server only** — supply, pricing, allocation, refunds, audit, and
-   webhook tables have no client policies at all.
+3. **Trusted server only** — supply, pricing, allocation, refunds, audit,
+   webhook, payment-exception, and admin mutation paths have no client-write
+   policies.
 
-All writes to commercial tables go through trusted server code, so price
-calculation, stock checks, and state machines cannot be bypassed from a browser.
+All writes to commercial or admin-managed tables go through trusted server code,
+so price calculation, stock checks, state machines, and storefront publication
+controls cannot be bypassed from a browser.
 
 ## Storage
 
@@ -52,7 +55,8 @@ staff through `current_user_is_staff()`.
 
 Admin routes require server-verified staff access from `staff_users` or
 server-controlled app metadata. Order/payment mutations are explicit actions,
-not generic status writes. Manual admin changes must follow
+not generic status writes. Product/SKU, listing/configuration, inventory,
+wholesale, supplier PO, and payment reconciliation changes must follow
 `docs/admin-operations.md` and require trusted operator access.
 
 ## Webhooks and payments
