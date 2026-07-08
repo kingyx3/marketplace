@@ -46,7 +46,7 @@ In GitHub Actions:
 
 Terraform-generated Supabase database passwords live in remote state. Store the matching password as `SUPABASE_DB_PASSWORD` in each active GitHub Environment, or reset the password in Supabase and store that value instead.
 
-## 4. Finish provider dashboards and provider automation
+## 4. Finish provider inputs
 
 ### Supabase
 
@@ -64,7 +64,7 @@ For each hosted project:
 Run locally to print the exact URL plan:
 
 ```bash
-npm run oauth:google:plan
+npm run providers:plan
 ```
 
 In Google Cloud, create/update a **Web application** OAuth client with:
@@ -80,41 +80,41 @@ Store the hosted client values in the matching GitHub Environment:
 - `GOOGLE_OAUTH_CLIENT_ID` as a variable.
 - `GOOGLE_OAUTH_CLIENT_SECRET` as a secret.
 
-Then use either path:
-
-- Run **Configure Google OAuth** for `development` and `production` when you want an explicit provider-configuration action.
-- Or let **Bootstrap Environment** run `scripts/configure-google-oauth.mjs --apply-if-configured` automatically after those values exist.
-
 ### Stripe
 
 For each environment:
 
 - Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_SECRET_KEY` to the matching GitHub Environment.
-- Run **Configure Stripe** with `mode=plan` to confirm the desired endpoint.
-- Run **Configure Stripe** with `mode=apply` to create/update the webhook endpoint at `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`.
-- Subscribe to the default managed event set:
+- The managed webhook endpoint URL is `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`.
+- The managed default event set is:
   - `payment_intent.amount_capturable_updated`
   - `payment_intent.succeeded`
   - `payment_intent.payment_failed`
   - `charge.refunded`
-- Store the webhook signing secret as `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment before deploying.
-- Optionally store `STRIPE_WEBHOOK_ENDPOINT_ID` as a variable after creation to bind future automation runs to the exact endpoint.
+- Use optional `STRIPE_WEBHOOK_ENABLED_EVENTS` only when the app webhook route intentionally changes event coverage.
 
-The Stripe API only returns a newly created endpoint's signing secret at creation time. The automation masks that value in GitHub Actions and writes it only to the step output; it does not print secrets to logs. If `STRIPE_WEBHOOK_SECRET` is still missing, **Bootstrap Environment** will create/update the endpoint, then fail environment validation with instructions to store the secret and rerun bootstrap.
-
-Use an optional comma/space-separated `STRIPE_WEBHOOK_ENABLED_EVENTS` environment variable only when the app starts handling a different event contract. Keep this list aligned with the webhook route.
+The Stripe API only returns a newly created endpoint's signing secret at creation time. The automation masks that value in GitHub Actions and writes it only to the step output; it does not print secrets to logs. Store the signing secret as `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment before deploying. Optionally store `STRIPE_WEBHOOK_ENDPOINT_ID` as a variable after creation to bind future automation runs to the exact endpoint.
 
 ### Vercel
 
 Confirm the Terraform-created project exists and both active GitHub Environments have `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`. Do not maintain Vercel runtime env manually; bootstrap/deploy syncs it from GitHub.
 
-## 5. Bootstrap environments
+## 5. Configure provider integrations
+
+Run **Configure Providers** with `mode=plan` for `development` and `production`, then run it with `mode=apply` after reviewing the plan.
+
+This single workflow configures everything that can be safely managed through provider APIs:
+
+- Supabase hosted Google Auth provider settings after the Google Cloud OAuth client exists.
+- Stripe webhook endpoint URL, enabled events, status, description, and metadata.
+
+## 6. Bootstrap environments
 
 Run **Bootstrap Environment** once for `development` and once for `production`.
 
-The workflow applies provider bootstrap configuration when credentials are present, validates the GitHub Environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, pushes migrations, and removes `.env.deploy`. It does **not** deploy the app.
+The workflow also runs `scripts/configure-providers.mjs --apply-if-configured`, then validates the GitHub Environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, pushes migrations, and removes `.env.deploy`. It does **not** deploy the app.
 
-## 6. Deploy
+## 7. Deploy
 
 Development deploys automatically from non-`main` branches unless docs-only.
 
@@ -127,7 +127,7 @@ git push origin v0.2.0
 
 Production should pause for GitHub Environment reviewer approval before mutable jobs run.
 
-## 7. Verify
+## 8. Verify
 
 After deploy:
 
