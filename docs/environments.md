@@ -1,154 +1,87 @@
-# Environments & configuration contract
+# Environments & configuration
 
-GitHub Environments are the source of truth for deployed configuration. CI reads
-GitHub Environment variables and secrets, validates them, syncs runtime values to
-Vercel, links the selected Supabase project, pushes migrations, and deploys.
+GitHub is the source of truth for hosted config. Vercel env is reconciled from GitHub during bootstrap/deploy; do not maintain runtime env by hand in Vercel.
 
-For the current free-tier setup, use one Vercel project and two Supabase
-projects. Vercel Preview is the hosted development target; Vercel Production is
-the live target. Keep `staging` reserved and empty until the app moves to paid
-plans.
+## Active topology
 
 | GitHub Environment | Trigger | Vercel target | Supabase project | Status |
 | --- | --- | --- | --- | --- |
-| `development` | push to any non-`main` branch | `preview` in `marketplace` | `marketplace-development` | active |
-| `staging` | none | none | none | reserved |
-| `production` | tag `v*` / release published | `production` in `marketplace` | `marketplace-production` | active |
+| `development` | Push to non-`main` branches, unless docs-only | Preview | Development project | Active |
+| `production` | `v*` tag or published release | Production | Production project | Active |
+| `staging` | None | None | None | Reserved |
 
-The canonical machine-readable contract is `ENV_CONTRACT` in
-[`scripts/generate-env.mjs`](../scripts/generate-env.mjs); `.env.example` and
-`lib/env.ts` mirror it. Validation logs key names only, never values.
+`staging` should stay empty until the repo has a third Supabase project and matching Vercel target.
 
-## GitHub Environment secrets
+## Required GitHub secrets and variables
 
-| Key | Used by |
-| --- | --- |
-| `SUPABASE_ACCESS_TOKEN` | Supabase CLI authentication for migration pushes and hosted Auth configuration |
-| `SUPABASE_DB_PASSWORD` | `supabase link` database connection |
-| `SUPABASE_SECRET_KEY` | Server-side Supabase runtime access in Vercel |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Hosted Supabase Auth Google provider secret from Google Cloud |
-| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET` | Optional local Supabase Auth Google provider secret |
-| `SUPABASE_AUTH_GOOGLE_CLIENT_SECRET` | Deprecated local Google OAuth secret alias |
-| `VERCEL_TOKEN` | Vercel env sync and deploy |
-| `STRIPE_SECRET_KEY` | Server-side Stripe runtime access |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
-| `RESEND_API_KEY` | Optional email provider |
-| `TWILIO_AUTH_TOKEN` | Optional SMS provider |
-| `TELEGRAM_BOT_TOKEN` | Optional Telegram provider |
-| `WHATSAPP_ACCESS_TOKEN` | Optional WhatsApp provider |
+Configure repository-level entries under **Settings → Secrets and variables → Actions**. Configure environment-level entries separately in both `development` and `production` under **Settings → Environments**.
 
-## GitHub Environment variables
+| Scope | Name | Kind | Used by | Source / value |
+| --- | --- | --- | --- | --- |
+| Repository | `GCP_TERRAFORM_CREDENTIALS_JSON` | Secret | Terraform State Bootstrap, Terraform Platform | Google Cloud service account JSON for the Terraform state project. |
+| Repository | `VERCEL_API_TOKEN` | Secret | Terraform Platform | Vercel API token for project provisioning. |
+| Repository | `SUPABASE_ACCESS_TOKEN` | Secret | Terraform Platform | Supabase access token for project provisioning and org lookup. |
+| Environment | `APP_NAME` | Variable | App runtime, health, emails | Display name, for example `Marketplace`. |
+| Environment | `NEXT_PUBLIC_SITE_URL` | Variable | App runtime, OAuth, smoke/readiness | Canonical URL for that environment. |
+| Environment | `NEXT_PUBLIC_SUPABASE_URL` | Variable | App runtime, OAuth | `https://<project-ref>.supabase.co`. |
+| Environment | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Variable | Browser/runtime Supabase access | Project publishable key; RLS still controls access. |
+| Environment | `SUPABASE_SECRET_KEY` | Secret | Server runtime | Server-only Supabase key. |
+| Environment | `SUPABASE_ACCESS_TOKEN` | Secret | Bootstrap/deploy, OAuth config | Supabase access token; may match repository secret. |
+| Environment | `SUPABASE_DB_PASSWORD` | Secret | `supabase link` | Matching hosted database password. Terraform-generated passwords are in remote state unless reset in Supabase. |
+| Environment | `SUPABASE_PROJECT_REF` | Variable | Bootstrap/deploy, OAuth config | Terraform output `supabase_project_refs[environment]`. |
+| Environment | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Variable | Browser Stripe | `pk_test_...` in development, `pk_live_...` in production. |
+| Environment | `STRIPE_SECRET_KEY` | Secret | Server Stripe | `sk_test_...` in development, `sk_live_...` in production. |
+| Environment | `STRIPE_WEBHOOK_SECRET` | Secret | Stripe webhook route | Signing secret for `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`. |
+| Environment | `VERCEL_TOKEN` | Secret | Vercel env sync/deploy | Vercel token; may match `VERCEL_API_TOKEN`. |
+| Environment | `VERCEL_ORG_ID` | Variable | Vercel CLI | Vercel account/team id. |
+| Environment | `VERCEL_PROJECT_ID` | Variable | Vercel CLI | Terraform output `vercel_project_id`; same value in both active environments. |
+| Environment | `GOOGLE_OAUTH_CLIENT_ID` | Variable | Configure Google OAuth | Google Cloud Web OAuth client id. |
+| Environment | `GOOGLE_OAUTH_CLIENT_SECRET` | Secret | Configure Google OAuth | Google Cloud Web OAuth client secret. |
 
-| Key | Example / notes |
-| --- | --- |
-| `TARGET_ENV` | Generated by workflow input; do not store manually |
-| `APP_NAME` | `Marketplace` |
-| `NEXT_PUBLIC_SITE_URL` | Canonical public URL for the environment |
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...`; browser-safe and RLS-enforced |
-| `GOOGLE_OAUTH_CLIENT_ID` | Hosted Supabase Auth Google provider client id from Google Cloud |
-| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Optional local Supabase Auth Google provider client id |
-| `SUPABASE_AUTH_GOOGLE_CLIENT_ID` | Deprecated local Google OAuth client id alias |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` or `pk_live_...` |
-| `SUPABASE_PROJECT_REF` | Project ref used by `supabase link` and hosted Auth configuration |
-| `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | Same Vercel project id in both active GitHub Environments |
-| `RESEND_FROM_EMAIL` | Optional verified sender address |
-| `SUPPORT_EMAIL` | Optional customer support address |
-| `TWILIO_ACCOUNT_SID` | Optional SMS provider account id |
-| `WHATSAPP_PHONE_NUMBER_ID` | Optional WhatsApp sender phone-number id |
+Do not store `TARGET_ENV`; workflows derive it from the selected environment and only allow `development` or `production`.
 
-Do not configure the `staging` GitHub Environment yet. It should remain empty
-until a third Supabase project and either a paid Vercel custom environment or a
-separate staging Vercel project exists.
+## Optional GitHub secrets and variables
 
-## Google OAuth setup
+Unset optional notification keys disable that channel. During Vercel sync, unset optional runtime keys are removed from the matching Vercel target to avoid stale config.
 
-The app code is wired for Supabase Auth + Google OAuth:
+| Scope | Name | Kind | Used by | Default / when to set |
+| --- | --- | --- | --- | --- |
+| Repository | `GCP_PROJECT_ID` | Variable | Terraform resolver | Derived from the Google credential JSON when omitted. |
+| Repository | `PROJECT_SLUG` | Variable | Terraform resolver | Derived from repo name; normally `marketplace`. |
+| Repository | `TF_STATE_BUCKET_NAME` | Variable | Terraform resolver | Derived from GCP project id + project slug. |
+| Repository | `TF_STATE_BUCKET_LOCATION` | Variable | Terraform resolver | Defaults to `us-central1`. |
+| Repository | `SUPABASE_ORGANIZATION_ID` | Variable | Terraform resolver | Required only when the Supabase token can access zero or multiple organizations. |
+| Repository | `VERCEL_TEAM_ID` | Variable | Terraform Platform | Empty for personal Vercel accounts. |
+| Repository | `VERCEL_PROJECT_NAME` | Variable | Terraform Platform | Defaults to project slug. |
+| Repository | `VERCEL_ROOT_DIRECTORY` | Variable | Terraform Platform | Empty while the app lives at repo root. |
+| Repository | `SUPABASE_REGION` | Variable | Terraform Platform | Defaults to `ap-southeast-1`. |
+| Repository | `SUPABASE_INSTANCE_SIZE` | Variable | Terraform Platform | Defaults to `micro`. |
+| Environment | `RESEND_API_KEY` | Secret | Email notifications | Set only after Resend is configured. |
+| Environment | `RESEND_FROM_EMAIL` | Variable | Email notifications | Verified sender address. |
+| Environment | `SUPPORT_EMAIL` | Variable | Emails/support copy | Customer support contact. |
+| Environment | `TWILIO_ACCOUNT_SID` | Variable | SMS notifications | Twilio account id. |
+| Environment | `TWILIO_AUTH_TOKEN` | Secret | SMS notifications | Twilio auth token. |
+| Environment | `TELEGRAM_BOT_TOKEN` | Secret | Telegram alerts | Telegram Bot API token. |
+| Environment | `WHATSAPP_ACCESS_TOKEN` | Secret | WhatsApp alerts | WhatsApp Cloud API token. |
+| Environment | `WHATSAPP_PHONE_NUMBER_ID` | Variable | WhatsApp alerts | WhatsApp sender phone-number id. |
 
-- `/auth/sign-in` starts `signInWithOAuth({ provider: "google" })` and redirects to `/auth/callback`.
-- `/auth/callback` exchanges the PKCE code for a Supabase session cookie.
-- Middleware refreshes Supabase SSR cookies with `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-- The sign-in request asks Google for `access_type=offline` and `prompt=consent select_account` so Google can issue provider refresh tokens when allowed.
+## Local-only env
 
-What the repo can generate/apply:
+Local development uses `.env`, copied from `.env.example`. These local Supabase Google OAuth keys are not GitHub Environment entries and are not synced to Vercel:
 
-1. Run `npm run oauth:google:plan` to print the exact Google Cloud origins, Google redirect URIs, Supabase redirect allow-list entries, and local `.env` names for the current environment.
-2. Add the Google OAuth client ID to the target GitHub Environment as `GOOGLE_OAUTH_CLIENT_ID`.
-3. Add the Google OAuth client secret to the target GitHub Environment as `GOOGLE_OAUTH_CLIENT_SECRET`.
-4. Run **Configure Google OAuth** for `development` or `production`. The workflow calls the Supabase Management API to enable the Google provider on `SUPABASE_PROJECT_REF`, then verifies `/auth/v1/settings` reports Google as enabled.
+```bash
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=<Google web client id>
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=<Google web client secret>
+```
 
-What cannot be generated from this repo:
+The old local aliases `SUPABASE_AUTH_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_GOOGLE_CLIENT_SECRET` are tolerated for compatibility but should not be used for new setup.
 
-- The Google OAuth client ID and client secret. These must be created in Google Cloud as a **Web application** OAuth client.
-- Google consent screen branding, audience, verification status, and scopes. Configure at least `openid`, email, and profile scopes in Google Cloud.
-- Hosted Supabase redirect allow-list entries if your Supabase project requires manual dashboard edits for URL configuration. Use the URLs printed by `npm run oauth:google:plan`.
+## Config flow
 
-Google Cloud values to add for a hosted environment:
+1. Terraform workflows use repository-level entries to create/reconcile the GCS state bucket, Vercel project, and Supabase project shells.
+2. Terraform outputs and provider dashboard values are stored in the `development` and `production` GitHub Environments.
+3. **Configure Google OAuth** applies hosted Supabase Google provider settings after the Google Cloud OAuth client exists.
+4. **Bootstrap Environment** validates one GitHub Environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, and pushes migrations.
+5. Normal deploys repeat validation, Vercel env sync, migration push, Vercel deploy, and smoke tests.
 
-- Authorized JavaScript origins: the origin from `NEXT_PUBLIC_SITE_URL`.
-- Authorized redirect URI: `${NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`.
-
-Local development values:
-
-- `.env`: `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=<Google web client id>`
-- `.env`: `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=<Google web client secret>`
-- Google Authorized JavaScript origin: `http://localhost:3000`
-- Google Authorized redirect URI: `http://127.0.0.1:54321/auth/v1/callback`
-
-## Downstream sync
-
-Deployment never treats Vercel as the source of truth. The deploy workflow:
-
-1. Validates the selected GitHub Environment.
-2. Generates `.env.deploy` from GitHub Environment values.
-3. Syncs runtime keys to the matching Vercel target: `development` → `preview`,
-   `production` → `production`.
-4. Removes unset optional runtime keys from that target to avoid stale config.
-5. Pushes Supabase migrations to `SUPABASE_PROJECT_REF`.
-6. Deploys to Vercel and smoke tests `/api/health`.
-
-The generated `.env.deploy` file is temporary, gitignored, and removed during the
-deploy job.
-
-## Projects
-
-Use one shared Vercel project and one Supabase project per active data
-environment:
-
-| Environment | Supabase project | Vercel target |
-| --- | --- | --- |
-| `development` | Hosted development project | Preview |
-| `production` | Hosted production project | Production |
-
-Each hosted Supabase project has its own database, Auth settings, Storage
-buckets, API URL, publishable key, secret key, database password, OAuth provider
-client IDs/secrets, and redirect URLs. Vercel uses one project with separate
-Preview and Production env targets.
-
-When paid plans allow a third hosted environment, add `staging` by creating a
-third Supabase project and either adding a Vercel custom environment or splitting
-staging into its own Vercel project.
-
-## Bootstrap per environment
-
-Provider accounts/projects are created by Terraform, then reconciled by the
-manual bootstrap workflow. Once per active environment:
-
-1. Run or import Terraform in `infra/terraform/platform`.
-2. Copy the Vercel project id into both active GitHub Environments as
-   `VERCEL_PROJECT_ID`; copy each Supabase project ref into the matching GitHub
-   Environment as `SUPABASE_PROJECT_REF`.
-3. Enter all required runtime values in the matching GitHub Environment.
-4. Create a Google Cloud Web OAuth client for each hosted environment, add the
-   `GOOGLE_OAUTH_CLIENT_ID` variable and `GOOGLE_OAUTH_CLIENT_SECRET` secret, and
-   run **Configure Google OAuth** for that environment.
-5. Configure any provider dashboard settings that cannot be fully represented in
-   this repo, such as Supabase Auth redirect allow-list entries and the Stripe
-   webhook endpoint.
-6. Run **Bootstrap Environment** for `development` or `production`. Bootstrap
-   validates GitHub config, syncs Vercel env, links Supabase, and applies
-   migrations. It does not perform a regular app deployment.
-7. For production, add required reviewers under GitHub Environment protection.
-
-After bootstrap, normal deploys create/update the downstream Vercel runtime env,
-apply Supabase schema changes, deploy the app, and smoke test it.
+The machine-readable deploy contract is `ENV_CONTRACT` in [`scripts/generate-env.mjs`](../scripts/generate-env.mjs). Keep it aligned with [`lib/env.ts`](../lib/env.ts), [`.env.example`](../.env.example), workflow `env:` blocks, and this document.
