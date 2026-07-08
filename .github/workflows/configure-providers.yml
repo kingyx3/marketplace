@@ -24,18 +24,10 @@ jobs:
     environment: ${{ inputs.environment }}
     env:
       TARGET_ENV: ${{ inputs.environment }}
-      APP_NAME: ${{ vars.APP_NAME }}
-      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-      STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
-      STRIPE_WEBHOOK_ENABLED_EVENTS: ${{ vars.STRIPE_WEBHOOK_ENABLED_EVENTS }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets['SUPABASE_ACCESS_TOKEN'] }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets['GOOGLE_OAUTH_CLIENT_SECRET'] }}
+      STRIPE_SECRET_KEY: ${{ secrets['STRIPE_SECRET_KEY'] }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets['STRIPE_WEBHOOK_SECRET'] }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,11 +35,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Resolve versioned public config
+        run: node scripts/generate-env.mjs --export-public
       - name: Configure provider integrations
-        id: providers
         run: node scripts/configure-providers.mjs --${{ inputs.mode }}
-      - name: Stripe webhook secret follow-up
-        if: ${{ steps.providers.outputs.stripe_webhook_secret != '' }}
-        run: |
-          echo "::warning::A Stripe webhook endpoint was created. Store its signing secret as STRIPE_WEBHOOK_SECRET in the ${{ inputs.environment }} GitHub Environment before deploying."
-          echo "Stripe webhook endpoint id: ${{ steps.providers.outputs.stripe_webhook_endpoint_id }}" >> "$GITHUB_STEP_SUMMARY"
