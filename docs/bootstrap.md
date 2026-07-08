@@ -44,6 +44,8 @@ In GitHub Actions:
    - `supabase_project_refs["development"]` → `SUPABASE_PROJECT_REF` in `development`.
    - `supabase_project_refs["production"]` → `SUPABASE_PROJECT_REF` in `production`.
 
+For a Vercel Hobby project, leave repository-level `VERCEL_TEAM_ID` unset. Store your personal Vercel user id as environment-level `VERCEL_ORG_ID` in both active GitHub Environments. If the project later moves to a team/org, set repository-level `VERCEL_TEAM_ID`, update environment-level `VERCEL_ORG_ID` to the team/org id, and update `VERCEL_PROJECT_ID` if the project id changes.
+
 Terraform-generated Supabase database passwords live in remote state. Store the matching password as `SUPABASE_DB_PASSWORD` in each active GitHub Environment, or reset the password in Supabase and store that value instead.
 
 ## 4. Finish provider inputs
@@ -97,7 +99,7 @@ The Stripe API only returns a newly created endpoint's signing secret at creatio
 
 ### Vercel
 
-Confirm the Terraform-created project exists and both active GitHub Environments have `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`. Do not maintain Vercel runtime env manually; bootstrap/deploy syncs it from GitHub.
+Confirm the Terraform-created project exists and both active GitHub Environments have `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`. `VERCEL_ORG_ID` is the Vercel deploy scope id: your personal user id for Hobby, or a team/org id after migration. Do not maintain Vercel runtime env manually; bootstrap/deploy syncs it from GitHub.
 
 ## 5. Configure provider integrations
 
