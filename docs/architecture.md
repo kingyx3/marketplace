@@ -11,7 +11,7 @@ Browser ──▶ Vercel (Next.js 15, App Router)
                     │
                     ▼
             Supabase (managed Postgres)
-              ├─ RLS-enforced publishable-key access (catalog, own rows)
+              ├─ RLS-enforced publishable-key access (catalog, listings, own rows)
               ├─ server-side secret-key access for trusted admin/RPC paths
               ├─ Auth (Google sign-in through Supabase Auth)
               └─ Storage (public product images)
@@ -23,10 +23,11 @@ Browser ──▶ Vercel (Next.js 15, App Router)
 - **Database**: Supabase Postgres. Schema is SQL migrations in `supabase/migrations/` — the single source of truth (`docs/data-model.md`).
 - **Auth**: Supabase Auth with Google OAuth. `/auth/sign-in` starts the OAuth flow, `/auth/callback` exchanges the PKCE code, and middleware refreshes Supabase SSR cookies.
 - **Payments**: Stripe PaymentIntents. B2C order payments capture normally; pre-order deposits use manual capture; B2B invoice/PO checkout creates a manual-invoice payment placeholder for staff reconciliation.
+- **Catalog/storefront**: catalog products/SKUs are the sellable source of truth; `listing_items` and `storefront_configurations` layer on merchandising state, published visibility, channel metadata, featured/sort order, and catalog copy.
 - **Search**: Postgres full-text (GIN index on products). Upgrade path: Typesense or Algolia when the catalog outgrows FTS relevance.
 - **Notifications**: provider-agnostic interface (`lib/notifications.ts`). Resend order-confirmation email and email/Telegram/WhatsApp drop alerts are implemented; SMS remains feature-gated by provider configuration.
 - **Product media**: Supabase Storage `product-images` bucket is created by migration. Product images are publicly readable; writes require trusted server code or an authenticated active staff user.
-- **Admin operations**: a protected admin surface exists for inventory/catalog operations, B2B review, supplier PO intake, preorder allocation, payment exceptions, and manual reconciliation. It is intentionally still runbook-heavy; see `docs/admin-operations.md`.
+- **Admin operations**: a protected admin surface exists for inventory/catalog/listing operations, B2B review, supplier PO intake, preorder allocation, payment exceptions, and manual reconciliation. It is intentionally still runbook-heavy; see `docs/admin-operations.md`.
 
 ## Why this stack
 
@@ -57,7 +58,7 @@ See `docs/bootstrap.md`, `docs/environments.md`, and `docs/provisioning.md` for 
 
 **Cloudflare Pages/Workers + D1.** Cheapest at scale and excellent edge latency, but D1 lacks the relational depth this data model leans on, and Workers' Node compat still complicates Stripe SDK + Supabase SSR usage.
 
-**Hosted platforms (Shopify + wholesale apps).** Fastest to first sale and PCI handled for you, but pre-order deposit/balance flows, allocation rules, and B2B tiering all become app-subscription workarounds.
+**Hosted platforms (Shopify + wholesale apps).** Fastest to first sale and PCI handled for you, but pre-order deposit/balance flows, allocation rules, B2B tiering, and audited admin state transitions all become app-subscription workarounds.
 
 ## Environment topology
 
