@@ -26,6 +26,8 @@ jobs:
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
+      STRIPE_WEBHOOK_ENABLED_EVENTS: ${{ vars.STRIPE_WEBHOOK_ENABLED_EVENTS }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
       SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
@@ -37,6 +39,8 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
@@ -50,6 +54,16 @@ jobs:
         with:
           version: latest
       - run: npm ci
+      - name: Apply provider bootstrap configuration when credentials are present
+        id: providers
+        run: |
+          node scripts/configure-google-oauth.mjs --apply-if-configured
+          node scripts/configure-stripe.mjs --apply-if-configured
+      - name: Stripe webhook secret follow-up
+        if: ${{ steps.providers.outputs.stripe_webhook_secret != '' }}
+        run: |
+          echo "::warning::A Stripe webhook endpoint was created. Store its signing secret as STRIPE_WEBHOOK_SECRET in the ${{ inputs.environment }} GitHub Environment, then rerun bootstrap."
+          echo "Stripe webhook endpoint id: ${{ steps.providers.outputs.stripe_webhook_endpoint_id }}" >> "$GITHUB_STEP_SUMMARY"
       - name: Validate GitHub Environment contract
         run: node scripts/generate-env.mjs --check
       - name: Generate runtime env from GitHub
