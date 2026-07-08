@@ -150,6 +150,7 @@ describe("platform config contract", () => {
     expect(environmentConfig.environments.production).not.toHaveProperty("STRIPE_SECRET_KEY");
     expect(environmentConfigScript).toContain("applyVersionedEnvironmentConfig");
     expect(environmentConfigScript).toContain("exportPublicEnvironmentForGithubActions");
+    expect(environmentConfigScript).toContain('env.GITHUB_ACTIONS === "true"');
     expect(syncScript).toContain("ENV_CONTRACT");
     expect(syncScript).toContain("parseDotenv");
     expect(supabaseConfig).toContain("[auth.external.google]");
@@ -171,10 +172,11 @@ describe("platform config contract", () => {
     expect(stripeScript).not.toContain("writeGithubOutput");
     expect(stripeScript).not.toContain("add-mask");
     expect(providerWorkflow).toContain("name: Configure Providers");
+    expect(providerWorkflow).toContain("node scripts/generate-env.mjs --export-public");
     expect(providerWorkflow).toContain("configure-providers.mjs --${{ inputs.mode }}");
-    expect(providerWorkflow).toContain("GOOGLE_OAUTH_CLIENT_ID");
-    expect(providerWorkflow).toContain("STRIPE_WEBHOOK_ENDPOINT_ID");
-    expect(providerWorkflow).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
+    expect(providerWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
+    expect(providerWorkflow).not.toContain("vars.GOOGLE_OAUTH_CLIENT_ID");
+    expect(providerWorkflow).not.toContain("stripe_webhook_secret");
     expect(bootstrapWorkflow).toContain("configure-providers.mjs --apply-if-configured");
     expect(envScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
     expect(envScript).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
