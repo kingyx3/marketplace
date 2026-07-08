@@ -80,8 +80,12 @@ describe("platform config contract", () => {
     expect(migrations).toContain("ADMIN_STOREFRONT_CONFIG_UPDATE");
   });
 
-  it("runs config verifier scripts in CI", async () => {
+  it("runs config verifier scripts in CI and supports Google OAuth setup", async () => {
     const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+    const oauthWorkflow = await readFile(
+      new URL("../.github/workflows/configure-google-oauth.yml", import.meta.url),
+      "utf8"
+    );
     const packageJson = JSON.parse(
       await readFile(new URL("../package.json", import.meta.url), "utf8")
     );
@@ -89,10 +93,16 @@ describe("platform config contract", () => {
       new URL("../scripts/sync-vercel-env.mjs", import.meta.url),
       "utf8"
     );
+    const googleOAuthScript = await readFile(
+      new URL("../scripts/configure-google-oauth.mjs", import.meta.url),
+      "utf8"
+    );
     const supabaseConfig = await readFile(new URL("../supabase/config.toml", import.meta.url), "utf8");
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
+    expect(packageJson.scripts["oauth:google:plan"]).toContain("configure-google-oauth.mjs --plan");
+    expect(packageJson.scripts["oauth:google:apply"]).toContain("configure-google-oauth.mjs --apply");
     expect(packageJson.scripts["test:e2e"]).toBe("playwright test");
     expect(ci).toContain("npm run config:check");
     expect(ci).toContain("e2e-smoke:");
@@ -102,8 +112,12 @@ describe("platform config contract", () => {
     expect(syncScript).toContain("ENV_CONTRACT");
     expect(syncScript).toContain("parseDotenv");
     expect(supabaseConfig).toContain("[auth.external.google]");
-    expect(supabaseConfig).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
-    expect(supabaseConfig).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_SECRET");
+    expect(supabaseConfig).toContain("SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID");
+    expect(supabaseConfig).toContain("SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET");
+    expect(supabaseConfig).toContain("http://127.0.0.1:54321/auth/v1/callback");
+    expect(googleOAuthScript).toContain("external_google_enabled");
+    expect(oauthWorkflow).toContain("GOOGLE_OAUTH_CLIENT_ID");
+    expect(oauthWorkflow).toContain("GOOGLE_OAUTH_CLIENT_SECRET");
   });
 });
 
