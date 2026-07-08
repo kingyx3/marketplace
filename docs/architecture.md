@@ -33,12 +33,12 @@ Browser ──▶ Vercel (Next.js 15, App Router)
 
 | Requirement | How it's met |
 | --- | --- |
-| Config source of truth | GitHub Environments own deploy and runtime configuration. |
-| Downstream reconciliation | CI syncs runtime env to Vercel and pushes Supabase migrations. |
+| Config source of truth | GitHub Environments own secrets and approval boundaries; Terraform/provider outputs resolve deployment topology. |
+| Downstream reconciliation | CI resolves environment values, syncs runtime env to Vercel, and pushes Supabase migrations. |
 | Scale-to-zero cost | Vercel and Supabase free/low tiers; no always-on app servers. |
 | Env separation | Vercel Preview/Production plus separate Supabase projects. |
 | Config as code | Terraform, migrations, workflows, env contract, and validation. |
-| Bootstrap repeatability | Terraform State Bootstrap, Terraform Platform, Configure Google OAuth, and Bootstrap Environment workflows. |
+| Bootstrap repeatability | Terraform State Bootstrap, Terraform Platform, Configure Providers, output resolver, and Bootstrap Environment workflows. |
 
 ## Infrastructure boundary
 
@@ -46,8 +46,8 @@ Terraform manages provider project shells, not application runtime secrets:
 
 - `infra/terraform/bootstrap` creates/reconciles the GCS Terraform state bucket.
 - `infra/terraform/platform` creates/reconciles one Vercel project and the active Supabase projects.
-- GitHub Environments hold runtime and deploy values.
-- CI generates `.env.deploy`, syncs runtime keys to Vercel, links Supabase, applies migrations, and deploys.
+- GitHub Environments hold runtime secrets and unavoidable manual public values.
+- CI resolves Terraform/provider values, generates `.env.deploy`, syncs runtime keys to Vercel, links Supabase, applies migrations, and deploys.
 - Supabase schema and storage/RLS setup are migrations, not Terraform resources.
 
 See `docs/bootstrap.md`, `docs/environments.md`, and `docs/provisioning.md` for the full setup contract.

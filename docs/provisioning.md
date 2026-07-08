@@ -2,18 +2,19 @@
 
 ## Scope
 
-Terraform manages provider project shells; provider bootstrap scripts manage safe SaaS configuration; versioned public config manages non-secret topology; GitHub Environments manage secrets and approval boundaries; Supabase migrations manage database schema.
+Terraform manages provider project shells; provider bootstrap scripts manage safe SaaS configuration; GitHub Environments manage secrets and unavoidable manual public values; Supabase migrations manage database schema.
 
 | Layer | Owner |
 | --- | --- |
 | GCS Terraform state bucket | `infra/terraform/bootstrap` via **Terraform State Bootstrap** |
 | Shared Vercel project | `infra/terraform/platform` via **Terraform Platform** |
 | Active Supabase project shells | `infra/terraform/platform` via **Terraform Platform** |
-| Public environment topology | `config/environments.json` resolved by `scripts/environment-config.mjs` |
+| Deployment topology | Terraform outputs resolved by `scripts/resolve-environment.mjs` |
+| Optional local defaults | `config/environments.json` |
 | Hosted Supabase Google Auth provider | `scripts/configure-google-oauth.mjs` orchestrated by `scripts/configure-providers.mjs` |
 | Stripe webhook endpoint | `scripts/configure-stripe.mjs` orchestrated by `scripts/configure-providers.mjs` |
 | Environment bootstrap | `scripts/bootstrap-environment.mjs` through **Bootstrap Environment** |
-| Runtime/deploy secrets | GitHub repository settings + GitHub Environments; see [`docs/environments.md`](environments.md) |
+| Runtime/deploy secrets | GitHub repository secrets + GitHub Environments; see `docs/environments.md` |
 | Vercel runtime env | Synced from the resolved environment by `scripts/sync-vercel-env.mjs` |
 | Database schema, storage, grants, RLS, RPCs | `supabase/migrations` + `supabase/seed.sql` |
 
@@ -27,7 +28,7 @@ Terraform manages provider project shells; provider bootstrap scripts manage saf
 
 ## Terraform state
 
-The state bucket is created by **Terraform State Bootstrap**. Defaults are derived by `scripts/resolve-terraform-inputs.mjs`; override them with optional repository variables from [`docs/environments.md`](environments.md#optional-entries) only when needed.
+The state bucket is created by **Terraform State Bootstrap**. Defaults are derived by `scripts/resolve-terraform-inputs.mjs`; override them with optional repository variables from `docs/environments.md` only when needed.
 
 Bucket settings encoded in Terraform:
 
@@ -36,51 +37,52 @@ Bucket settings encoded in Terraform:
 - Public access prevention
 - Object versioning
 
-The platform stack has an empty committed `backend "gcs" {}` block. **Terraform Platform** passes the real bucket and prefix at `terraform init` time.
+The platform stack has an empty committed `backend "gcs" {}` block. Workflows pass the real bucket and prefix at `terraform init` time.
 
-Terraform-generated Supabase database passwords are stored in remote state. Keep the GCS bucket locked down, and copy/reset each password into the matching GitHub Environment as `SUPABASE_DB_PASSWORD` for `supabase link`.
+## Terraform output contract
 
-## Versioned public config
+The platform stack exposes all stable downstream deployment dependencies:
 
-Use [`config/environments.json`](../config/environments.json) for public, stable topology:
+- `vercel_project_id`
+- `vercel_project_name`
+- `vercel_team_id`
+- `supabase_project_refs`
+- `supabase_project_urls`
+- `supabase_database_passwords` (sensitive)
+- `active_supabase_environments`
+- `project_slug`
+
+Workflows run `terraform output -json` and pass the file to `scripts/resolve-environment.mjs`. The sensitive database password is exported only to the job environment that links Supabase and pushes migrations.
+
+## Optional local config
+
+Use `config/environments.json` only for stable defaults and local fallback:
 
 - `APP_NAME`
-- `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `SUPABASE_PROJECT_REF`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
-- `GOOGLE_OAUTH_CLIENT_ID`
-- `STRIPE_WEBHOOK_ENDPOINT_ID`
 - `STRIPE_WEBHOOK_ENABLED_EVENTS`
 
-Empty values are ignored. In GitHub Actions, non-empty versioned public config overrides leftover GitHub vars for the same keys so CI follows the reviewed repo topology. Secrets never belong in this file.
+Hosted CI/CD must not depend on manually copied Terraform outputs, provider IDs, public Supabase values, Vercel IDs, Google OAuth client IDs, or Stripe webhook endpoint IDs in committed config.
 
 ## Vercel scope model
 
 The current default is a Vercel Hobby/personal project:
 
-- Leave repository-level `VERCEL_TEAM_ID` empty so Terraform creates/manages the Vercel project under the personal account attached to `VERCEL_API_TOKEN`.
-- Store the personal Vercel user id as `VERCEL_ORG_ID` in `config/environments.json`. The name is kept because the Vercel CLI expects that project-linking variable.
-- Keep `VERCEL_PROJECT_ID` as the Terraform output for the project.
-
-When moving to a team/org later, set repository-level `VERCEL_TEAM_ID`, reconcile Terraform for the team-owned project, replace `VERCEL_ORG_ID` in `config/environments.json` with the team/org id, and update `VERCEL_PROJECT_ID` if Vercel creates a new project id.
+- Leave repository-level `VERCEL_TEAM_ID` empty so Terraform creates/manages the Vercel project under the personal account attached to `VERCEL_TOKEN`.
+- CI resolves the personal `VERCEL_ORG_ID` from the Vercel API when possible.
+- If you later move to a team/org, set repository-level `VERCEL_TEAM_ID` before reconciling Terraform for the team-owned project.
 
 ## Provider bootstrap scripts
 
 Provider scripts are intentionally outside Terraform when secrets, one-time values, or dashboard-owned account state make Terraform state a poor fit.
 
-- `scripts/environment-config.mjs` merges versioned public config into the process environment. It preserves explicit local shell values, but GitHub Actions treats the versioned public config as authoritative.
+- `scripts/resolve-environment.mjs` resolves Terraform outputs, provider API values, GitHub Environment values, and optional local fallback into the job environment.
+- `scripts/environment-config.mjs` reads optional local fallback config and never overrides existing env values by default.
 - `scripts/generate-env.mjs` validates the resolved contract and writes `.env.deploy` for Vercel runtime sync.
-- `scripts/configure-providers.mjs` is the single entry point for provider plan/apply/verify flows and resolves public config before invoking provider-specific scripts.
+- `scripts/configure-providers.mjs` is the single entry point for provider plan/apply/verify flows.
 - `scripts/configure-google-oauth.mjs` applies and verifies the hosted Supabase Google provider after the Google Cloud OAuth client exists.
 - `scripts/configure-stripe.mjs` idempotently updates/verifies the Stripe webhook endpoint in CI and can create the first endpoint only from a trusted local shell with `--print-created-secret`.
-- `scripts/bootstrap-environment.mjs` codifies the full bootstrap flow: provider config, resolved env validation, `.env.deploy` generation, Vercel env sync, Supabase link, and migration push.
+- `scripts/bootstrap-environment.mjs` codifies provider config, resolved env validation, `.env.deploy` generation, Vercel env sync, Supabase link, and migration push.
 - `scripts/deploy-vercel.mjs` keeps Vercel deploy invocation out of workflow shell snippets while preserving GitHub Environment approval and secret scoping.
-- **Configure Providers** runs the provider orchestrator explicitly with `plan`, `apply`, or `verify`.
-- **Bootstrap Environment** runs the bootstrap script once per active environment.
 
 GitHub Actions must not create the first Stripe webhook endpoint because Stripe returns the signing secret only once and this repo does not grant Actions permission to write GitHub Environment secrets. First endpoint creation is therefore an explicit local/dashboard bootstrap step; subsequent endpoint reconciliation is automated.
 
@@ -90,24 +92,21 @@ These remain outside Terraform/provider automation:
 
 - GitHub repository secrets and GitHub Environment secrets.
 - GitHub Environment protection rules, especially production required reviewers.
-- Google Cloud OAuth clients and consent screen settings.
-- Hosted Supabase redirect allow-list entries when the dashboard is required.
+- Google OAuth consent screen settings and Web client creation until automated.
 - Stripe account-level settings, payment-method settings, branding, tax/compliance settings, and dashboard-only review flows.
 - Optional notification provider sender/domain verification.
 
 ## Bootstrap checklist
 
-Use [`docs/bootstrap.md`](bootstrap.md) for the full sequence. In short:
+Use `docs/bootstrap.md` for the full sequence. In short:
 
-1. Add required GitHub secrets from [`docs/environments.md`](environments.md#required-repository-secrets) and [`docs/environments.md`](environments.md#required-environment-secrets).
+1. Add required GitHub repository secrets and environment vars/secrets from `docs/environments.md`.
 2. Run **Terraform State Bootstrap**: plan, then apply.
 3. Run **Terraform Platform**: plan, then apply.
-4. Copy non-secret Terraform outputs into `config/environments.json`; store secret outputs in GitHub Environments.
-5. Finish provider dashboard prerequisites for Supabase, Google Cloud OAuth, Stripe account settings, and Vercel.
-6. Create the first Stripe webhook endpoint locally or in Stripe dashboard, then store `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_ENDPOINT_ID`.
-7. Run **Configure Providers**: plan, then apply for both active environments.
-8. Run **Bootstrap Environment** for both active environments.
-9. Deploy and verify `/api/health`; production also verifies `/api/health?deep=1`.
+4. Finish provider prerequisites for Supabase secret keys, Google OAuth, Stripe one-time webhook signing secrets, and optional notifications.
+5. Run **Configure Providers**: plan, then apply for both active environments.
+6. Run **Bootstrap Environment** for both active environments.
+7. Deploy and verify `/api/health`; production also verifies `/api/health?deep=1`.
 
 ## Scaling path
 

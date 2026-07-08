@@ -25,7 +25,7 @@ backend config template.
 Required repository secrets:
 
 - `GCP_TERRAFORM_CREDENTIALS_JSON`
-- `VERCEL_API_TOKEN`
+- `VERCEL_TOKEN`
 - `SUPABASE_ACCESS_TOKEN`
 
 Optional repository variables:
@@ -48,6 +48,23 @@ state, not GitHub secrets.
 The workflows pass provider settings, backend config, and Terraform variables
 through CI/CD. Do not commit a real `terraform.tfvars` file.
 
+## Output contract
+
+The hosted workflows read `terraform output -json` from this stack and pass the
+result to `scripts/resolve-environment.mjs`. Do not copy outputs into GitHub
+Environments or `config/environments.json`.
+
+Outputs consumed downstream:
+
+- `vercel_project_id`
+- `vercel_project_name`
+- `vercel_team_id`
+- `supabase_project_refs`
+- `supabase_project_urls`
+- `supabase_database_passwords` (sensitive)
+- `active_supabase_environments`
+- `project_slug`
+
 ## Local use
 
 Prefer the GitHub Actions workflows. For a local plan:
@@ -58,16 +75,6 @@ terraform init -backend-config=backend.config.example
 terraform plan
 ```
 
-Set provider credentials and `TF_VAR_*` values in your shell first.
-
-After apply, copy outputs into GitHub Environments:
-
-- `vercel_project_id` → both `development` and `production` GitHub Environments
-  as `VERCEL_PROJECT_ID`
-- `supabase_project_refs[development]` → `development` GitHub Environment
-  `SUPABASE_PROJECT_REF`
-- `supabase_project_refs[production]` → `production` GitHub Environment
-  `SUPABASE_PROJECT_REF`
-
-The remaining GitHub Environment values are listed in `docs/environments.md`.
-Then run **Bootstrap Environment** for `development` and `production`.
+Set provider credentials and `TF_VAR_*` values in your shell first. After apply,
+run **Configure Providers** and **Bootstrap Environment** for `development` and
+`production`.

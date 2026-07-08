@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
-      VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       SUPABASE_ORGANIZATION_ID: ${{ vars.SUPABASE_ORGANIZATION_ID }}
@@ -54,3 +54,7 @@ jobs:
         if: ${{ inputs.apply }}
         working-directory: infra/terraform/platform
         run: terraform apply -auto-approve tfplan
+      - name: Export Terraform output contract
+        if: ${{ inputs.apply }}
+        working-directory: infra/terraform/platform
+        run: terraform output -json > tf-outputs.json

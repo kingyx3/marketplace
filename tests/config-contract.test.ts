@@ -101,6 +101,10 @@ describe("platform config contract", () => {
       new URL("../scripts/environment-config.mjs", import.meta.url),
       "utf8"
     );
+    const environmentResolverScript = await readFile(
+      new URL("../scripts/resolve-environment.mjs", import.meta.url),
+      "utf8"
+    );
     const bootstrapScript = await readFile(
       new URL("../scripts/bootstrap-environment.mjs", import.meta.url),
       "utf8"
@@ -129,10 +133,15 @@ describe("platform config contract", () => {
     const bootstrapDoc = await readFile(new URL("../docs/bootstrap.md", import.meta.url), "utf8");
     const provisioningDoc = await readFile(new URL("../docs/provisioning.md", import.meta.url), "utf8");
     const supabaseConfig = await readFile(new URL("../supabase/config.toml", import.meta.url), "utf8");
+    const terraformOutputs = await readFile(
+      new URL("../infra/terraform/platform/outputs.tf", import.meta.url),
+      "utf8"
+    );
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
-    expect(packageJson.scripts["env:resolve"]).toContain("environment-config.mjs");
+    expect(packageJson.scripts["env:resolve"]).toContain("resolve-environment.mjs");
+    expect(packageJson.scripts["env:config"]).toContain("environment-config.mjs");
     expect(packageJson.scripts["bootstrap:environment"]).toContain("bootstrap-environment.mjs");
     expect(packageJson.scripts["providers:plan"]).toContain("configure-providers.mjs --plan");
     expect(packageJson.scripts["providers:apply"]).toContain("configure-providers.mjs --apply");
@@ -152,12 +161,16 @@ describe("platform config contract", () => {
     expect(ci).toContain("docs/provisioning.md");
     expect(environmentConfig.shared.APP_NAME).toBe("Marketplace");
     expect(environmentConfig.shared.STRIPE_WEBHOOK_ENABLED_EVENTS).toContain("payment_intent.succeeded");
-    expect(environmentConfig.environments.development).toHaveProperty("NEXT_PUBLIC_SITE_URL");
-    expect(environmentConfig.environments.production).toHaveProperty("NEXT_PUBLIC_SITE_URL");
+    expect(environmentConfig.environments.development).not.toHaveProperty("NEXT_PUBLIC_SITE_URL");
+    expect(environmentConfig.environments.production).not.toHaveProperty("NEXT_PUBLIC_SITE_URL");
     expect(environmentConfig.environments.production).not.toHaveProperty("STRIPE_SECRET_KEY");
     expect(environmentConfigScript).toContain("applyVersionedEnvironmentConfig");
     expect(environmentConfigScript).toContain("exportPublicEnvironmentForGithubActions");
-    expect(environmentConfigScript).toContain('env.GITHUB_ACTIONS === "true"');
+    expect(environmentConfigScript).toContain("options.override ?? false");
+    expect(environmentResolverScript).toContain("loadTerraformOutputs");
+    expect(environmentResolverScript).toContain("fetchSupabaseProjectApiKeys");
+    expect(environmentResolverScript).toContain("fetchVercelProject");
+    expect(environmentResolverScript).toContain("fetchStripeWebhookEndpoints");
     expect(syncScript).toContain("ENV_CONTRACT");
     expect(syncScript).toContain("parseDotenv");
     expect(supabaseConfig).toContain("[auth.external.google]");
@@ -179,23 +192,28 @@ describe("platform config contract", () => {
     expect(stripeScript).not.toContain("writeGithubOutput");
     expect(stripeScript).not.toContain("add-mask");
     expect(providerWorkflow).toContain("name: Configure Providers");
-    expect(providerWorkflow).toContain("node scripts/generate-env.mjs --export-public");
+    expect(providerWorkflow).toContain("node scripts/resolve-terraform-inputs.mjs platform");
+    expect(providerWorkflow).toContain("terraform output -json > tf-outputs.json");
+    expect(providerWorkflow).toContain("node scripts/resolve-environment.mjs");
     expect(providerWorkflow).toContain("configure-providers.mjs --${{ inputs.mode }}");
-    expect(providerWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
-    expect(providerWorkflow).not.toContain("vars.GOOGLE_OAUTH_CLIENT_ID");
+    expect(providerWorkflow).toContain("vars.NEXT_PUBLIC_SITE_URL");
+    expect(providerWorkflow).toContain("vars.GOOGLE_OAUTH_CLIENT_ID");
     expect(providerWorkflow).not.toContain("stripe_webhook_secret");
     expect(bootstrapWorkflow).toContain("node scripts/bootstrap-environment.mjs");
-    expect(bootstrapWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
+    expect(bootstrapWorkflow).toContain("node scripts/resolve-environment.mjs");
+    expect(bootstrapWorkflow).toContain("--require-db-password");
+    expect(bootstrapWorkflow).toContain("vars.NEXT_PUBLIC_SITE_URL");
     expect(bootstrapWorkflow).not.toContain("stripe_webhook_secret");
     expect(bootstrapScript).toContain("configure-providers.mjs");
     expect(bootstrapScript).toContain("--apply-if-configured");
     expect(bootstrapScript).toContain("sync-vercel-env.mjs");
     expect(bootstrapScript).toContain("npx");
     expect(bootstrapScript).toContain("supabase");
-    expect(deployWorkflow).toContain("node scripts/generate-env.mjs --export-public");
+    expect(deployWorkflow).toContain("node scripts/resolve-environment.mjs");
     expect(deployWorkflow).toContain("node scripts/deploy-vercel.mjs");
-    expect(deployWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
+    expect(deployWorkflow).toContain("vars.NEXT_PUBLIC_SITE_URL");
     expect(deployWorkflow).not.toContain("vars.SUPABASE_PROJECT_REF");
+    expect(deployWorkflow).not.toContain("SUPABASE_DB_PASSWORD: ${{ secrets['SUPABASE_DB_PASSWORD'] }}");
     expect(deployWorkflow).not.toContain("--token $VERCEL_TOKEN");
     expect(deployScript).toContain("vercel");
     expect(deployScript).toContain("--token");
@@ -208,16 +226,19 @@ describe("platform config contract", () => {
     expect(envScript).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
     expect(runtimeEnvSchema).toContain("SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID");
     expect(runtimeEnvSchema).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
-    expect(envExample).toContain("personal user id on Hobby");
+    expect(envExample).toContain("CI resolves this from Terraform output");
     expect(envExample).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
-    expect(environmentsDoc).toContain("config/environments.json");
-    expect(environmentsDoc).toContain("Do not pass secrets through `workflow_dispatch` inputs");
-    expect(environmentsDoc).toContain("personal Vercel user id");
+    expect(environmentsDoc).toContain("optional `config/environments.json` local fallback");
+    expect(environmentsDoc).toContain("Do not also create `VERCEL_API_TOKEN`");
+    expect(environmentsDoc).toContain("Terraform output contract");
     expect(environmentsDoc).toContain("VERCEL_TEAM_ID");
-    expect(environmentsDoc).toContain("first Stripe webhook endpoint");
+    expect(environmentsDoc).toContain("Stripe reveals this only when an endpoint is created");
     expect(bootstrapDoc).toContain("config/environments.json");
     expect(bootstrapDoc).toContain("npm run providers:apply -- --print-created-secret");
-    expect(provisioningDoc).toContain("Public environment topology");
+    expect(bootstrapDoc).toContain("Migration from the old config flow");
+    expect(provisioningDoc).toContain("Deployment topology");
+    expect(terraformOutputs).toContain("supabase_database_passwords");
+    expect(terraformOutputs).toContain("sensitive   = true");
   });
 });
 

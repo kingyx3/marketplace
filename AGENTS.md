@@ -29,7 +29,7 @@ Standing rules for anyone (human or agent) working in this repository. They are 
 ## Provisioning and bootstrap
 
 16. **Terraform boundary**: Terraform owns the GCS state bucket, Vercel project shell, and Supabase project shells. Migrations own database schema; GitHub Environments own runtime and deploy secrets.
-17. **Bootstrap before deploy**: after Terraform and environment values exist, run **Configure Google OAuth** when OAuth credentials change and **Bootstrap Environment** to sync Vercel env, link Supabase, and push migrations. Bootstrap must stay separate from normal app deploys.
+17. **Bootstrap before deploy**: after Terraform and environment values exist, run **Configure Providers** when OAuth or Stripe provider settings change and **Bootstrap Environment** to sync Vercel env, link Supabase, and push migrations. Bootstrap must stay separate from normal app deploys.
 18. **Database changes are migrations**: new SQL files under `supabase/migrations/`; never edit an applied migration.
 
 ## Cost controls

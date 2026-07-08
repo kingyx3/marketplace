@@ -15,10 +15,10 @@ Honest status ledger. **Unchecked roadmap items are not built yet** — docs and
 - ✅ Allocation engine (`lib/allocation.ts`) — pure logic + unit tests
 - ✅ Env contract: `generate-env.mjs`, zod runtime schema, `APP_NAME` display-name propagation, and unit tests
 - ✅ CI (lint/typecheck/test/build/migrations, parallel, secretless)
-- ✅ Deploy pipeline: reusable workflow, active `development` and `production` environments, env→Vercel sync, migration gating, smoke test, production approval gate; `staging` is reserved but not active
+- ✅ Deploy pipeline: reusable workflow, active `development` and `production` environments, Terraform/provider output resolution, env→Vercel sync, migration gating, smoke test, production approval gate; `staging` is reserved but not active
 - ✅ Terraform provisioning for the GCS state bucket, shared Vercel project shell, and active Supabase project shells
 - ✅ Config-as-code checks for Vercel and Supabase: `vercel.json` security/cache headers, product image storage bucket/policies in SQL, and verifier scripts covered by CI
-- ✅ End-to-end bootstrap documentation for repository-level Terraform inputs, GitHub Environment vars/secrets, hosted Google OAuth configuration, bootstrap, and deploy
+- ✅ End-to-end bootstrap documentation for repository-level Terraform inputs, output-driven environment resolution, GitHub Environment vars/secrets, hosted Google OAuth configuration, bootstrap, and deploy
 - ✅ Admin supplier purchase-order intake: service-role-only RPC records confirmed supplier POs, line items, incoming inventory deltas, and audit records from the protected admin page
 - ✅ Admin B2B pricing-tier removal: service-role-only RPC removes assigned tiers, records the staff actor, and lets the existing checkout gate disable wholesale access when no tier remains
 - ✅ Admin product/SKU/inventory management: protected product create/update/archive forms, SKU create/update/archive forms, Supabase Storage product image upload, and reason-coded inventory adjustments backed by audited service-role RPCs
