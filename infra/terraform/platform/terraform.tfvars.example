@@ -1,0 +1,9 @@
+supabase_organization_id = "your-supabase-org-slug"
+
+# Optional overrides. CI derives sane defaults when these are omitted.
+project_slug            = "marketplace"
+vercel_project_name     = ""
+vercel_team_id          = ""
+vercel_root_directory   = ""
+supabase_region         = "ap-southeast-1"
+supabase_instance_size  = "micro"

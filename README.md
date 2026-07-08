@@ -10,10 +10,11 @@ This repository currently contains:
 
 - **A deployable commerce foundation** — Next.js 15 + Supabase
   (Postgres/RLS/Auth) + Stripe, deployed to Vercel through GitHub Actions
-  with a minimal, documented set of GitHub deploy credentials. Catalog,
-  Google auth, account APIs, cart validation, checkout/payment primitives,
-  and guarded order state transitions are implemented; remaining
-  storefront/admin depth is tracked honestly in `docs/build-plan.md`.
+  with GitHub Environments as the source of truth for deployment and runtime
+  configuration. Catalog, Google auth, account APIs, cart validation,
+  checkout/payment primitives, and guarded order state transitions are
+  implemented; remaining storefront/admin depth is tracked honestly in
+  `docs/build-plan.md`.
 - **A research report** — `docs/research/` covers the market, business
   models, supplier routes, customer segments, pre-order design,
   financials, and go-to-market for a TCG booster box business.
@@ -34,13 +35,18 @@ Checks:
 
 ## Deployment
 
-Three GitHub Environments — `development` (feature branches), `staging`
-(`main`), `production` (tags, human-approved). Configure the minimal GitHub
-deploy secrets/vars listed in **docs/environments.md**, including `APP_NAME`.
-Provider runtime configuration lives in Vercel Project Environment Variables;
-CI syncs `APP_NAME`, pulls Vercel env, validates it, runs app and migration
-checks, pushes database migrations, deploys to Vercel, and smoke tests
-`/api/health`.
+Two hosted GitHub Environments are active for now: `development` for feature
+branches and `production` for release tags. They share one Vercel project:
+development syncs to Vercel Preview, while production syncs to Vercel
+Production. Supabase stays split into one development project and one production
+project. `staging` is intentionally reserved and empty until paid plans justify a
+third data environment.
+
+Terraform provisioning is CI/CD-driven. Run **Terraform State Bootstrap** to
+create/reconcile the GCS state bucket, then **Terraform Platform** to create the
+shared Vercel project and Supabase projects. GitHub inputs are kept lean:
+required provider credentials and external IDs are stored as vars/secrets, while
+project names, bucket names, and Supabase DB passwords are derived or generated.
 
 ## Documentation map
 
@@ -49,7 +55,7 @@ checks, pushes database migrations, deploys to Vercel, and smoke tests
 | [docs/architecture.md](docs/architecture.md)         | Stack, rationale, alternatives considered       |
 | [docs/environments.md](docs/environments.md)         | Every secret/var, per environment               |
 | [docs/deployment.md](docs/deployment.md)             | Pipeline flow, gates, rollback                  |
-| [docs/secrets-and-env-audit.md](docs/secrets-and-env-audit.md) | Current config audit and cleanup checklist |
+| [docs/provisioning.md](docs/provisioning.md)         | Terraform bootstrap and state management        |
 | [docs/data-model.md](docs/data-model.md)             | Schema reference and key decisions              |
 | [docs/security.md](docs/security.md)                 | RLS, webhooks, secrets handling                 |
 | [docs/cost-controls.md](docs/cost-controls.md)       | Keeping the bill near zero pre-launch           |

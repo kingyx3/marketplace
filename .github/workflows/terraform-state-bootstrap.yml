@@ -1,0 +1,51 @@
+name: Terraform State Bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the state bucket changes
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-state:
+    runs-on: ubuntu-latest
+    env:
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3
+      - name: Resolve CI/CD variables
+        run: node scripts/resolve-terraform-inputs.mjs state
+      - name: Terraform init
+        working-directory: infra/terraform/bootstrap
+        run: terraform init
+      - name: Terraform fmt
+        working-directory: infra/terraform/bootstrap
+        run: terraform fmt -check
+      - name: Terraform validate
+        working-directory: infra/terraform/bootstrap
+        run: terraform validate
+      - name: Import state bucket if it already exists
+        working-directory: infra/terraform/bootstrap
+        run: terraform import google_storage_bucket.terraform_state "$TF_VAR_state_bucket_name" || true
+      - name: Terraform plan
+        working-directory: infra/terraform/bootstrap
+        run: terraform plan -out=tfplan
+      - name: Terraform apply
+        if: ${{ inputs.apply }}
+        working-directory: infra/terraform/bootstrap
+        run: terraform apply -auto-approve tfplan

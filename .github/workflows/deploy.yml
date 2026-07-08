@@ -1,23 +1,10 @@
-# Reusable deploy pipeline. Called by deploy-development.yml,
-# deploy-staging.yml, and deploy-production.yml with an `environment`
-# input that selects the GitHub Environment (and therefore which minimal
-# deploy/migration secrets/vars are injected — see docs/environments.md).
-#
-# Runtime secrets and provider config belong in Vercel, not GitHub. APP_NAME
-# is the one GitHub-owned app var input and is synced to Vercel on deploy.
-#
-# Job order (explicit dependencies):
-#   validate-env + app-checks + migration-check -> migrate -> deploy -> smoke
-# app-checks and migration-check run before mutable deploy work.
-# A failed env, app, or migration check blocks the rollout.
-# Nothing here prints secret values.
 name: Deploy (reusable)
 
 on:
   workflow_call:
     inputs:
       environment:
-        description: GitHub Environment to deploy (development | staging | production)
+        description: GitHub Environment to deploy (development | production)
         required: true
         type: string
 
@@ -28,9 +15,24 @@ jobs:
   validate-env:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    env:
+    env: &github_environment
       TARGET_ENV: ${{ inputs.environment }}
       APP_NAME: ${{ vars.APP_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
+      SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+      TWILIO_ACCOUNT_SID: ${{ vars.TWILIO_ACCOUNT_SID }}
+      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+      WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
@@ -39,27 +41,25 @@ jobs:
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
-      - name: Validate minimal GitHub deploy environment
+      - name: Validate GitHub Environment contract
         run: |
           case "$TARGET_ENV" in
-            development|staging|production) ;;
+            development|production) ;;
             *) echo "Unsupported deployment environment: $TARGET_ENV" >&2; exit 1 ;;
           esac
-
           missing=0
-          for key in APP_NAME SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for key in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
             if [ -z "${!key}" ]; then
               echo "Missing required deploy key: $key" >&2
               missing=1
             fi
           done
-
           if ! printf '%s' "$SUPABASE_PROJECT_REF" | grep -Eq '^[a-z0-9]{15,30}$'; then
             echo "SUPABASE_PROJECT_REF is malformed" >&2
             missing=1
           fi
-
           [ "$missing" = "0" ] || exit 1
+          node scripts/generate-env.mjs --check
 
   app-checks:
     name: App check (${{ matrix.check }})
@@ -141,12 +141,7 @@ jobs:
       url: ${{ steps.vercel.outputs.deployment_url }}
     outputs:
       deployment_url: ${{ steps.vercel.outputs.deployment_url }}
-    env:
-      TARGET_ENV: ${{ inputs.environment }}
-      APP_NAME: ${{ vars.APP_NAME }}
-      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    env: *github_environment
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -154,23 +149,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Sync APP_NAME to Vercel
-        run: |
-          VERCEL_ENV=$([ "${{ inputs.environment }}" = "production" ] && echo production || echo preview)
-          npx vercel env rm APP_NAME "$VERCEL_ENV" --yes --token "$VERCEL_TOKEN" >/dev/null 2>&1 || true
-          printf '%s' "$APP_NAME" | npx vercel env add APP_NAME "$VERCEL_ENV" --token "$VERCEL_TOKEN" >/dev/null
-      - name: Pull and validate Vercel runtime env
-        run: |
-          VERCEL_ENV=$([ "${{ inputs.environment }}" = "production" ] && echo production || echo preview)
-          npx vercel pull --yes --environment="$VERCEL_ENV" --token "$VERCEL_TOKEN"
-          ENV_FILE=".vercel/.env.${VERCEL_ENV}.local"
-          cp "$ENV_FILE" .env
-          grep -q '^APP_NAME=' .env || printf '\nAPP_NAME=%s\n' "$APP_NAME" >> .env
-          node scripts/generate-env.mjs --check
-          rm -f .env
+      - name: Generate runtime env from GitHub
+        run: node scripts/generate-env.mjs --write .env.deploy
+      - name: Sync runtime env to Vercel
+        run: node scripts/sync-vercel-env.mjs .env.deploy
       - name: Deploy to Vercel
         id: vercel
         run: |
+          rm -f .env.deploy
           FLAGS="--token $VERCEL_TOKEN --yes"
           if [ "${{ inputs.environment }}" = "production" ]; then FLAGS="$FLAGS --prod"; fi
           URL=$(npx vercel deploy $FLAGS)
@@ -192,7 +178,7 @@ jobs:
           echo "health check failed" >&2
           exit 1
       - name: Deep readiness check
-        if: ${{ inputs.environment == 'staging' || inputs.environment == 'production' }}
+        if: ${{ inputs.environment == 'production' }}
         run: |
           URL="${{ needs.deploy.outputs.deployment_url }}"
           echo "readiness testing $URL/api/health?deep=1"

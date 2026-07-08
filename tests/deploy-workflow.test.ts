@@ -19,26 +19,45 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("needs: [app-checks, migrate]");
     expect(workflow).toContain("TARGET_ENV:");
     expect(workflow).toContain("APP_NAME:");
-    expect(workflow).toContain("Validate minimal GitHub deploy environment");
-    expect(workflow).toContain("Sync APP_NAME to Vercel");
-    expect(workflow).toContain("npx vercel pull");
-    expect(workflow).toContain("node scripts/generate-env.mjs --check");
-    expect(workflow).not.toContain("Sync runtime env to Vercel");
-    expect(workflow).not.toContain(".env.deploy");
+    expect(workflow).toContain("Validate GitHub Environment contract");
+    expect(workflow).toContain("Generate runtime env from GitHub");
+    expect(workflow).toContain("node scripts/generate-env.mjs --write .env.deploy");
+    expect(workflow).toContain("Sync runtime env to Vercel");
+    expect(workflow).toContain("node scripts/sync-vercel-env.mjs .env.deploy");
+    expect(workflow).not.toContain("npx vercel pull");
     expect(workflow).toContain("Deep readiness check");
     expect(workflow).toContain("$URL/api/health?deep=1");
   });
 
-  it("maps deployment callers to the expected GitHub Environments", async () => {
+  it("maps deployment callers to the active GitHub Environments", async () => {
     const development = await readWorkflow(".github/workflows/deploy-development.yml");
-    const staging = await readWorkflow(".github/workflows/deploy-staging.yml");
     const production = await readWorkflow(".github/workflows/deploy-production.yml");
 
     expect(development).toContain("environment: development");
     expect(development).toContain("branches-ignore: [main]");
-    expect(staging).toContain("environment: staging");
-    expect(staging).toContain("branches: [main]");
     expect(production).toContain("environment: production");
     expect(production).toContain("types: [published]");
+  });
+
+  it("keeps bootstrap separate from regular deployment", async () => {
+    const bootstrap = await readWorkflow(".github/workflows/bootstrap-environment.yml");
+
+    expect(bootstrap).toContain("workflow_dispatch:");
+    expect(bootstrap).toContain("options: [development, production]");
+    expect(bootstrap).toContain("Sync runtime env to Vercel");
+    expect(bootstrap).toContain("Apply Supabase migrations");
+    expect(bootstrap).not.toContain("uses: ./.github/workflows/deploy.yml");
+    expect(bootstrap).not.toContain("npx vercel deploy");
+  });
+
+  it("runs Terraform through the input resolver", async () => {
+    const stateBootstrap = await readWorkflow(".github/workflows/terraform-state-bootstrap.yml");
+    const platform = await readWorkflow(".github/workflows/terraform-platform.yml");
+
+    expect(stateBootstrap).toContain("node scripts/resolve-terraform-inputs.mjs state");
+    expect(platform).toContain("node scripts/resolve-terraform-inputs.mjs platform");
+    expect(platform).not.toContain("SUPABASE_DEVELOPMENT_DB_PASSWORD");
+    expect(platform).not.toContain("TF_VAR_supabase_db_secret_by_environment");
+    expect(platform).toContain('terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME"');
   });
 });
