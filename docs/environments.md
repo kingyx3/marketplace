@@ -59,7 +59,7 @@ Do not store `TARGET_ENV`; workflows derive it from the selected environment.
 | Repository | `VERCEL_ROOT_DIRECTORY` | Terraform Platform | Empty while the app lives at repo root. |
 | Repository | `SUPABASE_REGION` | Terraform Platform | Defaults to `ap-southeast-1`. |
 | Repository | `SUPABASE_INSTANCE_SIZE` | Terraform Platform | Defaults to `micro`. |
-| Environment | `STRIPE_WEBHOOK_ENDPOINT_ID` | Configure Providers, Bootstrap Environment | Optional endpoint id to pin automation. |
+| Environment | `STRIPE_WEBHOOK_ENDPOINT_ID` | Configure Providers, Bootstrap Environment | Recommended endpoint id to pin Stripe automation after the first webhook endpoint is created. |
 | Environment | `STRIPE_WEBHOOK_ENABLED_EVENTS` | Configure Providers, Bootstrap Environment | Optional comma/space-separated event override. |
 | Environment | `RESEND_API_KEY` | Email notifications | Set only after Resend is configured. |
 | Environment | `RESEND_FROM_EMAIL` | Email notifications | Verified sender address. |
@@ -89,8 +89,9 @@ SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=<Google web client secret>
 
 1. Terraform workflows create/reconcile the GCS state bucket, Vercel project, and Supabase project shells.
 2. Terraform outputs and provider dashboard values are stored in GitHub Environments.
-3. **Configure Providers** applies hosted Supabase Google provider settings and Stripe webhook configuration.
-4. **Bootstrap Environment** reruns provider config in `--apply-if-configured` mode, validates one GitHub Environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, and pushes migrations.
-5. Normal deploys repeat validation, Vercel env sync, migration push, Vercel deploy, and smoke tests.
+3. The first Stripe webhook endpoint is created explicitly from a trusted local shell with `npm run providers:apply -- --print-created-secret`, or in the Stripe dashboard, so the returned signing secret can be stored immediately.
+4. **Configure Providers** applies hosted Supabase Google provider settings and safely updates/verifies Stripe webhook configuration.
+5. **Bootstrap Environment** reruns provider config in `--apply-if-configured` mode, validates one GitHub Environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, and pushes migrations.
+6. Normal deploys repeat validation, Vercel env sync, migration push, Vercel deploy, and smoke tests.
 
 The machine-readable deploy contract is `ENV_CONTRACT` in [`scripts/generate-env.mjs`](../scripts/generate-env.mjs). Keep it aligned with [`lib/env.ts`](../lib/env.ts), [`.env.example`](../.env.example), workflow `env:` blocks, and this document.
