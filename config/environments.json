@@ -1,5 +1,5 @@
 {
-  "comment": "Version non-secret topology here. Empty strings and nulls are ignored so GitHub vars can remain as migration fallback until real values are committed.",
+  "comment": "Version non-secret topology here. Empty strings and nulls are ignored; fill environment values before bootstrap/deploy.",
   "shared": {
     "APP_NAME": "Marketplace",
     "STRIPE_WEBHOOK_ENABLED_EVENTS": [
