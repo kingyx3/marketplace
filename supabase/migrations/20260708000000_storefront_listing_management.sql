@@ -8,7 +8,7 @@ create table if not exists public.listing_items (
   title_override text,
   badge_label text,
   tags text[] not null default '{}'::text[],
-  channels public.sales_channel[] not null default array['b2c']::public.sales_channel[],
+  channels text[] not null default array['b2c']::text[],
   max_per_customer integer check (max_per_customer is null or max_per_customer > 0),
   preorder_reserve integer not null default 0 check (preorder_reserve >= 0),
   sort_priority integer not null default 0,
@@ -16,7 +16,8 @@ create table if not exists public.listing_items (
   published boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint listing_items_channels_required check (cardinality(channels) > 0)
+  constraint listing_items_channels_required check (cardinality(channels) > 0),
+  constraint listing_items_channels_valid check (channels <@ array['b2c', 'b2b']::text[])
 );
 
 create table if not exists public.storefront_configurations (
@@ -54,7 +55,7 @@ create policy "published listing items readable" on public.listing_items
   for select using (
     published
     and exists (
-      select 1 from public.products p where p.id = listing_items.product_id and p.active
+      select 1 from public.products p where p.id = product_id and p.active
     )
   );
 
@@ -109,7 +110,7 @@ create or replace function public.admin_upsert_listing_item(
   p_title_override text,
   p_badge_label text,
   p_tags text[],
-  p_channels public.sales_channel[],
+  p_channels text[],
   p_max_per_customer integer,
   p_preorder_reserve integer,
   p_sort_priority integer,
@@ -125,7 +126,7 @@ as $$
 declare
   v_listing_item_id uuid;
   v_tags text[] := '{}'::text[];
-  v_channels public.sales_channel[] := coalesce(p_channels, array['b2c']::public.sales_channel[]);
+  v_channels text[] := coalesce(p_channels, array['b2c']::text[]);
   v_exists boolean;
 begin
   if trim(coalesce(p_actor, '')) = '' then
@@ -137,8 +138,13 @@ begin
     raise exception 'product not found' using errcode = 'P0002';
   end if;
 
+  select coalesce(array_agg(distinct channel order by channel), array['b2c']::text[])
+    into v_channels
+  from unnest(v_channels) as requested_channels(channel)
+  where channel in ('b2c', 'b2b');
+
   if cardinality(v_channels) = 0 then
-    v_channels := array['b2c']::public.sales_channel[];
+    v_channels := array['b2c']::text[];
   end if;
 
   if p_max_per_customer is not null and p_max_per_customer <= 0 then
@@ -149,10 +155,10 @@ begin
     raise exception 'preorder reserve must be non-negative' using errcode = '22023';
   end if;
 
-  select coalesce(array_agg(distinct cleaned_tag order by cleaned_tag), '{}'::text[])
+  select coalesce(array_agg(cleaned_tag order by cleaned_tag), '{}'::text[])
     into v_tags
   from (
-    select trim(tag) as cleaned_tag
+    select distinct trim(tag) as cleaned_tag
     from unnest(coalesce(p_tags, '{}'::text[])) as raw_tags(tag)
   ) tags
   where cleaned_tag <> '';
@@ -282,10 +288,10 @@ end;
 $$;
 
 revoke all on function public.admin_upsert_listing_item(
-  uuid, text, text, text[], public.sales_channel[], integer, integer, integer, boolean, boolean, text
+  uuid, text, text, text[], text[], integer, integer, integer, boolean, boolean, text
 ) from public, anon, authenticated;
 grant execute on function public.admin_upsert_listing_item(
-  uuid, text, text, text[], public.sales_channel[], integer, integer, integer, boolean, boolean, text
+  uuid, text, text, text[], text[], integer, integer, integer, boolean, boolean, text
 ) to service_role;
 
 revoke all on function public.admin_upsert_storefront_configuration(
