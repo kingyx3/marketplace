@@ -6,8 +6,7 @@ on:
       environment:
         description: GitHub Environment to bootstrap
         required: true
-        type: choice
-        options: [development, production]
+        type: environment
 
 permissions:
   contents: read
