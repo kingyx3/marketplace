@@ -4,6 +4,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import {
   getProduct,
   marketplaceProducts,
+  type Channel,
   type MarketplaceProduct,
   type SetStatus,
 } from "@/app/_data/marketplace-fixtures";
@@ -17,6 +18,18 @@ import { createServiceClient } from "@/lib/supabase";
 // must not be frozen into the build. It also builds without DB creds.
 export const dynamic = "force-dynamic";
 
+interface ListingItemRow {
+  title_override: string | null;
+  badge_label: string | null;
+  tags: string[] | null;
+  channels: Channel[] | null;
+  max_per_customer: number | null;
+  preorder_reserve: number | null;
+  sort_priority: number | null;
+  featured: boolean | null;
+  published: boolean | null;
+}
+
 interface CatalogRow {
   id: string;
   name: string;
@@ -25,6 +38,7 @@ interface CatalogRow {
   description: string | null;
   language: string;
   image_url: string | null;
+  listing_items: ListingItemRow[] | null;
   sets_releases: {
     name: string;
     code: string;
@@ -60,6 +74,23 @@ interface CatalogRow {
     | null;
 }
 
+interface CatalogHeaderConfig {
+  eyebrow: string;
+  title: string;
+  description: string;
+  emptyTitle: string;
+  emptyDescription: string;
+}
+
+const DEFAULT_CATALOG_HEADER: CatalogHeaderConfig = {
+  eyebrow: "Catalog",
+  title: "Sealed product inventory",
+  description:
+    "Browse active booster boxes, collector boxes, cases, and preorders with visible stock and allocation limits.",
+  emptyTitle: "No active products",
+  emptyDescription: "Publish a listing item before opening orders.",
+};
+
 function isSetStatus(value: string | undefined): value is SetStatus {
   return (
     value === "announced" ||
@@ -72,12 +103,13 @@ function isSetStatus(value: string | undefined): value is SetStatus {
 
 function normalizeRow(row: CatalogRow): MarketplaceProduct {
   const fixture = getProduct(row.slug);
+  const listing = listingForRow(row);
   const sku = row.product_variants?.[0]?.booster_box_skus?.find((candidate) => candidate.active);
   const inventory = sku?.inventory?.[0];
 
   return {
     slug: row.slug,
-    name: row.name,
+    name: listing?.title_override ?? row.name,
     game: row.tcg_categories?.name ?? fixture?.game ?? "TCG",
     publisher: row.tcg_categories?.publisher ?? fixture?.publisher ?? "Publisher",
     setName: row.sets_releases?.name ?? fixture?.setName ?? "Set pending",
@@ -98,12 +130,12 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
     incoming: inventory?.incoming ?? fixture?.incoming ?? 0,
     allocated: inventory?.allocated ?? fixture?.allocated ?? 0,
     safetyStock: inventory?.safety_stock ?? fixture?.safetyStock ?? 0,
-    preorderReserve: fixture?.preorderReserve ?? 0,
-    maxPerCustomer: fixture?.maxPerCustomer ?? null,
+    preorderReserve: listing?.preorder_reserve ?? fixture?.preorderReserve ?? 0,
+    maxPerCustomer: listing?.max_per_customer ?? fixture?.maxPerCustomer ?? null,
     image: row.image_url ?? fixture?.image ?? "/images/sealed-tcg-hero.png",
     description: row.description ?? fixture?.description ?? "Sealed TCG product.",
-    tags: fixture?.tags ?? ["Live catalog"],
-    channels: fixture?.channels ?? ["b2c"],
+    tags: listingTags(listing, fixture),
+    channels: listingChannels(listing, fixture),
   };
 }
 
@@ -122,6 +154,17 @@ async function fetchProducts(): Promise<{ products: MarketplaceProduct[]; source
         description,
         language,
         image_url,
+        listing_items!inner(
+          title_override,
+          badge_label,
+          tags,
+          channels,
+          max_per_customer,
+          preorder_reserve,
+          sort_priority,
+          featured,
+          published
+        ),
         sets_releases(name, code, status, release_date),
         tcg_categories(name, publisher),
         product_variants(
@@ -147,22 +190,53 @@ async function fetchProducts(): Promise<{ products: MarketplaceProduct[]; source
     return { products: marketplaceProducts, source: "preview" };
   }
 
+  const rows = (data ?? []) as unknown as CatalogRow[];
   return {
-    products: (data as unknown as CatalogRow[]).map(normalizeRow),
+    products: rows.sort(compareCatalogRows).map(normalizeRow),
     source: "live",
   };
 }
 
+async function fetchCatalogHeader(): Promise<CatalogHeaderConfig> {
+  if (!hasSupabasePublicEnv()) return DEFAULT_CATALOG_HEADER;
+
+  const supabase = createAnonClient();
+  const { data, error } = await supabase
+    .from("storefront_configurations")
+    .select("value")
+    .eq("key", "catalog_header")
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("catalog header configuration query failed:", error.message);
+    return DEFAULT_CATALOG_HEADER;
+  }
+
+  const value = (data?.value ?? {}) as Record<string, unknown>;
+  return {
+    eyebrow: configString(value, "eyebrow", DEFAULT_CATALOG_HEADER.eyebrow),
+    title: configString(value, "title", DEFAULT_CATALOG_HEADER.title),
+    description: configString(value, "description", DEFAULT_CATALOG_HEADER.description),
+    emptyTitle: configString(value, "emptyTitle", DEFAULT_CATALOG_HEADER.emptyTitle),
+    emptyDescription: configString(
+      value,
+      "emptyDescription",
+      DEFAULT_CATALOG_HEADER.emptyDescription
+    ),
+  };
+}
+
 export default async function CatalogPage() {
-  const { products, source } = await fetchProducts();
+  const [{ products, source }, header] = await Promise.all([fetchProducts(), fetchCatalogHeader()]);
   const wholesaleAccess = await currentWholesaleAccess();
 
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Catalog"
-        title="Sealed product inventory"
-        description="Browse active booster boxes, collector boxes, cases, and preorders with visible stock and allocation limits."
+        eyebrow={header.eyebrow}
+        title={header.title}
+        description={header.description}
         action={<StatusBadge tone={source === "live" ? "success" : "warning"}>{source} data</StatusBadge>}
       />
 
@@ -203,8 +277,8 @@ export default async function CatalogPage() {
 
       {products.length === 0 ? (
         <section className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
-          <h2 className="text-xl font-semibold text-zinc-950">No active products</h2>
-          <p className="mt-3 text-sm text-zinc-600">Seed or publish a product before opening orders.</p>
+          <h2 className="text-xl font-semibold text-zinc-950">{header.emptyTitle}</h2>
+          <p className="mt-3 text-sm text-zinc-600">{header.emptyDescription}</p>
         </section>
       ) : (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -220,6 +294,44 @@ export default async function CatalogPage() {
       )}
     </div>
   );
+}
+
+function listingForRow(row: CatalogRow): ListingItemRow | null {
+  return row.listing_items?.[0] ?? null;
+}
+
+function compareCatalogRows(a: CatalogRow, b: CatalogRow): number {
+  const listingA = listingForRow(a);
+  const listingB = listingForRow(b);
+  const featured = Number(Boolean(listingB?.featured)) - Number(Boolean(listingA?.featured));
+  if (featured !== 0) return featured;
+  const priority = (listingA?.sort_priority ?? 0) - (listingB?.sort_priority ?? 0);
+  if (priority !== 0) return priority;
+  return a.name.localeCompare(b.name);
+}
+
+function listingTags(
+  listing: ListingItemRow | null,
+  fixture: MarketplaceProduct | undefined
+): string[] {
+  const tags = listing?.tags?.filter(Boolean) ?? [];
+  const withBadge = listing?.badge_label ? [listing.badge_label, ...tags] : tags;
+  return withBadge.length > 0 ? [...new Set(withBadge)] : (fixture?.tags ?? ["Live catalog"]);
+}
+
+function listingChannels(
+  listing: ListingItemRow | null,
+  fixture: MarketplaceProduct | undefined
+): Channel[] {
+  const channels = listing?.channels?.filter((channel): channel is Channel => {
+    return channel === "b2c" || channel === "b2b";
+  });
+  return channels && channels.length > 0 ? channels : (fixture?.channels ?? ["b2c"]);
+}
+
+function configString(config: Record<string, unknown>, key: string, fallback: string): string {
+  const value = config[key];
+  return typeof value === "string" && value.trim() ? value : fallback;
 }
 
 async function currentWholesaleAccess(): Promise<WholesaleAccess | null> {
