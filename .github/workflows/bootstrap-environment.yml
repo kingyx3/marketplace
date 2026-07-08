@@ -56,9 +56,7 @@ jobs:
       - run: npm ci
       - name: Apply provider bootstrap configuration when credentials are present
         id: providers
-        run: |
-          node scripts/configure-google-oauth.mjs --apply-if-configured
-          node scripts/configure-stripe.mjs --apply-if-configured
+        run: node scripts/configure-providers.mjs --apply-if-configured
       - name: Stripe webhook secret follow-up
         if: ${{ steps.providers.outputs.stripe_webhook_secret != '' }}
         run: |
