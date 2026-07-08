@@ -10,6 +10,8 @@ GitHub Environments are the source of truth for hosted application configuration
 | `production` | Production | Production project | Active |
 | `staging` | None | None | Reserved |
 
+`staging` should stay empty until the repo has a third Supabase project and matching Vercel target.
+
 ## Required repository entries
 
 | Name | Used by | Notes |
