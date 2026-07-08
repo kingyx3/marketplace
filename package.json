@@ -18,6 +18,7 @@
     "env:check": "node scripts/generate-env.mjs --check",
     "env:write": "node scripts/generate-env.mjs --write",
     "env:resolve": "node scripts/environment-config.mjs",
+    "bootstrap:environment": "node scripts/bootstrap-environment.mjs",
     "providers:plan": "node scripts/configure-providers.mjs --plan",
     "providers:apply": "node scripts/configure-providers.mjs --apply",
     "providers:verify": "node scripts/configure-providers.mjs --verify"
