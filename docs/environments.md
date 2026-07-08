@@ -33,7 +33,7 @@ Configure repository-level entries under **Settings â†’ Secrets and variables â†
 | Environment | `STRIPE_SECRET_KEY` | Secret | Server Stripe, provider config | `sk_test_...` in development, `sk_live_...` in production. |
 | Environment | `STRIPE_WEBHOOK_SECRET` | Secret | Stripe webhook route | Signing secret for `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`. Required before deploy. |
 | Environment | `VERCEL_TOKEN` | Secret | Vercel env sync/deploy | Vercel token; may match `VERCEL_API_TOKEN`. |
-| Environment | `VERCEL_ORG_ID` | Variable | Vercel CLI | Vercel account/team id. |
+| Environment | `VERCEL_ORG_ID` | Variable | Vercel CLI | Vercel deploy scope id. Use your personal user id on Hobby; replace it with the team/org id only after moving the project to a team. |
 | Environment | `VERCEL_PROJECT_ID` | Variable | Vercel CLI | Terraform output `vercel_project_id`; same value in both active environments. |
 | Environment | `GOOGLE_OAUTH_CLIENT_ID` | Variable | Configure Providers, Bootstrap Environment | Google Cloud Web OAuth client id. |
 | Environment | `GOOGLE_OAUTH_CLIENT_SECRET` | Secret | Configure Providers, Bootstrap Environment | Google Cloud Web OAuth client secret. |
@@ -51,7 +51,7 @@ Unset optional notification keys disable that channel. During Vercel sync, unset
 | Repository | `TF_STATE_BUCKET_NAME` | Variable | Terraform resolver | Derived from GCP project id + project slug. |
 | Repository | `TF_STATE_BUCKET_LOCATION` | Variable | Terraform resolver | Defaults to `us-central1`. |
 | Repository | `SUPABASE_ORGANIZATION_ID` | Variable | Terraform resolver | Required only when the Supabase token can access zero or multiple organizations. |
-| Repository | `VERCEL_TEAM_ID` | Variable | Terraform Platform | Empty for personal Vercel accounts. |
+| Repository | `VERCEL_TEAM_ID` | Variable | Terraform Platform | Empty for personal Hobby accounts. Set only when Terraform should create/manage the Vercel project under a team. |
 | Repository | `VERCEL_PROJECT_NAME` | Variable | Terraform Platform | Defaults to project slug. |
 | Repository | `VERCEL_ROOT_DIRECTORY` | Variable | Terraform Platform | Empty while the app lives at repo root. |
 | Repository | `SUPABASE_REGION` | Variable | Terraform Platform | Defaults to `ap-southeast-1`. |
@@ -66,6 +66,14 @@ Unset optional notification keys disable that channel. During Vercel sync, unset
 | Environment | `TELEGRAM_BOT_TOKEN` | Secret | Telegram alerts | Telegram Bot API token. |
 | Environment | `WHATSAPP_ACCESS_TOKEN` | Secret | WhatsApp alerts | WhatsApp Cloud API token. |
 | Environment | `WHATSAPP_PHONE_NUMBER_ID` | Variable | WhatsApp alerts | WhatsApp sender phone-number id. |
+
+## Vercel Hobby now, team/org later
+
+Keep `VERCEL_ORG_ID` as the single deploy-scope variable because the Vercel CLI expects that name when paired with `VERCEL_PROJECT_ID`.
+
+- While this is a Hobby project, set `VERCEL_ORG_ID` to your personal Vercel user id.
+- Keep repository-level `VERCEL_TEAM_ID` empty so Terraform provisions/manages the project under your personal account.
+- If you later move to a team/org, set repository-level `VERCEL_TEAM_ID` before reconciling Terraform for the team-owned project, update `VERCEL_ORG_ID` in both active GitHub Environments to the team/org id, and update `VERCEL_PROJECT_ID` if the project id changes.
 
 ## Local-only env
 
