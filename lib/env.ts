@@ -17,6 +17,8 @@ const serverEnvSchema = z.object({
   APP_NAME: z.string().trim().min(1).max(80),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().startsWith("pk_"),
   SUPABASE_SECRET_KEY: z.string().min(1),
+  SUPABASE_AUTH_GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  SUPABASE_AUTH_GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
   // Optional, feature-gated notification providers
