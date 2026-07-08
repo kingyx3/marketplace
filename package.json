@@ -16,7 +16,10 @@
     "format:check": "prettier --check .",
     "config:check": "node scripts/verify-vercel-config.mjs && node scripts/verify-supabase-config.mjs",
     "env:check": "node scripts/generate-env.mjs --check",
-    "env:write": "node scripts/generate-env.mjs --write"
+    "env:write": "node scripts/generate-env.mjs --write",
+    "oauth:google:plan": "node scripts/configure-google-oauth.mjs --plan",
+    "oauth:google:apply": "node scripts/configure-google-oauth.mjs --apply",
+    "oauth:google:verify": "node scripts/configure-google-oauth.mjs --verify"
   },
   "engines": {
     "node": ">=22"
