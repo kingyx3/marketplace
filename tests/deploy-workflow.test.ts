@@ -18,12 +18,16 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("needs: [validate-env, migration-check]");
     expect(workflow).toContain("needs: [app-checks, migrate]");
     expect(workflow).toContain("TARGET_ENV:");
-    expect(workflow).toContain("APP_NAME:");
-    expect(workflow).toContain("Validate GitHub Environment contract");
-    expect(workflow).toContain("Generate runtime env from GitHub");
+    expect(workflow).toContain("Resolve versioned public config");
+    expect(workflow).toContain("node scripts/generate-env.mjs --export-public");
+    expect(workflow).toContain("Validate resolved environment contract");
+    expect(workflow).toContain("Generate runtime env from resolved config");
     expect(workflow).toContain("node scripts/generate-env.mjs --write .env.deploy");
     expect(workflow).toContain("Sync runtime env to Vercel");
     expect(workflow).toContain("node scripts/sync-vercel-env.mjs .env.deploy");
+    expect(workflow).toContain("node scripts/deploy-vercel.mjs");
+    expect(workflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
+    expect(workflow).not.toContain("vars.SUPABASE_PROJECT_REF");
     expect(workflow).not.toContain("npx vercel pull");
     expect(workflow).toContain("Deep readiness check");
     expect(workflow).toContain("$URL/api/health?deep=1");
@@ -44,8 +48,8 @@ describe("deployment workflow contract", () => {
 
     expect(bootstrap).toContain("workflow_dispatch:");
     expect(bootstrap).toContain("options: [development, production]");
-    expect(bootstrap).toContain("Sync runtime env to Vercel");
-    expect(bootstrap).toContain("Apply Supabase migrations");
+    expect(bootstrap).toContain("supabase/setup-cli@v1");
+    expect(bootstrap).toContain("node scripts/bootstrap-environment.mjs");
     expect(bootstrap).not.toContain("uses: ./.github/workflows/deploy.yml");
     expect(bootstrap).not.toContain("npx vercel deploy");
   });
