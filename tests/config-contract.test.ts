@@ -112,6 +112,7 @@ describe("platform config contract", () => {
     const envScript = await readFile(new URL("../scripts/generate-env.mjs", import.meta.url), "utf8");
     const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
     const environmentsDoc = await readFile(new URL("../docs/environments.md", import.meta.url), "utf8");
+    const bootstrapDoc = await readFile(new URL("../docs/bootstrap.md", import.meta.url), "utf8");
     const supabaseConfig = await readFile(new URL("../supabase/config.toml", import.meta.url), "utf8");
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
@@ -129,6 +130,8 @@ describe("platform config contract", () => {
     expect(ci).toContain("npx playwright install --with-deps chromium");
     expect(ci).toContain("npm run test:e2e");
     expect(ci).toContain("tests/config-contract.test.ts");
+    expect(ci).toContain("docs/bootstrap.md");
+    expect(ci).toContain("docs/provisioning.md");
     expect(syncScript).toContain("ENV_CONTRACT");
     expect(syncScript).toContain("parseDotenv");
     expect(supabaseConfig).toContain("[auth.external.google]");
@@ -137,14 +140,17 @@ describe("platform config contract", () => {
     expect(supabaseConfig).toContain("http://127.0.0.1:54321/auth/v1/callback");
     expect(providerScript).toContain("scripts/configure-google-oauth.mjs");
     expect(providerScript).toContain("scripts/configure-stripe.mjs");
+    expect(providerScript).toContain("passthroughArgs");
     expect(googleOAuthScript).toContain("external_google_enabled");
     expect(googleOAuthScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
     expect(googleOAuthScript).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
     expect(stripeScript).toContain("webhookEndpoints.create");
     expect(stripeScript).toContain("webhookEndpoints.update");
     expect(stripeScript).toContain("payment_intent.amount_capturable_updated");
-    expect(stripeScript).toContain("writeGithubOutput(\"stripe_webhook_secret\"");
-    expect(stripeScript).toContain("add-mask");
+    expect(stripeScript).toContain("--print-created-secret");
+    expect(stripeScript).toContain("update.disabled = false");
+    expect(stripeScript).not.toContain("writeGithubOutput");
+    expect(stripeScript).not.toContain("add-mask");
     expect(providerWorkflow).toContain("name: Configure Providers");
     expect(providerWorkflow).toContain("configure-providers.mjs --${{ inputs.mode }}");
     expect(providerWorkflow).toContain("GOOGLE_OAUTH_CLIENT_ID");
@@ -160,6 +166,8 @@ describe("platform config contract", () => {
     expect(envExample).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
     expect(environmentsDoc).toContain("personal Vercel user id");
     expect(environmentsDoc).toContain("VERCEL_TEAM_ID");
+    expect(environmentsDoc).toContain("first Stripe webhook endpoint");
+    expect(bootstrapDoc).toContain("npm run providers:apply -- --print-created-secret");
   });
 });
 
