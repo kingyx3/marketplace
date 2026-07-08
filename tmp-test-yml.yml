@@ -1,4 +1,0 @@
-env:
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  VERCEL_SCOPE_ID: ${{ vars.VERCEL_SCOPE_ID }}
-  VERCEL_ORG_ID: ${{ vars.VERCEL_SCOPE_ID }}
