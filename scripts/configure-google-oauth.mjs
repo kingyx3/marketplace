@@ -31,16 +31,8 @@ function buildConfig(env) {
     projectRef,
     publishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "",
     accessToken: env.SUPABASE_ACCESS_TOKEN || "",
-    googleClientId:
-      env.GOOGLE_OAUTH_CLIENT_ID ||
-      env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID ||
-      env.SUPABASE_AUTH_GOOGLE_CLIENT_ID ||
-      "",
-    googleClientSecret:
-      env.GOOGLE_OAUTH_CLIENT_SECRET ||
-      env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET ||
-      env.SUPABASE_AUTH_GOOGLE_CLIENT_SECRET ||
-      "",
+    googleClientId: env.GOOGLE_OAUTH_CLIENT_ID || "",
+    googleClientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET || "",
   };
 }
 
