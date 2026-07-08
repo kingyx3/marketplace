@@ -7,6 +7,9 @@ const REQUIRED_CONFIG_MARKERS = [
   "[auth]",
   'site_url = "http://localhost:3000"',
   "additional_redirect_urls",
+  "[auth.external.google]",
+  "SUPABASE_AUTH_GOOGLE_CLIENT_ID",
+  "SUPABASE_AUTH_GOOGLE_CLIENT_SECRET",
   "[storage]",
   "enabled = true",
   'file_size_limit = "50MiB"',
@@ -25,6 +28,12 @@ const REQUIRED_STORAGE_MIGRATION_MARKERS = [
   "staff can delete product images",
   "public.current_user_is_staff",
   "grant execute on function public.current_user_is_staff() to authenticated, service_role",
+  "create table if not exists public.listing_items",
+  "create table if not exists public.storefront_configurations",
+  "admin_upsert_listing_item",
+  "admin_upsert_storefront_configuration",
+  "published listing items readable",
+  "active storefront configurations readable",
 ];
 
 async function main() {
