@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       redirectTo: `${requestUrl.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       queryParams: {
         access_type: "offline",
-        prompt: "select_account",
+        prompt: "consent select_account",
       },
     },
   });
