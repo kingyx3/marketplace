@@ -14,7 +14,7 @@ try {
   run(process.execPath, ["scripts/configure-providers.mjs", "--apply-if-configured"]);
   run(process.execPath, ["scripts/generate-env.mjs", "--check"]);
   run(process.execPath, ["scripts/generate-env.mjs", "--write", ".env.deploy"]);
-  run(process.execPath, ["scripts/sync-vercel-env.mjs", ".env.deploy"]);
+  run(process.execPath, ["scripts/sync-vercel-env.mjs", ".env.deploy", "--preserve-unset-optional"]);
 
   if (!process.env.SUPABASE_PROJECT_REF) fail("SUPABASE_PROJECT_REF is required after resolving public environment config");
   run("npx", ["supabase", "link", "--project-ref", process.env.SUPABASE_PROJECT_REF]);
