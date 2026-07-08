@@ -174,12 +174,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Apply auth shim (emulates Supabase-managed schema)
-        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql 2>&1 | tee migration.log
       - name: Apply migrations in order
         run: |
           for f in supabase/migrations/*.sql; do
             echo "applying $f"
             psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
-          done
+          done 2>&1 | tee -a migration.log
+      - name: Upload migration log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-log
+          path: migration.log
+          if-no-files-found: ignore
       - name: Apply seed
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql
