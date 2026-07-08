@@ -3,6 +3,10 @@ name: Terraform State Bootstrap
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: GitHub Environment for Terraform credentials and variables
+        required: true
+        type: environment
       apply:
         description: Apply the state bucket changes
         required: true
@@ -15,7 +19,9 @@ permissions:
 jobs:
   bootstrap-state:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     env:
+      TARGET_ENV: ${{ inputs.environment }}
       GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
