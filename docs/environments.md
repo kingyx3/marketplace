@@ -14,13 +14,15 @@ GitHub Environments are the source of truth for secrets and approval boundaries.
 
 ## Resolution order
 
-The deploy/bootstrap scripts resolve configuration in this order:
+The provider/bootstrap/env scripts resolve configuration in this order:
 
 1. Values already present in the process environment, including GitHub secrets, GitHub vars, local shell exports, and `.env`.
 2. Non-empty values in [`config/environments.json`](../config/environments.json): first `shared`, then the selected `development` or `production` block.
 3. Empty strings and `null` entries in `config/environments.json` are ignored so existing GitHub vars can remain as migration fallback.
 
-This means public values such as `NEXT_PUBLIC_SITE_URL`, `APP_NAME`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `GOOGLE_OAUTH_CLIENT_ID`, `STRIPE_WEBHOOK_ENDPOINT_ID`, and `STRIPE_WEBHOOK_ENABLED_EVENTS` do not need to be GitHub vars after they are committed to `config/environments.json`.
+This means public runtime/provider values such as `NEXT_PUBLIC_SITE_URL`, `APP_NAME`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `STRIPE_WEBHOOK_ENDPOINT_ID`, and `STRIPE_WEBHOOK_ENABLED_EVENTS` do not need to be GitHub vars after they are committed to `config/environments.json`.
+
+Deploy routing values such as `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` are also represented in `config/environments.json`, but keep them as GitHub vars until every workflow job that consumes them has been migrated to resolve public config before shell/CLI usage.
 
 Secrets must remain GitHub Environment secrets for now, or move later to an external secret manager accessed through CI identity/OIDC. Do not pass secrets through `workflow_dispatch` inputs or commit them to `config/environments.json`.
 
@@ -58,9 +60,9 @@ Fill non-secret values in [`config/environments.json`](../config/environments.js
 | `NEXT_PUBLIC_SUPABASE_URL` | App runtime, OAuth | `https://<project-ref>.supabase.co`. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser/runtime Supabase access, OAuth verification | RLS still controls access. |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Browser Stripe | Test publishable key in development, live publishable key in production. |
-| `SUPABASE_PROJECT_REF` | Bootstrap/deploy, provider config | Terraform output for the environment. |
-| `VERCEL_ORG_ID` | Vercel CLI | Personal user id on Hobby; team/org id after moving the project to a team. |
-| `VERCEL_PROJECT_ID` | Vercel CLI | Terraform output `vercel_project_id`; same value in both active environments. |
+| `SUPABASE_PROJECT_REF` | Bootstrap/deploy, provider config | Terraform output for the environment; keep GitHub var until deploy workflow routing is fully migrated. |
+| `VERCEL_ORG_ID` | Vercel CLI | Personal user id on Hobby; keep GitHub var until deploy workflow routing is fully migrated. |
+| `VERCEL_PROJECT_ID` | Vercel CLI | Terraform output `vercel_project_id`; keep GitHub var until deploy workflow routing is fully migrated. |
 | `GOOGLE_OAUTH_CLIENT_ID` | Configure Providers, Bootstrap Environment | Google Cloud Web OAuth client id. |
 | `STRIPE_WEBHOOK_ENDPOINT_ID` | Configure Providers, Bootstrap Environment | Recommended endpoint id to pin Stripe automation after the first webhook endpoint is created. |
 | `STRIPE_WEBHOOK_ENABLED_EVENTS` | Configure Providers, Bootstrap Environment | Shared default lives in `config/environments.json`; override only when app webhook coverage changes. |
@@ -96,7 +98,7 @@ Keep `VERCEL_ORG_ID` as the deploy-scope value because the Vercel CLI expects th
 
 - While this is a Hobby project, use your personal Vercel user id.
 - Keep repository-level `VERCEL_TEAM_ID` empty so Terraform provisions/manages the project under your personal account.
-- If you later move to a team/org, set repository-level `VERCEL_TEAM_ID` before reconciling Terraform for the team-owned project, update `VERCEL_ORG_ID` in `config/environments.json`, and update `VERCEL_PROJECT_ID` if the project id changes.
+- If you later move to a team/org, set repository-level `VERCEL_TEAM_ID` before reconciling Terraform for the team-owned project, update `VERCEL_ORG_ID`, and update `VERCEL_PROJECT_ID` if the project id changes.
 
 ## Local-only env
 
@@ -108,7 +110,7 @@ SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=<Google web client secret>
 ## Config flow
 
 1. Terraform workflows create/reconcile the GCS state bucket, Vercel project, and Supabase project shells.
-2. Terraform outputs and provider dashboard public values are committed to `config/environments.json`; secrets stay in GitHub Environments.
+2. Terraform outputs and provider dashboard public values are committed to `config/environments.json` where supported; secrets stay in GitHub Environments.
 3. The first Stripe webhook endpoint is created explicitly from a trusted local shell with `npm run providers:apply -- --print-created-secret`, or in the Stripe dashboard, so the returned signing secret can be stored immediately.
 4. **Configure Providers** applies hosted Supabase Google provider settings and safely updates/verifies Stripe webhook configuration.
 5. **Bootstrap Environment** reruns provider config in `--apply-if-configured` mode, validates one resolved environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, and pushes migrations.
