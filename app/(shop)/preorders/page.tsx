@@ -98,7 +98,7 @@ export default async function PreordersPage({
                     </div>
                     <p className="mt-3 text-zinc-700">{productNameForItem(preorder)}</p>
                     <p className="mt-1 text-sm text-zinc-500">
-                      {skuForItem(preorder) ?? preorder.sku_id} / Created{" "}
+                      {skuForItem(preorder) ?? preorder.sku_id} / Created {" "}
                       {formatDate(preorder.created_at)}
                     </p>
                     <dl className="mt-5 grid gap-4 sm:grid-cols-4">
@@ -153,7 +153,7 @@ export default async function PreordersPage({
                           startLabel="Pay preorder balance"
                           successHref="/preorders"
                           successLabel="Refresh preorder status"
-                          supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                          supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
                           supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
                         />
                       </div>
