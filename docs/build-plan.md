@@ -22,7 +22,7 @@ Honest status ledger. **Unchecked roadmap items are not built yet** — docs and
 - ✅ Admin supplier purchase-order intake: service-role-only RPC records confirmed supplier POs, line items, incoming inventory deltas, and audit records from the protected admin page
 - ✅ Admin B2B pricing-tier removal: service-role-only RPC removes assigned tiers, records the staff actor, and lets the existing checkout gate disable wholesale access when no tier remains
 - ✅ Admin product/SKU/inventory management: protected product create/update/archive forms, SKU create/update/archive forms, Supabase Storage product image upload, and reason-coded inventory adjustments backed by audited service-role RPCs
-- ✅ Admin storefront listing management: protected listing/configuration forms control title overrides, tags, B2C/B2B visibility, customer caps, preorder reserve, sort order, featured/published state, and catalog header copy
+- ✅ Admin storefront listing management: protected listing/configuration forms control title overrides, tags, B2C/B2B channel metadata, max-per-customer display/input limits, preorder reserve display, sort order, featured/published state, and catalog header copy
 - ✅ B2B invoice/PO checkout: approved wholesale customers can create a pending-payment invoice order with server-derived tier pricing, stock allocation, manual-invoice payment placeholder, and audit record
 - ✅ Waitlist + drop notifications: authenticated customers can save SKU-level email, Telegram, or WhatsApp alerts; staff can trigger deduped drop delivery through server-side providers
 - ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks, migration SQL validation, and smoke tests
