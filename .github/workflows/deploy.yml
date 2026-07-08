@@ -15,33 +15,26 @@ jobs:
   validate-env:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    env: &github_environment
+    env: &resolved_environment
       TARGET_ENV: ${{ inputs.environment }}
-      APP_NAME: ${{ vars.APP_NAME }}
-      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
-      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
-      SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
-      TWILIO_ACCOUNT_SID: ${{ vars.TWILIO_ACCOUNT_SID }}
-      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
-      WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      SUPABASE_SECRET_KEY: ${{ secrets['SUPABASE_SECRET_KEY'] }}
+      STRIPE_SECRET_KEY: ${{ secrets['STRIPE_SECRET_KEY'] }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets['STRIPE_WEBHOOK_SECRET'] }}
+      RESEND_API_KEY: ${{ secrets['RESEND_API_KEY'] }}
+      TWILIO_AUTH_TOKEN: ${{ secrets['TWILIO_AUTH_TOKEN'] }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets['TELEGRAM_BOT_TOKEN'] }}
+      WHATSAPP_ACCESS_TOKEN: ${{ secrets['WHATSAPP_ACCESS_TOKEN'] }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets['SUPABASE_ACCESS_TOKEN'] }}
+      SUPABASE_DB_PASSWORD: ${{ secrets['SUPABASE_DB_PASSWORD'] }}
+      VERCEL_TOKEN: ${{ secrets['VERCEL_TOKEN'] }}
     steps:
       - uses: actions/checkout@v4
-      - name: Validate GitHub Environment contract
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Resolve versioned public config
+        run: node scripts/generate-env.mjs --export-public
+      - name: Validate resolved environment contract
         run: |
           case "$TARGET_ENV" in
             development|production) ;;
@@ -117,20 +110,23 @@ jobs:
     needs: [validate-env, migration-check]
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    env:
+      TARGET_ENV: ${{ inputs.environment }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets['SUPABASE_ACCESS_TOKEN'] }}
+      SUPABASE_DB_PASSWORD: ${{ secrets['SUPABASE_DB_PASSWORD'] }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Resolve versioned public config
+        run: node scripts/generate-env.mjs --export-public
       - uses: supabase/setup-cli@v1
         with:
           version: latest
       - name: Link project
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
       - name: Push migrations
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: supabase db push
 
   deploy:
@@ -141,7 +137,7 @@ jobs:
       url: ${{ steps.vercel.outputs.deployment_url }}
     outputs:
       deployment_url: ${{ steps.vercel.outputs.deployment_url }}
-    env: *github_environment
+    env: *resolved_environment
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -149,18 +145,13 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Generate runtime env from GitHub
+      - name: Generate runtime env from resolved config
         run: node scripts/generate-env.mjs --write .env.deploy
       - name: Sync runtime env to Vercel
         run: node scripts/sync-vercel-env.mjs .env.deploy
       - name: Deploy to Vercel
         id: vercel
-        run: |
-          rm -f .env.deploy
-          FLAGS="--token $VERCEL_TOKEN --yes"
-          if [ "${{ inputs.environment }}" = "production" ]; then FLAGS="$FLAGS --prod"; fi
-          URL=$(npx vercel deploy $FLAGS)
-          echo "deployment_url=$URL" >> "$GITHUB_OUTPUT"
+        run: node scripts/deploy-vercel.mjs
 
   smoke:
     needs: deploy

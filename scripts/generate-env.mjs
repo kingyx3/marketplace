@@ -1,9 +1,14 @@
+import {
+  applyVersionedEnvironmentConfig,
+  exportPublicEnvironmentForGithubActions,
+} from "./environment-config.mjs";
+
 export const ENV_CONTRACT = [
   { key: "NEXT_PUBLIC_SUPABASE_URL", required: true, secret: false, pattern: /^https:\/\/.+/, hint: "Supabase project API URL" },
   { key: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", required: true, secret: false, hint: "Supabase publishable key" },
   { key: "SUPABASE_SECRET_KEY", required: true, secret: true, hint: "Supabase server key" },
-  { key: "SUPABASE_AUTH_GOOGLE_CLIENT_ID", required: false, secret: false, hint: "local Supabase Google OAuth client id" },
-  { key: "SUPABASE_AUTH_GOOGLE_CLIENT_SECRET", required: false, secret: true, hint: "local Supabase Google OAuth client secret" },
+  { key: "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID", required: false, secret: false, hint: "local Supabase Google OAuth client id" },
+  { key: "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET", required: false, secret: true, hint: "local Supabase Google OAuth client secret" },
   { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", required: true, secret: false, pattern: /^pk_/, hint: "Stripe publishable key" },
   { key: "STRIPE_SECRET_KEY", required: true, secret: true, pattern: /^sk_/, hint: "Stripe server key" },
   { key: "STRIPE_WEBHOOK_SECRET", required: true, secret: true, pattern: /^whsec_/, hint: "Stripe webhook signing key" },
@@ -13,8 +18,12 @@ export const ENV_CONTRACT = [
   { key: "SUPABASE_ACCESS_TOKEN", required: false, secret: true, deployOnly: true, hint: "Supabase CLI access" },
   { key: "SUPABASE_DB_PASSWORD", required: false, secret: true, deployOnly: true, hint: "Supabase database credential" },
   { key: "SUPABASE_PROJECT_REF", required: false, secret: false, deployOnly: true, hint: "Supabase project reference" },
+  { key: "GOOGLE_OAUTH_CLIENT_ID", required: false, secret: false, deployOnly: true, hint: "hosted Supabase Google OAuth client id" },
+  { key: "GOOGLE_OAUTH_CLIENT_SECRET", required: false, secret: true, deployOnly: true, hint: "hosted Supabase Google OAuth client secret" },
+  { key: "STRIPE_WEBHOOK_ENDPOINT_ID", required: false, secret: false, deployOnly: true, pattern: /^we_/, hint: "managed Stripe webhook endpoint id" },
+  { key: "STRIPE_WEBHOOK_ENABLED_EVENTS", required: false, secret: false, deployOnly: true, hint: "comma or whitespace separated Stripe webhook event override" },
   { key: "VERCEL_TOKEN", required: false, secret: true, deployOnly: true, hint: "Vercel CLI access" },
-  { key: "VERCEL_ORG_ID", required: false, secret: false, deployOnly: true, hint: "Vercel org id" },
+  { key: "VERCEL_ORG_ID", required: false, secret: false, deployOnly: true, hint: "Vercel deploy scope id: personal user id for Hobby or team/org id later" },
   { key: "VERCEL_PROJECT_ID", required: false, secret: false, deployOnly: true, hint: "Vercel project id" },
   { key: "RESEND_API_KEY", required: false, secret: true, hint: "email provider" },
   { key: "RESEND_FROM_EMAIL", required: false, secret: false, pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, hint: "sender email" },
@@ -76,7 +85,7 @@ export async function loadLocalDotenv(env = process.env, path = ".env") {
   try {
     const { readFile } = await import("node:fs/promises");
     const parsed = parseDotenv(await readFile(path, "utf8"));
-    for (const [key, value] of Object.entries(parsed)) if (env[key] === undefined) env[key] = value;
+    for (const [key, value] of Object.entries(parsed)) if (env[key] === undefined || env[key] === "") env[key] = value;
     return true;
   } catch (error) {
     if (error?.code === "ENOENT") return false;
@@ -87,6 +96,17 @@ export async function loadLocalDotenv(env = process.env, path = ".env") {
 async function main() {
   const [, , mode, outPath] = process.argv;
   await loadLocalDotenv(process.env);
+  const appliedConfig = await applyVersionedEnvironmentConfig(process.env);
+
+  if (appliedConfig.length > 0) {
+    console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
+  }
+
+  if (mode === "--export-public") {
+    await exportPublicEnvironmentForGithubActions(process.env, ENV_CONTRACT);
+    return;
+  }
+
   const { ok, errors } = validateEnv(process.env);
 
   if (!ok) {
@@ -94,6 +114,11 @@ async function main() {
     for (const e of errors) console.error(`  - ${e}`);
     console.error("See docs/environments.md for where each key comes from.");
     process.exit(1);
+  }
+
+  if (process.env.GITHUB_ACTIONS) {
+    const exported = await exportPublicEnvironmentForGithubActions(process.env, ENV_CONTRACT);
+    if (exported.length > 0) console.log(`exported public environment keys to GitHub Actions: ${exported.join(", ")}`);
   }
 
   if (mode === "--write") {
@@ -106,7 +131,7 @@ async function main() {
   } else if (mode === "--check" || mode === undefined) {
     console.log("environment contract OK");
   } else {
-    console.error(`unknown mode: ${mode} (use --check or --write)`);
+    console.error(`unknown mode: ${mode} (use --check, --write, or --export-public)`);
     process.exit(2);
   }
 }

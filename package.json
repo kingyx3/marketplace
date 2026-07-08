@@ -17,9 +17,11 @@
     "config:check": "node scripts/verify-vercel-config.mjs && node scripts/verify-supabase-config.mjs",
     "env:check": "node scripts/generate-env.mjs --check",
     "env:write": "node scripts/generate-env.mjs --write",
-    "oauth:google:plan": "node scripts/configure-google-oauth.mjs --plan",
-    "oauth:google:apply": "node scripts/configure-google-oauth.mjs --apply",
-    "oauth:google:verify": "node scripts/configure-google-oauth.mjs --verify"
+    "env:resolve": "node scripts/environment-config.mjs",
+    "bootstrap:environment": "node scripts/bootstrap-environment.mjs",
+    "providers:plan": "node scripts/configure-providers.mjs --plan",
+    "providers:apply": "node scripts/configure-providers.mjs --apply",
+    "providers:verify": "node scripts/configure-providers.mjs --verify"
   },
   "engines": {
     "node": ">=22"

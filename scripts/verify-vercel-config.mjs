@@ -8,25 +8,37 @@ const REQUIRED_SECURITY_HEADERS = new Map([
   ["Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"],
 ]);
 
-const REQUIRED_WORKFLOW_MARKERS = [
-  "NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}",
-  "SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}",
-  "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}",
-  "STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}",
-  "STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}",
-  "NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}",
-  "APP_NAME: ${{ vars.APP_NAME }}",
-  "SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}",
-  "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}",
-  "SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}",
-  "VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}",
-  "VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}",
-  "VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}",
-  "Generate runtime env from GitHub",
+const REQUIRED_DEPLOY_MARKERS = [
+  "env: &resolved_environment",
+  "TARGET_ENV: ${{ inputs.environment }}",
+  "SUPABASE_SECRET_KEY: ${{ secrets['SUPABASE_SECRET_KEY'] }}",
+  "STRIPE_SECRET_KEY: ${{ secrets['STRIPE_SECRET_KEY'] }}",
+  "STRIPE_WEBHOOK_SECRET: ${{ secrets['STRIPE_WEBHOOK_SECRET'] }}",
+  "SUPABASE_ACCESS_TOKEN: ${{ secrets['SUPABASE_ACCESS_TOKEN'] }}",
+  "SUPABASE_DB_PASSWORD: ${{ secrets['SUPABASE_DB_PASSWORD'] }}",
+  "VERCEL_TOKEN: ${{ secrets['VERCEL_TOKEN'] }}",
+  "Resolve versioned public config",
+  "node scripts/generate-env.mjs --export-public",
+  "Validate resolved environment contract",
+  "node scripts/generate-env.mjs --check",
+  "Generate runtime env from resolved config",
   "node scripts/generate-env.mjs --write .env.deploy",
   "Sync runtime env to Vercel",
   "node scripts/sync-vercel-env.mjs .env.deploy",
+  "node scripts/deploy-vercel.mjs",
+];
+
+const FORBIDDEN_DEPLOY_MARKERS = [
+  "vars.NEXT_PUBLIC_SITE_URL",
+  "vars.NEXT_PUBLIC_SUPABASE_URL",
+  "vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  "vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+  "vars.APP_NAME",
+  "vars.SUPABASE_PROJECT_REF",
+  "vars.VERCEL_ORG_ID",
+  "vars.VERCEL_PROJECT_ID",
+  "npx vercel pull",
+  "--token $VERCEL_TOKEN",
 ];
 
 async function main() {
@@ -34,6 +46,7 @@ async function main() {
   const vercel = await readJson("vercel.json", errors);
   const deployWorkflow = await readText(".github/workflows/deploy.yml", errors);
   const syncScript = await readText("scripts/sync-vercel-env.mjs", errors);
+  const deployScript = await readText("scripts/deploy-vercel.mjs", errors);
   const bootstrapWorkflow = await readText(".github/workflows/bootstrap-environment.yml", errors);
 
   if (vercel) {
@@ -53,20 +66,26 @@ async function main() {
   }
 
   if (deployWorkflow) {
-    for (const marker of REQUIRED_WORKFLOW_MARKERS) {
+    for (const marker of REQUIRED_DEPLOY_MARKERS) {
       if (!deployWorkflow.includes(marker)) errors.push(`deploy workflow missing required marker: ${marker}`);
     }
-    if (deployWorkflow.includes("npx vercel pull")) {
-      errors.push("deploy workflow must not pull Vercel env as the runtime source of truth");
-    }
-    if (!deployWorkflow.includes("npx vercel deploy")) {
-      errors.push("deploy workflow must deploy through Vercel CLI");
+    for (const marker of FORBIDDEN_DEPLOY_MARKERS) {
+      if (deployWorkflow.includes(marker)) errors.push(`deploy workflow must not contain deprecated marker: ${marker}`);
     }
   }
 
   if (syncScript) {
     if (!syncScript.includes('targetEnv === "production" ? "production" : "preview"')) {
       errors.push("sync script must map development to preview and production to production");
+    }
+    if (!syncScript.includes("--preserve-unset-optional")) {
+      errors.push("sync script must support preserving unset optional env during bootstrap");
+    }
+  }
+
+  if (deployScript) {
+    if (!deployScript.includes("vercel") || !deployScript.includes("--token")) {
+      errors.push("deploy script must invoke Vercel CLI with the scoped token");
     }
   }
 
@@ -76,6 +95,12 @@ async function main() {
     }
     if (bootstrapWorkflow.includes("npx vercel deploy")) {
       errors.push("bootstrap workflow must not deploy the app");
+    }
+    if (!bootstrapWorkflow.includes("supabase/setup-cli@v1")) {
+      errors.push("bootstrap workflow must install the Supabase CLI before running bootstrap");
+    }
+    if (!bootstrapWorkflow.includes("node scripts/bootstrap-environment.mjs")) {
+      errors.push("bootstrap workflow must delegate to the codified bootstrap script");
     }
   }
 
