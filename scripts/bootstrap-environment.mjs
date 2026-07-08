@@ -17,8 +17,8 @@ try {
   run(process.execPath, ["scripts/sync-vercel-env.mjs", ".env.deploy"]);
 
   if (!process.env.SUPABASE_PROJECT_REF) fail("SUPABASE_PROJECT_REF is required after resolving public environment config");
-  run("supabase", ["link", "--project-ref", process.env.SUPABASE_PROJECT_REF]);
-  run("supabase", ["db", "push"]);
+  run("npx", ["supabase", "link", "--project-ref", process.env.SUPABASE_PROJECT_REF]);
+  run("npx", ["supabase", "db", "push"]);
 } finally {
   await rm(".env.deploy", { force: true });
 }
