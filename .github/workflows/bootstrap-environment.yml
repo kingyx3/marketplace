@@ -31,6 +31,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - run: npm ci
       - name: Bootstrap resolved environment
         run: node scripts/bootstrap-environment.mjs
