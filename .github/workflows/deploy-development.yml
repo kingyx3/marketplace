@@ -1,4 +1,4 @@
-# Feature branches → development environment when versioned public config is populated.
+# Feature branches -> development environment when deploy prerequisites exist.
 # Docs-only changes are skipped by the paths-ignore guard.
 name: Deploy development
 
@@ -17,43 +17,37 @@ permissions:
   contents: read
 
 jobs:
-  config-ready:
+  deploy-ready:
     runs-on: ubuntu-latest
+    environment: development
     outputs:
       ready: ${{ steps.check.outputs.ready }}
+    env:
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
       - id: check
-        name: Check development public config
+        name: Check development deploy prerequisites
+        shell: bash
         run: |
-          node <<'NODE' >> "$GITHUB_OUTPUT"
-          const { readFileSync } = require('node:fs');
-          const config = JSON.parse(readFileSync('config/environments.json', 'utf8'));
-          const shared = config.shared || {};
-          const development = config.environments?.development || {};
-          const required = [
-            'APP_NAME',
-            'NEXT_PUBLIC_SITE_URL',
-            'NEXT_PUBLIC_SUPABASE_URL',
-            'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
-            'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
-            'SUPABASE_PROJECT_REF',
-            'VERCEL_ORG_ID',
-            'VERCEL_PROJECT_ID',
-          ];
-          const values = { ...shared, ...development };
-          const missing = required.filter((key) => !String(values[key] ?? '').trim());
-          if (missing.length > 0) {
-            console.log('ready=false');
-            console.error(`Skipping development deploy; missing versioned public config: ${missing.join(', ')}`);
-          } else {
-            console.log('ready=true');
-          }
-          NODE
+          missing=()
+          for key in GCP_TERRAFORM_CREDENTIALS_JSON VERCEL_TOKEN SUPABASE_ACCESS_TOKEN; do
+            if [ -z "${!key:-}" ]; then
+              missing+=("$key")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping development deploy; missing deployment prerequisite(s): ${missing[*]}" >&2
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
 
   deploy:
-    needs: config-ready
-    if: needs.config-ready.outputs.ready == 'true'
+    needs: deploy-ready
+    if: needs.deploy-ready.outputs.ready == 'true'
     uses: ./.github/workflows/deploy.yml
     with:
       environment: development

@@ -17,6 +17,7 @@ const stateBucketName = optional("TF_STATE_BUCKET_NAME") || bucketName(gcpProjec
 const stateBucketLocation = optional("TF_STATE_BUCKET_LOCATION") || "us-central1";
 
 const values = {
+  GOOGLE_CREDENTIALS: googleCredentials,
   TF_VAR_gcp_project_id: gcpProjectId,
   TF_VAR_project_slug: projectSlug,
   TF_VAR_state_bucket_name: stateBucketName,
@@ -24,9 +25,10 @@ const values = {
 };
 
 if (mode === "platform") {
-  required("VERCEL_API_TOKEN");
+  const vercelToken = optional("VERCEL_API_TOKEN") || required("VERCEL_TOKEN");
   required("SUPABASE_ACCESS_TOKEN");
 
+  values.VERCEL_API_TOKEN = vercelToken;
   values.TF_STATE_BUCKET_NAME = stateBucketName;
   values.TF_STATE_PREFIX = "marketplace/platform";
   values.TF_VAR_vercel_team_id = optional("VERCEL_TEAM_ID");
@@ -37,7 +39,7 @@ if (mode === "platform") {
   values.TF_VAR_supabase_instance_size = optional("SUPABASE_INSTANCE_SIZE") || "micro";
 }
 
-await appendFile(githubEnv, Object.entries(values).map(([key, value]) => `${key}=${value}`).join("\n") + "\n");
+await appendFile(githubEnv, Object.entries(values).map(([key, value]) => formatGithubEnvLine(key, value)).join(""), "utf8");
 
 function optional(key) {
   return process.env[key]?.trim() || "";
@@ -63,6 +65,13 @@ function slugify(value) {
 
 function bucketName(projectId, slug) {
   return `${projectId}-${slug}-tfstate`.toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+}
+
+function formatGithubEnvLine(key, value) {
+  const stringValue = String(value ?? "");
+  if (!stringValue.includes("\n")) return `${key}=${stringValue}\n`;
+  const delimiter = `EOF_${key}_${Date.now()}`;
+  return `${key}<<${delimiter}\n${stringValue}\n${delimiter}\n`;
 }
 
 async function resolveSingleSupabaseOrganizationId() {

@@ -18,16 +18,20 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("needs: [validate-env, migration-check]");
     expect(workflow).toContain("needs: [app-checks, migrate]");
     expect(workflow).toContain("TARGET_ENV:");
-    expect(workflow).toContain("Resolve versioned public config");
-    expect(workflow).toContain("node scripts/generate-env.mjs --export-public");
+    expect(workflow).toContain("Resolve Terraform backend inputs");
+    expect(workflow).toContain("terraform output -json > tf-outputs.json");
+    expect(workflow).toContain("node scripts/resolve-environment.mjs");
     expect(workflow).toContain("Validate resolved environment contract");
     expect(workflow).toContain("Generate runtime env from resolved config");
     expect(workflow).toContain("node scripts/generate-env.mjs --write .env.deploy");
     expect(workflow).toContain("Sync runtime env to Vercel");
     expect(workflow).toContain("node scripts/sync-vercel-env.mjs .env.deploy");
     expect(workflow).toContain("node scripts/deploy-vercel.mjs");
-    expect(workflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
+    expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}");
+    expect(workflow).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}");
+    expect(workflow).toContain("GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}");
     expect(workflow).not.toContain("vars.SUPABASE_PROJECT_REF");
+    expect(workflow).not.toContain("SUPABASE_DB_PASSWORD: ${{ secrets['SUPABASE_DB_PASSWORD'] }}");
     expect(workflow).not.toContain("npx vercel pull");
     expect(workflow).toContain("Deep readiness check");
     expect(workflow).toContain("$URL/api/health?deep=1");
@@ -37,8 +41,14 @@ describe("deployment workflow contract", () => {
     const development = await readWorkflow(".github/workflows/deploy-development.yml");
     const production = await readWorkflow(".github/workflows/deploy-production.yml");
 
+    expect(development).toContain("deploy-ready:");
+    expect(development).toContain("Check development deploy prerequisites");
     expect(development).toContain("environment: development");
     expect(development).toContain("branches-ignore: [main]");
+    expect(development).toContain("GCP_TERRAFORM_CREDENTIALS_JSON");
+    expect(development).toContain("SUPABASE_ACCESS_TOKEN");
+    expect(development).not.toContain("config-ready");
+    expect(development).not.toContain("config/environments.json");
     expect(production).toContain("environment: production");
     expect(production).toContain("types: [published]");
   });

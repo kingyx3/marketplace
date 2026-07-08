@@ -1,6 +1,6 @@
 # Marketplace
 
-Sealed TCG booster box distribution — **B2C retail, B2B wholesale, and pre-orders** — for Magic: The Gathering, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana, and Flesh and Blood. Singapore/SEA-first, with global benchmarks. The deployed display name comes from the `APP_NAME` GitHub Environment variable, is synced to Vercel, and is validated by CI before deployment.
+Sealed TCG booster box distribution — **B2C retail, B2B wholesale, and pre-orders** — for Magic: The Gathering, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana, and Flesh and Blood. Singapore/SEA-first, with global benchmarks. The deployed display name defaults to `APP_NAME=Marketplace`, is resolved by CI, synced to Vercel, and validated before deployment.
 
 This repository currently contains:
 
@@ -28,11 +28,11 @@ Two hosted GitHub Environments are active: `development` for feature branches an
 
 Start with the full bootstrap runbook:
 
-1. Configure repository-level Terraform secrets/vars.
+1. Configure the minimal repository secrets and GitHub Environment vars/secrets.
 2. Run **Terraform State Bootstrap**.
 3. Run **Terraform Platform**.
-4. Fill `development` and `production` GitHub Environment variables/secrets from Terraform outputs and provider dashboards.
-5. Run **Configure Google OAuth** for each active environment.
+4. Finish provider one-time inputs, such as Google OAuth clients and Stripe webhook signing secrets.
+5. Run **Configure Providers** for each active environment.
 6. Run **Bootstrap Environment** for each active environment.
 7. Deploy development from a feature branch or production from a `v*` tag/release.
 

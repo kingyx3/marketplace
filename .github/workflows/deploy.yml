@@ -17,6 +17,17 @@ jobs:
     environment: ${{ inputs.environment }}
     env: &resolved_environment
       TARGET_ENV: ${{ inputs.environment }}
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets['GCP_TERRAFORM_CREDENTIALS_JSON'] }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+      VERCEL_TOKEN: ${{ secrets['VERCEL_TOKEN'] }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
       SUPABASE_SECRET_KEY: ${{ secrets['SUPABASE_SECRET_KEY'] }}
       STRIPE_SECRET_KEY: ${{ secrets['STRIPE_SECRET_KEY'] }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets['STRIPE_WEBHOOK_SECRET'] }}
@@ -25,33 +36,32 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets['TELEGRAM_BOT_TOKEN'] }}
       WHATSAPP_ACCESS_TOKEN: ${{ secrets['WHATSAPP_ACCESS_TOKEN'] }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets['SUPABASE_ACCESS_TOKEN'] }}
-      SUPABASE_DB_PASSWORD: ${{ secrets['SUPABASE_DB_PASSWORD'] }}
-      VERCEL_TOKEN: ${{ secrets['VERCEL_TOKEN'] }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-      - name: Resolve versioned public config
-        run: node scripts/generate-env.mjs --export-public
+      - uses: hashicorp/setup-terraform@v3
+      - name: Resolve Terraform backend inputs
+        run: node scripts/resolve-terraform-inputs.mjs platform
+      - name: Terraform init
+        working-directory: infra/terraform/platform
+        run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - name: Export Terraform outputs
+        working-directory: infra/terraform/platform
+        run: terraform output -json > tf-outputs.json
+      - name: Resolve Terraform and provider config
+        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
       - name: Validate resolved environment contract
         run: |
           case "$TARGET_ENV" in
             development|production) ;;
             *) echo "Unsupported deployment environment: $TARGET_ENV" >&2; exit 1 ;;
           esac
-          missing=0
-          for key in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
-            if [ -z "${!key}" ]; then
-              echo "Missing required deploy key: $key" >&2
-              missing=1
-            fi
-          done
           if ! printf '%s' "$SUPABASE_PROJECT_REF" | grep -Eq '^[a-z0-9]{15,30}$'; then
             echo "SUPABASE_PROJECT_REF is malformed" >&2
-            missing=1
+            exit 1
           fi
-          [ "$missing" = "0" ] || exit 1
           node scripts/generate-env.mjs --check
 
   app-checks:
@@ -112,15 +122,35 @@ jobs:
     environment: ${{ inputs.environment }}
     env:
       TARGET_ENV: ${{ inputs.environment }}
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets['GCP_TERRAFORM_CREDENTIALS_JSON'] }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+      VERCEL_TOKEN: ${{ secrets['VERCEL_TOKEN'] }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets['SUPABASE_ACCESS_TOKEN'] }}
-      SUPABASE_DB_PASSWORD: ${{ secrets['SUPABASE_DB_PASSWORD'] }}
+      STRIPE_SECRET_KEY: ${{ secrets['STRIPE_SECRET_KEY'] }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-      - name: Resolve versioned public config
-        run: node scripts/generate-env.mjs --export-public
+      - uses: hashicorp/setup-terraform@v3
+      - name: Resolve Terraform backend inputs
+        run: node scripts/resolve-terraform-inputs.mjs platform
+      - name: Terraform init
+        working-directory: infra/terraform/platform
+        run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - name: Export Terraform outputs
+        working-directory: infra/terraform/platform
+        run: terraform output -json > tf-outputs.json
+      - name: Resolve Terraform and provider config
+        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
       - uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -144,7 +174,18 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - uses: hashicorp/setup-terraform@v3
       - run: npm ci
+      - name: Resolve Terraform backend inputs
+        run: node scripts/resolve-terraform-inputs.mjs platform
+      - name: Terraform init
+        working-directory: infra/terraform/platform
+        run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - name: Export Terraform outputs
+        working-directory: infra/terraform/platform
+        run: terraform output -json > tf-outputs.json
+      - name: Resolve Terraform and provider config
+        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict
       - name: Generate runtime env from resolved config
         run: node scripts/generate-env.mjs --write .env.deploy
       - name: Sync runtime env to Vercel
