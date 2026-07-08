@@ -86,6 +86,7 @@ describe("platform config contract", () => {
       new URL("../.github/workflows/bootstrap-environment.yml", import.meta.url),
       "utf8"
     );
+    const deployWorkflow = await readFile(new URL("../.github/workflows/deploy.yml", import.meta.url), "utf8");
     const providerWorkflow = await readFile(
       new URL("../.github/workflows/configure-providers.yml", import.meta.url),
       "utf8"
@@ -100,6 +101,11 @@ describe("platform config contract", () => {
       new URL("../scripts/environment-config.mjs", import.meta.url),
       "utf8"
     );
+    const bootstrapScript = await readFile(
+      new URL("../scripts/bootstrap-environment.mjs", import.meta.url),
+      "utf8"
+    );
+    const deployScript = await readFile(new URL("../scripts/deploy-vercel.mjs", import.meta.url), "utf8");
     const syncScript = await readFile(
       new URL("../scripts/sync-vercel-env.mjs", import.meta.url),
       "utf8"
@@ -127,6 +133,7 @@ describe("platform config contract", () => {
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
     expect(packageJson.scripts["env:resolve"]).toContain("environment-config.mjs");
+    expect(packageJson.scripts["bootstrap:environment"]).toContain("bootstrap-environment.mjs");
     expect(packageJson.scripts["providers:plan"]).toContain("configure-providers.mjs --plan");
     expect(packageJson.scripts["providers:apply"]).toContain("configure-providers.mjs --apply");
     expect(packageJson.scripts["providers:verify"]).toContain("configure-providers.mjs --verify");
@@ -177,7 +184,21 @@ describe("platform config contract", () => {
     expect(providerWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
     expect(providerWorkflow).not.toContain("vars.GOOGLE_OAUTH_CLIENT_ID");
     expect(providerWorkflow).not.toContain("stripe_webhook_secret");
-    expect(bootstrapWorkflow).toContain("configure-providers.mjs --apply-if-configured");
+    expect(bootstrapWorkflow).toContain("npm run bootstrap:environment");
+    expect(bootstrapWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
+    expect(bootstrapWorkflow).not.toContain("stripe_webhook_secret");
+    expect(bootstrapScript).toContain("configure-providers.mjs");
+    expect(bootstrapScript).toContain("--apply-if-configured");
+    expect(bootstrapScript).toContain("sync-vercel-env.mjs");
+    expect(bootstrapScript).toContain("npx");
+    expect(bootstrapScript).toContain("supabase");
+    expect(deployWorkflow).toContain("node scripts/generate-env.mjs --export-public");
+    expect(deployWorkflow).toContain("node scripts/deploy-vercel.mjs");
+    expect(deployWorkflow).not.toContain("vars.NEXT_PUBLIC_SITE_URL");
+    expect(deployWorkflow).not.toContain("vars.SUPABASE_PROJECT_REF");
+    expect(deployWorkflow).not.toContain("--token $VERCEL_TOKEN");
+    expect(deployScript).toContain("vercel");
+    expect(deployScript).toContain("--token");
     expect(envScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
     expect(envScript).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
     expect(envScript).toContain("applyVersionedEnvironmentConfig");
