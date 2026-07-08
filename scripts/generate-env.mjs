@@ -4,8 +4,6 @@ export const ENV_CONTRACT = [
   { key: "SUPABASE_SECRET_KEY", required: true, secret: true, hint: "Supabase server key" },
   { key: "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID", required: false, secret: false, hint: "local Supabase Google OAuth client id" },
   { key: "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET", required: false, secret: true, hint: "local Supabase Google OAuth client secret" },
-  { key: "SUPABASE_AUTH_GOOGLE_CLIENT_ID", required: false, secret: false, hint: "deprecated local Supabase Google OAuth client id alias" },
-  { key: "SUPABASE_AUTH_GOOGLE_CLIENT_SECRET", required: false, secret: true, hint: "deprecated local Supabase Google OAuth client secret alias" },
   { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", required: true, secret: false, pattern: /^pk_/, hint: "Stripe publishable key" },
   { key: "STRIPE_SECRET_KEY", required: true, secret: true, pattern: /^sk_/, hint: "Stripe server key" },
   { key: "STRIPE_WEBHOOK_SECRET", required: true, secret: true, pattern: /^whsec_/, hint: "Stripe webhook signing key" },
