@@ -6,18 +6,19 @@ const PROVIDERS = Object.freeze([
   ["Stripe", "scripts/configure-stripe.mjs"],
 ]);
 
-const args = new Set(process.argv.slice(2));
-const mode = args.has("--apply")
+const rawArgs = process.argv.slice(2);
+const mode = rawArgs.includes("--apply")
   ? "--apply"
-  : args.has("--apply-if-configured")
+  : rawArgs.includes("--apply-if-configured")
     ? "--apply-if-configured"
-    : args.has("--verify")
+    : rawArgs.includes("--verify")
       ? "--verify"
       : "--plan";
+const passthroughArgs = rawArgs.filter((arg) => arg !== mode);
 
 for (const [name, script] of PROVIDERS) {
   console.log(`\n==> ${name}: ${mode.slice(2)}`);
-  const result = spawnSync(process.execPath, [script, mode], {
+  const result = spawnSync(process.execPath, [script, mode, ...passthroughArgs], {
     env: process.env,
     stdio: "inherit",
   });
