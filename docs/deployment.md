@@ -6,8 +6,8 @@
 
 | Caller | Trigger | Environment | Notes |
 | --- | --- | --- | --- |
-| `deploy-development.yml` | Push to non-`main` branches | `development` | Skips docs-only changes through `paths-ignore`. |
-| `deploy-production.yml` | Push tag `v*` or publish a release | `production` | Should pause on required GitHub Environment reviewers. |
+| `deploy-development.yml` | Push to non-`main` branches | `development` | Skips docs-only changes and skips deploy when required development public config is not yet committed. |
+| `deploy-production.yml` | Push tag `v*` or publish a release | `production` | Should pause on required GitHub Environment reviewers and fails hard when required production config is missing. |
 
 `staging` is intentionally empty for now. Recreate a staging caller only when a third hosted Vercel/Supabase project pair is available.
 
@@ -23,6 +23,7 @@ app-checks ─────────────────────┴─
 
 | Job | Purpose |
 | --- | --- |
+| `config-ready` | Development caller only: skips branch deploys until required development public config is committed to `config/environments.json`. |
 | `validate-env` | Targets the selected GitHub Environment, resolves public config from `config/environments.json`, requires `development` or `production`, checks deploy-only keys, validates `SUPABASE_PROJECT_REF`, and runs `scripts/generate-env.mjs --check`. |
 | `app-checks` | Runs lint, typecheck, unit tests, and build in parallel after `npm ci`. |
 | `migration-check` | Applies the auth shim, every SQL migration, and seed data to a clean Postgres service. |
