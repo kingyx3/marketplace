@@ -111,6 +111,7 @@ describe("platform config contract", () => {
     );
     const envScript = await readFile(new URL("../scripts/generate-env.mjs", import.meta.url), "utf8");
     const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
+    const environmentsDoc = await readFile(new URL("../docs/environments.md", import.meta.url), "utf8");
     const supabaseConfig = await readFile(new URL("../supabase/config.toml", import.meta.url), "utf8");
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
@@ -152,8 +153,13 @@ describe("platform config contract", () => {
     expect(bootstrapWorkflow).toContain("configure-providers.mjs --apply-if-configured");
     expect(envScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
     expect(envScript).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
+    expect(envScript).toContain("VERCEL_ORG_ID");
+    expect(envScript).not.toContain("VERCEL_SCOPE_ID");
     expect(envScript).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
+    expect(envExample).toContain("personal user id on Hobby");
     expect(envExample).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
+    expect(environmentsDoc).toContain("personal Vercel user id");
+    expect(environmentsDoc).toContain("VERCEL_TEAM_ID");
   });
 });
 
