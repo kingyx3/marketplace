@@ -93,6 +93,13 @@ describe("platform config contract", () => {
     const packageJson = JSON.parse(
       await readFile(new URL("../package.json", import.meta.url), "utf8")
     );
+    const environmentConfig = JSON.parse(
+      await readFile(new URL("../config/environments.json", import.meta.url), "utf8")
+    );
+    const environmentConfigScript = await readFile(
+      new URL("../scripts/environment-config.mjs", import.meta.url),
+      "utf8"
+    );
     const syncScript = await readFile(
       new URL("../scripts/sync-vercel-env.mjs", import.meta.url),
       "utf8"
@@ -110,13 +117,16 @@ describe("platform config contract", () => {
       "utf8"
     );
     const envScript = await readFile(new URL("../scripts/generate-env.mjs", import.meta.url), "utf8");
+    const runtimeEnvSchema = await readFile(new URL("../lib/env.ts", import.meta.url), "utf8");
     const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
     const environmentsDoc = await readFile(new URL("../docs/environments.md", import.meta.url), "utf8");
     const bootstrapDoc = await readFile(new URL("../docs/bootstrap.md", import.meta.url), "utf8");
+    const provisioningDoc = await readFile(new URL("../docs/provisioning.md", import.meta.url), "utf8");
     const supabaseConfig = await readFile(new URL("../supabase/config.toml", import.meta.url), "utf8");
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
+    expect(packageJson.scripts["env:resolve"]).toContain("environment-config.mjs");
     expect(packageJson.scripts["providers:plan"]).toContain("configure-providers.mjs --plan");
     expect(packageJson.scripts["providers:apply"]).toContain("configure-providers.mjs --apply");
     expect(packageJson.scripts["providers:verify"]).toContain("configure-providers.mjs --verify");
@@ -130,8 +140,16 @@ describe("platform config contract", () => {
     expect(ci).toContain("npx playwright install --with-deps chromium");
     expect(ci).toContain("npm run test:e2e");
     expect(ci).toContain("tests/config-contract.test.ts");
+    expect(ci).toContain("config/**");
     expect(ci).toContain("docs/bootstrap.md");
     expect(ci).toContain("docs/provisioning.md");
+    expect(environmentConfig.shared.APP_NAME).toBe("Marketplace");
+    expect(environmentConfig.shared.STRIPE_WEBHOOK_ENABLED_EVENTS).toContain("payment_intent.succeeded");
+    expect(environmentConfig.environments.development).toHaveProperty("NEXT_PUBLIC_SITE_URL");
+    expect(environmentConfig.environments.production).toHaveProperty("NEXT_PUBLIC_SITE_URL");
+    expect(environmentConfig.environments.production).not.toHaveProperty("STRIPE_SECRET_KEY");
+    expect(environmentConfigScript).toContain("applyVersionedEnvironmentConfig");
+    expect(environmentConfigScript).toContain("exportPublicEnvironmentForGithubActions");
     expect(syncScript).toContain("ENV_CONTRACT");
     expect(syncScript).toContain("parseDotenv");
     expect(supabaseConfig).toContain("[auth.external.google]");
@@ -141,6 +159,7 @@ describe("platform config contract", () => {
     expect(providerScript).toContain("scripts/configure-google-oauth.mjs");
     expect(providerScript).toContain("scripts/configure-stripe.mjs");
     expect(providerScript).toContain("passthroughArgs");
+    expect(providerScript).toContain("applyVersionedEnvironmentConfig");
     expect(googleOAuthScript).toContain("external_google_enabled");
     expect(googleOAuthScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
     expect(googleOAuthScript).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
@@ -159,15 +178,23 @@ describe("platform config contract", () => {
     expect(bootstrapWorkflow).toContain("configure-providers.mjs --apply-if-configured");
     expect(envScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
     expect(envScript).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
+    expect(envScript).toContain("applyVersionedEnvironmentConfig");
+    expect(envScript).toContain("exportPublicEnvironmentForGithubActions");
     expect(envScript).toContain("VERCEL_ORG_ID");
     expect(envScript).not.toContain("VERCEL_SCOPE_ID");
     expect(envScript).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
+    expect(runtimeEnvSchema).toContain("SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID");
+    expect(runtimeEnvSchema).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
     expect(envExample).toContain("personal user id on Hobby");
     expect(envExample).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
+    expect(environmentsDoc).toContain("config/environments.json");
+    expect(environmentsDoc).toContain("Do not pass secrets through `workflow_dispatch` inputs");
     expect(environmentsDoc).toContain("personal Vercel user id");
     expect(environmentsDoc).toContain("VERCEL_TEAM_ID");
     expect(environmentsDoc).toContain("first Stripe webhook endpoint");
+    expect(bootstrapDoc).toContain("config/environments.json");
     expect(bootstrapDoc).toContain("npm run providers:apply -- --print-created-secret");
+    expect(provisioningDoc).toContain("Public environment topology");
   });
 });
 
