@@ -12,7 +12,7 @@ if (!token) {
   fail("VERCEL_TOKEN is required");
 }
 
-const args = ["vercel", "deploy", "--yes"];
+const args = ["vercel", "deploy", "--yes", "--token", token];
 if (targetEnv === "production") args.push("--prod");
 
 const result = spawnSync("npx", args, {
