@@ -14,7 +14,7 @@ Use this runbook to take the repo from blank provider setup to working hosted `d
 
 Create or confirm access to:
 
-- **GitHub** repo admin for secrets, variables, environments, and protection rules.
+- **GitHub** repo admin for secrets, environments, and protection rules.
 - **Google Cloud** project + service account JSON for the Terraform state bucket.
 - **Vercel** API token.
 - **Supabase** access token.
@@ -27,8 +27,8 @@ Create or confirm access to:
 1. Add required repository secrets from [`docs/environments.md`](environments.md#required-repository-secrets).
 2. Create GitHub Environments `development` and `production`; leave `staging` empty/reserved.
 3. Add required environment secrets from [`docs/environments.md`](environments.md#required-environment-secrets) to both active environments.
-4. Fill non-secret public values in [`config/environments.json`](../config/environments.json) once known. Empty values are ignored, so existing GitHub vars can be used temporarily during migration.
-5. Add optional notification provider secrets/vars only when needed.
+4. Fill non-secret public values in [`config/environments.json`](../config/environments.json) once known. GitHub Actions treats this file as authoritative for public config.
+5. Add optional notification provider secrets only when needed.
 6. Add required reviewers to `production` before launch.
 
 ## 3. Run Terraform
@@ -121,7 +121,7 @@ This single workflow configures everything that can be safely managed through pr
 
 Run **Bootstrap Environment** once for `development` and once for `production`.
 
-The workflow also runs `scripts/configure-providers.mjs --apply-if-configured`, then validates the resolved environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, pushes migrations, and removes `.env.deploy`. It does **not** deploy the app.
+The workflow delegates to `scripts/bootstrap-environment.mjs`, which resolves versioned public config, runs provider bootstrap in `--apply-if-configured` mode, validates the resolved environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, pushes migrations, and removes `.env.deploy`. It does **not** deploy the app.
 
 ## 7. Deploy
 
