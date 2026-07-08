@@ -9,8 +9,8 @@ Terraform manages provider project shells; provider bootstrap scripts manage saf
 | GCS Terraform state bucket | `infra/terraform/bootstrap` via **Terraform State Bootstrap** |
 | Shared Vercel project | `infra/terraform/platform` via **Terraform Platform** |
 | Active Supabase project shells | `infra/terraform/platform` via **Terraform Platform** |
-| Hosted Supabase Google Auth provider | `scripts/configure-google-oauth.mjs` via **Configure Google OAuth** or **Bootstrap Environment** |
-| Stripe webhook endpoint | `scripts/configure-stripe.mjs` via **Configure Stripe** or **Bootstrap Environment** |
+| Hosted Supabase Google Auth provider | `scripts/configure-google-oauth.mjs` orchestrated by `scripts/configure-providers.mjs` |
+| Stripe webhook endpoint | `scripts/configure-stripe.mjs` orchestrated by `scripts/configure-providers.mjs` |
 | Runtime/deploy secrets and vars | GitHub repository settings + GitHub Environments; see [`docs/environments.md`](environments.md) |
 | Vercel runtime env | Synced from GitHub by `scripts/sync-vercel-env.mjs` |
 | Database schema, storage, grants, RLS, RPCs | `supabase/migrations` + `supabase/seed.sql` |
@@ -42,10 +42,11 @@ Terraform-generated Supabase database passwords are stored in remote state. Keep
 
 Provider scripts are intentionally outside Terraform when secrets, one-time values, or dashboard-owned account state make Terraform state a poor fit.
 
+- `scripts/configure-providers.mjs` is the single entry point for provider plan/apply/verify flows.
 - `scripts/configure-google-oauth.mjs` applies and verifies the hosted Supabase Google provider after the Google Cloud OAuth client exists.
 - `scripts/configure-stripe.mjs` idempotently creates/updates the Stripe webhook endpoint and refuses to log webhook signing secrets by default.
-- **Bootstrap Environment** runs both scripts with `--apply-if-configured` before validating and syncing runtime env.
-- Dedicated workflows, **Configure Google OAuth** and **Configure Stripe**, are available for explicit plan/apply/verify runs.
+- **Configure Providers** runs the orchestrator explicitly with `plan`, `apply`, or `verify`.
+- **Bootstrap Environment** reruns the orchestrator with `--apply-if-configured` before validating and syncing runtime env.
 
 ## Dashboard-managed items
 
@@ -66,8 +67,8 @@ Use [`docs/bootstrap.md`](bootstrap.md) for the full sequence. In short:
 2. Run **Terraform State Bootstrap**: plan, then apply.
 3. Run **Terraform Platform**: plan, then apply.
 4. Copy Terraform outputs into GitHub Environments.
-5. Finish provider dashboards for Supabase, Google Cloud OAuth, Stripe account settings, and Vercel.
-6. Run **Configure Google OAuth** and **Configure Stripe**, or let **Bootstrap Environment** apply configured provider settings.
+5. Finish provider dashboard prerequisites for Supabase, Google Cloud OAuth, Stripe account settings, and Vercel.
+6. Run **Configure Providers**: plan, then apply for both active environments.
 7. Run **Bootstrap Environment** for both active environments.
 8. Deploy and verify `/api/health`; production also verifies `/api/health?deep=1`.
 
