@@ -156,7 +156,7 @@ export async function uploadCatalogProductImage(formData: FormData) {
   const supabase = createServiceClient();
   const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
   const path = `${productId}/${randomUUID()}.${extension}`;
-  const { error: uploadError } = supabase.storage
+  const { error: uploadError } = await supabase.storage
     .from("product-images")
     .upload(path, Buffer.from(await image.arrayBuffer()), {
       contentType: image.type,
