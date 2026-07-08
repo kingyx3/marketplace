@@ -25,7 +25,7 @@ Terraform manages provider project shells; provider bootstrap scripts manage saf
 
 ## Terraform state
 
-The state bucket is created by **Terraform State Bootstrap**. Defaults are derived by `scripts/resolve-terraform-inputs.mjs`; override them with optional repository variables from [`docs/environments.md`](environments.md#optional-github-secrets-and-variables) only when needed.
+The state bucket is created by **Terraform State Bootstrap**. Defaults are derived by `scripts/resolve-terraform-inputs.mjs`; override them with optional repository variables from [`docs/environments.md`](environments.md#optional-entries) only when needed.
 
 Bucket settings encoded in Terraform:
 
@@ -54,9 +54,11 @@ Provider scripts are intentionally outside Terraform when secrets, one-time valu
 
 - `scripts/configure-providers.mjs` is the single entry point for provider plan/apply/verify flows.
 - `scripts/configure-google-oauth.mjs` applies and verifies the hosted Supabase Google provider after the Google Cloud OAuth client exists.
-- `scripts/configure-stripe.mjs` idempotently creates/updates the Stripe webhook endpoint and refuses to log webhook signing secrets by default.
+- `scripts/configure-stripe.mjs` idempotently updates/verifies the Stripe webhook endpoint in CI and can create the first endpoint only from a trusted local shell with `--print-created-secret`.
 - **Configure Providers** runs the orchestrator explicitly with `plan`, `apply`, or `verify`.
 - **Bootstrap Environment** reruns the orchestrator with `--apply-if-configured` before validating and syncing runtime env.
+
+GitHub Actions must not create the first Stripe webhook endpoint because Stripe returns the signing secret only once and this repo does not grant Actions permission to write GitHub Environment secrets. First endpoint creation is therefore an explicit local/dashboard bootstrap step; subsequent endpoint reconciliation is automated.
 
 ## Dashboard-managed items
 
@@ -73,14 +75,15 @@ These remain outside Terraform/provider automation:
 
 Use [`docs/bootstrap.md`](bootstrap.md) for the full sequence. In short:
 
-1. Add required GitHub entries from [`docs/environments.md`](environments.md#required-github-secrets-and-variables).
+1. Add required GitHub entries from [`docs/environments.md`](environments.md#required-repository-entries) and [`docs/environments.md`](environments.md#required-environment-entries).
 2. Run **Terraform State Bootstrap**: plan, then apply.
 3. Run **Terraform Platform**: plan, then apply.
 4. Copy Terraform outputs into GitHub Environments.
 5. Finish provider dashboard prerequisites for Supabase, Google Cloud OAuth, Stripe account settings, and Vercel.
-6. Run **Configure Providers**: plan, then apply for both active environments.
-7. Run **Bootstrap Environment** for both active environments.
-8. Deploy and verify `/api/health`; production also verifies `/api/health?deep=1`.
+6. Create the first Stripe webhook endpoint locally or in Stripe dashboard, then store `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_ENDPOINT_ID`.
+7. Run **Configure Providers**: plan, then apply for both active environments.
+8. Run **Bootstrap Environment** for both active environments.
+9. Deploy and verify `/api/health`; production also verifies `/api/health?deep=1`.
 
 ## Scaling path
 
