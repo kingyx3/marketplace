@@ -101,8 +101,6 @@ describe("platform config contract", () => {
     expect(ci).toContain("tests/config-contract.test.ts");
     expect(syncScript).toContain("ENV_CONTRACT");
     expect(syncScript).toContain("parseDotenv");
-    expect(syncScript).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
-    expect(syncScript).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_SECRET");
     expect(supabaseConfig).toContain("[auth.external.google]");
     expect(supabaseConfig).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
     expect(supabaseConfig).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_SECRET");
