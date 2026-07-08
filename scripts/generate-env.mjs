@@ -97,6 +97,16 @@ async function main() {
   const [, , mode, outPath] = process.argv;
   await loadLocalDotenv(process.env);
   const appliedConfig = await applyVersionedEnvironmentConfig(process.env);
+
+  if (appliedConfig.length > 0) {
+    console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
+  }
+
+  if (mode === "--export-public") {
+    await exportPublicEnvironmentForGithubActions(process.env, ENV_CONTRACT);
+    return;
+  }
+
   const { ok, errors } = validateEnv(process.env);
 
   if (!ok) {
@@ -111,10 +121,6 @@ async function main() {
     if (exported.length > 0) console.log(`exported public environment keys to GitHub Actions: ${exported.join(", ")}`);
   }
 
-  if (appliedConfig.length > 0) {
-    console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
-  }
-
   if (mode === "--write") {
     const { writeFile, chmod } = await import("node:fs/promises");
     const target = outPath || ".env";
@@ -125,7 +131,7 @@ async function main() {
   } else if (mode === "--check" || mode === undefined) {
     console.log("environment contract OK");
   } else {
-    console.error(`unknown mode: ${mode} (use --check or --write)`);
+    console.error(`unknown mode: ${mode} (use --check, --write, or --export-public)`);
     process.exit(2);
   }
 }
