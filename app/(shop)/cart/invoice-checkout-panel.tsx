@@ -40,10 +40,10 @@ export function InvoiceCheckoutPanel({
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState<InvoiceCheckoutResponse | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const supabaseKey = supabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
   const supabase = useMemo(
-    () =>
-      supabaseUrl && supabaseAnonKey ? createBrowserClient(supabaseUrl, supabaseAnonKey) : null,
-    [supabaseUrl, supabaseAnonKey]
+    () => (supabaseUrl && supabaseKey ? createBrowserClient(supabaseUrl, supabaseKey) : null),
+    [supabaseUrl, supabaseKey]
   );
 
   async function accessToken(): Promise<string> {
