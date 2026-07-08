@@ -1,12 +1,20 @@
 import { hasSupabasePublicEnv } from "@/lib/env";
 import { createAnonClient, createServiceClient } from "@/lib/supabase";
 
+export type CatalogChannel = "b2c" | "b2b";
+
 export interface CatalogSku {
   id: string;
   sku: string;
   active: boolean;
   priceCents: number;
+  msrpCents: number | null;
   currency: string;
+  packsPerBox: number | null;
+  cardsPerPack: number | null;
+  onHand: number;
+  allocated: number;
+  safetyStock: number;
   available: number;
   incoming: number;
 }
@@ -18,12 +26,27 @@ export interface CatalogProduct {
   productType: string;
   description: string | null;
   imageUrl: string | null;
+  language: string;
   categoryName: string | null;
   setName: string | null;
   setCode: string | null;
   setStatus: string | null;
   releaseDate: string | null;
+  preorderReserve: number;
+  maxPerCustomer: number | null;
+  tags: string[];
+  channels: CatalogChannel[];
   skus: CatalogSku[];
+}
+
+interface ListingItemRow {
+  title_override: string | null;
+  tags: string[] | null;
+  channels: CatalogChannel[] | null;
+  max_per_customer: number | null;
+  preorder_reserve: number | null;
+  sort_priority: number | null;
+  featured: boolean | null;
 }
 
 interface ProductRow {
@@ -33,6 +56,8 @@ interface ProductRow {
   product_type: string;
   description: string | null;
   image_url: string | null;
+  language: string;
+  listing_items: ListingItemRow[] | null;
   tcg_categories: { name: string } | null;
   sets_releases: { name: string; code: string; status: string; release_date: string | null } | null;
   product_variants: Array<{
@@ -40,21 +65,62 @@ interface ProductRow {
       id: string;
       sku: string;
       active: boolean;
+      packs_per_box: number | null;
+      cards_per_pack: number | null;
+      msrp_cents: number | null;
       price_cents: number;
       currency: string;
-      inventory: Array<{ available: number; incoming: number }>;
+      inventory: Array<{
+        on_hand: number;
+        allocated: number;
+        safety_stock: number;
+        available: number;
+        incoming: number;
+      }>;
     }>;
   }>;
 }
+
+const CATALOG_SELECT = `
+  id,
+  name,
+  slug,
+  product_type,
+  description,
+  image_url,
+  language,
+  listing_items!inner(
+    title_override,
+    tags,
+    channels,
+    max_per_customer,
+    preorder_reserve,
+    sort_priority,
+    featured
+  ),
+  tcg_categories(name),
+  sets_releases(name, code, status, release_date),
+  product_variants(
+    booster_box_skus(
+      id,
+      sku,
+      active,
+      packs_per_box,
+      cards_per_pack,
+      msrp_cents,
+      price_cents,
+      currency,
+      inventory(on_hand, allocated, safety_stock, available, incoming)
+    )
+  )
+`;
 
 export async function getCatalogProducts(): Promise<CatalogProduct[] | null> {
   if (!hasSupabasePublicEnv()) return null;
   const supabase = createAnonClient();
   const { data, error } = await supabase
     .from("products")
-    .select(
-      "id, name, slug, product_type, description, image_url, tcg_categories(name), sets_releases(name, code, status, release_date), product_variants(booster_box_skus(id, sku, active, price_cents, currency, inventory(available, incoming)))"
-    )
+    .select(CATALOG_SELECT)
     .eq("active", true)
     .order("name")
     .limit(100);
@@ -64,7 +130,7 @@ export async function getCatalogProducts(): Promise<CatalogProduct[] | null> {
     return null;
   }
 
-  return ((data ?? []) as unknown as ProductRow[]).map(mapProduct);
+  return ((data ?? []) as unknown as ProductRow[]).sort(compareRows).map(mapProduct);
 }
 
 export async function getCatalogProduct(slug: string): Promise<CatalogProduct | null> {
@@ -72,9 +138,7 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
   const supabase = createAnonClient();
   const { data, error } = await supabase
     .from("products")
-    .select(
-      "id, name, slug, product_type, description, image_url, tcg_categories(name), sets_releases(name, code, status, release_date), product_variants(booster_box_skus(id, sku, active, price_cents, currency, inventory(available, incoming)))"
-    )
+    .select(CATALOG_SELECT)
     .eq("slug", slug)
     .eq("active", true)
     .maybeSingle();
@@ -152,32 +216,64 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
 }
 
 function mapProduct(row: ProductRow): CatalogProduct {
-  const skus = row.product_variants.flatMap((variant) =>
-    variant.booster_box_skus
+  const listing = row.listing_items?.[0] ?? null;
+  const skus = (row.product_variants ?? []).flatMap((variant) =>
+    (variant.booster_box_skus ?? [])
       .filter((sku) => sku.active)
-      .map((sku) => ({
-        id: sku.id,
-        sku: sku.sku,
-        active: sku.active,
-        priceCents: sku.price_cents,
-        currency: sku.currency,
-        available: sku.inventory.reduce((sum, inv) => sum + inv.available, 0),
-        incoming: sku.inventory.reduce((sum, inv) => sum + inv.incoming, 0),
-      }))
+      .map((sku) => {
+        const inventory = sku.inventory ?? [];
+        return {
+          id: sku.id,
+          sku: sku.sku,
+          active: sku.active,
+          priceCents: sku.price_cents,
+          msrpCents: sku.msrp_cents,
+          currency: sku.currency,
+          packsPerBox: sku.packs_per_box,
+          cardsPerPack: sku.cards_per_pack,
+          onHand: inventory.reduce((sum, inv) => sum + inv.on_hand, 0),
+          allocated: inventory.reduce((sum, inv) => sum + inv.allocated, 0),
+          safetyStock: inventory.reduce((sum, inv) => sum + inv.safety_stock, 0),
+          available: inventory.reduce((sum, inv) => sum + inv.available, 0),
+          incoming: inventory.reduce((sum, inv) => sum + inv.incoming, 0),
+        };
+      })
   );
 
   return {
     id: row.id,
-    name: row.name,
+    name: listing?.title_override ?? row.name,
     slug: row.slug,
     productType: row.product_type,
     description: row.description,
     imageUrl: row.image_url,
+    language: row.language,
     categoryName: row.tcg_categories?.name ?? null,
     setName: row.sets_releases?.name ?? null,
     setCode: row.sets_releases?.code ?? null,
     setStatus: row.sets_releases?.status ?? null,
     releaseDate: row.sets_releases?.release_date ?? null,
+    preorderReserve: listing?.preorder_reserve ?? 0,
+    maxPerCustomer: listing?.max_per_customer ?? null,
+    tags: listing?.tags?.filter(Boolean) ?? [],
+    channels: listingChannels(listing),
     skus,
   };
+}
+
+function compareRows(a: ProductRow, b: ProductRow): number {
+  const listingA = a.listing_items?.[0] ?? null;
+  const listingB = b.listing_items?.[0] ?? null;
+  const featured = Number(Boolean(listingB?.featured)) - Number(Boolean(listingA?.featured));
+  if (featured !== 0) return featured;
+  const priority = (listingA?.sort_priority ?? 0) - (listingB?.sort_priority ?? 0);
+  if (priority !== 0) return priority;
+  return a.name.localeCompare(b.name);
+}
+
+function listingChannels(listing: ListingItemRow | null): CatalogChannel[] {
+  const channels = listing?.channels?.filter((channel): channel is CatalogChannel => {
+    return channel === "b2c" || channel === "b2b";
+  });
+  return channels && channels.length > 0 ? channels : ["b2c"];
 }
