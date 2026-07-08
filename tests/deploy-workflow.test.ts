@@ -57,7 +57,8 @@ describe("deployment workflow contract", () => {
     const bootstrap = await readWorkflow(".github/workflows/bootstrap-environment.yml");
 
     expect(bootstrap).toContain("workflow_dispatch:");
-    expect(bootstrap).toContain("options: [development, production]");
+    expect(bootstrap).toContain("type: environment");
+    expect(bootstrap).toContain("environment: ${{ inputs.environment }}");
     expect(bootstrap).toContain("supabase/setup-cli@v1");
     expect(bootstrap).toContain("node scripts/bootstrap-environment.mjs");
     expect(bootstrap).not.toContain("uses: ./.github/workflows/deploy.yml");
@@ -68,7 +69,11 @@ describe("deployment workflow contract", () => {
     const stateBootstrap = await readWorkflow(".github/workflows/terraform-state-bootstrap.yml");
     const platform = await readWorkflow(".github/workflows/terraform-platform.yml");
 
+    expect(stateBootstrap).toContain("type: environment");
+    expect(stateBootstrap).toContain("environment: ${{ inputs.environment }}");
     expect(stateBootstrap).toContain("node scripts/resolve-terraform-inputs.mjs state");
+    expect(platform).toContain("type: environment");
+    expect(platform).toContain("environment: ${{ inputs.environment }}");
     expect(platform).toContain("node scripts/resolve-terraform-inputs.mjs platform");
     expect(platform).not.toContain("SUPABASE_DEVELOPMENT_DB_PASSWORD");
     expect(platform).not.toContain("TF_VAR_supabase_db_secret_by_environment");
