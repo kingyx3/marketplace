@@ -7,9 +7,12 @@ const REQUIRED_CONFIG_MARKERS = [
   "[auth]",
   'site_url = "http://localhost:3000"',
   "additional_redirect_urls",
+  '"http://localhost:3000/auth/callback"',
   "[auth.external.google]",
-  "SUPABASE_AUTH_GOOGLE_CLIENT_ID",
-  "SUPABASE_AUTH_GOOGLE_CLIENT_SECRET",
+  "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID",
+  "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET",
+  'redirect_uri = "http://127.0.0.1:54321/auth/v1/callback"',
+  "skip_nonce_check = false",
   "[storage]",
   "enabled = true",
   'file_size_limit = "50MiB"',
@@ -103,7 +106,7 @@ function hasRlsEnablement(sql, table) {
   const explicit = new RegExp(`alter\\s+table\\s+public\\.${table}\\s+enable\\s+row\\s+level\\s+security`, "i");
   if (explicit.test(sql)) return true;
 
-  const quoted = new RegExp(`['"]${table}['"]`, "i");
+  const quoted = new RegExp(`[']${table}[']|["]${table}["]`, "i");
   const loopEnablement =
     /foreach\s+\w+\s+in\s+array\s+array\[[\s\S]+?alter table public\.%I enable row level security/i;
   return loopEnablement.test(sql) && quoted.test(sql);
