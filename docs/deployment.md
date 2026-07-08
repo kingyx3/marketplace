@@ -36,6 +36,7 @@ app-checks ─────────────────────┴─
 - Pull request CI is secretless and separate from deploys. Protect `main` with lint, typecheck, unit tests, build, config checks, and migration checks before production releases are tagged.
 - Runtime config changes are made in GitHub Environments, then reconciled by rerunning deploy or **Bootstrap Environment**.
 - Vercel dashboard env is not canonical. The deploy workflow always pushes runtime env from GitHub Environment values.
+- `VERCEL_ORG_ID` is the Vercel deploy scope id. On Hobby, set it to the personal user id; when moving to a team/org, replace it with the team/org id and update `VERCEL_PROJECT_ID` if the project changes.
 - Supabase migrations are forward-only. A failed migration should be fixed with a new migration, not by editing an applied migration.
 
 ## Bootstrap versus deploy
@@ -44,8 +45,8 @@ app-checks ─────────────────────┴─
 | --- | --- | --- |
 | **Terraform State Bootstrap** | Create/reconcile the GCS state bucket. | Does not create app provider projects or deploy the app. |
 | **Terraform Platform** | Create/reconcile Vercel and Supabase project shells. | Does not fill GitHub Environment runtime values or push app migrations. |
-| **Configure Google OAuth** | Apply hosted Google provider settings to a Supabase project after Google Cloud OAuth credentials exist. | Does not create the Google Cloud OAuth client. |
-| **Bootstrap Environment** | Reconcile one active environment after secrets/vars exist: validate, generate env, sync Vercel env, link Supabase, push migrations. | Does not deploy the app. |
+| **Configure Providers** | Apply hosted provider settings that can be safely managed by API after provider prerequisites exist. | Does not create Google Cloud OAuth clients, Vercel/Supabase projects, or provider account settings. |
+| **Bootstrap Environment** | Reconcile one active environment after secrets/vars exist: provider config, validate, generate env, sync Vercel env, link Supabase, push migrations. | Does not deploy the app. |
 | **Deploy development/production** | Normal release path after bootstrap. | Does not create provider projects. |
 
 For the full setup flow, see [`docs/bootstrap.md`](bootstrap.md).
@@ -55,7 +56,7 @@ For the full setup flow, see [`docs/bootstrap.md`](bootstrap.md).
 - **App**: Vercel keeps every deployment immutable. Promote the previous deployment with `vercel rollback` or the dashboard.
 - **Database**: migrations are forward-only. To undo schema, write a new reverting migration; never edit or delete an applied migration.
 - **Config**: change the GitHub Environment value, then rerun deploy so CI re-syncs Vercel and redeploys from the corrected source of truth.
-- **OAuth/provider dashboard config**: correct the provider dashboard entry, rerun **Configure Google OAuth** if hosted Supabase Auth changed, then rerun bootstrap/deploy as needed.
+- **Provider config**: correct the provider dashboard prerequisite or GitHub Environment value, rerun **Configure Providers**, then rerun bootstrap/deploy as needed.
 
 ## Releasing to production
 
