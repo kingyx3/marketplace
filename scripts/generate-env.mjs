@@ -1,3 +1,8 @@
+import {
+  applyVersionedEnvironmentConfig,
+  exportPublicEnvironmentForGithubActions,
+} from "./environment-config.mjs";
+
 export const ENV_CONTRACT = [
   { key: "NEXT_PUBLIC_SUPABASE_URL", required: true, secret: false, pattern: /^https:\/\/.+/, hint: "Supabase project API URL" },
   { key: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", required: true, secret: false, hint: "Supabase publishable key" },
@@ -80,7 +85,7 @@ export async function loadLocalDotenv(env = process.env, path = ".env") {
   try {
     const { readFile } = await import("node:fs/promises");
     const parsed = parseDotenv(await readFile(path, "utf8"));
-    for (const [key, value] of Object.entries(parsed)) if (env[key] === undefined) env[key] = value;
+    for (const [key, value] of Object.entries(parsed)) if (env[key] === undefined || env[key] === "") env[key] = value;
     return true;
   } catch (error) {
     if (error?.code === "ENOENT") return false;
@@ -91,6 +96,7 @@ export async function loadLocalDotenv(env = process.env, path = ".env") {
 async function main() {
   const [, , mode, outPath] = process.argv;
   await loadLocalDotenv(process.env);
+  const appliedConfig = await applyVersionedEnvironmentConfig(process.env);
   const { ok, errors } = validateEnv(process.env);
 
   if (!ok) {
@@ -98,6 +104,15 @@ async function main() {
     for (const e of errors) console.error(`  - ${e}`);
     console.error("See docs/environments.md for where each key comes from.");
     process.exit(1);
+  }
+
+  if (process.env.GITHUB_ACTIONS) {
+    const exported = await exportPublicEnvironmentForGithubActions(process.env, ENV_CONTRACT);
+    if (exported.length > 0) console.log(`exported public environment keys to GitHub Actions: ${exported.join(", ")}`);
+  }
+
+  if (appliedConfig.length > 0) {
+    console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
   }
 
   if (mode === "--write") {
