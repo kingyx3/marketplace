@@ -195,7 +195,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                     startLabel="Pay preorder deposit"
                     successHref="/preorders"
                     successLabel="View preorders"
-                    supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                    supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
                     supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
                   />
                 ) : null
@@ -205,7 +205,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   authRedirectPath={`/catalog/${product.slug}`}
                   inStock={available > 0}
                   skuId={skuId}
-                  supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                  supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
                   supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
                 />
               ) : null}
@@ -264,22 +264,22 @@ function mergeProduct(
     productType:
       liveProduct?.productType.replaceAll("_", " ") ?? fixture?.productType ?? "Booster box",
     sku: sku?.sku ?? fixture?.sku ?? "SKU",
-    language: fixture?.language ?? "EN",
+    language: liveProduct?.language ?? fixture?.language ?? "EN",
     priceCents: sku?.priceCents ?? fixture?.priceCents ?? 0,
-    msrpCents: fixture?.msrpCents ?? null,
+    msrpCents: sku?.msrpCents ?? fixture?.msrpCents ?? null,
     currency: sku?.currency ?? fixture?.currency ?? "SGD",
-    packsPerBox: fixture?.packsPerBox ?? 0,
-    cardsPerPack: fixture?.cardsPerPack ?? 0,
-    onHand: sku?.available ?? fixture?.onHand ?? 0,
+    packsPerBox: sku?.packsPerBox ?? fixture?.packsPerBox ?? 0,
+    cardsPerPack: sku?.cardsPerPack ?? fixture?.cardsPerPack ?? 0,
+    onHand: sku?.onHand ?? fixture?.onHand ?? 0,
     incoming: sku?.incoming ?? fixture?.incoming ?? 0,
-    allocated: fixture?.allocated ?? 0,
-    safetyStock: fixture?.safetyStock ?? 0,
-    preorderReserve: fixture?.preorderReserve ?? 0,
-    maxPerCustomer: fixture?.maxPerCustomer ?? null,
+    allocated: sku?.allocated ?? fixture?.allocated ?? 0,
+    safetyStock: sku?.safetyStock ?? fixture?.safetyStock ?? 0,
+    preorderReserve: liveProduct?.preorderReserve ?? fixture?.preorderReserve ?? 0,
+    maxPerCustomer: liveProduct?.maxPerCustomer ?? fixture?.maxPerCustomer ?? null,
     image: liveProduct?.imageUrl ?? fixture?.image ?? "/images/sealed-tcg-hero.png",
     description: liveProduct?.description ?? fixture?.description ?? "Sealed TCG product.",
-    tags: fixture?.tags ?? ["Live catalog"],
-    channels: fixture?.channels ?? ["b2c"],
+    tags: liveProduct?.tags.length ? liveProduct.tags : (fixture?.tags ?? ["Live catalog"]),
+    channels: liveProduct?.channels.length ? liveProduct.channels : (fixture?.channels ?? ["b2c"]),
   };
 }
 
