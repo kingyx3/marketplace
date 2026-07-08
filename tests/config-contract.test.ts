@@ -80,10 +80,18 @@ describe("platform config contract", () => {
     expect(migrations).toContain("ADMIN_STOREFRONT_CONFIG_UPDATE");
   });
 
-  it("runs config verifier scripts in CI and supports Google OAuth setup", async () => {
+  it("runs config verifier scripts and supports provider bootstrap automation", async () => {
     const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+    const bootstrapWorkflow = await readFile(
+      new URL("../.github/workflows/bootstrap-environment.yml", import.meta.url),
+      "utf8"
+    );
     const oauthWorkflow = await readFile(
       new URL("../.github/workflows/configure-google-oauth.yml", import.meta.url),
+      "utf8"
+    );
+    const stripeWorkflow = await readFile(
+      new URL("../.github/workflows/configure-stripe.yml", import.meta.url),
       "utf8"
     );
     const packageJson = JSON.parse(
@@ -97,12 +105,20 @@ describe("platform config contract", () => {
       new URL("../scripts/configure-google-oauth.mjs", import.meta.url),
       "utf8"
     );
+    const stripeScript = await readFile(
+      new URL("../scripts/configure-stripe.mjs", import.meta.url),
+      "utf8"
+    );
+    const envScript = await readFile(new URL("../scripts/generate-env.mjs", import.meta.url), "utf8");
     const supabaseConfig = await readFile(new URL("../supabase/config.toml", import.meta.url), "utf8");
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
     expect(packageJson.scripts["oauth:google:plan"]).toContain("configure-google-oauth.mjs --plan");
     expect(packageJson.scripts["oauth:google:apply"]).toContain("configure-google-oauth.mjs --apply");
+    expect(packageJson.scripts["stripe:plan"]).toContain("configure-stripe.mjs --plan");
+    expect(packageJson.scripts["stripe:apply"]).toContain("configure-stripe.mjs --apply");
+    expect(packageJson.scripts["stripe:verify"]).toContain("configure-stripe.mjs --verify");
     expect(packageJson.scripts["test:e2e"]).toBe("playwright test");
     expect(ci).toContain("npm run config:check");
     expect(ci).toContain("e2e-smoke:");
@@ -118,6 +134,20 @@ describe("platform config contract", () => {
     expect(googleOAuthScript).toContain("external_google_enabled");
     expect(oauthWorkflow).toContain("GOOGLE_OAUTH_CLIENT_ID");
     expect(oauthWorkflow).toContain("GOOGLE_OAUTH_CLIENT_SECRET");
+    expect(stripeScript).toContain("webhookEndpoints.create");
+    expect(stripeScript).toContain("webhookEndpoints.update");
+    expect(stripeScript).toContain("payment_intent.amount_capturable_updated");
+    expect(stripeScript).toContain("writeGithubOutput(\"stripe_webhook_secret\"");
+    expect(stripeScript).toContain("add-mask");
+    expect(stripeWorkflow).toContain("mode:");
+    expect(stripeWorkflow).toContain("STRIPE_WEBHOOK_ENDPOINT_ID");
+    expect(stripeWorkflow).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
+    expect(bootstrapWorkflow).toContain("configure-google-oauth.mjs --apply-if-configured");
+    expect(bootstrapWorkflow).toContain("configure-stripe.mjs --apply-if-configured");
+    expect(bootstrapWorkflow).toContain("GOOGLE_OAUTH_CLIENT_ID");
+    expect(bootstrapWorkflow).toContain("STRIPE_WEBHOOK_ENDPOINT_ID");
+    expect(envScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
+    expect(envScript).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
   });
 });
 
