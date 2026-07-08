@@ -62,6 +62,24 @@ describe("platform config contract", () => {
     expect(migrations).toContain("own waitlist entries");
   });
 
+  it("keeps admin-managed storefront listing tables and RPCs in migrations", async () => {
+    const migrations = await allMigrationSql();
+
+    expect(migrations).toContain("create table if not exists public.listing_items");
+    expect(migrations).toContain("create table if not exists public.storefront_configurations");
+    expect(migrations).toContain("alter table public.listing_items enable row level security");
+    expect(migrations).toContain(
+      "alter table public.storefront_configurations enable row level security"
+    );
+    expect(migrations).toContain("published listing items readable");
+    expect(migrations).toContain("active storefront configurations readable");
+    expect(migrations).toContain("create_default_listing_item");
+    expect(migrations).toContain("admin_upsert_listing_item");
+    expect(migrations).toContain("admin_upsert_storefront_configuration");
+    expect(migrations).toContain("ADMIN_LISTING_ITEM_UPDATE");
+    expect(migrations).toContain("ADMIN_STOREFRONT_CONFIG_UPDATE");
+  });
+
   it("runs config verifier scripts in CI", async () => {
     const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
     const packageJson = JSON.parse(
@@ -71,6 +89,7 @@ describe("platform config contract", () => {
       new URL("../scripts/sync-vercel-env.mjs", import.meta.url),
       "utf8"
     );
+    const supabaseConfig = await readFile(new URL("../supabase/config.toml", import.meta.url), "utf8");
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
@@ -82,6 +101,11 @@ describe("platform config contract", () => {
     expect(ci).toContain("tests/config-contract.test.ts");
     expect(syncScript).toContain("ENV_CONTRACT");
     expect(syncScript).toContain("parseDotenv");
+    expect(syncScript).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
+    expect(syncScript).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_SECRET");
+    expect(supabaseConfig).toContain("[auth.external.google]");
+    expect(supabaseConfig).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
+    expect(supabaseConfig).toContain("SUPABASE_AUTH_GOOGLE_CLIENT_SECRET");
   });
 });
 
