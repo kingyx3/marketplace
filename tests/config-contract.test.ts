@@ -80,18 +80,14 @@ describe("platform config contract", () => {
     expect(migrations).toContain("ADMIN_STOREFRONT_CONFIG_UPDATE");
   });
 
-  it("runs config verifier scripts and supports provider bootstrap automation", async () => {
+  it("runs config verifier scripts and supports unified provider bootstrap automation", async () => {
     const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
     const bootstrapWorkflow = await readFile(
       new URL("../.github/workflows/bootstrap-environment.yml", import.meta.url),
       "utf8"
     );
-    const oauthWorkflow = await readFile(
-      new URL("../.github/workflows/configure-google-oauth.yml", import.meta.url),
-      "utf8"
-    );
-    const stripeWorkflow = await readFile(
-      new URL("../.github/workflows/configure-stripe.yml", import.meta.url),
+    const providerWorkflow = await readFile(
+      new URL("../.github/workflows/configure-providers.yml", import.meta.url),
       "utf8"
     );
     const packageJson = JSON.parse(
@@ -99,6 +95,10 @@ describe("platform config contract", () => {
     );
     const syncScript = await readFile(
       new URL("../scripts/sync-vercel-env.mjs", import.meta.url),
+      "utf8"
+    );
+    const providerScript = await readFile(
+      new URL("../scripts/configure-providers.mjs", import.meta.url),
       "utf8"
     );
     const googleOAuthScript = await readFile(
@@ -110,16 +110,19 @@ describe("platform config contract", () => {
       "utf8"
     );
     const envScript = await readFile(new URL("../scripts/generate-env.mjs", import.meta.url), "utf8");
+    const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
     const supabaseConfig = await readFile(new URL("../supabase/config.toml", import.meta.url), "utf8");
 
     expect(packageJson.scripts["config:check"]).toContain("verify-vercel-config.mjs");
     expect(packageJson.scripts["config:check"]).toContain("verify-supabase-config.mjs");
-    expect(packageJson.scripts["oauth:google:plan"]).toContain("configure-google-oauth.mjs --plan");
-    expect(packageJson.scripts["oauth:google:apply"]).toContain("configure-google-oauth.mjs --apply");
-    expect(packageJson.scripts["stripe:plan"]).toContain("configure-stripe.mjs --plan");
-    expect(packageJson.scripts["stripe:apply"]).toContain("configure-stripe.mjs --apply");
-    expect(packageJson.scripts["stripe:verify"]).toContain("configure-stripe.mjs --verify");
+    expect(packageJson.scripts["providers:plan"]).toContain("configure-providers.mjs --plan");
+    expect(packageJson.scripts["providers:apply"]).toContain("configure-providers.mjs --apply");
+    expect(packageJson.scripts["providers:verify"]).toContain("configure-providers.mjs --verify");
+    expect(packageJson.scripts["oauth:google:plan"]).toBeUndefined();
+    expect(packageJson.scripts["stripe:plan"]).toBeUndefined();
     expect(packageJson.scripts["test:e2e"]).toBe("playwright test");
+    expect(packageJson.devDependencies["@tailwindcss/postcss"]).toBeDefined();
+    expect(packageJson.devDependencies["eslint-config-prettier"]).toBeDefined();
     expect(ci).toContain("npm run config:check");
     expect(ci).toContain("e2e-smoke:");
     expect(ci).toContain("npx playwright install --with-deps chromium");
@@ -131,23 +134,26 @@ describe("platform config contract", () => {
     expect(supabaseConfig).toContain("SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID");
     expect(supabaseConfig).toContain("SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET");
     expect(supabaseConfig).toContain("http://127.0.0.1:54321/auth/v1/callback");
+    expect(providerScript).toContain("scripts/configure-google-oauth.mjs");
+    expect(providerScript).toContain("scripts/configure-stripe.mjs");
     expect(googleOAuthScript).toContain("external_google_enabled");
-    expect(oauthWorkflow).toContain("GOOGLE_OAUTH_CLIENT_ID");
-    expect(oauthWorkflow).toContain("GOOGLE_OAUTH_CLIENT_SECRET");
+    expect(googleOAuthScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
+    expect(googleOAuthScript).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
     expect(stripeScript).toContain("webhookEndpoints.create");
     expect(stripeScript).toContain("webhookEndpoints.update");
     expect(stripeScript).toContain("payment_intent.amount_capturable_updated");
     expect(stripeScript).toContain("writeGithubOutput(\"stripe_webhook_secret\"");
     expect(stripeScript).toContain("add-mask");
-    expect(stripeWorkflow).toContain("mode:");
-    expect(stripeWorkflow).toContain("STRIPE_WEBHOOK_ENDPOINT_ID");
-    expect(stripeWorkflow).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
-    expect(bootstrapWorkflow).toContain("configure-google-oauth.mjs --apply-if-configured");
-    expect(bootstrapWorkflow).toContain("configure-stripe.mjs --apply-if-configured");
-    expect(bootstrapWorkflow).toContain("GOOGLE_OAUTH_CLIENT_ID");
-    expect(bootstrapWorkflow).toContain("STRIPE_WEBHOOK_ENDPOINT_ID");
+    expect(providerWorkflow).toContain("name: Configure Providers");
+    expect(providerWorkflow).toContain("configure-providers.mjs --${{ inputs.mode }}");
+    expect(providerWorkflow).toContain("GOOGLE_OAUTH_CLIENT_ID");
+    expect(providerWorkflow).toContain("STRIPE_WEBHOOK_ENDPOINT_ID");
+    expect(providerWorkflow).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
+    expect(bootstrapWorkflow).toContain("configure-providers.mjs --apply-if-configured");
     expect(envScript).toContain("GOOGLE_OAUTH_CLIENT_ID");
     expect(envScript).toContain("STRIPE_WEBHOOK_ENABLED_EVENTS");
+    expect(envScript).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
+    expect(envExample).not.toContain("SUPABASE_AUTH_GOOGLE_CLIENT_ID");
   });
 });
 
