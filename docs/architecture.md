@@ -2,73 +2,65 @@
 
 ## Overview
 
-```
+```text
 Browser ──▶ Vercel (Next.js 15, App Router)
               ├─ Server Components / API routes
               ├─ /api/health           (shallow smoke + deep readiness)
-              └─ /api/webhooks/stripe  (signature-verified, idempotent)
+              ├─ /api/webhooks/stripe  (signature-verified, idempotent)
+              └─ protected admin/account flows
                     │
                     ▼
             Supabase (managed Postgres)
-              ├─ RLS-enforced publishable-key access (catalog, own orders)
-              ├─ Auth (customer accounts)
+              ├─ RLS-enforced publishable-key access (catalog, own rows)
+              ├─ server-side secret-key access for trusted admin/RPC paths
+              ├─ Auth (Google sign-in through Supabase Auth)
               └─ Storage (public product images)
                     ▲
             Stripe (PaymentIntents, manual capture for pre-orders)
 ```
 
-- **App**: Next.js 15 App Router, TypeScript, React Server Components,
-  Tailwind CSS v4. UI components are deliberately minimal; shadcn/ui is
-  the planned component layer (see `docs/build-plan.md`).
-- **Database**: Supabase Postgres. Schema is SQL migrations in
-  `supabase/migrations/` — the single source of truth (`docs/data-model.md`).
-- **Payments**: Stripe PaymentIntents. B2C order payments capture
-  normally; pre-order deposits use **manual capture** so funds can be
-  authorized now and captured at allocation.
-- **Search**: Postgres full-text (GIN index on products). Upgrade path:
-  Typesense or Algolia when the catalog outgrows FTS relevance.
-- **Notifications**: provider-agnostic interface (`lib/notifications.ts`).
-  Resend order-confirmation email and email/Telegram/WhatsApp drop
-  alerts are implemented; SMS remains a feature-gated stub.
-- **Product media**: Supabase Storage `product-images` bucket is created
-  by migration. Product images are publicly readable; writes require
-  trusted server code or an authenticated active staff user.
-- **Admin operations**: no browser admin console exists yet. Production
-  admin work follows `docs/admin-operations.md` until the protected admin
-  UI is built.
+- **App**: Next.js 15 App Router, TypeScript, React Server Components, Tailwind CSS v4. UI components are deliberately minimal; shadcn/ui is still a planned polish layer (see `docs/build-plan.md`).
+- **Database**: Supabase Postgres. Schema is SQL migrations in `supabase/migrations/` — the single source of truth (`docs/data-model.md`).
+- **Auth**: Supabase Auth with Google OAuth. `/auth/sign-in` starts the OAuth flow, `/auth/callback` exchanges the PKCE code, and middleware refreshes Supabase SSR cookies.
+- **Payments**: Stripe PaymentIntents. B2C order payments capture normally; pre-order deposits use manual capture; B2B invoice/PO checkout creates a manual-invoice payment placeholder for staff reconciliation.
+- **Search**: Postgres full-text (GIN index on products). Upgrade path: Typesense or Algolia when the catalog outgrows FTS relevance.
+- **Notifications**: provider-agnostic interface (`lib/notifications.ts`). Resend order-confirmation email and email/Telegram/WhatsApp drop alerts are implemented; SMS remains feature-gated by provider configuration.
+- **Product media**: Supabase Storage `product-images` bucket is created by migration. Product images are publicly readable; writes require trusted server code or an authenticated active staff user.
+- **Admin operations**: a protected admin surface exists for inventory/catalog operations, B2B review, supplier PO intake, preorder allocation, payment exceptions, and manual reconciliation. It is intentionally still runbook-heavy; see `docs/admin-operations.md`.
 
 ## Why this stack
 
-| Requirement              | How it's met                                                       |
-| ------------------------ | ------------------------------------------------------------------ |
-| Config source of truth   | GitHub Environments own deploy and runtime configuration           |
-| Downstream reconciliation| CI syncs runtime env to Vercel and pushes Supabase migrations      |
-| Scale-to-zero cost       | Vercel and Supabase free/low tiers; no always-on servers           |
-| Env separation           | Vercel Preview/Production plus separate Supabase projects          |
-| Config as code           | Terraform, migrations, workflows, env contract, and validation     |
+| Requirement | How it's met |
+| --- | --- |
+| Config source of truth | GitHub Environments own deploy and runtime configuration. |
+| Downstream reconciliation | CI syncs runtime env to Vercel and pushes Supabase migrations. |
+| Scale-to-zero cost | Vercel and Supabase free/low tiers; no always-on app servers. |
+| Env separation | Vercel Preview/Production plus separate Supabase projects. |
+| Config as code | Terraform, migrations, workflows, env contract, and validation. |
+| Bootstrap repeatability | Terraform State Bootstrap, Terraform Platform, Configure Google OAuth, and Bootstrap Environment workflows. |
+
+## Infrastructure boundary
+
+Terraform manages provider project shells, not application runtime secrets:
+
+- `infra/terraform/bootstrap` creates/reconciles the GCS Terraform state bucket.
+- `infra/terraform/platform` creates/reconciles one Vercel project and the active Supabase projects.
+- GitHub Environments hold runtime and deploy values.
+- CI generates `.env.deploy`, syncs runtime keys to Vercel, links Supabase, applies migrations, and deploys.
+- Supabase schema and storage/RLS setup are migrations, not Terraform resources.
+
+See `docs/bootstrap.md`, `docs/environments.md`, and `docs/provisioning.md` for the full setup contract.
 
 ## Alternatives considered
 
-**GCP Cloud Run + Cloud SQL + Terraform.** Full IaC and no vendor platform
-lock-in, but Cloud SQL has no genuine scale-to-zero and adds more bootstrap
-credentials. Right choice later if the business needs VPC-level control.
+**GCP Cloud Run + Cloud SQL + Terraform.** Full IaC and no vendor platform lock-in, but Cloud SQL has no genuine scale-to-zero and adds more bootstrap credentials. Right choice later if the business needs VPC-level control.
 
-**Cloudflare Pages/Workers + D1.** Cheapest at scale and excellent edge latency,
-but D1 lacks the relational depth this data model leans on, and Workers' Node
-compat still complicates Stripe SDK + Supabase SSR usage.
+**Cloudflare Pages/Workers + D1.** Cheapest at scale and excellent edge latency, but D1 lacks the relational depth this data model leans on, and Workers' Node compat still complicates Stripe SDK + Supabase SSR usage.
 
-**Hosted platforms (Shopify + wholesale apps).** Fastest to first sale and PCI
-handled for you, but pre-order deposit/balance flows, allocation rules, and B2B
-tiering all become app-subscription workarounds.
+**Hosted platforms (Shopify + wholesale apps).** Fastest to first sale and PCI handled for you, but pre-order deposit/balance flows, allocation rules, and B2B tiering all become app-subscription workarounds.
 
 ## Environment topology
 
-The current hosted topology uses one Vercel project with two targets:
-`development` deploys to Vercel Preview, and `production` deploys to Vercel
-Production. Supabase remains split by data environment: one development project
-and one production project. `staging` is reserved but empty until paid plans
-allow a third data environment.
+The current hosted topology uses one Vercel project with two targets: `development` deploys to Vercel Preview, and `production` deploys to Vercel Production. Supabase remains split by data environment: one development project and one production project. `staging` is reserved but empty until paid plans allow a third data environment.
 
-The reusable deploy workflow generates `TARGET_ENV` from its caller input,
-validates the matching GitHub Environment, syncs runtime env to the matching
-Vercel target, pushes migrations to the selected Supabase project, and deploys.
+The reusable deploy workflow generates `TARGET_ENV` from its caller input, validates the matching GitHub Environment, syncs runtime env to the matching Vercel target, pushes migrations to the selected Supabase project, deploys, and smoke tests.
