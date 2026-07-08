@@ -8,12 +8,67 @@ import {
   adminCatalogSkuFromForm,
   adminInventoryAdjustmentFromForm,
 } from "@/lib/admin-catalog-forms";
+import {
+  adminListingItemFromForm,
+  adminStorefrontConfigurationFromForm,
+} from "@/lib/admin-listing-forms";
 import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
 import { adminPurchaseOrderFromForm } from "@/lib/admin-purchase-order-forms";
 import { requireStaff } from "@/lib/auth";
 import { performAdminOrderAction } from "@/lib/orders";
 import { runPreorderAllocationForSku } from "@/lib/preorders";
 import { createServiceClient } from "@/lib/supabase";
+
+export async function upsertListingItem(formData: FormData) {
+  const { user } = await requireStaff("/admin/listings");
+  const input = adminListingItemFromForm(formData);
+
+  const supabase = createServiceClient();
+  const { error } = await supabase.rpc("admin_upsert_listing_item", {
+    p_product_id: input.productId,
+    p_title_override: input.titleOverride,
+    p_badge_label: input.badgeLabel,
+    p_tags: input.tags,
+    p_channels: input.channels,
+    p_max_per_customer: input.maxPerCustomer,
+    p_preorder_reserve: input.preorderReserve,
+    p_sort_priority: input.sortPriority,
+    p_featured: input.featured,
+    p_published: input.published,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) {
+    throw new Error(`Listing item save failed: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/listings");
+  revalidatePath("/catalog");
+}
+
+export async function upsertStorefrontConfiguration(formData: FormData) {
+  const { user } = await requireStaff("/admin/listings");
+  const input = adminStorefrontConfigurationFromForm(formData);
+
+  const supabase = createServiceClient();
+  const { error } = await supabase.rpc("admin_upsert_storefront_configuration", {
+    p_key: input.key,
+    p_label: input.label,
+    p_description: input.description,
+    p_value: input.value,
+    p_active: input.active,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) {
+    throw new Error(`Storefront configuration save failed: ${error.message}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/listings");
+  revalidatePath("/catalog");
+}
 
 export async function updateInventory(formData: FormData) {
   const { user } = await requireStaff("/admin/inventory");
@@ -101,7 +156,7 @@ export async function uploadCatalogProductImage(formData: FormData) {
   const supabase = createServiceClient();
   const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
   const path = `${productId}/${randomUUID()}.${extension}`;
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = supabase.storage
     .from("product-images")
     .upload(path, Buffer.from(await image.arrayBuffer()), {
       contentType: image.type,
