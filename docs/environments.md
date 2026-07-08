@@ -26,6 +26,7 @@ The canonical machine-readable contract is `ENV_CONTRACT` in
 | `SUPABASE_ACCESS_TOKEN` | Supabase CLI authentication for migration pushes |
 | `SUPABASE_DB_PASSWORD` | `supabase link` database connection |
 | `SUPABASE_SECRET_KEY` | Server-side Supabase runtime access in Vercel |
+| `SUPABASE_AUTH_GOOGLE_CLIENT_SECRET` | Optional local Supabase Auth Google provider secret |
 | `VERCEL_TOKEN` | Vercel env sync and deploy |
 | `STRIPE_SECRET_KEY` | Server-side Stripe runtime access |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
@@ -43,6 +44,7 @@ The canonical machine-readable contract is `ENV_CONTRACT` in
 | `NEXT_PUBLIC_SITE_URL` | Canonical public URL for the environment |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...`; browser-safe and RLS-enforced |
+| `SUPABASE_AUTH_GOOGLE_CLIENT_ID` | Optional local Supabase Auth Google provider client id |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` or `pk_live_...` |
 | `SUPABASE_PROJECT_REF` | Project ref used by `supabase link` |
 | `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | Same Vercel project id in both active GitHub Environments |
@@ -81,8 +83,9 @@ environment:
 | `production` | Hosted production project | Production |
 
 Each hosted Supabase project has its own database, Auth settings, Storage
-buckets, API URL, publishable key, secret key, and database password. Vercel uses
-one project with separate Preview and Production env targets.
+buckets, API URL, publishable key, secret key, database password, OAuth provider
+client IDs/secrets, and redirect URLs. Vercel uses one project with separate
+Preview and Production env targets.
 
 When paid plans allow a third hosted environment, add `staging` by creating a
 third Supabase project and either adding a Vercel custom environment or splitting
@@ -99,8 +102,8 @@ manual bootstrap workflow. Once per active environment:
    Environment as `SUPABASE_PROJECT_REF`.
 3. Enter all required runtime values in the matching GitHub Environment.
 4. Configure provider dashboard settings that cannot be fully represented in
-   this repo yet, such as Supabase Auth redirect URLs and the Stripe webhook
-   endpoint.
+   this repo yet, such as hosted Supabase Auth Google provider credentials,
+   allowed redirect URLs, and the Stripe webhook endpoint.
 5. Run **Bootstrap Environment** for `development` or `production`. Bootstrap
    validates GitHub config, syncs Vercel env, links Supabase, and applies
    migrations. It does not perform a regular app deployment.
