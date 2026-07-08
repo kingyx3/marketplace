@@ -28,7 +28,7 @@ create table if not exists public.storefront_configurations (
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint storefront_configurations_key_format check (key ~ '^[a-z0-9]+([_:-][a-z0-9]+)*$')
+  constraint storefront_configurations_key_format check ("key" ~ '^[a-z0-9]+([_:-][a-z0-9]+)*$')
 );
 
 alter table public.listing_items enable row level security;
@@ -52,12 +52,7 @@ create trigger audit_log after insert or update or delete on public.storefront_c
 
 drop policy if exists "published listing items readable" on public.listing_items;
 create policy "published listing items readable" on public.listing_items
-  for select using (
-    published
-    and exists (
-      select 1 from public.products p where p.id = product_id and p.active
-    )
-  );
+  for select using (published);
 
 drop policy if exists "active storefront configurations readable" on public.storefront_configurations;
 create policy "active storefront configurations readable" on public.storefront_configurations
@@ -95,7 +90,7 @@ select p.id
 from public.products p
 on conflict (product_id) do nothing;
 
-insert into public.storefront_configurations (key, label, description, value, active)
+insert into public.storefront_configurations ("key", label, description, value, active)
 values (
   'catalog_header',
   'Catalog header copy',
@@ -103,7 +98,7 @@ values (
   '{"eyebrow":"Catalog","title":"Sealed product inventory","description":"Browse active booster boxes, collector boxes, cases, and preorders with visible stock and allocation limits.","emptyTitle":"No active products","emptyDescription":"Publish a listing item before opening orders."}'::jsonb,
   true
 )
-on conflict (key) do nothing;
+on conflict ("key") do nothing;
 
 create or replace function public.admin_upsert_listing_item(
   p_product_id uuid,
@@ -138,10 +133,13 @@ begin
     raise exception 'product not found' using errcode = 'P0002';
   end if;
 
-  select coalesce(array_agg(distinct channel order by channel), array['b2c']::text[])
+  select coalesce(array_agg(channel order by channel), array['b2c']::text[])
     into v_channels
-  from unnest(v_channels) as requested_channels(channel)
-  where channel in ('b2c', 'b2b');
+  from (
+    select distinct channel
+    from unnest(v_channels) as requested_channels(channel)
+    where channel in ('b2c', 'b2b')
+  ) valid_channels;
 
   if cardinality(v_channels) = 0 then
     v_channels := array['b2c']::text[];
@@ -256,10 +254,10 @@ begin
     raise exception 'configuration value must be a JSON object' using errcode = '22023';
   end if;
 
-  select exists(select 1 from public.storefront_configurations where key = v_key)
+  select exists(select 1 from public.storefront_configurations where "key" = v_key)
     into v_exists;
 
-  insert into public.storefront_configurations (key, label, description, value, active)
+  insert into public.storefront_configurations ("key", label, description, value, active)
   values (
     v_key,
     v_label,
@@ -267,12 +265,12 @@ begin
     p_value,
     coalesce(p_active, true)
   )
-  on conflict (key) do update
+  on conflict ("key") do update
     set label = excluded.label,
         description = excluded.description,
         value = excluded.value,
         active = excluded.active
-  returning key into v_key;
+  returning "key" into v_key;
 
   insert into public.audit_logs (actor, table_name, record_id, action, new_data)
   values (
