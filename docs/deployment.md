@@ -23,7 +23,7 @@ app-checks ─────────────────────┴─
 
 | Job | Purpose |
 | --- | --- |
-| `validate-env` | Targets the selected GitHub Environment, requires `development` or `production`, checks deploy-only keys, resolves public values from `config/environments.json`, validates `SUPABASE_PROJECT_REF`, and runs `scripts/generate-env.mjs --check`. |
+| `validate-env` | Targets the selected GitHub Environment, requires `development` or `production`, checks deploy-only keys, validates `SUPABASE_PROJECT_REF`, and runs `scripts/generate-env.mjs --check` for resolved runtime config. |
 | `app-checks` | Runs lint, typecheck, unit tests, and build in parallel after `npm ci`. |
 | `migration-check` | Applies the auth shim, every SQL migration, and seed data to a clean Postgres service. |
 | `migrate` | Links the selected hosted Supabase project and runs `supabase db push`. |
@@ -35,6 +35,7 @@ app-checks ─────────────────────┴─
 - Development deploys ignore docs-only changes.
 - Pull request CI is secretless and separate from deploys. Protect `main` with lint, typecheck, unit tests, build, config checks, and migration checks before production releases are tagged.
 - Public runtime config changes are made in `config/environments.json`; secret changes are made in GitHub Environments. Rerun deploy or **Bootstrap Environment** after either changes.
+- Deploy routing values that are consumed directly by shell/CLI steps, especially `SUPABASE_PROJECT_REF`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`, should remain available as GitHub vars until the reusable deploy workflow is migrated to export resolved public config before those steps.
 - Vercel dashboard env is not canonical. The deploy workflow always pushes runtime env from the resolved environment.
 - `VERCEL_ORG_ID` is the Vercel deploy scope id. On Hobby, set it to the personal user id; when moving to a team/org, replace it with the team/org id and update `VERCEL_PROJECT_ID` if the project changes.
 - Supabase migrations are forward-only. A failed migration should be fixed with a new migration, not by editing an applied migration.
@@ -73,8 +74,9 @@ Before cutting a production tag:
 
 1. Confirm `production` has required reviewers.
 2. Confirm all required production secrets from [`docs/environments.md`](environments.md) are present.
-3. Confirm production public values in `config/environments.json` are filled and pass `npm run env:resolve -- production`.
-4. Run **Bootstrap Environment** for `production` after config changes.
-5. Confirm Stripe live webhook endpoint points to `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe` and uses the matching `STRIPE_WEBHOOK_SECRET`.
-6. Confirm Google sign-in works against the production Supabase project.
-7. Confirm `/api/health` and `/api/health?deep=1` return HTTP 200 after deploy.
+3. Confirm production public runtime/provider values in `config/environments.json` are filled and pass `npm run env:resolve -- production`.
+4. Confirm deploy routing vars still required by the reusable deploy workflow are present as GitHub vars until that workflow is fully migrated.
+5. Run **Bootstrap Environment** for `production` after config changes.
+6. Confirm Stripe live webhook endpoint points to `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe` and uses the matching `STRIPE_WEBHOOK_SECRET`.
+7. Confirm Google sign-in works against the production Supabase project.
+8. Confirm `/api/health` and `/api/health?deep=1` return HTTP 200 after deploy.
