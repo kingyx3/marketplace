@@ -18,7 +18,7 @@ export const ENV_CONTRACT = [
   { key: "STRIPE_WEBHOOK_ENDPOINT_ID", required: false, secret: false, deployOnly: true, pattern: /^we_/, hint: "managed Stripe webhook endpoint id" },
   { key: "STRIPE_WEBHOOK_ENABLED_EVENTS", required: false, secret: false, deployOnly: true, hint: "comma or whitespace separated Stripe webhook event override" },
   { key: "VERCEL_TOKEN", required: false, secret: true, deployOnly: true, hint: "Vercel CLI access" },
-  { key: "VERCEL_ORG_ID", required: false, secret: false, deployOnly: true, hint: "Vercel org id" },
+  { key: "VERCEL_SCOPE_ID", required: false, secret: false, deployOnly: true, hint: "Vercel scope id: personal user id for Hobby or team id for org/team accounts" },
   { key: "VERCEL_PROJECT_ID", required: false, secret: false, deployOnly: true, hint: "Vercel project id" },
   { key: "RESEND_API_KEY", required: false, secret: true, hint: "email provider" },
   { key: "RESEND_FROM_EMAIL", required: false, secret: false, pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, hint: "sender email" },
