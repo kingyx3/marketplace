@@ -15,10 +15,10 @@ resource "random_password" "supabase_database" {
 resource "vercel_project" "app" {
   name                         = local.vercel_project_name
   framework                    = "nextjs"
-  install_command             = "npm ci"
-  build_command               = "npm run build"
-  root_directory              = local.vercel_root_directory
-  team_id                     = local.vercel_team_id
+  install_command              = "npm ci"
+  build_command                = "npm run build"
+  root_directory               = local.vercel_root_directory
+  team_id                      = local.vercel_team_id
   preview_deployments_disabled = false
 }
 
