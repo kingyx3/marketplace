@@ -47,7 +47,17 @@ jobs:
         run: terraform validate
       - name: Import state bucket if it already exists
         working-directory: infra/terraform/bootstrap
-        run: terraform import google_storage_bucket.terraform_state "$TF_VAR_state_bucket_name" || true
+        run: |
+          if terraform state show google_storage_bucket.terraform_state >/dev/null 2>&1; then
+            echo "State bucket is already in Terraform state; skipping import."
+          elif output=$(terraform import google_storage_bucket.terraform_state "$TF_VAR_state_bucket_name" 2>&1); then
+            echo "$output"
+          elif echo "$output" | grep -q "Cannot import non-existent remote object"; then
+            echo "State bucket does not exist yet; Terraform will create it."
+          else
+            echo "$output" >&2
+            exit 1
+          fi
       - name: Terraform plan
         working-directory: infra/terraform/bootstrap
         run: terraform plan -out=tfplan

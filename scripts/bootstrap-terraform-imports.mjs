@@ -116,6 +116,7 @@ async function bootstrapSupabaseProjects() {
 
     const projectNames = supabaseProjectNameCandidates(projectSlug, env);
     const project = selectSupabaseProject(projects, projectNames, organizationId, env);
+    if (!project) continue;
     const projectRef = project.id || project.ref;
     if (!projectRef) fail(`Supabase project ${supabaseProjectDisplayName(project)} response did not include an id/ref.`);
 
@@ -127,7 +128,12 @@ async function bootstrapSupabaseProjects() {
 function selectSupabaseProject(projects, projectNames, organizationId, env) {
   const matches = projects.filter((candidate) => projectNames.includes(supabaseProjectDisplayName(candidate)));
   if (matches.length === 0) {
-    fail(`No existing Supabase project for ${env} matched ${projectNames.join(", ")}. Visible projects: ${visibleSupabaseProjectNames(projects)}.`);
+    const organizationProjects = projects.filter((candidate) => belongsToOrganization(candidate, organizationId));
+    if (organizationProjects.length === 0) {
+      console.log(`No existing Supabase project for ${env} in the configured organization; Terraform may create it.`);
+      return null;
+    }
+    fail(`No existing Supabase project for ${env} matched ${projectNames.join(", ")}, but the organization already has project(s): ${visibleSupabaseProjectNames(organizationProjects)}. Set SUPABASE_${env.toUpperCase()}_PROJECT_NAME to import one of them, or remove it before letting Terraform create a new project.`);
   }
 
   const orgMatches = matches.filter((candidate) => belongsToOrganization(candidate, organizationId));

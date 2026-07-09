@@ -86,7 +86,14 @@ Provider scripts are intentionally outside Terraform when secrets, one-time valu
 
 GitHub Actions must not create the first Stripe webhook endpoint because Stripe returns the signing secret only once and this repo does not grant Actions permission to write GitHub Environment secrets. First endpoint creation is therefore an explicit local/dashboard bootstrap step; subsequent endpoint reconciliation is automated.
 
-## Dashboard-managed items
+## Idempotency
+
+Every provisioning entry point is safe to re-run; re-running converges on the same state instead of failing or duplicating resources:
+
+- **Terraform State Bootstrap** imports the GCS bucket only when it exists and is not yet in state, lets Terraform create it when it does not exist, and fails loudly on any other import error instead of masking it.
+- **Terraform Platform** runs `scripts/bootstrap-terraform-imports.mjs` before plan: resources already in state are skipped, existing Vercel/Supabase projects are imported, and a fresh Supabase organization falls through to Terraform creation. If the organization already has projects that do not match any expected name, the bootstrap fails rather than risk creating a duplicate — set `SUPABASE_<ENV>_PROJECT_NAME` to disambiguate. Supabase project regions are create-time-only (`ignore_changes`) because Supabase cannot move a project between regions.
+- **Provider scripts** reconcile instead of create: Stripe webhook endpoints are found by id/URL and updated only on drift; the Supabase Google provider is applied via idempotent PATCH.
+- **Bootstrap Environment / deploy** re-syncs Vercel env values to the resolved contract, `supabase link` overwrites local link state, and `supabase db push` applies only unapplied migrations.
 
 These remain outside Terraform/provider automation:
 

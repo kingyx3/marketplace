@@ -72,6 +72,8 @@ describe("deployment workflow contract", () => {
     expect(stateBootstrap).toContain("type: environment");
     expect(stateBootstrap).toContain("environment: ${{ inputs.environment }}");
     expect(stateBootstrap).toContain("node scripts/resolve-terraform-inputs.mjs state");
+    expect(stateBootstrap).not.toContain("|| true");
+    expect(stateBootstrap).toContain("Cannot import non-existent remote object");
     expect(platform).toContain("type: environment");
     expect(platform).toContain("environment: ${{ inputs.environment }}");
     expect(platform).toContain("node scripts/resolve-terraform-inputs.mjs platform");
