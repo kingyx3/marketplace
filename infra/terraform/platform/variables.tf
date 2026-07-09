@@ -34,7 +34,7 @@ variable "supabase_region" {
 }
 
 variable "supabase_instance_size" {
-  description = "Instance size for active Supabase projects."
+  description = "Optional compute instance size for paid Supabase organizations. Leave null for free-plan organizations."
   type        = string
-  default     = "micro"
+  default     = null
 }
