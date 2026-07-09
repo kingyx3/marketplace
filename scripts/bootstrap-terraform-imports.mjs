@@ -105,6 +105,7 @@ async function bootstrapSupabaseProjects() {
   });
 
   if (!Array.isArray(projects)) fail("Unexpected Supabase projects response.");
+  console.log(`Supabase import bootstrap can see ${projects.length} project(s): ${visibleSupabaseProjectNames(projects)}`);
 
   for (const env of supabaseEnvironments) {
     const address = `supabase_project.app[\"${env}\"]`;
@@ -114,18 +115,33 @@ async function bootstrapSupabaseProjects() {
     }
 
     const projectNames = supabaseProjectNameCandidates(projectSlug, env);
-    const project = projects.find((candidate) => projectNames.includes(candidate.name) && belongsToOrganization(candidate, organizationId));
-    if (!project) {
-      console.log(`No existing Supabase project matching ${projectNames.join(", ")} was found; Terraform may create it.`);
-      continue;
-    }
-
+    const project = selectSupabaseProject(projects, projectNames, organizationId, env);
     const projectRef = project.id || project.ref;
-    if (!projectRef) fail(`Supabase project ${project.name} response did not include an id/ref.`);
+    if (!projectRef) fail(`Supabase project ${supabaseProjectDisplayName(project)} response did not include an id/ref.`);
 
-    console.log(`Importing existing Supabase project ${project.name} (${projectRef}) into Terraform state.`);
+    console.log(`Importing existing Supabase project ${supabaseProjectDisplayName(project)} (${projectRef}) into Terraform state.`);
     terraform(["import", "-input=false", address, projectRef]);
   }
+}
+
+function selectSupabaseProject(projects, projectNames, organizationId, env) {
+  const matches = projects.filter((candidate) => projectNames.includes(supabaseProjectDisplayName(candidate)));
+  if (matches.length === 0) {
+    fail(`No existing Supabase project for ${env} matched ${projectNames.join(", ")}. Visible projects: ${visibleSupabaseProjectNames(projects)}.`);
+  }
+
+  const orgMatches = matches.filter((candidate) => belongsToOrganization(candidate, organizationId));
+  if (orgMatches.length === 1) return orgMatches[0];
+  if (orgMatches.length > 1) {
+    fail(`Multiple Supabase projects for ${env} matched ${projectNames.join(", ")} in the configured organization. Set SUPABASE_${env.toUpperCase()}_PROJECT_NAME to disambiguate.`);
+  }
+
+  if (matches.length === 1) {
+    console.log(`Supabase project ${supabaseProjectDisplayName(matches[0])} matched by name. Importing despite organization metadata mismatch or missing organization metadata.`);
+    return matches[0];
+  }
+
+  fail(`Multiple Supabase projects for ${env} matched ${projectNames.join(", ")}, but none matched the configured organization metadata. Set SUPABASE_${env.toUpperCase()}_PROJECT_NAME to disambiguate.`);
 }
 
 function supabaseProjectNameCandidates(projectSlug, env) {
@@ -135,6 +151,15 @@ function supabaseProjectNameCandidates(projectSlug, env) {
     env === "development" ? `${projectSlug}-dev` : "",
     `${projectSlug}-${env}`,
   ]);
+}
+
+function supabaseProjectDisplayName(project) {
+  return String(project.name || project.project_name || project.projectName || project.slug || "");
+}
+
+function visibleSupabaseProjectNames(projects) {
+  const names = projects.map(supabaseProjectDisplayName).filter(Boolean);
+  return names.length > 0 ? names.join(", ") : "none with a name field";
 }
 
 function unique(values) {
@@ -153,7 +178,7 @@ function belongsToOrganization(project, organizationId) {
     .filter(Boolean)
     .map(String);
 
-  return candidates.length === 0 || candidates.includes(organizationId);
+  return candidates.length > 0 && candidates.includes(organizationId);
 }
 
 async function fetchJson(url, headers, options = {}) {
