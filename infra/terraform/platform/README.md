@@ -38,7 +38,9 @@ Optional repository variables:
 - `VERCEL_PROJECT_NAME` (defaults to `PROJECT_SLUG`)
 - `VERCEL_TEAM_ID`
 - `VERCEL_ROOT_DIRECTORY`
-- `SUPABASE_REGION` (defaults to `ap-southeast-1`)
+- `SUPABASE_REGION` (defaults to `ap-southeast-1`; applies only when Terraform
+  creates a project — Supabase cannot change an existing project's region, so
+  imported projects keep the region they were created in)
 - `SUPABASE_INSTANCE_SIZE` (defaults to `micro`)
 
 Supabase project names are derived from the project slug and environment name.

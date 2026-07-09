@@ -36,4 +36,11 @@ resource "supabase_project" "app" {
     create = "30m"
     update = "30m"
   }
+
+  lifecycle {
+    # Supabase cannot move a project between regions after creation, and the
+    # provider rejects in-place region updates. The region only applies when
+    # Terraform creates the project; imported projects keep their real region.
+    ignore_changes = [region]
+  }
 }
