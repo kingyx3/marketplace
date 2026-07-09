@@ -65,7 +65,7 @@ describe("deployment workflow contract", () => {
     expect(bootstrap).not.toContain("npx vercel deploy");
   });
 
-  it("runs Terraform through the input resolver", async () => {
+  it("runs Terraform through the input resolver and import bootstrap", async () => {
     const stateBootstrap = await readWorkflow(".github/workflows/terraform-state-bootstrap.yml");
     const platform = await readWorkflow(".github/workflows/terraform-platform.yml");
 
@@ -75,6 +75,8 @@ describe("deployment workflow contract", () => {
     expect(platform).toContain("type: environment");
     expect(platform).toContain("environment: ${{ inputs.environment }}");
     expect(platform).toContain("node scripts/resolve-terraform-inputs.mjs platform");
+    expect(platform).toContain("node scripts/bootstrap-terraform-imports.mjs");
+    expect(platform.indexOf("node scripts/bootstrap-terraform-imports.mjs")).toBeLessThan(platform.indexOf("terraform plan -out=tfplan"));
     expect(platform).not.toContain("SUPABASE_DEVELOPMENT_DB_PASSWORD");
     expect(platform).not.toContain("TF_VAR_supabase_db_secret_by_environment");
     expect(platform).toContain('terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME"');
