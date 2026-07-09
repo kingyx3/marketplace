@@ -53,6 +53,8 @@ jobs:
       - name: Terraform validate
         working-directory: infra/terraform/platform
         run: terraform validate
+      - name: Bootstrap Terraform imports
+        run: node scripts/bootstrap-terraform-imports.mjs
       - name: Terraform plan
         working-directory: infra/terraform/platform
         run: terraform plan -out=tfplan
