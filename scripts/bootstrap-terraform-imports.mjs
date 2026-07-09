@@ -113,19 +113,32 @@ async function bootstrapSupabaseProjects() {
       continue;
     }
 
-    const projectName = `${projectSlug}-${env}`;
-    const project = projects.find((candidate) => candidate.name === projectName && belongsToOrganization(candidate, organizationId));
+    const projectNames = supabaseProjectNameCandidates(projectSlug, env);
+    const project = projects.find((candidate) => projectNames.includes(candidate.name) && belongsToOrganization(candidate, organizationId));
     if (!project) {
-      console.log(`No existing Supabase project named ${projectName} was found; Terraform may create it.`);
+      console.log(`No existing Supabase project matching ${projectNames.join(", ")} was found; Terraform may create it.`);
       continue;
     }
 
     const projectRef = project.id || project.ref;
-    if (!projectRef) fail(`Supabase project ${projectName} response did not include an id/ref.`);
+    if (!projectRef) fail(`Supabase project ${project.name} response did not include an id/ref.`);
 
-    console.log(`Importing existing Supabase project ${projectName} (${projectRef}) into Terraform state.`);
+    console.log(`Importing existing Supabase project ${project.name} (${projectRef}) into Terraform state.`);
     terraform(["import", "-input=false", address, projectRef]);
   }
+}
+
+function supabaseProjectNameCandidates(projectSlug, env) {
+  return unique([
+    firstPresent(`SUPABASE_${env.toUpperCase()}_PROJECT_NAME`, `SUPABASE_PROJECT_NAME_${env.toUpperCase()}`),
+    env === "production" ? projectSlug : "",
+    env === "development" ? `${projectSlug}-dev` : "",
+    `${projectSlug}-${env}`,
+  ]);
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function belongsToOrganization(project, organizationId) {
