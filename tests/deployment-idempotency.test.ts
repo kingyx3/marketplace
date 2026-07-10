@@ -25,6 +25,8 @@ describe("deployment idempotency contract", () => {
     const production = await repoFile(".github/workflows/deploy-production.yml");
     expect(development).toContain("group: environment-development");
     expect(development).toContain("cancel-in-progress: false");
+    expect(development).toContain("git ls-remote");
+    expect(development).toContain("Skipping superseded development deploy");
     expect(production).toContain("group: environment-production");
     expect(production).toContain("cancel-in-progress: false");
   });
