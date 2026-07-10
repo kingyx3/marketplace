@@ -31,6 +31,17 @@ jobs:
         name: Check development deploy prerequisites
         shell: bash
         run: |
+          latest_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${GITHUB_REF_NAME}" | awk '{print $1}')"
+          if [ -z "$latest_sha" ]; then
+            echo "Could not resolve the latest branch revision" >&2
+            exit 1
+          fi
+          if [ "$latest_sha" != "$GITHUB_SHA" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping superseded development deploy for $GITHUB_SHA; branch head is $latest_sha." >&2
+            exit 0
+          fi
+
           missing=()
           for key in GCP_TERRAFORM_CREDENTIALS_JSON VERCEL_TOKEN SUPABASE_ACCESS_TOKEN; do
             if [ -z "${!key:-}" ]; then
