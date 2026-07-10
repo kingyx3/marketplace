@@ -13,6 +13,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: environment-${{ inputs.environment }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -45,9 +49,8 @@ jobs:
       - name: Terraform validate
         working-directory: infra/terraform/bootstrap
         run: terraform validate
-      - name: Import state bucket if it already exists
-        working-directory: infra/terraform/bootstrap
-        run: terraform import google_storage_bucket.terraform_state "$TF_VAR_state_bucket_name" || true
+      - name: Reconcile existing state bucket import
+        run: node scripts/bootstrap-terraform-state-import.mjs
       - name: Terraform plan
         working-directory: infra/terraform/bootstrap
         run: terraform plan -out=tfplan
