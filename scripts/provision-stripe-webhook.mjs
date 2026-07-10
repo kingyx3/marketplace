@@ -71,21 +71,24 @@ async function reconcileWebhookEndpoint(config) {
 
   if (!current) {
     const created = await createWebhookEndpoint(stripe, config);
-    await exportCreatedCredentials(created);
+    await exportCreatedCredentialsWithRollback(stripe, created);
     console.log(`Created Stripe webhook endpoint ${created.id} for ${config.webhookUrl}.`);
     return;
   }
 
   if (!/^whsec_/.test(config.webhookSecret)) {
     const replacement = await createWebhookEndpoint(stripe, config);
+    await exportCreatedCredentialsWithRollback(stripe, replacement);
+
     try {
-      await exportCreatedCredentials(replacement);
+      await stripe.webhookEndpoints.del(current.id);
     } catch (error) {
-      await stripe.webhookEndpoints.del(replacement.id).catch(() => {});
-      throw error;
+      if (error?.statusCode !== 404) {
+        await stripe.webhookEndpoints.del(replacement.id).catch(() => {});
+        throw new Error(`Could not remove stale Stripe webhook endpoint ${current.id}; replacement was rolled back.`);
+      }
     }
 
-    await stripe.webhookEndpoints.del(current.id);
     console.log(`Replaced Stripe webhook endpoint ${current.id} with ${replacement.id} because its signing secret was unavailable.`);
     return;
   }
@@ -114,6 +117,15 @@ async function createWebhookEndpoint(stripe, config) {
   }
 
   return created;
+}
+
+async function exportCreatedCredentialsWithRollback(stripe, endpoint) {
+  try {
+    await exportCreatedCredentials(endpoint);
+  } catch (error) {
+    await stripe.webhookEndpoints.del(endpoint.id).catch(() => {});
+    throw error;
+  }
 }
 
 async function exportCreatedCredentials(endpoint) {
