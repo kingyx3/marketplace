@@ -16,13 +16,13 @@ Browser ──▶ Vercel (Next.js 15, App Router)
               ├─ Auth (Google sign-in through Supabase Auth)
               └─ Storage (public product images)
                     ▲
-            Stripe (PaymentIntents, manual capture for pre-orders)
+            Stripe (SGD PayNow PaymentIntents)
 ```
 
 - **App**: Next.js 15 App Router, TypeScript, React Server Components, Tailwind CSS v4. UI components are deliberately minimal; shadcn/ui is still a planned polish layer (see `docs/build-plan.md`).
 - **Database**: Supabase Postgres. Schema is SQL migrations in `supabase/migrations/` — the single source of truth (`docs/data-model.md`).
 - **Auth**: Supabase Auth with Google OAuth. `/auth/sign-in` starts the OAuth flow, `/auth/callback` exchanges the PKCE code, and middleware refreshes Supabase SSR cookies.
-- **Payments**: Stripe PaymentIntents. B2C order payments capture normally; pre-order deposits use manual capture; B2B invoice/PO checkout creates a manual-invoice payment placeholder for staff reconciliation.
+- **Payments**: Stripe PaymentIntents normalized by `lib/stripe.ts` to SGD PayNow. Full orders, pre-order deposits, and pre-order balances are immediate single-use payments; incompatible card, reusable-method, setup-future-usage, and manual-capture options are removed before Stripe is called. B2B invoice/PO checkout creates a manual-invoice payment placeholder for staff reconciliation.
 - **Catalog/storefront**: catalog products/SKUs are the sellable source of truth; `listing_items` and `storefront_configurations` layer on merchandising state, published visibility, channel metadata, featured/sort order, and catalog copy.
 - **Search**: Postgres full-text (GIN index on products). Upgrade path: Typesense or Algolia when the catalog outgrows FTS relevance.
 - **Notifications**: provider-agnostic interface (`lib/notifications.ts`). Resend order-confirmation email and email/Telegram/WhatsApp drop alerts are implemented; SMS remains feature-gated by provider configuration.
@@ -47,7 +47,7 @@ Terraform manages provider project shells, not application runtime secrets:
 - `infra/terraform/bootstrap` creates/reconciles the GCS Terraform state bucket.
 - `infra/terraform/platform` creates/reconciles one Vercel project and the active Supabase projects.
 - GitHub Environments hold runtime secrets and unavoidable manual public values.
-- CI resolves Terraform/provider values, generates `.env.deploy`, syncs runtime keys to Vercel, links Supabase, applies migrations, and deploys.
+- CI resolves Terraform/provider values, reconciles Stripe, generates `.env.deploy`, syncs runtime keys to Vercel, links Supabase, applies migrations, and deploys.
 - Supabase schema and storage/RLS setup are migrations, not Terraform resources.
 
 See `docs/bootstrap.md`, `docs/environments.md`, and `docs/provisioning.md` for the full setup contract.
