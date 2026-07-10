@@ -198,6 +198,9 @@ jobs:
       - name: Deploy to Vercel
         id: vercel
         run: node scripts/deploy-vercel.mjs
+      - name: Remove generated runtime env
+        if: always()
+        run: rm -f .env.deploy
 
   smoke:
     needs: deploy
