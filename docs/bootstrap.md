@@ -42,8 +42,9 @@ Add required environment secrets to both active environments:
 
 - `SUPABASE_SECRET_KEY`
 - `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
 - `GOOGLE_OAUTH_CLIENT_SECRET`
+
+`STRIPE_WEBHOOK_SECRET` may also be supplied as a GitHub Environment secret, but it is not required before the first deploy. The deploy workflow creates or reconciles the Stripe endpoint before final runtime validation and persists the generated signing secret to the matching Vercel target.
 
 Add optional notification provider secrets only when needed. Add required reviewers to `production` before launch.
 
@@ -96,15 +97,20 @@ For each environment:
 - The managed webhook endpoint URL is `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`.
 - The default event set is versioned in `config/environments.json`.
 
-For the first Stripe webhook endpoint, use one of these explicit bootstrap paths:
+The normal deploy path performs pre-provision validation without requiring `STRIPE_WEBHOOK_SECRET`, then runs `scripts/provision-stripe-webhook.mjs` before generating the runtime environment:
+
+- When the endpoint and signing secret already exist, it verifies or updates the endpoint.
+- When no endpoint exists, it creates one and passes Stripe's one-time `whsec_...` value to later workflow steps through the masked GitHub Actions environment file.
+- When an endpoint exists but its signing secret is unavailable, it creates a replacement, captures the new secret, and removes the old endpoint only after the new credentials are available.
+- The runtime environment sync stores the resulting secret in Vercel. Later deploys inject that sensitive value into the reconcile process with `vercel env run`, without writing it to a file.
+
+A trusted local shell remains available as a recovery or manual bootstrap path:
 
 ```bash
 npm run providers:apply -- --print-created-secret
 ```
 
-Run that from a trusted local shell with the target environment values loaded. The script prints the newly created `whsec_...` signing secret exactly once; store it immediately as `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment. CI can resolve `STRIPE_WEBHOOK_ENDPOINT_ID` later when exactly one endpoint matches the target URL, or you can set it as an environment variable to pin reconciliation.
-
-GitHub Actions intentionally does not create the first Stripe endpoint because Stripe returns the signing secret only once and this repo does not grant Actions permission to persist it as a GitHub Environment secret.
+Stripe reveals this only when an endpoint is created. When using the local path, store the printed signing secret immediately as `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment or Vercel target. CI can resolve `STRIPE_WEBHOOK_ENDPOINT_ID` later when exactly one endpoint matches the target URL, or you can set it as an environment variable to pin reconciliation.
 
 ### Vercel
 
@@ -112,24 +118,24 @@ Terraform creates/reconciles the Vercel project shell. CI resolves `VERCEL_PROJE
 
 ## 5. Configure provider integrations
 
-Run **Configure Providers** with `mode=plan` for `development` and `production`, then run it with `mode=apply` after reviewing the plan and storing one-time secrets.
+Run **Configure Providers** with `mode=plan` for `development` and `production`, then run it with `mode=apply` after reviewing the plan. This remains useful for Google OAuth configuration and explicit provider reconciliation; the normal deploy workflow also reconciles Stripe before runtime validation.
 
 This workflow:
 
 - Reads Terraform outputs from state.
 - Resolves provider values through `scripts/resolve-environment.mjs`.
 - Applies hosted Supabase Google Auth provider settings after the OAuth client exists.
-- Updates/verifies Stripe webhook endpoint URL, enabled events, status, description, and metadata after the endpoint signing secret exists.
+- Updates/verifies Stripe webhook endpoint URL, enabled events, status, description, and metadata when the endpoint signing secret is available.
 
 ## 6. Bootstrap environments
 
 Run **Bootstrap Environment** once for `development` and once for `production`.
 
-The workflow delegates to `scripts/bootstrap-environment.mjs`, which runs provider bootstrap in `--apply-if-configured` mode, validates the resolved environment, generates `.env.deploy`, syncs runtime env to Vercel, links Supabase, pushes migrations, and removes `.env.deploy`. It does not deploy the app.
+The workflow delegates to `scripts/bootstrap-environment.mjs`, which runs provider bootstrap in `--apply-if-configured` mode, validates the resolved environment, generates `.env.deploy`, syncs Vercel env, links Supabase, pushes migrations, and removes `.env.deploy`. It does not deploy the app.
 
 ## 7. Deploy
 
-Development deploys automatically from non-`main` branches unless docs-only.
+Development deploys automatically from non-`main` branches unless docs-only. Before the final environment contract check and Vercel deployment, the workflow injects any existing Vercel signing secret into the Stripe reconciliation process or creates a new endpoint and secret when none exists.
 
 Production deploys from a release or `v*` tag:
 
@@ -166,6 +172,6 @@ npm run build
 1. Stop filling new values in `config/environments.json`; keep only stable defaults such as `APP_NAME` and the Stripe webhook event set.
 2. Rename any repository secret `VERCEL_API_TOKEN` to `VERCEL_TOKEN`.
 3. Move `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `GOOGLE_OAUTH_CLIENT_ID` to environment variables.
-4. Keep `SUPABASE_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `GOOGLE_OAUTH_CLIENT_SECRET` as environment secrets.
+4. Keep `SUPABASE_SECRET_KEY`, `STRIPE_SECRET_KEY`, and `GOOGLE_OAUTH_CLIENT_SECRET` as environment secrets. Existing `STRIPE_WEBHOOK_SECRET` values remain valid, but new environments can let deploy provision and persist the value automatically.
 5. Remove manually copied `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `VERCEL_PROJECT_ID`, and `VERCEL_ORG_ID` from GitHub Environments after the resolver succeeds.
 6. Run **Configure Providers** in `plan`, then `apply`, and run **Bootstrap Environment** for both active environments.
