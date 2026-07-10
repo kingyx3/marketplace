@@ -51,7 +51,14 @@ Secrets:
 
 ## GitHub CLI intake
 
-`npm run bootstrap:github` is plan-only. `npm run bootstrap:github -- --apply` creates/reconciles environments, branch policies, supplied values, and production reviewers. Per-environment shell values use `DEVELOPMENT_` and `PRODUCTION_` prefixes. Values are never printed.
+`npm run bootstrap:github` is plan-only and defaults to `development`. `npm run bootstrap:github:apply` creates or reconciles only the selected Environment, its deployment policies, supplied values, and—when production is selected—production reviewers.
+
+```bash
+npm run bootstrap:github:apply
+npm run bootstrap:github:apply -- --target=production
+```
+
+Shell values use the matching `DEVELOPMENT_` or `PRODUCTION_` prefix. Values are never printed. The normal hosted entry point is `npm run bootstrap -- --apply`, which invokes governance and target-aware GitHub intake automatically.
 
 ## Optional Terraform overrides
 
@@ -71,6 +78,6 @@ Supabase compute sizing is not currently part of the Terraform contract because 
 
 ## Release-readiness verification
 
-After applying bootstrap, run **Bootstrap Environment** again with `mode=verify`. This is non-mutating and fails when Terraform, provider settings, Vercel runtime values, or deployed health differ from the resolved desired state. The same check is available from an authenticated shell as `npm run bootstrap:verify`.
+The hosted bootstrap workflow automatically verifies the selected environment after deployment. For targeted diagnostics, run **Bootstrap Environment** with `mode=verify` or use `npm run bootstrap:verify` from an authenticated shell. Verification is non-mutating and fails when Terraform, provider settings, Vercel runtime values, or deployed health differ from the resolved desired state.
 
 See the generated reference for the complete runtime/deploy key list.

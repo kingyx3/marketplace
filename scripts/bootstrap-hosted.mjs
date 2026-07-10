@@ -3,15 +3,14 @@ import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
-const target = readOption("--target") || "all";
-if (!new Set(["all", "development", "production"]).has(target)) {
-  fail("--target must be all, development, or production");
+const target = readOption("--target") || "development";
+if (!new Set(["development", "production"]).has(target)) {
+  fail("--target must be development or production");
 }
 
 const applyArg = apply ? ["--apply"] : [];
 run(process.execPath, ["scripts/configure-github-governance.mjs", ...applyArg]);
-run(process.execPath, ["scripts/bootstrap-github.mjs", ...applyArg]);
-run(process.execPath, ["scripts/configure-bootstrap-policies.mjs", ...applyArg]);
+run(process.execPath, ["scripts/bootstrap-github.mjs", `--target=${target}`, ...applyArg]);
 
 if (!apply) {
   console.log(`\nNo hosted workflow was dispatched. Re-run with --apply to bootstrap, deploy, and verify ${target}.`);
@@ -19,9 +18,9 @@ if (!apply) {
 }
 
 const existingRuns = new Set(listWorkflowRuns());
-run("gh", ["workflow", "run", "bootstrap-all.yml", "--ref", "main", "-f", `target=${target}`]);
+run("gh", ["workflow", "run", "bootstrap.yml", "--ref", "main", "-f", `target=${target}`]);
 const runId = waitForNewRun(existingRuns);
-console.log(`\nFollowing Bootstrap & Deploy run ${runId}...`);
+console.log(`\nFollowing Bootstrap & Deploy run ${runId} for ${target}...`);
 run("gh", ["run", "watch", String(runId), "--exit-status"]);
 
 function readOption(name) {
@@ -34,7 +33,7 @@ function readOption(name) {
 function listWorkflowRuns() {
   const output = capture("gh", [
     "run", "list",
-    "--workflow", "bootstrap-all.yml",
+    "--workflow", "bootstrap.yml",
     "--branch", "main",
     "--event", "workflow_dispatch",
     "--limit", "20",

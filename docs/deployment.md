@@ -2,37 +2,42 @@
 
 ## Normal operator path
 
-Use one command from a trusted authenticated shell:
+Bootstrap and deploy development from a trusted authenticated shell:
 
 ```bash
-npm run bootstrap:all -- --apply
+npm run bootstrap -- --apply
 ```
 
-Or run **Bootstrap & Deploy** once from GitHub Actions.
+Production must be requested explicitly:
 
-The aggregate operation performs:
+```bash
+npm run bootstrap -- --apply --target=production
+```
+
+The same operation is available as **Bootstrap & Deploy** in GitHub Actions, where `development` is the default and `production` is the only alternative.
+
+The selected environment follows one linear pipeline:
 
 ```text
 full application + Playwright checks
 → Terraform state convergence
 → shared platform convergence
-→ development bootstrap, deployment, and verification
-→ production bootstrap, deployment, and verification
+→ environment bootstrap
+→ deployment
+→ non-mutating verification
 ```
-
-When `target=all`, production cannot begin until development verification succeeds. Production environment approval remains the intentional human gate.
 
 ## Reusable pipeline components
 
-The aggregate workflow calls the existing components instead of duplicating their behavior:
+The workflow calls existing components instead of duplicating their behavior:
 
-- **App checks** — lint, typecheck, tests, build, and optional Playwright E2E.
+- **App checks** — lint, typecheck, tests, build, and Playwright E2E.
 - **Terraform State Bootstrap** — default `converge` mode plus recovery-only `reconcile`, `plan`, and exact-artifact `apply` modes.
 - **Terraform Platform** — default `converge` mode plus recovery-only granular modes.
-- **Bootstrap Environment** — targeted provider/runtime/database `apply` or non-mutating `verify`.
+- **Bootstrap Environment** — provider/runtime/database `apply` or non-mutating `verify`.
 - **Deploy** — migration validation/push, runtime reconciliation, immutable Vercel deployment reuse, and health checks.
 
-Application checks run once in the aggregate workflow. Deployments receive `skip_app_checks=true` so development and production do not repeat the same source validation.
+Application checks run once. Deployment receives `skip_app_checks=true` so the same source validation is not repeated.
 
 ## Safety and idempotency
 
@@ -50,9 +55,9 @@ Application checks run once in the aggregate workflow. Deployments receive `skip
 - Production refuses to deploy with Terraform, provider, or runtime drift.
 - Final verification is non-mutating and includes deployed health checks.
 
-## Development topology
+## Environment topology
 
-Only the `develop` integration branch automatically triggers the standalone development deployment workflow. The aggregate workflow is dispatched from `main`; bootstrap configuration explicitly permits `main` for both GitHub Environments.
+Only the `develop` integration branch automatically triggers the standalone development deployment workflow. The hosted bootstrap workflow is dispatched from `main`; the target-aware GitHub setup permits `main` for the selected Environment. Production also retains its `v*` deployment policy.
 
 ## Diagnostics and recovery
 
@@ -70,5 +75,5 @@ Use granular workflows only when diagnosing or recovering a specific layer:
 
 - Vercel application rollback: promote a previous immutable deployment.
 - Database rollback: add a forward reverting migration.
-- Configuration repair: correct the GitHub source value and rerun the aggregate workflow.
-- Provider repair: run **Configure Providers**, then rerun **Bootstrap & Deploy**.
+- Configuration repair: correct the selected GitHub Environment value and rerun bootstrap.
+- Provider repair: run **Configure Providers**, then rerun **Bootstrap & Deploy** for that target.

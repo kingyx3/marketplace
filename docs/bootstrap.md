@@ -1,6 +1,6 @@
 # Bootstrap guide
 
-The normal hosted setup is one command or one GitHub Actions run. It is safe to rerun: unchanged infrastructure, provider configuration, runtime values, migrations, and deployments converge to no-ops.
+The normal hosted setup bootstraps development through one command or one GitHub Actions run. Production remains available only when explicitly selected. Unchanged infrastructure, provider configuration, runtime values, migrations, and deployments converge to no-ops.
 
 ## External prerequisites
 
@@ -13,7 +13,7 @@ Create or confirm the account-level trust boundaries that repository code cannot
 - Stripe test/live keys with PayNow enabled at the account level.
 - Google OAuth consent-screen and Web-client ownership when Google Auth is enabled.
 
-## Required trusted-shell values
+## Trusted-shell values
 
 Shared values use their normal names:
 
@@ -23,7 +23,7 @@ VERCEL_TOKEN
 SUPABASE_ACCESS_TOKEN
 ```
 
-Per-environment values use `DEVELOPMENT_` or `PRODUCTION_` prefixes:
+Development values use the `DEVELOPMENT_` prefix. Production values are only needed for an explicit production run and use `PRODUCTION_`:
 
 ```text
 DEVELOPMENT_NEXT_PUBLIC_SITE_URL
@@ -43,49 +43,50 @@ PRODUCTION_GOOGLE_OAUTH_CLIENT_SECRET
 
 Set `PRODUCTION_REVIEWERS=user1,user2` when creating production for the first time. `SUPABASE_SECRET_KEY` is optional when the Management API exposes a modern server key. `STRIPE_WEBHOOK_SECRET` is optional because bootstrap provisions and persists it transactionally.
 
-## One-command path
+## Development bootstrap — default
 
-Preview the GitHub changes without mutating anything:
-
-```bash
-npm run bootstrap:all
-```
-
-Apply everything and follow the resulting Actions run until completion:
+Preview the development GitHub changes without mutating anything:
 
 ```bash
-npm run bootstrap:all -- --apply
+npm run bootstrap
 ```
 
-Optional scopes:
+Apply development and follow the resulting Actions run until completion:
 
 ```bash
-npm run bootstrap:all -- --apply --target=development
-npm run bootstrap:all -- --apply --target=production
+npm run bootstrap -- --apply
 ```
 
-The command performs two operations:
+The command:
 
-1. Reconciles GitHub branch governance, environments, deployment policies, variables, supplied secrets, and production reviewers.
-2. Dispatches **Bootstrap & Deploy**, discovers that exact workflow run, follows it, and returns its exit status.
+1. Reconciles repository governance plus the development GitHub Environment, policies, variables, and supplied secrets.
+2. Dispatches **Bootstrap & Deploy** with `target=development`.
+3. Follows that exact workflow run and returns its exit status.
 
-The workflow then performs:
+The workflow performs:
 
 ```text
 full application and E2E checks
 → converge Terraform state bucket
 → adopt/converge shared Vercel and Supabase infrastructure
 → bootstrap development providers, runtime values, and database
-→ deploy and verify development
-→ bootstrap production providers, runtime values, and database
-→ deploy and verify production
+→ deploy development
+→ verify development
 ```
 
-Choosing `all` deliberately requires development to pass before production begins. Production environment approval remains an intentional human gate, but no workflow sequence needs to be assembled manually.
+## Production bootstrap — explicit
+
+Production uses the same tested path but must be selected explicitly:
+
+```bash
+npm run bootstrap -- --apply --target=production
+```
+
+This command only requires and reconciles production-specific values. GitHub production reviewers and the existing production drift/readiness gates remain enforced.
 
 ## GitHub Actions path
 
-After GitHub variables and secrets already exist, run **Bootstrap & Deploy** once from the Actions tab and choose `all`, `development`, or `production`.
+Run **Bootstrap & Deploy** from the Actions tab. `development` is the default; `production` is the only other option.
 
 ## What convergence includes
 
@@ -106,7 +107,7 @@ After GitHub variables and secrets already exist, run **Bootstrap & Deploy** onc
 
 ### Deployment and verification
 
-- Application checks run once in the parent workflow and are not repeated inside each deployment.
+- Application checks run once and are not repeated inside deployment.
 - Identical source/runtime fingerprints reuse an existing ready Vercel deployment.
 - Production deployment refuses to proceed with Terraform, provider, or runtime drift.
 - Final verification checks provider state, Vercel runtime state, `/api/health`, and production deep readiness.
@@ -121,11 +122,11 @@ The following workflows remain available but are not the normal setup path:
 - **Configure Providers** — provider-only plan, repair, or verification.
 - Development and production deployment workflows — application-only deployment triggers.
 
-Use recovery mode when adopting manually created resources, diagnosing state, or repairing one environment. Otherwise rerun **Bootstrap & Deploy**.
+Use recovery mode when adopting manually created resources, diagnosing state, or repairing one environment. Otherwise rerun **Bootstrap & Deploy** for the selected target.
 
 ## Operational rules
 
 - Never edit an applied migration; add a forward migration.
-- Correct operator values at their GitHub source and rerun the one-click workflow.
+- Correct operator values at their GitHub source and rerun bootstrap.
 - Keep Google OAuth redirect registration and Stripe PayNow/account compliance settings aligned with the documented provider-account prerequisites.
-- Treat any failed stage as a failed bootstrap; the command and aggregate workflow both exit unsuccessfully.
+- Treat any failed stage as a failed bootstrap; both the command and workflow exit unsuccessfully.
