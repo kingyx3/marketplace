@@ -50,7 +50,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: hashicorp/setup-terraform@v3.1.2
+      - uses: hashicorp/setup-terraform@v4.0.1
         with:
           terraform_version: 1.15.8
       - run: npm ci
