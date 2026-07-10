@@ -4,7 +4,6 @@ import { appendFile } from "node:fs/promises";
 import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";
 
 const DEFAULT_WEBHOOK_EVENTS = Object.freeze([
-  "payment_intent.amount_capturable_updated",
   "payment_intent.succeeded",
   "payment_intent.payment_failed",
   "charge.refunded",
@@ -95,11 +94,13 @@ async function reconcileWebhookEndpoint(config) {
 
   const update = desiredUpdate(current, config);
   if (Object.keys(update).length === 0) {
+    await exportCredentials(current.id, config.webhookSecret);
     console.log(`Stripe webhook endpoint ${current.id} is already configured.`);
     return;
   }
 
   const updated = await stripe.webhookEndpoints.update(current.id, update);
+  await exportCredentials(updated.id, config.webhookSecret);
   console.log(`Updated Stripe webhook endpoint ${updated.id} for ${config.webhookUrl}.`);
 }
 
@@ -121,23 +122,26 @@ async function createWebhookEndpoint(stripe, config) {
 
 async function exportCreatedCredentialsWithRollback(stripe, endpoint) {
   try {
-    await exportCreatedCredentials(endpoint);
+    await exportCredentials(endpoint.id, endpoint.secret);
   } catch (error) {
     await stripe.webhookEndpoints.del(endpoint.id).catch(() => {});
     throw error;
   }
 }
 
-async function exportCreatedCredentials(endpoint) {
+async function exportCredentials(endpointId, webhookSecret) {
   const githubEnv = process.env.GITHUB_ENV;
   if (!githubEnv) {
-    throw new Error("GITHUB_ENV is required to safely pass a newly created Stripe webhook secret to later deploy steps.");
+    throw new Error("GITHUB_ENV is required to safely pass Stripe webhook credentials to later deploy steps.");
+  }
+  if (!/^we_/.test(endpointId) || !/^whsec_/.test(webhookSecret)) {
+    throw new Error("Stripe webhook credentials are missing or malformed.");
   }
 
-  console.log(`::add-mask::${endpoint.secret}`);
+  console.log(`::add-mask::${webhookSecret}`);
   await appendFile(
     githubEnv,
-    `STRIPE_WEBHOOK_SECRET=${endpoint.secret}\nSTRIPE_WEBHOOK_ENDPOINT_ID=${endpoint.id}\n`,
+    `STRIPE_WEBHOOK_SECRET=${webhookSecret}\nSTRIPE_WEBHOOK_ENDPOINT_ID=${endpointId}\n`,
     "utf8"
   );
 }
