@@ -186,10 +186,11 @@ jobs:
         run: terraform output -json > tf-outputs.json
       - name: Resolve Terraform and provider config
         run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict
-      - name: Restore generated runtime secrets from Vercel
-        run: node scripts/restore-generated-env.mjs
       - name: Reconcile Stripe webhook before runtime validation
-        run: node scripts/provision-stripe-webhook.mjs
+        run: |
+          VERCEL_ENV=preview
+          if [ "$TARGET_ENV" = "production" ]; then VERCEL_ENV=production; fi
+          npx vercel env run --environment "$VERCEL_ENV" --token "$VERCEL_TOKEN" -- node scripts/provision-stripe-webhook.mjs
       - name: Generate runtime env from resolved config
         run: node scripts/generate-env.mjs --write .env.deploy
       - name: Sync runtime env to Vercel
