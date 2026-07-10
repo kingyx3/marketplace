@@ -12,7 +12,7 @@ const fingerprints = {};
 for (const entry of ENV_CONTRACT) {
   if (entry.deployOnly) continue;
   const value = process.env[entry.key];
-  if (value === undefined || value === "") continue;
+  if (value === undefined) continue;
   fingerprints[entry.key] = createHmac("sha256", key).update(value).digest("hex");
 }
 
