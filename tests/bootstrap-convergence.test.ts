@@ -1,5 +1,8 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -64,6 +67,40 @@ describe("bootstrap convergence", () => {
       missingRemote: true,
       providerFailure: false,
     });
+  });
+
+  it("exports the derived state bucket for both Terraform resources and backend initialization", () => {
+    const directory = mkdtempSync(join(tmpdir(), "marketplace-terraform-inputs-"));
+    const githubEnv = join(directory, "github-env");
+    try {
+      const credentials = JSON.stringify({
+        project_id: "example-project",
+        client_email: "terraform@example-project.iam.gserviceaccount.com",
+        private_key: "unused-for-state-resolution",
+      });
+      const result = spawnSync(process.execPath, ["scripts/resolve-terraform-inputs.mjs", "state"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          GITHUB_ENV: githubEnv,
+          GITHUB_REPOSITORY: "kingyx3/marketplace",
+          GCP_TERRAFORM_CREDENTIALS_JSON: credentials,
+          GCP_PROJECT_ID: "",
+          PROJECT_SLUG: "",
+          TF_STATE_BUCKET_NAME: "",
+          TF_STATE_BUCKET_LOCATION: "",
+        },
+      });
+      if (result.status !== 0) throw new Error(result.stderr || result.stdout);
+      const output = readFileSync(githubEnv, "utf8");
+      expect(output).toContain("TF_STATE_BUCKET_NAME=example-project-marketplace-tfstate\n");
+      expect(output).toContain("TF_VAR_state_bucket_name=example-project-marketplace-tfstate\n");
+      expect(output).toContain("TF_STATE_BUCKET_LOCATION=us-central1\n");
+      expect(output).toContain("TF_VAR_state_bucket_location=us-central1\n");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });
 

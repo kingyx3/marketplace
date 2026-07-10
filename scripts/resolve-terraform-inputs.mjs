@@ -18,6 +18,8 @@ const stateBucketLocation = optional("TF_STATE_BUCKET_LOCATION") || "us-central1
 
 const values = {
   GOOGLE_CREDENTIALS: googleCredentials,
+  TF_STATE_BUCKET_NAME: stateBucketName,
+  TF_STATE_BUCKET_LOCATION: stateBucketLocation,
   TF_VAR_gcp_project_id: gcpProjectId,
   TF_VAR_project_slug: projectSlug,
   TF_VAR_state_bucket_name: stateBucketName,
@@ -29,7 +31,6 @@ if (mode === "platform") {
   required("SUPABASE_ACCESS_TOKEN");
 
   values.VERCEL_API_TOKEN = vercelToken;
-  values.TF_STATE_BUCKET_NAME = stateBucketName;
   values.TF_STATE_PREFIX = "marketplace/platform";
   values.TF_VAR_vercel_team_id = optional("VERCEL_TEAM_ID");
   values.TF_VAR_vercel_project_name = optional("VERCEL_PROJECT_NAME");
