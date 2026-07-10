@@ -52,7 +52,7 @@ jobs:
         run: terraform output -json > tf-outputs.json
       - name: Resolve Terraform and provider config
         run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
-      - name: Validate resolved environment contract
+      - name: Validate resolved environment contract before provider provisioning
         run: |
           case "$TARGET_ENV" in
             development|production) ;;
@@ -62,7 +62,7 @@ jobs:
             echo "SUPABASE_PROJECT_REF is malformed" >&2
             exit 1
           fi
-          node scripts/generate-env.mjs --check
+          node scripts/generate-env.mjs --check --allow-missing-provisioned
 
   app-checks:
     name: App check (${{ matrix.check }})
@@ -186,6 +186,10 @@ jobs:
         run: terraform output -json > tf-outputs.json
       - name: Resolve Terraform and provider config
         run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict
+      - name: Restore generated runtime secrets from Vercel
+        run: node scripts/restore-generated-env.mjs
+      - name: Reconcile Stripe webhook before runtime validation
+        run: node scripts/provision-stripe-webhook.mjs
       - name: Generate runtime env from resolved config
         run: node scripts/generate-env.mjs --write .env.deploy
       - name: Sync runtime env to Vercel
