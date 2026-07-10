@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      application-dependencies:
+        patterns: ['*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: terraform
+    directory: /infra/terraform/bootstrap
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: terraform
+    directory: /infra/terraform/platform
+    schedule:
+      interval: weekly

@@ -1,17 +1,13 @@
 #!/usr/bin/env node
-import Stripe from "stripe";
-import { appendFile } from "node:fs/promises";
 import { inspect } from "node:util";
-
-const DEFAULT_WEBHOOK_EVENTS = Object.freeze([
-  "payment_intent.amount_capturable_updated",
-  "payment_intent.succeeded",
-  "payment_intent.payment_failed",
-  "charge.refunded",
-]);
-
-const MANAGED_BY = "marketplace-bootstrap";
-const WEBHOOK_PATH = "/api/webhooks/stripe";
+import {
+  buildStripeWebhookConfig,
+  createStripeClient,
+  inspectStripeWebhook,
+  reconcileStripeWebhook,
+  summarizeStripeWebhook,
+  verifyStripeWebhook,
+} from "./lib/stripe-webhook.mjs";
 
 const args = new Set(process.argv.slice(2));
 const mode = args.has("--apply")
@@ -22,307 +18,70 @@ const mode = args.has("--apply")
       ? "verify"
       : "plan";
 const allowSecretPrinting = args.has("--print-created-secret") && !process.env.GITHUB_ACTIONS;
-
-const config = buildConfig(process.env);
+const config = buildStripeWebhookConfig(process.env);
 
 try {
-  if (mode === "plan") {
-    await printPlan(config);
+  const missing = requiredInputs(config);
+  if (missing.length > 0 && mode === "apply-if-configured") {
+    console.log(`Stripe webhook configuration skipped. Missing: ${missing.join(", ")}`);
+    printDesired(config);
+  } else if (missing.length > 0) {
+    throw new Error(`Stripe webhook configuration is missing: ${missing.join(", ")}`);
+  } else if (mode === "plan") {
+    printDesired(config);
+    const state = await inspectStripeWebhook({ stripe: createStripeClient(config), config });
+    console.log(inspect({
+      current: state.endpoint ? JSON.parse(summarizeStripeWebhook(state.endpoint)) : null,
+      changes: state.update,
+      signingSecretAvailable: state.signingSecretAvailable,
+    }, { colors: false, depth: null }));
   } else if (mode === "verify") {
-    await verifyWebhookEndpoint(config, { strict: true });
+    const endpoint = await verifyStripeWebhook({ config, requireSigningSecret: false });
+    console.log(`Stripe webhook endpoint verified: ${summarizeStripeWebhook(endpoint)}`);
   } else {
-    await applyWebhookEndpoint(config, {
-      skipWhenMissing: mode === "apply-if-configured",
-      allowSecretPrinting,
+    const result = await reconcileStripeWebhook({
+      config,
+      allowCreate: allowSecretPrinting,
+      requireSigningSecret: allowSecretPrinting,
+      onCredentials: async (endpointId, webhookSecret) => {
+        if (!allowSecretPrinting && !config.webhookSecret) {
+          throw new Error("The webhook signing secret is unavailable to this read/update-only provider workflow.");
+        }
+        if (allowSecretPrinting && webhookSecret !== config.webhookSecret) {
+          console.log(`Created Stripe webhook signing secret: ${webhookSecret}`);
+          console.log(`Created Stripe webhook endpoint id: ${endpointId}`);
+          console.log("Store both values in the matching trusted secret/configuration store immediately.");
+        }
+      },
     });
-    await verifyWebhookEndpoint(config, { strict: false });
+    console.log(`Stripe webhook ${result.action}: ${summarizeStripeWebhook(result.endpoint)}`);
+    await verifyStripeWebhook({ config: { ...config, webhookSecret: config.webhookSecret || result.endpoint.secret || "" }, requireSigningSecret: allowSecretPrinting });
   }
 } catch (error) {
-  fail(redact(error?.message || String(error)));
+  console.error(redact(error?.message || String(error)));
+  process.exit(1);
 }
 
-function buildConfig(env) {
-  const siteUrl = normalizeOrigin(env.NEXT_PUBLIC_SITE_URL || "");
-  const webhookUrl = siteUrl ? `${siteUrl}${WEBHOOK_PATH}` : "";
-  const targetEnv = env.TARGET_ENV || "";
-  const appName = env.APP_NAME || "Marketplace";
-  const enabledEvents = parseEnabledEvents(env.STRIPE_WEBHOOK_ENABLED_EVENTS);
-
-  return {
-    appName,
-    targetEnv,
-    siteUrl,
-    webhookUrl,
-    secretKey: env.STRIPE_SECRET_KEY || "",
-    webhookSecret: env.STRIPE_WEBHOOK_SECRET || "",
-    webhookEndpointId: env.STRIPE_WEBHOOK_ENDPOINT_ID || "",
-    enabledEvents,
-    description: `${appName}${targetEnv ? ` ${targetEnv}` : ""} Stripe webhook`,
-  };
-}
-
-async function printPlan(config) {
-  const plan = {
-    stripeAccount: {
-      webhookEndpointIdEnv: config.webhookEndpointId || "<not set>",
-      webhookUrl: config.webhookUrl || "https://your-app.example.com/api/webhooks/stripe",
-      enabledEvents: config.enabledEvents,
-      description: config.description,
-      canApplyWithThisScript: requiredForApply(config).length === 0,
-    },
-    githubEnvironment: {
-      requiredSecret: "STRIPE_SECRET_KEY",
-      requiredRuntimeSecret: "STRIPE_WEBHOOK_SECRET",
-      recommendedVariable: "STRIPE_WEBHOOK_ENDPOINT_ID",
-      optionalEventsOverride: "STRIPE_WEBHOOK_ENABLED_EVENTS",
-    },
-    secretHandling: {
-      createdWebhookSecret: "returned by Stripe only when a new endpoint is created",
-      githubActions: "will not create a new endpoint because GitHub Actions cannot safely persist the one-time signing secret",
-      localBootstrap: "run with --apply --print-created-secret, then store STRIPE_WEBHOOK_SECRET and STRIPE_WEBHOOK_ENDPOINT_ID",
-    },
-  };
-
-  console.log(inspect(plan, { colors: false, depth: null }));
-
-  if (config.secretKey && config.webhookUrl) {
-    const stripe = createStripeClient(config);
-    const endpoint = await findWebhookEndpoint(stripe, config);
-    if (endpoint) {
-      console.log(`Found Stripe webhook endpoint ${endpoint.id}: ${summarizeEndpoint(endpoint)}`);
-    } else {
-      console.log("No matching Stripe webhook endpoint was found.");
-    }
-  }
-}
-
-async function applyWebhookEndpoint(config, { skipWhenMissing, allowSecretPrinting }) {
-  const missing = requiredForApply(config);
-  if (missing.length > 0) {
-    const message = `Stripe webhook endpoint was not applied. Missing: ${missing.join(", ")}`;
-    if (skipWhenMissing) {
-      console.log(message);
-      await printPlan(config);
-      return;
-    }
-    throw new Error(message);
-  }
-
-  validateEnabledEvents(config.enabledEvents);
-
-  const stripe = createStripeClient(config);
-  const current = await findWebhookEndpoint(stripe, config);
-
-  if (current) {
-    const update = desiredUpdate(current, config);
-    if (Object.keys(update).length === 0) {
-      console.log(`Stripe webhook endpoint ${current.id} is already configured.`);
-      writeStepSummary(`Stripe webhook endpoint \`${current.id}\` is already configured for \`${config.webhookUrl}\`.`);
-      return current;
-    }
-
-    const updated = await stripe.webhookEndpoints.update(current.id, update);
-    console.log(`Updated Stripe webhook endpoint ${updated.id}: ${summarizeEndpoint(updated)}`);
-    writeStepSummary(`Updated Stripe webhook endpoint \`${updated.id}\` for \`${config.webhookUrl}\`.`);
-    return updated;
-  }
-
-  if (!allowSecretPrinting) {
-    throw new Error(
-      [
-        `No Stripe webhook endpoint exists for ${config.webhookUrl}.`,
-        "Create the first endpoint from a trusted local shell with:",
-        "  npm run providers:apply -- --print-created-secret",
-        "Then store the printed whsec_ value as STRIPE_WEBHOOK_SECRET and the we_ id as STRIPE_WEBHOOK_ENDPOINT_ID in the matching GitHub Environment.",
-        "GitHub Actions intentionally will not create the first endpoint because Stripe returns the signing secret only once.",
-      ].join("\n")
-    );
-  }
-
-  const created = await stripe.webhookEndpoints.create({
-    url: config.webhookUrl,
-    enabled_events: config.enabledEvents,
+function printDesired(config) {
+  console.log(inspect({
+    webhookUrl: config.webhookUrl,
+    enabledEvents: config.enabledEvents,
     description: config.description,
-    metadata: desiredMetadata(config),
-  });
-
-  console.log(`Created Stripe webhook endpoint ${created.id}: ${summarizeEndpoint(created)}`);
-  console.log(`Created Stripe webhook signing secret: ${created.secret}`);
-  console.log("Store STRIPE_WEBHOOK_SECRET and STRIPE_WEBHOOK_ENDPOINT_ID in the matching GitHub Environment before deploying.");
-  writeStepSummary(
-    `Created Stripe webhook endpoint \`${created.id}\` for \`${config.webhookUrl}\`. Store its signing secret before deploy.`
-  );
-  return created;
+    endpointId: config.webhookEndpointId || null,
+    createAllowed: allowSecretPrinting,
+  }, { colors: false, depth: null }));
 }
 
-async function verifyWebhookEndpoint(config, { strict }) {
-  const missing = requiredForApply(config);
-  if (missing.length > 0) {
-    const message = `Cannot verify Stripe webhook endpoint. Missing: ${missing.join(", ")}`;
-    if (strict) throw new Error(message);
-    console.log(message);
-    return;
-  }
-
-  if (!/^whsec_/.test(config.webhookSecret || "")) {
-    const message = "STRIPE_WEBHOOK_SECRET is missing or malformed; store the endpoint signing secret before deploy.";
-    if (strict) throw new Error(message);
-    console.log(message);
-  }
-
-  validateEnabledEvents(config.enabledEvents);
-
-  const stripe = createStripeClient(config);
-  const endpoint = await findWebhookEndpoint(stripe, config);
-  if (!endpoint) {
-    const message = `No Stripe webhook endpoint exists for ${config.webhookUrl}.`;
-    if (strict) throw new Error(message);
-    console.log(message);
-    return;
-  }
-
-  const update = desiredUpdate(endpoint, config);
-  if (Object.keys(update).length > 0) {
-    const message = `Stripe webhook endpoint ${endpoint.id} differs from the desired configuration.`;
-    if (strict) throw new Error(message);
-    console.log(message);
-    return;
-  }
-
-  console.log(`Stripe webhook endpoint ${endpoint.id} verified: ${summarizeEndpoint(endpoint)}`);
-}
-
-function createStripeClient(config) {
-  return new Stripe(config.secretKey, {
-    appInfo: {
-      name: MANAGED_BY,
-      version: "1.0.0",
-      url: "https://github.com/kingyx3/marketplace",
-    },
-  });
-}
-
-async function findWebhookEndpoint(stripe, config) {
-  if (config.webhookEndpointId) {
-    const endpoint = await stripe.webhookEndpoints.retrieve(config.webhookEndpointId);
-    if (endpoint?.deleted) throw new Error(`Stripe webhook endpoint ${config.webhookEndpointId} is deleted.`);
-    return endpoint;
-  }
-
-  const matches = (await listWebhookEndpoints(stripe)).filter((endpoint) => endpoint.url === config.webhookUrl);
-
-  if (matches.length > 1) {
-    throw new Error(
-      `Found multiple Stripe webhook endpoints for ${config.webhookUrl}: ${matches
-        .map((endpoint) => endpoint.id)
-        .join(", ")}. Set STRIPE_WEBHOOK_ENDPOINT_ID to choose one before applying.`
-    );
-  }
-
-  return matches[0] || null;
-}
-
-async function listWebhookEndpoints(stripe) {
-  const endpoints = [];
-  let startingAfter;
-
-  do {
-    const page = await stripe.webhookEndpoints.list({
-      limit: 100,
-      ...(startingAfter ? { starting_after: startingAfter } : {}),
-    });
-    endpoints.push(...page.data);
-    startingAfter = page.has_more ? page.data.at(-1)?.id : undefined;
-  } while (startingAfter);
-
-  return endpoints;
-}
-
-function desiredUpdate(endpoint, config) {
-  const update = {};
-
-  if (endpoint.url !== config.webhookUrl) update.url = config.webhookUrl;
-  if (!sameStringSet(endpoint.enabled_events || [], config.enabledEvents)) update.enabled_events = config.enabledEvents;
-  if (endpoint.status !== "enabled") update.disabled = false;
-  if ((endpoint.description || "") !== config.description) update.description = config.description;
-
-  const metadata = desiredMetadata(config);
-  for (const [key, value] of Object.entries(metadata)) {
-    if ((endpoint.metadata?.[key] || "") !== value) {
-      update.metadata = metadata;
-      break;
-    }
-  }
-
-  return update;
-}
-
-function desiredMetadata(config) {
-  return Object.fromEntries(
-    Object.entries({
-      managed_by: MANAGED_BY,
-      target_env: config.targetEnv,
-      site_url: config.siteUrl,
-    }).filter(([, value]) => value)
-  );
-}
-
-function writeStepSummary(message) {
-  if (!process.env.GITHUB_STEP_SUMMARY) return;
-  appendFile(process.env.GITHUB_STEP_SUMMARY, `${message}\n`, "utf8").catch(() => {});
-}
-
-function requiredForApply(config) {
+function requiredInputs(config) {
   return [
     ["STRIPE_SECRET_KEY", config.secretKey],
     ["NEXT_PUBLIC_SITE_URL", config.siteUrl],
-  ]
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
-}
-
-function parseEnabledEvents(value) {
-  const events = String(value || "")
-    .split(/[\s,]+/)
-    .map((event) => event.trim())
-    .filter(Boolean);
-  return events.length > 0 ? [...new Set(events)] : [...DEFAULT_WEBHOOK_EVENTS];
-}
-
-function validateEnabledEvents(events) {
-  if (events.length === 0) throw new Error("At least one Stripe webhook event must be enabled.");
-  const malformed = events.filter((event) => event !== "*" && !/^[a-z0-9_]+(\.[a-z0-9_]+)+$/.test(event));
-  if (malformed.length > 0) throw new Error(`Malformed Stripe webhook event(s): ${malformed.join(", ")}`);
-}
-
-function normalizeOrigin(value) {
-  if (!value) return "";
-  try {
-    return new URL(value).origin;
-  } catch {
-    return "";
-  }
-}
-
-function sameStringSet(left, right) {
-  return [...left].sort().join("\n") === [...right].sort().join("\n");
-}
-
-function summarizeEndpoint(endpoint) {
-  return JSON.stringify({
-    url: endpoint.url,
-    status: endpoint.status,
-    enabled_events: endpoint.enabled_events,
-  });
+    ["TARGET_ENV", config.targetEnv],
+  ].filter(([, value]) => !value).map(([key]) => key);
 }
 
 function redact(value) {
   return String(value)
     .replaceAll(/sk_(test|live)_[A-Za-z0-9_\-]+/g, "[redacted-stripe-secret-key]")
     .replaceAll(/whsec_[A-Za-z0-9_\-]+/g, "[redacted-stripe-webhook-secret]");
-}
-
-function fail(message) {
-  console.error(message);
-  process.exit(1);
 }

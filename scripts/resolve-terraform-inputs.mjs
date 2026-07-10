@@ -36,9 +36,6 @@ if (mode === "platform") {
   values.TF_VAR_vercel_root_directory = optional("VERCEL_ROOT_DIRECTORY");
   values.TF_VAR_supabase_organization_id = optional("SUPABASE_ORGANIZATION_ID") || await resolveSingleSupabaseOrganizationId();
   values.TF_VAR_supabase_region = optional("SUPABASE_REGION") || "ap-southeast-1";
-
-  const supabaseInstanceSize = optional("SUPABASE_INSTANCE_SIZE");
-  if (supabaseInstanceSize) values.TF_VAR_supabase_instance_size = supabaseInstanceSize;
 }
 
 await appendFile(githubEnv, Object.entries(values).map(([key, value]) => formatGithubEnvLine(key, value)).join(""), "utf8");

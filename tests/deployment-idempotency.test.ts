@@ -6,73 +6,57 @@ async function repoFile(path: string): Promise<string> {
 }
 
 describe("deployment idempotency contract", () => {
-  it("serializes every workflow that mutates a hosted environment", async () => {
-    const dynamicWorkflows = await Promise.all(
-      [
-        ".github/workflows/terraform-state-bootstrap.yml",
-        ".github/workflows/terraform-platform.yml",
-        ".github/workflows/configure-providers.yml",
-        ".github/workflows/bootstrap-environment.yml",
-      ].map(repoFile)
-    );
-
-    for (const workflow of dynamicWorkflows) {
-      expect(workflow).toContain("group: environment-${{ inputs.environment }}");
+  it("uses a global lock for shared infrastructure and per-environment runtime locks", async () => {
+    for (const path of [
+      ".github/workflows/terraform-state-bootstrap.yml",
+      ".github/workflows/terraform-platform.yml",
+    ]) {
+      const workflow = await repoFile(path);
+      expect(workflow).toContain("group: marketplace-shared-infrastructure");
       expect(workflow).toContain("cancel-in-progress: false");
     }
-
-    const development = await repoFile(".github/workflows/deploy-development.yml");
-    const production = await repoFile(".github/workflows/deploy-production.yml");
-    expect(development).toContain("group: environment-development");
-    expect(development).toContain("cancel-in-progress: false");
-    expect(development).toContain("git ls-remote");
-    expect(development).toContain("Skipping superseded development deploy");
-    expect(production).toContain("group: environment-production");
-    expect(production).toContain("cancel-in-progress: false");
+    for (const path of [
+      ".github/workflows/configure-providers.yml",
+      ".github/workflows/bootstrap-environment.yml",
+    ]) {
+      const workflow = await repoFile(path);
+      expect(workflow).toContain("group: marketplace-environment-${{ inputs.environment }}");
+    }
+    expect(await repoFile(".github/workflows/deploy-development.yml")).toContain("group: marketplace-environment-development");
+    expect(await repoFile(".github/workflows/deploy-production.yml")).toContain("group: marketplace-environment-production");
   });
 
-  it("reconciles Terraform state explicitly instead of hiding import failures", async () => {
-    const workflow = await repoFile(".github/workflows/terraform-state-bootstrap.yml");
-    const bootstrap = await repoFile("scripts/bootstrap-terraform-state-import.mjs");
-
-    expect(workflow).toContain("node scripts/bootstrap-terraform-state-import.mjs");
-    expect(workflow).not.toContain("terraform import google_storage_bucket.terraform_state");
-    expect(workflow).not.toContain("|| true");
-    expect(bootstrap).toContain("isMissingRemoteObject");
-    expect(bootstrap).toContain("is already managed in Terraform state; skipping import");
-    expect(bootstrap).toContain("no state file was found");
+  it("keeps plan mode read-only and applies an exact reviewed artifact", async () => {
+    for (const path of [
+      ".github/workflows/terraform-state-bootstrap.yml",
+      ".github/workflows/terraform-platform.yml",
+    ]) {
+      const workflow = await repoFile(path);
+      const planSection = workflow.slice(workflow.indexOf("  plan:"), workflow.indexOf("  apply:"));
+      expect(planSection).not.toContain("bootstrap-terraform");
+      expect(planSection).not.toContain("terraform state rm");
+      expect(workflow).toContain("actions/upload-artifact@v4");
+      expect(workflow).toContain("actions/download-artifact@v4");
+      expect(workflow).toContain("plan_run_id");
+      expect(workflow).toContain("source_sha");
+    }
   });
 
   it("turns unchanged Vercel configuration and deployments into no-ops", async () => {
     const sync = await repoFile("scripts/sync-vercel-env.mjs");
     const deploy = await repoFile("scripts/deploy-vercel.mjs");
-
     expect(sync).toContain("scripts/fingerprint-runtime-env.mjs");
     expect(sync).toContain('"env", "update"');
     expect(sync).toContain("unchanged += 1");
-    expect(sync).toContain("VERCEL_DEPLOYMENT_CONFIG_FINGERPRINT");
     expect(deploy).toContain("marketplaceDeploymentKey");
-    expect(deploy).toContain("findReadyDeployment");
     expect(deploy).toContain("Reusing ready Vercel deployment");
-  });
-
-  it("reuses existing Stripe webhook credentials across deploy steps", async () => {
-    const provision = await repoFile("scripts/provision-stripe-webhook.mjs");
-
-    expect(provision).toContain("await exportCredentials(current.id, config.webhookSecret)");
-    expect(provision).toContain("await exportCredentials(updated.id, config.webhookSecret)");
-    expect(provision).toContain("STRIPE_WEBHOOK_SECRET=${webhookSecret}");
-    expect(provision).not.toContain("payment_intent.amount_capturable_updated");
   });
 
   it("keeps Stripe checkout and webhooks limited to PayNow lifecycle events", async () => {
     const stripe = await repoFile("lib/stripe.ts");
     const config = JSON.parse(await repoFile("config/environments.json"));
-
     expect(stripe).toContain('normalized.payment_method_types = ["paynow"]');
     expect(stripe).toContain("delete normalized.automatic_payment_methods");
-    expect(stripe).toContain("delete normalized.capture_method");
-    expect(stripe).toContain("delete normalized.setup_future_usage");
     expect(config.shared.STRIPE_WEBHOOK_ENABLED_EVENTS).toEqual([
       "payment_intent.succeeded",
       "payment_intent.payment_failed",

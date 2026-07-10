@@ -1,7 +1,3 @@
-# Tags / releases → production environment.
-# The `production` GitHub Environment must be configured with required
-# reviewers — the deploy pauses for human approval before any job that
-# targets it runs. See docs/deployment.md.
 name: Deploy production
 
 on:
@@ -11,7 +7,7 @@ on:
     tags: ['v*']
 
 concurrency:
-  group: environment-production
+  group: marketplace-environment-production
   cancel-in-progress: false
 
 permissions:

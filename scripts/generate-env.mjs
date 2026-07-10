@@ -1,53 +1,27 @@
+import { readFileSync } from "node:fs";
 import {
   applyVersionedEnvironmentConfig,
   exportPublicEnvironmentForGithubActions,
 } from "./environment-config.mjs";
 
-export const ENV_CONTRACT = [
-  { key: "NEXT_PUBLIC_SUPABASE_URL", required: true, secret: false, pattern: /^https:\/\/.+/, hint: "Supabase project API URL" },
-  { key: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", required: true, secret: false, hint: "Supabase publishable key" },
-  { key: "SUPABASE_SECRET_KEY", required: true, secret: true, hint: "Supabase server key" },
-  { key: "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID", required: false, secret: false, hint: "local Supabase Google OAuth client id" },
-  { key: "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET", required: false, secret: true, hint: "local Supabase Google OAuth client secret" },
-  { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", required: true, secret: false, pattern: /^pk_/, hint: "Stripe publishable key" },
-  { key: "STRIPE_SECRET_KEY", required: true, secret: true, pattern: /^sk_/, hint: "Stripe server key" },
-  { key: "STRIPE_WEBHOOK_SECRET", required: true, provisioned: true, secret: true, pattern: /^whsec_/, hint: "Stripe webhook signing key" },
-  { key: "NEXT_PUBLIC_SITE_URL", required: true, secret: false, pattern: /^https?:\/\/.+/, hint: "canonical public URL" },
-  { key: "APP_NAME", required: true, secret: false, pattern: /\S/, hint: "display name" },
-  { key: "TARGET_ENV", required: true, secret: false, deployOnly: true, pattern: /^(development|production)$/, hint: "deployment environment" },
-  { key: "SUPABASE_ACCESS_TOKEN", required: false, secret: true, deployOnly: true, hint: "Supabase CLI access" },
-  { key: "SUPABASE_DB_PASSWORD", required: false, secret: true, deployOnly: true, hint: "Supabase database credential" },
-  { key: "SUPABASE_PROJECT_REF", required: false, secret: false, deployOnly: true, hint: "Supabase project reference" },
-  { key: "GOOGLE_OAUTH_CLIENT_ID", required: false, secret: false, deployOnly: true, hint: "hosted Supabase Google OAuth client id" },
-  { key: "GOOGLE_OAUTH_CLIENT_SECRET", required: false, secret: true, deployOnly: true, hint: "hosted Supabase Google OAuth client secret" },
-  { key: "STRIPE_WEBHOOK_ENDPOINT_ID", required: false, secret: false, deployOnly: true, pattern: /^we_/, hint: "managed Stripe webhook endpoint id" },
-  { key: "STRIPE_WEBHOOK_ENABLED_EVENTS", required: false, secret: false, deployOnly: true, hint: "comma or whitespace separated Stripe webhook event override" },
-  { key: "VERCEL_TOKEN", required: false, secret: true, deployOnly: true, hint: "Vercel CLI access" },
-  { key: "VERCEL_ORG_ID", required: false, secret: false, deployOnly: true, hint: "Vercel deploy scope id: personal user id for Hobby or team/org id later" },
-  { key: "VERCEL_PROJECT_ID", required: false, secret: false, deployOnly: true, hint: "Vercel project id" },
-  { key: "RESEND_API_KEY", required: false, secret: true, hint: "email provider" },
-  { key: "RESEND_FROM_EMAIL", required: false, secret: false, pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, hint: "sender email" },
-  { key: "SUPPORT_EMAIL", required: false, secret: false, pattern: /^[^@\s]+@[^@\s]+\.[^@\s]+$/, hint: "support email" },
-  { key: "TWILIO_ACCOUNT_SID", required: false, secret: false, hint: "SMS provider account" },
-  { key: "TWILIO_AUTH_TOKEN", required: false, secret: true, hint: "SMS provider token" },
-  { key: "TELEGRAM_BOT_TOKEN", required: false, secret: true, hint: "Telegram provider token" },
-  { key: "WHATSAPP_ACCESS_TOKEN", required: false, secret: true, hint: "WhatsApp provider token" },
-  { key: "WHATSAPP_PHONE_NUMBER_ID", required: false, secret: false, hint: "WhatsApp phone-number id" },
-];
+const CONTRACT_URL = new URL("../config/environment-contract.json", import.meta.url);
+export const ENV_CONTRACT = Object.freeze(JSON.parse(readFileSync(CONTRACT_URL, "utf8")));
 
 export function validateEnv(env, options = {}) {
   const errors = [];
   const allowMissingProvisioned = options.allowMissingProvisioned ?? false;
   for (const entry of ENV_CONTRACT) {
     const value = env[entry.key];
+    const conditionRequired = entry.requiredWhen && String(env[entry.requiredWhen.key] || "") === entry.requiredWhen.equals;
+    const required = entry.required || conditionRequired;
     if (value === undefined || value === "") {
-      if (entry.required && !(allowMissingProvisioned && entry.provisioned)) {
+      if (required && !(allowMissingProvisioned && entry.provisioned)) {
         errors.push(`missing required: ${entry.key} (${entry.hint})`);
       }
       continue;
     }
-    if (entry.pattern && !entry.pattern.test(value)) {
-      errors.push(`malformed: ${entry.key} — expected ${entry.pattern} (${entry.hint})`);
+    if (!validValue(String(value), entry.validator)) {
+      errors.push(`malformed: ${entry.key} (${entry.hint})`);
     }
   }
   return { ok: errors.length === 0, errors };
@@ -61,12 +35,31 @@ export function renderDotenv(env) {
     if (value === undefined || value === "") continue;
     lines.push(`${entry.key}=${formatDotenvValue(value)}`);
   }
-  return lines.join("\n") + "\n";
+  return `${lines.join("\n")}\n`;
+}
+
+function validValue(value, validator = { type: "nonempty" }) {
+  if (validator.type === "nonempty") return value.trim().length > 0;
+  if (validator.type === "prefix") return value.startsWith(validator.value);
+  if (validator.type === "enum") return validator.values.includes(value);
+  if (validator.type === "boolean-string") return value === "true" || value === "false";
+  if (validator.type === "pattern") return new RegExp(validator.value).test(value);
+  if (validator.type === "email") return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
+  if (validator.type === "url") {
+    try {
+      const parsed = new URL(value);
+      return !validator.protocols || validator.protocols.includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  }
+  return true;
 }
 
 function formatDotenvValue(value) {
-  if (/[\s#"'\\]/.test(value)) return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
-  return value;
+  const stringValue = String(value);
+  if (/[\s#"'\\]/.test(stringValue)) return `"${stringValue.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  return stringValue;
 }
 
 export function parseDotenv(content) {
@@ -78,22 +71,30 @@ export function parseDotenv(content) {
     if (equalsAt <= 0) continue;
     const key = line.slice(0, equalsAt).trim();
     let value = line.slice(equalsAt + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1).replaceAll('\\"', '"').replaceAll("\\\\", "\\");
+    }
     parsed[key] = value;
   }
   return parsed;
 }
 
-export async function loadLocalDotenv(env = process.env, path = ".env") {
-  try {
-    const { readFile } = await import("node:fs/promises");
-    const parsed = parseDotenv(await readFile(path, "utf8"));
-    for (const [key, value] of Object.entries(parsed)) if (env[key] === undefined || env[key] === "") env[key] = value;
-    return true;
-  } catch (error) {
-    if (error?.code === "ENOENT") return false;
-    throw error;
+export async function loadLocalDotenv(env = process.env, path) {
+  const { readFile } = await import("node:fs/promises");
+  const paths = path ? [path] : [".env.local", ".env"];
+  let loaded = false;
+  for (const candidate of paths) {
+    try {
+      const parsed = parseDotenv(await readFile(candidate, "utf8"));
+      for (const [key, value] of Object.entries(parsed)) {
+        if (env[key] === undefined || env[key] === "") env[key] = value;
+      }
+      loaded = true;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
   }
+  return loaded;
 }
 
 async function main() {
@@ -101,10 +102,7 @@ async function main() {
   const allowMissingProvisioned = process.argv.includes("--allow-missing-provisioned");
   await loadLocalDotenv(process.env);
   const appliedConfig = await applyVersionedEnvironmentConfig(process.env);
-
-  if (appliedConfig.length > 0) {
-    console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
-  }
+  if (appliedConfig.length > 0) console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
 
   if (mode === "--export-public") {
     await exportPublicEnvironmentForGithubActions(process.env, ENV_CONTRACT);
@@ -112,11 +110,10 @@ async function main() {
   }
 
   const { ok, errors } = validateEnv(process.env, { allowMissingProvisioned });
-
   if (!ok) {
     console.error("Environment contract validation FAILED:");
-    for (const e of errors) console.error(`  - ${e}`);
-    console.error("See docs/environments.md for where each key comes from.");
+    for (const error of errors) console.error(`  - ${error}`);
+    console.error("See docs/generated/environment-reference.md for the generated source-of-truth table.");
     process.exit(1);
   }
 
@@ -130,7 +127,7 @@ async function main() {
     const target = outPath || ".env";
     await writeFile(target, renderDotenv(process.env), "utf8");
     await chmod(target, 0o600);
-    const written = ENV_CONTRACT.filter((e) => !e.deployOnly && process.env[e.key]).map((e) => e.key);
+    const written = ENV_CONTRACT.filter((entry) => !entry.deployOnly && process.env[entry.key]).map((entry) => entry.key);
     console.log(`wrote ${target} with keys: ${written.join(", ")}`);
   } else if (mode === "--check" || mode === undefined) {
     console.log("environment contract OK");

@@ -4,27 +4,34 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: GitHub Environment for Terraform credentials and variables
+        description: GitHub Environment providing shared Terraform credentials and overrides
         required: true
         type: environment
-      apply:
-        description: Apply platform changes
+      mode:
+        description: Reconcile imports, create a read-only plan, or apply an exact prior plan
         required: true
-        type: boolean
-        default: false
+        default: plan
+        type: choice
+        options: [reconcile, plan, apply]
+      plan_run_id:
+        description: Required for apply; Actions run id that produced the reviewed plan artifact
+        required: false
+        type: string
 
 concurrency:
-  group: environment-${{ inputs.environment }}
+  group: marketplace-shared-infrastructure
   cancel-in-progress: false
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  platform:
+  reconcile:
+    if: inputs.mode == 'reconcile'
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    env:
+    env: &platform_env
       TARGET_ENV: ${{ inputs.environment }}
       GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -38,35 +45,96 @@ jobs:
       VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME }}
       VERCEL_ROOT_DIRECTORY: ${{ vars.VERCEL_ROOT_DIRECTORY }}
       SUPABASE_REGION: ${{ vars.SUPABASE_REGION }}
-      SUPABASE_INSTANCE_SIZE: ${{ vars.SUPABASE_INSTANCE_SIZE }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: hashicorp/setup-terraform@v3
-      - name: Resolve CI/CD variables
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
+      - name: Resolve Terraform inputs
         run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Terraform init
-        working-directory: infra/terraform/platform
-        run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-      - name: Terraform fmt
-        working-directory: infra/terraform/platform
-        run: terraform fmt -check
-      - name: Terraform validate
-        working-directory: infra/terraform/platform
-        run: terraform validate
-      - name: Bootstrap Terraform imports
+      - name: Terraform init, format, and validate
+        run: |
+          terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+          terraform -chdir=infra/terraform/platform fmt -check
+          terraform -chdir=infra/terraform/platform validate
+      - name: Reconcile existing provider resources into state
         run: node scripts/bootstrap-terraform-imports.mjs
-      - name: Terraform plan
-        working-directory: infra/terraform/platform
-        run: terraform plan -out=tfplan
-      - name: Terraform apply
-        if: ${{ inputs.apply }}
-        working-directory: infra/terraform/platform
-        run: terraform apply -auto-approve tfplan
+
+  plan:
+    if: inputs.mode == 'plan'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env: *platform_env
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
+      - name: Resolve Terraform inputs
+        run: node scripts/resolve-terraform-inputs.mjs platform
+      - name: Terraform init, format, and validate
+        run: |
+          terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+          terraform -chdir=infra/terraform/platform fmt -check
+          terraform -chdir=infra/terraform/platform validate
+      - name: Create side-effect-free plan
+        run: |
+          mkdir -p .terraform-plan
+          terraform -chdir=infra/terraform/platform plan -input=false -out="$GITHUB_WORKSPACE/.terraform-plan/tfplan"
+          terraform -chdir=infra/terraform/platform show -no-color "$GITHUB_WORKSPACE/.terraform-plan/tfplan" > .terraform-plan/plan.txt
+          node -e 'const fs=require("fs"); fs.writeFileSync(".terraform-plan/metadata.json", JSON.stringify({source_sha:process.env.GITHUB_SHA,stack:"platform",workflow_run_id:process.env.GITHUB_RUN_ID},null,2)+"\n")'
+      - name: Add plan to job summary
+        run: cat .terraform-plan/plan.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: terraform-platform-plan
+          path: .terraform-plan/
+          retention-days: 1
+          if-no-files-found: error
+
+  apply:
+    if: inputs.mode == 'apply'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env: *platform_env
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Validate reviewed plan reference
+        env:
+          PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+        run: |
+          test -n "$PLAN_RUN_ID" || { echo "plan_run_id is required for apply" >&2; exit 1; }
+          [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]] || { echo "plan_run_id must be numeric" >&2; exit 1; }
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: terraform-platform-plan
+          path: .terraform-plan
+          run-id: ${{ inputs.plan_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify exact reviewed plan
+        run: |
+          node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(".terraform-plan/metadata.json")); if(m.stack!=="platform"||m.source_sha!==process.env.GITHUB_SHA) throw new Error(`Plan belongs to ${m.stack}@${m.source_sha}, expected platform@${process.env.GITHUB_SHA}`)'
+          test -s .terraform-plan/tfplan
+      - name: Resolve Terraform inputs
+        run: node scripts/resolve-terraform-inputs.mjs platform
+      - name: Initialize backend
+        run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - name: Apply exact reviewed plan
+        run: terraform -chdir=infra/terraform/platform apply -input=false -auto-approve "$GITHUB_WORKSPACE/.terraform-plan/tfplan"
       - name: Export Terraform output contract
-        if: ${{ inputs.apply }}
-        working-directory: infra/terraform/platform
-        run: terraform output -json > tf-outputs.json
+        run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json

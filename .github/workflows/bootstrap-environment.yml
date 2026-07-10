@@ -4,12 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: GitHub Environment to bootstrap
+        description: GitHub Environment to reconcile or verify
         required: true
         type: environment
+      mode:
+        description: Apply convergence or run non-mutating release-readiness verification
+        required: true
+        default: apply
+        type: choice
+        options: [apply, verify]
 
 concurrency:
-  group: environment-${{ inputs.environment }}
+  group: marketplace-environment-${{ inputs.environment }}
   cancel-in-progress: false
 
 permissions:
@@ -30,6 +36,7 @@ jobs:
       VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
       NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      GOOGLE_AUTH_ENABLED: ${{ vars.GOOGLE_AUTH_ENABLED }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
@@ -38,25 +45,22 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: hashicorp/setup-terraform@v3
-      - uses: supabase/setup-cli@v1
+      - uses: hashicorp/setup-terraform@v3.1.2
         with:
-          version: latest
+          terraform_version: 1.15.8
       - run: npm ci
-      - name: Resolve Terraform backend inputs
-        run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Terraform init
-        working-directory: infra/terraform/platform
-        run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-      - name: Export Terraform outputs
-        working-directory: infra/terraform/platform
-        run: terraform output -json > tf-outputs.json
-      - name: Resolve Terraform and provider config
-        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
-      - name: Bootstrap resolved environment
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: terraform -chdir=infra/terraform/platform init -input=false -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+      - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
+      - name: Converge provider, runtime, and database state
+        if: inputs.mode == 'apply'
         run: node scripts/bootstrap-environment.mjs
+      - name: Verify release readiness without mutation
+        if: inputs.mode == 'verify'
+        run: node scripts/verify-environment.mjs

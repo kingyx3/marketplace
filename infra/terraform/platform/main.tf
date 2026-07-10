@@ -29,10 +29,4 @@ resource "supabase_project" "app" {
   name              = "${var.project_slug}-${each.key}"
   database_password = random_password.supabase_database[each.key].result
   region            = var.supabase_region
-  instance_size     = var.supabase_instance_size
-
-  timeouts {
-    create = "30m"
-    update = "30m"
-  }
 }

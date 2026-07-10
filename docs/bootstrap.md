@@ -1,213 +1,159 @@
 # Bootstrap guide
 
-Use this runbook to take the repository from blank provider accounts to working hosted `development` and `production` deployments. It describes the behavior implemented by the current Terraform stacks, GitHub Actions workflows, and provider scripts.
-
-The hosted flow is output-driven: do not copy Terraform outputs or provider-generated public values into committed configuration.
+This runbook takes blank provider accounts to converged `development` and `production` environments. Every repository-managed operation is designed for safe reruns. A second successful run should either make no changes or apply only detected drift.
 
 ## Topology
 
-| GitHub Environment | Trigger | Vercel target | Supabase project | Status |
-| --- | --- | --- | --- | --- |
-| `development` | Push to non-`main` branches, unless docs-only | Preview | Development project | Active |
-| `production` | `v*` tag or published release | Production | Production project | Active |
-| `staging` | None | None | None | Reserved |
+| GitHub Environment | Trigger | Vercel target | Supabase project |
+| --- | --- | --- | --- |
+| `development` | `develop` push or manual dispatch | Preview | Development |
+| `production` | `v*` tag or published release | Production | Production |
 
-Terraform manages one shared Vercel project plus one Supabase project for each active environment. The state and platform workflows therefore run once for the shared stack, not once per application environment.
+The GCS state bucket, Vercel project, and both Supabase project shells are shared infrastructure. Runtime/provider/database reconciliation is per environment.
 
-## 1. Prepare provider accounts
+## 1. Provider account prerequisites
 
-Create or confirm access to:
+Create or confirm:
 
-- GitHub repository administration for secrets, environments, and protection rules.
-- A Google Cloud project and service-account JSON for the Terraform state bucket.
+- GitHub repository administration.
+- A Google Cloud project and credential with permission to manage the Terraform state bucket.
 - A Vercel API token.
 - A Supabase access token.
-- Stripe test/live keys with PayNow enabled for the account.
-- Google OAuth Web application clients for hosted Supabase Auth.
-- Optional notification providers only when those channels are needed.
+- Stripe test/live keys with PayNow enabled.
+- Google OAuth Web clients and consent-screen ownership when Google Auth is enabled.
 
-## 2. Configure GitHub
+Google Cloud OAuth-client creation and Stripe account-level PayNow enablement remain provider-account boundaries. Everything below those boundaries is reconciled by repository code.
 
-Create GitHub Environments named `development` and `production`. Keep `staging` empty and reserved. Add required reviewers to `production` before launch.
+## 2. Configure GitHub from a trusted shell
 
-### Shared workflow secrets
+Authenticate the GitHub CLI, export the required values, and inspect the plan:
 
-Repository-level secrets are the simplest setup because the shared Terraform workflows can be launched against either active GitHub Environment. Environment-level secrets also work when they are present in the environment selected for the workflow run.
+```bash
+npm run bootstrap:github
+npm run github:governance
+```
 
-- `GCP_TERRAFORM_CREDENTIALS_JSON`
-- `VERCEL_TOKEN`
-- `SUPABASE_ACCESS_TOKEN`
+The local command expects shared values using their normal names:
 
-### Operator-supplied values for each active environment
+```text
+GCP_TERRAFORM_CREDENTIALS_JSON
+VERCEL_TOKEN
+SUPABASE_ACCESS_TOKEN
+```
 
-| Location | Name | Notes |
-| --- | --- | --- |
-| Variable | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Test key for `development`, live key for `production`. |
-| Variable | `GOOGLE_OAUTH_CLIENT_ID` | Required for hosted Google sign-in. |
-| Variable | `NEXT_PUBLIC_SITE_URL` | Set the stable canonical URL when it differs from the Vercel project URL inferred by the resolver. The resolved runtime contract always requires a URL. |
-| Secret | `SUPABASE_SECRET_KEY` | Server-only Supabase key for the matching project. |
-| Secret | `STRIPE_SECRET_KEY` | Test key for `development`, live key for `production`. |
-| Secret | `GOOGLE_OAUTH_CLIENT_SECRET` | Secret for the matching Google Web OAuth client. |
+Per-environment values use `DEVELOPMENT_` or `PRODUCTION_` prefixes, for example:
 
-`STRIPE_WEBHOOK_SECRET` is required by the running application, but it is path-dependent during initial setup:
+```text
+DEVELOPMENT_NEXT_PUBLIC_SITE_URL
+DEVELOPMENT_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+DEVELOPMENT_GOOGLE_AUTH_ENABLED
+DEVELOPMENT_GOOGLE_OAUTH_CLIENT_ID
+DEVELOPMENT_STRIPE_SECRET_KEY
+DEVELOPMENT_GOOGLE_OAUTH_CLIENT_SECRET
+```
 
-- The normal deploy workflow can create or replace the endpoint, capture Stripe's one-time signing secret, and persist it to the matching Vercel target.
-- **Configure Providers** and **Bootstrap Environment** do not recover a Vercel-only signing secret. To use those workflows before the first deploy, create the endpoint from a trusted local shell and store `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment first.
+`SUPABASE_SECRET_KEY` is optional when the Supabase Management API returns a modern `sb_secret_...` key. `STRIPE_WEBHOOK_SECRET` is optional because hosted bootstrap provisions and persists it. Set `PRODUCTION_REVIEWERS=user1,user2` to configure required reviewers.
 
-Optional Terraform overrides such as `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, and `SUPABASE_REGION` are documented in `docs/environments.md`. The resolver derives defaults when possible.
+Apply the complete GitHub setup in one command:
 
-Do not paste Terraform outputs or provider public IDs into `config/environments.json`. CI/CD resolves them during each workflow run.
+```bash
+npm run bootstrap:github:apply
+```
 
-## 3. Run Terraform once for the shared stack
+The command reconciles strict `main` protection, required CI checks, one independent approval, stale-review dismissal, resolved conversations, `development` and `production`, deployment branch policies, supplied variables/secrets, and production environment reviewers. Secret values are passed over stdin and never printed.
 
-For both Terraform workflows, select an active GitHub Environment that can access the shared workflow secrets and any Terraform overrides. `development` is normally the least surprising choice because it does not carry the production approval gate.
+## 3. Reconcile and apply Terraform state bucket
 
-In GitHub Actions:
+In **Terraform State Bootstrap**:
 
-1. Run **Terraform State Bootstrap** with `apply=false`.
-2. Review the plan, then rerun **Terraform State Bootstrap** with `apply=true`.
-3. Run **Terraform Platform** with `apply=false`.
-4. Review the Vercel/Supabase project plan, then rerun **Terraform Platform** with `apply=true`.
+1. Run `mode=reconcile` to adopt an existing bucket if necessary.
+2. Run `mode=plan`. This mode does not import, remove state, or apply changes.
+3. Review the plan and note the Actions run id.
+4. Run `mode=apply` with `plan_run_id=<reviewed run id>`.
 
-The platform stack creates/reconciles the shared Vercel project and both active Supabase project shells. It outputs the Vercel project id, Supabase project refs/URLs, and Terraform-generated Supabase database passwords. Downstream workflows read those values directly from remote state.
+Apply downloads the exact one-day plan artifact, verifies its stack and source commit, and applies that binary plan. It never silently regenerates a different plan.
 
-Terraform import bootstrap inspects state before importing. It treats only an explicitly missing remote object as a create case and fails on permission, credential, or provider errors instead of hiding them.
+## 4. Reconcile and apply the platform stack
 
-## 4. Finish provider inputs
+Repeat the same sequence in **Terraform Platform**:
 
-### Supabase
+1. `mode=reconcile` adopts existing Vercel/Supabase resources and removes only state entries whose remote Supabase project is confirmed deleted.
+2. `mode=plan` produces a side-effect-free reviewed plan.
+3. `mode=apply` applies the exact artifact using its run id.
 
-For each hosted project:
+Both Terraform workflows use one global shared-infrastructure concurrency lock, regardless of which GitHub Environment supplies credentials. Pull-request CI initializes both stacks without a backend, verifies committed multi-platform provider lockfiles, checks formatting, and runs `terraform validate`.
 
-- Store its server secret key as `SUPABASE_SECRET_KEY` in the matching GitHub Environment.
-- Keep schema, storage, grants, RLS, and RPCs in migrations.
-- Let CI resolve `SUPABASE_PROJECT_REF`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_DB_PASSWORD`.
+## 5. Complete provider-account inputs
 
 ### Google OAuth
 
-Create or update a Google Cloud **Web application** OAuth client with:
+For each enabled environment, configure a Google Web application with:
 
-- Authorized JavaScript origin: the resolved `NEXT_PUBLIC_SITE_URL` origin.
-- Authorized redirect URI: `${NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`.
-- Local development entries when needed:
-  - Origin: `http://localhost:3000`
-  - Redirect URI: `http://127.0.0.1:54321/auth/v1/callback`
+- JavaScript origin: the canonical `NEXT_PUBLIC_SITE_URL` origin.
+- Redirect URI: `${NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`.
 
-Store hosted OAuth values in the matching GitHub Environment:
-
-- `GOOGLE_OAUTH_CLIENT_ID` as an environment variable.
-- `GOOGLE_OAUTH_CLIENT_SECRET` as an environment secret.
-
-TODO: move Google OAuth client creation/rotation into Terraform or a dedicated provider reconcile step once the project has the required Google API and consent-screen ownership encoded.
+Hosted bootstrap reconciles the Supabase provider enablement, client credentials, site URL, and redirect allow-list. Set `GOOGLE_AUTH_ENABLED=false` to explicitly disable this capability and remove credential requirements.
 
 ### Stripe
 
-For each environment:
+Use matching publishable/secret keys for test or live mode. PayNow must be enabled at the Stripe account level. The repository-managed webhook is:
 
-- Set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_SECRET_KEY` from the same Stripe mode.
-- Enable PayNow on the Stripe account.
-- Application-created PaymentIntents are normalized to SGD with `payment_method_types=["paynow"]`.
-- Do not rely on card, reusable-payment-method, setup-future-usage, or manual-capture behavior; the shared Stripe client removes those incompatible options.
-- The managed webhook URL is `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`.
-- The versioned event set is `payment_intent.succeeded`, `payment_intent.payment_failed`, and `charge.refunded`.
-
-The normal deploy path runs `scripts/provision-stripe-webhook.mjs` before final runtime validation:
-
-- If the endpoint and signing secret are available, it verifies or updates the endpoint.
-- If no endpoint exists, it creates one and passes the one-time `whsec_...` value to later workflow steps through the masked GitHub Actions environment file.
-- If an endpoint exists but its signing secret is unavailable, it creates a replacement and removes the old endpoint only after the new credentials are available.
-- Runtime env sync persists the resulting secret to Vercel. Later deploys inject that stored value into reconciliation with `vercel env run` without writing it to a file.
-
-### Optional local Stripe pre-provisioning
-
-Use this only when you want **Configure Providers** or **Bootstrap Environment** to complete before the first app deploy. Run it from a trusted local shell, separately for each environment:
-
-```bash
-TARGET_ENV=development \
-NEXT_PUBLIC_SITE_URL=https://your-development-host.example \
-APP_NAME=Marketplace \
-STRIPE_SECRET_KEY=sk_test_... \
-STRIPE_WEBHOOK_ENABLED_EVENTS="payment_intent.succeeded payment_intent.payment_failed charge.refunded" \
-node scripts/configure-stripe.mjs --apply --print-created-secret
+```text
+${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe
 ```
 
-For production, use the production URL, `TARGET_ENV=production`, and the live Stripe key. Store the printed `whsec_...` value as `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment. Store the printed `we_...` id as the optional `STRIPE_WEBHOOK_ENDPOINT_ID` variable when you want reconciliation pinned to that endpoint.
+The desired events are versioned in `config/environments.json`. One shared reconciler owns create, update, replacement, metadata, rollback, and verification. If an endpoint exists but its one-time signing secret is unavailable, bootstrap creates a replacement, persists the new credentials, then removes the old endpoint. Failure to persist credentials rolls back the replacement.
 
-The aggregate `npm run providers:apply -- --print-created-secret` command also runs Google OAuth configuration, so use it locally only after the full resolved Supabase/OAuth environment is available. Prefer the direct Stripe command above when only the webhook needs initial provisioning.
+## 6. Bootstrap each hosted environment
 
-### Vercel
+Run **Bootstrap Environment** with `mode=apply` for `development`, then `production`.
 
-Terraform creates/reconciles the Vercel project shell. CI resolves `VERCEL_PROJECT_ID` from Terraform and `VERCEL_ORG_ID` from Vercel when possible. Do not maintain Vercel runtime env manually; bootstrap/deploy syncs it from the resolved environment.
+It performs one convergent operation:
 
-Runtime variables are compared with keyed fingerprints inside `vercel env run`, so unchanged values are not rewritten and sensitive values are never printed. Deployments are tagged with a source-and-configuration fingerprint; rerunning the same revision with the same resolved runtime configuration reuses the existing ready deployment.
-
-## 5. Choose the first-time path
-
-### Path A: deploy first and let CI provision Stripe
-
-This path minimizes manual secret handling and is the simplest way to bring up `development`.
-
-1. Complete Terraform and the operator-supplied environment values above.
-2. Push a non-`main` branch to start **Deploy development**.
-3. The reusable deploy validates the resolved environment, checks migrations, pushes hosted migrations, creates/reconciles the Stripe webhook, syncs runtime env to Vercel, deploys, and smoke-tests the result.
-4. Run **Configure Providers** with `mode=plan`, then `mode=apply`, after the endpoint exists. This enables hosted Supabase Google Auth and explicitly reconciles provider settings.
-
-**Bootstrap Environment** is not required on this path. Do not run it unless `STRIPE_WEBHOOK_SECRET` is also available in the selected GitHub Environment; that workflow does not inject the Vercel-stored signing secret.
-
-For a production launch, prefer the bootstrap-before-deploy path below so OAuth and provider settings can be verified before the release tag is cut.
-
-### Path B: bootstrap before the first deploy
-
-1. Pre-provision the Stripe endpoint locally and store `STRIPE_WEBHOOK_SECRET` as described above.
-2. Run **Configure Providers** with `mode=plan` for the target environment.
-3. Run **Configure Providers** with `mode=apply`. The workflow can update or verify an existing Stripe endpoint, but it intentionally cannot create the first endpoint because that command does not persist Stripe's one-time secret.
-4. Run **Bootstrap Environment** for the target environment.
-5. Repeat for the other active environment.
-
-`Bootstrap Environment` delegates to `scripts/bootstrap-environment.mjs`, which applies configured providers, validates the resolved environment, generates `.env.deploy`, syncs Vercel env, links Supabase, pushes migrations, and removes `.env.deploy`. It does not deploy the app.
-
-## 6. Deploy
-
-Development deploys automatically from non-`main` branches unless the change is docs-only. The caller skips cleanly until the three shared deployment secrets exist.
-
-Production deploys from a published release or `v*` tag:
-
-```bash
-git tag v0.2.0
-git push origin v0.2.0
+```text
+resolve Terraform/provider values
+→ inject Vercel-stored generated secrets
+→ reconcile Stripe webhook
+→ reconcile/verify Supabase hosted auth
+→ validate generated environment contract
+→ fingerprint and sync Vercel runtime values
+→ link Supabase
+→ push migrations
 ```
 
-Production should pause for GitHub Environment reviewer approval before mutable jobs run.
+It does not deploy the application. No local Stripe pre-provisioning is required.
 
-All workflows that mutate a hosted environment share the same per-environment concurrency lock. Terraform, provider reconciliation, bootstrap, and deployment therefore run serially rather than racing each other.
+After each apply, rerun **Bootstrap Environment** with `mode=verify`. Verification is non-mutating and fails on Terraform drift, provider drift, missing or malformed runtime values, Vercel runtime drift, or unhealthy deployed endpoints. The same gate is available from an authenticated shell as `npm run bootstrap:verify`.
 
-## 7. Verify
+## 7. Deploy
 
-After deploy:
+Development follows only the `develop` integration branch so unrelated feature branches do not successively migrate the same shared database. A manual development dispatch remains available.
+
+Production deploys from a `v*` tag or published release and is protected by production environment reviewers.
+
+Deployment reruns reuse an existing ready Vercel deployment when both source revision and resolved runtime fingerprint are unchanged.
+
+## 8. Release gate
+
+Before the first production release and after infrastructure/provider changes:
+
+1. Confirm pull-request CI is green, including both Terraform validation jobs.
+2. Obtain the required independent approval.
+3. Run development bootstrap in `apply`, then `verify` mode.
+4. Exercise Google login and Stripe test-mode PayNow success, failure, and refund flows.
+5. Run production bootstrap in `verify` mode after the production reviewer approves access.
+6. Publish the release only after the verification run succeeds.
+
+Additional expected checks:
 
 - `/api/health` returns HTTP 200.
 - Production `/api/health?deep=1` returns HTTP 200.
-- Google sign-in redirects through `/auth/callback` successfully after **Configure Providers** has applied the hosted provider settings.
-- PayNow test-mode checkout works in `development` before live sales.
-- Re-running the same deploy reports unchanged Vercel environment values and reuses the ready deployment when source and resolved config are unchanged.
+- Re-running bootstrap reports converged provider/runtime values.
+- Re-running the same deployment reuses the ready deployment.
 
-Useful local checks:
+## Recovery rules
 
-```bash
-npm run env:resolve -- development
-npm run env:check
-npm run config:check
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
-
-## Migration from the old config flow
-
-1. Stop filling new values in `config/environments.json`; keep only stable defaults such as `APP_NAME` and the Stripe webhook event set.
-2. Rename any repository secret `VERCEL_API_TOKEN` to `VERCEL_TOKEN`.
-3. Move `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `GOOGLE_OAUTH_CLIENT_ID` to environment variables when they are operator supplied.
-4. Keep `SUPABASE_SECRET_KEY`, `STRIPE_SECRET_KEY`, and `GOOGLE_OAUTH_CLIENT_SECRET` as environment secrets. Existing `STRIPE_WEBHOOK_SECRET` values remain valid; deploy can provision and persist the value to Vercel when absent.
-5. Remove manually copied `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `VERCEL_PROJECT_ID`, and `VERCEL_ORG_ID` from GitHub Environments after the resolver succeeds.
-6. Choose either deploy-first or bootstrap-before-deploy for each active environment, then verify provider settings and health checks.
+- Run Terraform `reconcile` again after manually created resources must be adopted or a managed Supabase project was deleted.
+- Never edit an applied migration; add a forward migration.
+- Correct operator values in GitHub Environments and rerun bootstrap.
+- Use **Configure Providers** for a plan, explicit repair, or verification outside the aggregate bootstrap.

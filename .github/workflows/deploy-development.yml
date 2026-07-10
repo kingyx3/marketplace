@@ -1,16 +1,16 @@
-# Feature branches -> development environment when deploy prerequisites exist.
-# Docs-only changes are skipped by the paths-ignore guard.
+# The shared development data environment follows one integration branch.
 name: Deploy development
 
 on:
   push:
-    branches-ignore: [main]
+    branches: [develop]
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
+  workflow_dispatch:
 
 concurrency:
-  group: environment-development
+  group: marketplace-environment-development
   cancel-in-progress: false
 
 permissions:
@@ -28,30 +28,25 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
     steps:
       - id: check
-        name: Check development deploy prerequisites
+        name: Check development deploy prerequisites and revision freshness
         shell: bash
         run: |
-          latest_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${GITHUB_REF_NAME}" | awk '{print $1}')"
-          if [ -z "$latest_sha" ]; then
-            echo "Could not resolve the latest branch revision" >&2
-            exit 1
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            latest_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${GITHUB_REF_NAME}" | awk '{print $1}')"
+            test -n "$latest_sha" || { echo "Could not resolve branch head" >&2; exit 1; }
+            if [ "$latest_sha" != "$GITHUB_SHA" ]; then
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              echo "Skipping superseded development deploy for $GITHUB_SHA; branch head is $latest_sha."
+              exit 0
+            fi
           fi
-          if [ "$latest_sha" != "$GITHUB_SHA" ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping superseded development deploy for $GITHUB_SHA; branch head is $latest_sha." >&2
-            exit 0
-          fi
-
           missing=()
           for key in GCP_TERRAFORM_CREDENTIALS_JSON VERCEL_TOKEN SUPABASE_ACCESS_TOKEN; do
-            if [ -z "${!key:-}" ]; then
-              missing+=("$key")
-            fi
+            [ -n "${!key:-}" ] || missing+=("$key")
           done
-
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping development deploy; missing deployment prerequisite(s): ${missing[*]}" >&2
+            echo "Skipping development deploy; missing: ${missing[*]}"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi

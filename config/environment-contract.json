@@ -1,0 +1,344 @@
+[
+  {
+    "key": "NEXT_PUBLIC_SUPABASE_URL",
+    "section": "Supabase",
+    "required": true,
+    "secret": false,
+    "hint": "Supabase project API URL",
+    "validator": {
+      "type": "url",
+      "protocols": [
+        "http:",
+        "https:"
+      ]
+    }
+  },
+  {
+    "key": "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "section": "Supabase",
+    "required": true,
+    "secret": false,
+    "hint": "Supabase publishable key",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SUPABASE_SECRET_KEY",
+    "section": "Supabase",
+    "required": true,
+    "secret": true,
+    "hint": "Supabase server key or local service-role key",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID",
+    "section": "Supabase local OAuth",
+    "required": false,
+    "secret": false,
+    "hint": "Local Supabase Google OAuth client id",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET",
+    "section": "Supabase local OAuth",
+    "required": false,
+    "secret": true,
+    "hint": "Local Supabase Google OAuth client secret",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+    "section": "Stripe",
+    "required": true,
+    "secret": false,
+    "hint": "Stripe publishable key",
+    "validator": {
+      "type": "prefix",
+      "value": "pk_"
+    }
+  },
+  {
+    "key": "STRIPE_SECRET_KEY",
+    "section": "Stripe",
+    "required": true,
+    "secret": true,
+    "hint": "Stripe server key",
+    "validator": {
+      "type": "prefix",
+      "value": "sk_"
+    }
+  },
+  {
+    "key": "STRIPE_WEBHOOK_SECRET",
+    "section": "Stripe",
+    "required": true,
+    "provisioned": true,
+    "secret": true,
+    "hint": "Stripe webhook signing key",
+    "validator": {
+      "type": "prefix",
+      "value": "whsec_"
+    }
+  },
+  {
+    "key": "NEXT_PUBLIC_SITE_URL",
+    "section": "Application",
+    "required": true,
+    "secret": false,
+    "hint": "Canonical public URL",
+    "validator": {
+      "type": "url",
+      "protocols": [
+        "http:",
+        "https:"
+      ]
+    },
+    "example": "http://localhost:3000"
+  },
+  {
+    "key": "APP_NAME",
+    "section": "Application",
+    "required": true,
+    "secret": false,
+    "hint": "Display name",
+    "validator": {
+      "type": "nonempty"
+    },
+    "default": "Marketplace"
+  },
+  {
+    "key": "TARGET_ENV",
+    "section": "Hosted deployment",
+    "required": true,
+    "secret": false,
+    "deployOnly": true,
+    "hint": "Deployment environment",
+    "validator": {
+      "type": "enum",
+      "values": [
+        "development",
+        "production"
+      ]
+    },
+    "default": "development"
+  },
+  {
+    "key": "GOOGLE_AUTH_ENABLED",
+    "section": "Hosted deployment",
+    "required": true,
+    "secret": false,
+    "deployOnly": true,
+    "hint": "Whether hosted Google authentication must be configured",
+    "validator": {
+      "type": "boolean-string"
+    },
+    "default": "true"
+  },
+  {
+    "key": "SUPABASE_ACCESS_TOKEN",
+    "section": "Hosted deployment",
+    "required": false,
+    "secret": true,
+    "deployOnly": true,
+    "hint": "Supabase Management API and CLI access",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SUPABASE_DB_PASSWORD",
+    "section": "Hosted deployment",
+    "required": false,
+    "secret": true,
+    "deployOnly": true,
+    "hint": "Supabase database credential",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SUPABASE_PROJECT_REF",
+    "section": "Hosted deployment",
+    "required": false,
+    "secret": false,
+    "deployOnly": true,
+    "hint": "Supabase project reference",
+    "validator": {
+      "type": "pattern",
+      "value": "^[a-z0-9]{15,30}$"
+    }
+  },
+  {
+    "key": "GOOGLE_OAUTH_CLIENT_ID",
+    "section": "Hosted deployment",
+    "required": false,
+    "requiredWhen": {
+      "key": "GOOGLE_AUTH_ENABLED",
+      "equals": "true"
+    },
+    "secret": false,
+    "deployOnly": true,
+    "hint": "Hosted Google OAuth client id",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "GOOGLE_OAUTH_CLIENT_SECRET",
+    "section": "Hosted deployment",
+    "required": false,
+    "requiredWhen": {
+      "key": "GOOGLE_AUTH_ENABLED",
+      "equals": "true"
+    },
+    "secret": true,
+    "deployOnly": true,
+    "hint": "Hosted Google OAuth client secret",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "STRIPE_WEBHOOK_ENDPOINT_ID",
+    "section": "Hosted deployment",
+    "required": false,
+    "secret": false,
+    "deployOnly": true,
+    "hint": "Managed Stripe webhook endpoint id",
+    "validator": {
+      "type": "prefix",
+      "value": "we_"
+    }
+  },
+  {
+    "key": "STRIPE_WEBHOOK_ENABLED_EVENTS",
+    "section": "Hosted deployment",
+    "required": false,
+    "secret": false,
+    "deployOnly": true,
+    "hint": "Stripe webhook event override",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "VERCEL_TOKEN",
+    "section": "Hosted deployment",
+    "required": false,
+    "secret": true,
+    "deployOnly": true,
+    "hint": "Vercel CLI access",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "VERCEL_ORG_ID",
+    "section": "Hosted deployment",
+    "required": false,
+    "secret": false,
+    "deployOnly": true,
+    "hint": "Vercel user or team scope id",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "VERCEL_PROJECT_ID",
+    "section": "Hosted deployment",
+    "required": false,
+    "secret": false,
+    "deployOnly": true,
+    "hint": "Vercel project id",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "RESEND_API_KEY",
+    "section": "Optional notifications",
+    "required": false,
+    "secret": true,
+    "hint": "Email provider key",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "RESEND_FROM_EMAIL",
+    "section": "Optional notifications",
+    "required": false,
+    "secret": false,
+    "hint": "Verified sender email",
+    "validator": {
+      "type": "email"
+    }
+  },
+  {
+    "key": "SUPPORT_EMAIL",
+    "section": "Optional notifications",
+    "required": false,
+    "secret": false,
+    "hint": "Support email",
+    "validator": {
+      "type": "email"
+    }
+  },
+  {
+    "key": "TWILIO_ACCOUNT_SID",
+    "section": "Optional notifications",
+    "required": false,
+    "secret": false,
+    "hint": "Twilio account id",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "TWILIO_AUTH_TOKEN",
+    "section": "Optional notifications",
+    "required": false,
+    "secret": true,
+    "hint": "Twilio authentication token",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "TELEGRAM_BOT_TOKEN",
+    "section": "Optional notifications",
+    "required": false,
+    "secret": true,
+    "hint": "Telegram bot token",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "WHATSAPP_ACCESS_TOKEN",
+    "section": "Optional notifications",
+    "required": false,
+    "secret": true,
+    "hint": "WhatsApp access token",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "WHATSAPP_PHONE_NUMBER_ID",
+    "section": "Optional notifications",
+    "required": false,
+    "secret": false,
+    "hint": "WhatsApp phone number id",
+    "validator": {
+      "type": "nonempty"
+    }
+  }
+]

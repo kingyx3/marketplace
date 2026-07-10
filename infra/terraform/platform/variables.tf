@@ -32,9 +32,3 @@ variable "supabase_region" {
   type        = string
   default     = "ap-southeast-1"
 }
-
-variable "supabase_instance_size" {
-  description = "Optional compute instance size for paid Supabase organizations. Leave null for free-plan organizations."
-  type        = string
-  default     = null
-}
