@@ -26,14 +26,26 @@ function firstPresent(...keys) {
   return "";
 }
 
-function stateHas(address) {
+function readState(address) {
   const result = spawnSync("terraform", ["state", "show", "-no-color", address], {
     cwd: terraformDir,
     env: process.env,
     encoding: "utf8",
-    stdio: "ignore",
+    stdio: ["ignore", "pipe", "ignore"],
   });
-  return result.status === 0;
+
+  if (result.error) fail(`Terraform failed to read state for ${address}: ${result.error.message}`);
+  if (result.status !== 0) return { exists: false, id: "" };
+
+  return {
+    exists: true,
+    id: terraformStateId(result.stdout),
+  };
+}
+
+function terraformStateId(state) {
+  const match = state.match(/^\s*id\s*=\s*"([^"]+)"\s*$/m);
+  return match?.[1] || "";
 }
 
 function terraform(args) {
@@ -49,7 +61,7 @@ function terraform(args) {
 
 async function bootstrapVercelProject() {
   const address = "vercel_project.app";
-  if (stateHas(address)) {
+  if (readState(address).exists) {
     console.log(`${address} is already in Terraform state; skipping Vercel import.`);
     return;
   }
@@ -107,16 +119,33 @@ async function bootstrapSupabaseProjects() {
   if (!Array.isArray(projects)) fail("Unexpected Supabase projects response.");
   console.log(`Supabase import bootstrap can see ${projects.length} project(s): ${visibleSupabaseProjectNames(projects)}`);
 
+  const visibleProjectRefs = new Set(projects.map(supabaseProjectRef).filter(Boolean));
+
   for (const env of supabaseEnvironments) {
-    const address = `supabase_project.app[\"${env}\"]`;
-    if (stateHas(address)) {
-      console.log(`${address} is already in Terraform state; skipping Supabase import.`);
-      continue;
+    const address = `supabase_project.app["${env}"]`;
+    const state = readState(address);
+
+    if (state.exists) {
+      if (!state.id) fail(`${address} is in Terraform state but its project ref could not be read.`);
+
+      if (visibleProjectRefs.has(state.id)) {
+        console.log(`${address} (${state.id}) still exists in Supabase; skipping import.`);
+        continue;
+      }
+
+      console.log(`${address} points to deleted Supabase project ${state.id}; removing the stale Terraform state entry.`);
+      terraform(["state", "rm", address]);
     }
 
     const projectNames = supabaseProjectNameCandidates(projectSlug, env);
     const project = selectSupabaseProject(projects, projectNames, organizationId, env);
-    const projectRef = project.id || project.ref;
+
+    if (!project) {
+      console.log(`No existing Supabase project for ${env} matched ${projectNames.join(", ")}; Terraform may create it.`);
+      continue;
+    }
+
+    const projectRef = supabaseProjectRef(project);
     if (!projectRef) fail(`Supabase project ${supabaseProjectDisplayName(project)} response did not include an id/ref.`);
 
     console.log(`Importing existing Supabase project ${supabaseProjectDisplayName(project)} (${projectRef}) into Terraform state.`);
@@ -126,9 +155,7 @@ async function bootstrapSupabaseProjects() {
 
 function selectSupabaseProject(projects, projectNames, organizationId, env) {
   const matches = projects.filter((candidate) => projectNames.includes(supabaseProjectDisplayName(candidate)));
-  if (matches.length === 0) {
-    fail(`No existing Supabase project for ${env} matched ${projectNames.join(", ")}. Visible projects: ${visibleSupabaseProjectNames(projects)}.`);
-  }
+  if (matches.length === 0) return null;
 
   const orgMatches = matches.filter((candidate) => belongsToOrganization(candidate, organizationId));
   if (orgMatches.length === 1) return orgMatches[0];
@@ -153,11 +180,17 @@ function supabaseProjectNameCandidates(projectSlug, env) {
   ]);
 }
 
+function supabaseProjectRef(project) {
+  return String(project.id || project.ref || "");
+}
+
 function supabaseProjectDisplayName(project) {
   return String(project.name || project.project_name || project.projectName || project.slug || "");
 }
 
 function visibleSupabaseProjectNames(projects) {
+  if (projects.length === 0) return "none";
+
   const names = projects.map(supabaseProjectDisplayName).filter(Boolean);
   return names.length > 0 ? names.join(", ") : "none with a name field";
 }

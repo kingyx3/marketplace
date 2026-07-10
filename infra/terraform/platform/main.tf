@@ -25,12 +25,11 @@ resource "vercel_project" "app" {
 resource "supabase_project" "app" {
   for_each = local.active_supabase_environments
 
-  organization_id         = var.supabase_organization_id
-  name                    = "${var.project_slug}-${each.key}"
-  database_password       = random_password.supabase_database[each.key].result
-  region                  = var.supabase_region
-  instance_size           = var.supabase_instance_size
-  legacy_api_keys_enabled = false
+  organization_id   = var.supabase_organization_id
+  name              = "${var.project_slug}-${each.key}"
+  database_password = random_password.supabase_database[each.key].result
+  region            = var.supabase_region
+  instance_size     = var.supabase_instance_size
 
   timeouts {
     create = "30m"

@@ -1,6 +1,6 @@
 # Environments & configuration
 
-GitHub Environments remain the source of truth for secrets and approval boundaries. CI/CD resolves deployment topology with `scripts/resolve-environment.mjs` from Terraform outputs, provider APIs, GitHub Environment values, and only then the optional `config/environments.json` local fallback.
+GitHub Environments remain the source of truth for operator-supplied secrets and approval boundaries. CI/CD resolves deployment topology with `scripts/resolve-environment.mjs` from Terraform outputs, provider APIs, GitHub Environment values, and only then the optional `config/environments.json` local fallback. Provider-generated one-time credentials may be persisted directly to the matching runtime target when they cannot be recovered from the provider later.
 
 ## Active topology
 
@@ -22,6 +22,8 @@ Hosted workflows resolve configuration in this order:
 4. Non-empty values in `config/environments.json` as optional local fallback only.
 
 Committed config never overrides Terraform, provider, or GitHub Environment values. Empty strings and `null` entries are ignored.
+
+During deploy, `vercel env run` additionally injects Vercel's stored sensitive runtime values into the Stripe reconciliation subprocess. This lets the workflow reuse a generated webhook signing secret without printing it or writing it to a file.
 
 ## Required repository secrets
 
@@ -57,8 +59,9 @@ Add these separately to `development` and `production`.
 | --- | --- | --- |
 | `SUPABASE_SECRET_KEY` | Server runtime | Server-only Supabase key. Prefer `sb_secret_...` keys for new projects. |
 | `STRIPE_SECRET_KEY` | Server Stripe, provider config | Test key in development, live key in production. |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook route | Signing value for `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`; Stripe reveals this only when an endpoint is created. |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Configure Providers, Bootstrap Environment | Google Cloud Web OAuth client secret. |
+
+`STRIPE_WEBHOOK_SECRET` is required by the running application but is a provisioned runtime secret rather than a first-deploy prerequisite. Stripe reveals this only when an endpoint is created. The deploy workflow accepts it from the GitHub Environment when present, otherwise reuses the sensitive value stored in Vercel, or creates/replaces the endpoint and captures the new `whsec_...` value before the final environment contract check. The same deploy then syncs that value to Vercel.
 
 `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`, `NEXT_PUBLIC_SUPABASE_URL`, `VERCEL_PROJECT_ID`, and `VERCEL_ORG_ID` are resolved by CI/CD and should not be manually copied from Terraform into GitHub Environments.
 
@@ -87,7 +90,7 @@ Sensitive outputs are exported only to the job environment that needs them and a
 - Vercel scope/project metadata via the Vercel API.
 - Stripe webhook endpoint id by listing endpoints and matching the target webhook URL when there is exactly one match.
 
-Provider secrets remain in GitHub Environments or provider systems; they are not committed or printed.
+Operator-supplied provider secrets remain in GitHub Environments or provider systems; they are not committed or printed. The generated Stripe signing secret is masked in Actions and persisted to Vercel because Stripe does not expose it again after endpoint creation.
 
 ## Optional local fallback
 
@@ -113,6 +116,7 @@ Do not paste Terraform outputs, provider IDs, Supabase URLs, Supabase publishabl
 | Repository variable | `VERCEL_ROOT_DIRECTORY` | Terraform Platform | Empty while the app lives at repo root. |
 | Repository variable | `SUPABASE_REGION` | Terraform Platform | Defaults to `ap-southeast-1`. |
 | Repository variable | `SUPABASE_INSTANCE_SIZE` | Terraform Platform | Defaults to `micro`. |
+| Environment secret | `STRIPE_WEBHOOK_SECRET` | Stripe webhook route | Optional operator override; deploy provisions and persists it automatically when absent. |
 | Environment secret | `RESEND_API_KEY` | Email notifications | Set only after Resend is configured. |
 | Environment secret | `TWILIO_AUTH_TOKEN` | SMS notifications | Twilio auth token. |
 | Environment secret | `TELEGRAM_BOT_TOKEN` | Telegram alerts | Telegram Bot API token. |
@@ -132,8 +136,10 @@ SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=<Google web client secret>
 1. Terraform workflows create/reconcile the GCS state bucket, Vercel project, and Supabase project shells.
 2. Workflows read `terraform output -json` and pass the result to `scripts/resolve-environment.mjs`.
 3. The resolver fills public and deploy-only values from Terraform, Supabase, Vercel, Stripe, GitHub Environment vars, and optional local fallback.
-4. **Configure Providers** applies hosted Supabase Google provider settings and updates/verifies Stripe webhook configuration.
-5. **Bootstrap Environment** validates the resolved contract, generates `.env.deploy`, syncs Vercel env, links Supabase, pushes migrations, and removes generated files.
-6. Normal deploys repeat validation, Vercel env sync, migration push, Vercel deploy, and smoke tests.
+4. Pre-provision validation checks operator inputs while permitting provider-generated values such as `STRIPE_WEBHOOK_SECRET` to be absent.
+5. Deploy injects any existing Vercel signing secret into `scripts/provision-stripe-webhook.mjs`, or creates/replaces the endpoint and exports its one-time secret to later steps.
+6. Final validation generates `.env.deploy`, syncs runtime values to Vercel, deploys the application, and runs smoke tests.
+7. **Configure Providers** remains available for hosted Supabase Google provider settings and explicit provider reconciliation.
+8. **Bootstrap Environment** syncs Vercel env, links Supabase, and pushes migrations without deploying the app.
 
 The machine-readable deploy contract is `ENV_CONTRACT` in `scripts/generate-env.mjs`. Keep it aligned with `lib/env.ts`, `.env.example`, workflow `env:` blocks, and this document.

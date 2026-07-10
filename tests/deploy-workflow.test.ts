@@ -21,7 +21,14 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("Resolve Terraform backend inputs");
     expect(workflow).toContain("terraform output -json > tf-outputs.json");
     expect(workflow).toContain("node scripts/resolve-environment.mjs");
-    expect(workflow).toContain("Validate resolved environment contract");
+    expect(workflow).toContain("Validate resolved environment contract before provider provisioning");
+    expect(workflow).toContain("node scripts/generate-env.mjs --check --allow-missing-provisioned");
+    expect(workflow).toContain("Reconcile Stripe webhook before runtime validation");
+    expect(workflow).toContain("vercel env run --environment");
+    expect(workflow).toContain("node scripts/provision-stripe-webhook.mjs");
+    expect(workflow.indexOf("node scripts/provision-stripe-webhook.mjs")).toBeLessThan(
+      workflow.indexOf("node scripts/generate-env.mjs --write .env.deploy")
+    );
     expect(workflow).toContain("Generate runtime env from resolved config");
     expect(workflow).toContain("node scripts/generate-env.mjs --write .env.deploy");
     expect(workflow).toContain("Sync runtime env to Vercel");
@@ -80,5 +87,15 @@ describe("deployment workflow contract", () => {
     expect(platform).not.toContain("SUPABASE_DEVELOPMENT_DB_PASSWORD");
     expect(platform).not.toContain("TF_VAR_supabase_db_secret_by_environment");
     expect(platform).toContain('terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME"');
+  });
+
+  it("recovers cleanly when managed Supabase projects were deleted", async () => {
+    const bootstrap = await readWorkflow("scripts/bootstrap-terraform-imports.mjs");
+    const platform = await readWorkflow("infra/terraform/platform/main.tf");
+
+    expect(bootstrap).toContain('terraform(["state", "rm", address])');
+    expect(bootstrap).toContain("Terraform may create it.");
+    expect(bootstrap).toContain("points to deleted Supabase project");
+    expect(platform).not.toContain("legacy_api_keys_enabled");
   });
 });
