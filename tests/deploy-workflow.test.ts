@@ -81,4 +81,14 @@ describe("deployment workflow contract", () => {
     expect(platform).not.toContain("TF_VAR_supabase_db_secret_by_environment");
     expect(platform).toContain('terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME"');
   });
+
+  it("recovers cleanly when managed Supabase projects were deleted", async () => {
+    const bootstrap = await readWorkflow("scripts/bootstrap-terraform-imports.mjs");
+    const platform = await readWorkflow("infra/terraform/platform/main.tf");
+
+    expect(bootstrap).toContain('terraform(["state", "rm", address])');
+    expect(bootstrap).toContain("Terraform may create it.");
+    expect(bootstrap).toContain("points to deleted Supabase project");
+    expect(platform).not.toContain("legacy_api_keys_enabled");
+  });
 });
