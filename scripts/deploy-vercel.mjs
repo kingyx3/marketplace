@@ -84,7 +84,7 @@ async function findReadyDeployment(key) {
   const deployments = Array.isArray(payload?.deployments) ? payload.deployments : [];
   return deployments.find(
     (deployment) =>
-      deployment?.state === "READY" &&
+      (deployment?.state === "READY" || deployment?.readyState === "READY") &&
       deployment?.meta &&
       typeof deployment.meta === "object" &&
       deployment.meta.marketplaceDeploymentKey === key
