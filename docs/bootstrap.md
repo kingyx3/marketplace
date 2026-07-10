@@ -133,7 +133,7 @@ node scripts/configure-stripe.mjs --apply --print-created-secret
 
 For production, use the production URL, `TARGET_ENV=production`, and the live Stripe key. Store the printed `whsec_...` value as `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment. Store the printed `we_...` id as the optional `STRIPE_WEBHOOK_ENDPOINT_ID` variable when you want reconciliation pinned to that endpoint.
 
-The aggregate `npm run providers:apply` command also runs Google OAuth configuration, so use it locally only after the full resolved Supabase/OAuth environment is available.
+The aggregate `npm run providers:apply -- --print-created-secret` command also runs Google OAuth configuration, so use it locally only after the full resolved Supabase/OAuth environment is available. Prefer the direct Stripe command above when only the webhook needs initial provisioning.
 
 ### Vercel
 
