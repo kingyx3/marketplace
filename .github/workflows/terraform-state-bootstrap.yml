@@ -102,7 +102,7 @@ jobs:
           terraform -chdir=infra/terraform/bootstrap show -no-color "$GITHUB_WORKSPACE/.terraform-plan/tfplan" > .terraform-plan/plan.txt
           node -e 'const fs=require("fs"); fs.writeFileSync(".terraform-plan/metadata.json", JSON.stringify({source_sha:process.env.GITHUB_SHA,stack:"state",backend_mode:process.env.TF_BOOTSTRAP_BACKEND_MODE,workflow_run_id:process.env.GITHUB_RUN_ID},null,2)+"\n")'
       - run: cat .terraform-plan/plan.txt >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4.6.2
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: terraform-state-plan
           path: .terraform-plan/

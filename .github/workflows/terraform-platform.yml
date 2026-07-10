@@ -93,7 +93,7 @@ jobs:
           node -e 'const fs=require("fs"); fs.writeFileSync(".terraform-plan/metadata.json", JSON.stringify({source_sha:process.env.GITHUB_SHA,stack:"platform",workflow_run_id:process.env.GITHUB_RUN_ID},null,2)+"\n")'
       - name: Add plan to job summary
         run: cat .terraform-plan/plan.txt >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4.6.2
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: terraform-platform-plan
           path: .terraform-plan/
