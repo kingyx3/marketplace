@@ -14,29 +14,25 @@ npm run dev
 
 `bootstrap:local` installs locked npm dependencies, starts the pinned Supabase CLI stack, derives local Supabase values, writes `.env.local` without overwriting existing provider credentials, resets migrations/seed data, and reports only the remaining unavoidable provider inputs.
 
-## Hosted bootstrap and release
+## Hosted bootstrap
 
-After exporting the trusted provider/account values documented in [`docs/bootstrap.md`](docs/bootstrap.md), run one command:
+After exporting the trusted provider/account values documented in [`docs/bootstrap.md`](docs/bootstrap.md), bootstrap development with one command:
 
 ```bash
-npm run bootstrap:all -- --apply
+npm run bootstrap -- --apply
 ```
 
-That command:
+That command reconciles GitHub governance and the development Environment, runs the full CI suite, converges shared infrastructure, then bootstraps, deploys, and verifies development. It follows the Actions run and exits unsuccessfully if any stage fails.
 
-1. Reconciles GitHub branch governance, environments, deployment policies, variables, secrets, and production reviewers.
-2. Dispatches the **Bootstrap & Deploy** workflow.
-3. Runs the complete CI suite once.
-4. Converges the Terraform state bucket and shared Vercel/Supabase platform.
-5. Bootstraps, deploys, and verifies development.
-6. Bootstraps, deploys, and verifies production.
-7. Follows the Actions run and exits unsuccessfully if any stage fails.
+Production is retained as an explicit operation:
 
-Use `--target=development` or `--target=production` to limit the scope. Without `--apply`, the command is plan-only and does not dispatch anything.
+```bash
+npm run bootstrap -- --apply --target=production
+```
 
-The same operation can be started from GitHub Actions by running **Bootstrap & Deploy** once. Production environment approval remains an intentional human trust boundary; no other workflow sequence needs to be assembled manually.
+Without `--apply`, the command is plan-only and does not dispatch anything. The same development-default operation is available through **Bootstrap & Deploy** in GitHub Actions.
 
-The granular Terraform, provider, bootstrap, and deployment workflows remain available for recovery and diagnostics, but they are not the normal operator path.
+The granular Terraform, provider, environment-bootstrap, and deployment workflows remain available for recovery and diagnostics, but they are not the normal operator path.
 
 ## Checks
 
@@ -53,7 +49,7 @@ Pull-request CI also initializes and validates both Terraform stacks and verifie
 
 ## Documentation
 
-- [`docs/bootstrap.md`](docs/bootstrap.md) — one-command hosted setup, release gate, and rerun guarantees
+- [`docs/bootstrap.md`](docs/bootstrap.md) — one-command hosted setup, production option, and rerun guarantees
 - [`docs/environments.md`](docs/environments.md) — configuration sources and GitHub intake
 - [`docs/generated/environment-reference.md`](docs/generated/environment-reference.md) — generated environment contract
 - [`docs/deployment.md`](docs/deployment.md) — CI/CD and release behavior

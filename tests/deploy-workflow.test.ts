@@ -16,10 +16,13 @@ describe("deployment workflow contract", () => {
     }
   });
 
-  it("offers one workflow that converges infrastructure, bootstraps, deploys, and verifies", async () => {
-    const workflow = await read(".github/workflows/bootstrap-all.yml");
+  it("defaults the hosted bootstrap to development while retaining explicit production", async () => {
+    const workflow = await read(".github/workflows/bootstrap.yml");
     expect(workflow).toContain("name: Bootstrap & Deploy");
-    expect(workflow).toContain("options: [all, development, production]");
+    expect(workflow).toContain("default: development");
+    expect(workflow).toContain("options: [development, production]");
+    expect(workflow).not.toContain("options: [all");
+    expect(workflow).toContain("environment: ${{ inputs.target }}");
     expect(workflow).toContain("uses: ./.github/workflows/terraform-state-bootstrap.yml");
     expect(workflow).toContain("uses: ./.github/workflows/terraform-platform.yml");
     expect(workflow).toContain("uses: ./.github/workflows/bootstrap-environment.yml");
@@ -27,7 +30,8 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("mode: converge");
     expect(workflow).toContain("mode: verify");
     expect(workflow).toContain("skip_app_checks: true");
-    expect(workflow.indexOf("bootstrap-development:")).toBeLessThan(workflow.indexOf("bootstrap-production:"));
+    expect(workflow).not.toContain("bootstrap-development:");
+    expect(workflow).not.toContain("bootstrap-production:");
   });
 
   it("keeps granular Terraform workflows reusable while defaulting to convergence", async () => {

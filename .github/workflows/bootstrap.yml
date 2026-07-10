@@ -1,0 +1,89 @@
+name: Bootstrap & Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to converge, deploy, and verify
+        required: true
+        default: development
+        type: choice
+        options: [development, production]
+
+concurrency:
+  group: marketplace-bootstrap-and-deploy-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/app-checks.yml
+    with:
+      run_e2e: true
+
+  state:
+    needs: checks
+    uses: ./.github/workflows/terraform-state-bootstrap.yml
+    with:
+      environment: ${{ inputs.target }}
+      mode: converge
+    secrets: inherit
+
+  platform:
+    needs: state
+    uses: ./.github/workflows/terraform-platform.yml
+    with:
+      environment: ${{ inputs.target }}
+      mode: converge
+    secrets: inherit
+
+  bootstrap:
+    needs: platform
+    uses: ./.github/workflows/bootstrap-environment.yml
+    with:
+      environment: ${{ inputs.target }}
+      mode: apply
+    secrets: inherit
+
+  deploy:
+    needs: bootstrap
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: ${{ inputs.target }}
+      skip_app_checks: true
+    secrets: inherit
+
+  verify:
+    needs: deploy
+    uses: ./.github/workflows/bootstrap-environment.yml
+    with:
+      environment: ${{ inputs.target }}
+      mode: verify
+    secrets: inherit
+
+  complete:
+    if: always()
+    needs: [checks, state, platform, bootstrap, deploy, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert bootstrap completed
+        env:
+          TARGET: ${{ inputs.target }}
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          STATE_RESULT: ${{ needs.state.result }}
+          PLATFORM_RESULT: ${{ needs.platform.result }}
+          BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          set -euo pipefail
+          test "$CHECKS_RESULT" = success
+          test "$STATE_RESULT" = success
+          test "$PLATFORM_RESULT" = success
+          test "$BOOTSTRAP_RESULT" = success
+          test "$DEPLOY_RESULT" = success
+          test "$VERIFY_RESULT" = success
+          echo "Bootstrap, deployment, and verification completed for $TARGET." >> "$GITHUB_STEP_SUMMARY"
