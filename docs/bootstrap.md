@@ -1,6 +1,6 @@
 # Bootstrap guide
 
-Use this runbook to take the repo from blank provider setup to working hosted `development` and `production` deployments. The goal is repeatable bootstrap with no manual copying of Terraform outputs into committed config.
+Use this runbook to take the repo from blank provider setup to working hosted `development` and `production` deployments. The goal is repeatable, idempotent bootstrap with no manual copying of Terraform outputs into committed config.
 
 ## Topology
 
@@ -18,7 +18,7 @@ Create or confirm access to:
 - Google Cloud project + service account JSON for the Terraform state bucket.
 - Vercel API token.
 - Supabase access token.
-- Stripe test/live keys.
+- Stripe test/live keys with PayNow enabled for the account.
 - Google OAuth Web application clients for hosted Supabase Auth.
 - Optional notification providers only when those channels are needed.
 
@@ -61,6 +61,8 @@ In GitHub Actions:
 
 The platform stack outputs the Vercel project id, Supabase project refs/URLs, and Terraform-generated Supabase database passwords. Downstream workflows read those outputs directly from Terraform state.
 
+Terraform import bootstrap inspects state before importing. It treats only an explicitly missing remote object as a create case and fails on permission, credential, or provider errors instead of hiding them.
+
 ## 4. Finish provider inputs
 
 ### Supabase
@@ -94,8 +96,10 @@ For each environment:
 
 - Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as an environment variable.
 - Store `STRIPE_SECRET_KEY` as an environment secret.
+- Enable PayNow on the Stripe account. Application-created PaymentIntents are restricted to `payment_method_types=["paynow"]` and SGD.
+- Do not configure card, reusable payment methods, setup-future-usage, or manual capture. PayNow is a single-use immediate payment method.
 - The managed webhook endpoint URL is `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`.
-- The default event set is versioned in `config/environments.json`.
+- The event set is versioned in `config/environments.json`: `payment_intent.succeeded`, `payment_intent.payment_failed`, and `charge.refunded`.
 
 The normal deploy path performs pre-provision validation without requiring `STRIPE_WEBHOOK_SECRET`, then runs `scripts/provision-stripe-webhook.mjs` before generating the runtime environment:
 
@@ -115,6 +119,8 @@ Stripe reveals this only when an endpoint is created. When using the local path,
 ### Vercel
 
 Terraform creates/reconciles the Vercel project shell. CI resolves `VERCEL_PROJECT_ID` from Terraform and `VERCEL_ORG_ID` from Vercel when possible. Do not maintain Vercel runtime env manually; bootstrap/deploy syncs it from the resolved environment.
+
+Runtime variables are compared with keyed fingerprints inside `vercel env run`, so unchanged values are not rewritten and sensitive values are never printed. Deployments are tagged with a source-and-configuration fingerprint; rerunning the same revision with the same resolved runtime configuration reuses the existing ready deployment.
 
 ## 5. Configure provider integrations
 
@@ -146,6 +152,8 @@ git push origin v0.2.0
 
 Production should pause for GitHub Environment reviewer approval before mutable jobs run.
 
+All workflows that mutate a hosted environment share the same per-environment concurrency lock. Terraform, provider reconciliation, bootstrap, and deployment therefore run serially rather than racing each other. Re-running a completed operation converges on the same provider resources, environment values, database schema, and deployment URL.
+
 ## 8. Verify
 
 After deploy:
@@ -153,7 +161,8 @@ After deploy:
 - `/api/health` returns HTTP 200.
 - Production `/api/health?deep=1` returns HTTP 200.
 - Google sign-in redirects through `/auth/callback` successfully.
-- Stripe test-mode checkout works in `development` before live sales.
+- PayNow test-mode checkout works in `development` before live sales.
+- Re-running the same deploy reports unchanged Vercel environment values and reuses the ready deployment.
 
 Useful local checks:
 
