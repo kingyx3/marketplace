@@ -8,6 +8,10 @@ on:
         required: true
         type: environment
 
+concurrency:
+  group: environment-${{ inputs.environment }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
