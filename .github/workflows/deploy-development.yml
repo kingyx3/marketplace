@@ -10,8 +10,8 @@ on:
       - '**/*.md'
 
 concurrency:
-  group: deploy-development
-  cancel-in-progress: true
+  group: environment-development
+  cancel-in-progress: false
 
 permissions:
   contents: read
