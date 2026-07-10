@@ -53,6 +53,15 @@ describe("deployment idempotency contract", () => {
     expect(deploy).toContain("Reusing ready Vercel deployment");
   });
 
+  it("reuses existing Stripe webhook credentials across deploy steps", async () => {
+    const provision = await repoFile("scripts/provision-stripe-webhook.mjs");
+
+    expect(provision).toContain("await exportCredentials(current.id, config.webhookSecret)");
+    expect(provision).toContain("await exportCredentials(updated.id, config.webhookSecret)");
+    expect(provision).toContain("STRIPE_WEBHOOK_SECRET=${webhookSecret}");
+    expect(provision).not.toContain("payment_intent.amount_capturable_updated");
+  });
+
   it("keeps Stripe checkout and webhooks limited to PayNow lifecycle events", async () => {
     const stripe = await repoFile("lib/stripe.ts");
     const config = JSON.parse(await repoFile("config/environments.json"));
