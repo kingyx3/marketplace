@@ -73,6 +73,7 @@ jobs:
           set -euo pipefail
           stack=infra/terraform/bootstrap
           plan="$RUNNER_TEMP/terraform-state.tfplan"
+          test -n "$TF_STATE_BUCKET_NAME" || { echo "Resolved TF_STATE_BUCKET_NAME is empty" >&2; exit 1; }
 
           if [ "$TF_STATE_BUCKET_EXISTS" = "true" ]; then
             printf 'terraform {\n  backend "gcs" {}\n}\n' > "$stack/backend.runtime.tf"
@@ -119,6 +120,7 @@ jobs:
       - run: node scripts/detect-gcs-bucket.mjs
       - name: Reconcile an existing bucket into state
         run: |
+          test -n "$TF_STATE_BUCKET_NAME" || { echo "Resolved TF_STATE_BUCKET_NAME is empty" >&2; exit 1; }
           if [ "$TF_STATE_BUCKET_EXISTS" != "true" ]; then
             echo "State bucket is absent; converge mode will create it."
             exit 0
@@ -147,6 +149,7 @@ jobs:
       - run: node scripts/detect-gcs-bucket.mjs
       - name: Initialize matching backend
         run: |
+          test -n "$TF_STATE_BUCKET_NAME" || { echo "Resolved TF_STATE_BUCKET_NAME is empty" >&2; exit 1; }
           if [ "$TF_STATE_BUCKET_EXISTS" = "true" ]; then
             printf 'terraform {\n  backend "gcs" {}\n}\n' > infra/terraform/bootstrap/backend.runtime.tf
             terraform -chdir=infra/terraform/bootstrap init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=marketplace/bootstrap"
@@ -201,6 +204,7 @@ jobs:
       - run: node scripts/detect-gcs-bucket.mjs
       - name: Verify reviewed plan and current backend mode
         run: |
+          test -n "$TF_STATE_BUCKET_NAME" || { echo "Resolved TF_STATE_BUCKET_NAME is empty" >&2; exit 1; }
           node - <<'NODE'
           const fs = require('fs');
           const m = JSON.parse(fs.readFileSync('.terraform-plan/metadata.json'));
