@@ -94,8 +94,6 @@ jobs:
           terraform -chdir="$stack" apply -input=false -auto-approve "$plan"
 
           if [ "$backend_mode" = "local" ]; then
-            node scripts/detect-gcs-bucket.mjs
-            test "$TF_STATE_BUCKET_EXISTS" = "true" || { echo "Terraform apply completed but state bucket is still absent" >&2; exit 1; }
             printf 'terraform {\n  backend "gcs" {}\n}\n' > "$stack/backend.runtime.tf"
             terraform -chdir="$stack" init -input=false -lockfile=readonly -migrate-state -force-copy \
               -backend-config="bucket=$TF_STATE_BUCKET_NAME" \
@@ -228,7 +226,5 @@ jobs:
       - name: Migrate first-run state into the new bucket
         if: env.TF_BOOTSTRAP_BACKEND_MODE == 'local'
         run: |
-          node scripts/detect-gcs-bucket.mjs
-          test "$TF_STATE_BUCKET_EXISTS" = "true" || { echo "Terraform apply completed but state bucket is still absent" >&2; exit 1; }
           printf 'terraform {\n  backend "gcs" {}\n}\n' > infra/terraform/bootstrap/backend.runtime.tf
           terraform -chdir=infra/terraform/bootstrap init -input=false -lockfile=readonly -migrate-state -force-copy -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=marketplace/bootstrap"
