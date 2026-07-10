@@ -1,6 +1,8 @@
 # Bootstrap guide
 
-Use this runbook to take the repo from blank provider setup to working hosted `development` and `production` deployments. The goal is repeatable, idempotent bootstrap with no manual copying of Terraform outputs into committed config.
+Use this runbook to take the repository from blank provider accounts to working hosted `development` and `production` deployments. It describes the behavior implemented by the current Terraform stacks, GitHub Actions workflows, and provider scripts.
+
+The hosted flow is output-driven: do not copy Terraform outputs or provider-generated public values into committed configuration.
 
 ## Topology
 
@@ -10,47 +12,55 @@ Use this runbook to take the repo from blank provider setup to working hosted `d
 | `production` | `v*` tag or published release | Production | Production project | Active |
 | `staging` | None | None | None | Reserved |
 
+Terraform manages one shared Vercel project plus one Supabase project for each active environment. The state and platform workflows therefore run once for the shared stack, not once per application environment.
+
 ## 1. Prepare provider accounts
 
 Create or confirm access to:
 
-- GitHub repo admin for secrets, environments, and protection rules.
-- Google Cloud project + service account JSON for the Terraform state bucket.
-- Vercel API token.
-- Supabase access token.
+- GitHub repository administration for secrets, environments, and protection rules.
+- A Google Cloud project and service-account JSON for the Terraform state bucket.
+- A Vercel API token.
+- A Supabase access token.
 - Stripe test/live keys with PayNow enabled for the account.
 - Google OAuth Web application clients for hosted Supabase Auth.
 - Optional notification providers only when those channels are needed.
 
 ## 2. Configure GitHub
 
-Add required repository secrets:
+Create GitHub Environments named `development` and `production`. Keep `staging` empty and reserved. Add required reviewers to `production` before launch.
+
+### Shared workflow secrets
+
+Repository-level secrets are the simplest setup because the shared Terraform workflows can be launched against either active GitHub Environment. Environment-level secrets also work when they are present in the environment selected for the workflow run.
 
 - `GCP_TERRAFORM_CREDENTIALS_JSON`
 - `VERCEL_TOKEN`
 - `SUPABASE_ACCESS_TOKEN`
 
-Create GitHub Environments `development` and `production`; leave `staging` empty/reserved.
+### Operator-supplied values for each active environment
 
-Add required environment variables to both active environments:
+| Location | Name | Notes |
+| --- | --- | --- |
+| Variable | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Test key for `development`, live key for `production`. |
+| Variable | `GOOGLE_OAUTH_CLIENT_ID` | Required for hosted Google sign-in. |
+| Variable | `NEXT_PUBLIC_SITE_URL` | Set the stable canonical URL when it differs from the Vercel project URL inferred by the resolver. The resolved runtime contract always requires a URL. |
+| Secret | `SUPABASE_SECRET_KEY` | Server-only Supabase key for the matching project. |
+| Secret | `STRIPE_SECRET_KEY` | Test key for `development`, live key for `production`. |
+| Secret | `GOOGLE_OAUTH_CLIENT_SECRET` | Secret for the matching Google Web OAuth client. |
 
-- `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `GOOGLE_OAUTH_CLIENT_ID`
+`STRIPE_WEBHOOK_SECRET` is required by the running application, but it is path-dependent during initial setup:
 
-Add required environment secrets to both active environments:
+- The normal deploy workflow can create or replace the endpoint, capture Stripe's one-time signing secret, and persist it to the matching Vercel target.
+- **Configure Providers** and **Bootstrap Environment** do not recover a Vercel-only signing secret. To use those workflows before the first deploy, create the endpoint from a trusted local shell and store `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment first.
 
-- `SUPABASE_SECRET_KEY`
-- `STRIPE_SECRET_KEY`
-- `GOOGLE_OAUTH_CLIENT_SECRET`
+Optional Terraform overrides such as `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, and `SUPABASE_REGION` are documented in `docs/environments.md`. The resolver derives defaults when possible.
 
-`STRIPE_WEBHOOK_SECRET` may also be supplied as a GitHub Environment secret, but it is not required before the first deploy. The deploy workflow creates or reconciles the Stripe endpoint before final runtime validation and persists the generated signing secret to the matching Vercel target.
+Do not paste Terraform outputs or provider public IDs into `config/environments.json`. CI/CD resolves them during each workflow run.
 
-Add optional notification provider secrets only when needed. Add required reviewers to `production` before launch.
+## 3. Run Terraform once for the shared stack
 
-Do not paste Terraform outputs or provider public IDs into `config/environments.json`. CI/CD resolves those during each workflow run.
-
-## 3. Run Terraform
+For both Terraform workflows, select an active GitHub Environment that can access the shared workflow secrets and any Terraform overrides. `development` is normally the least surprising choice because it does not carry the production approval gate.
 
 In GitHub Actions:
 
@@ -59,7 +69,7 @@ In GitHub Actions:
 3. Run **Terraform Platform** with `apply=false`.
 4. Review the Vercel/Supabase project plan, then rerun **Terraform Platform** with `apply=true`.
 
-The platform stack outputs the Vercel project id, Supabase project refs/URLs, and Terraform-generated Supabase database passwords. Downstream workflows read those outputs directly from Terraform state.
+The platform stack creates/reconciles the shared Vercel project and both active Supabase project shells. It outputs the Vercel project id, Supabase project refs/URLs, and Terraform-generated Supabase database passwords. Downstream workflows read those values directly from remote state.
 
 Terraform import bootstrap inspects state before importing. It treats only an explicitly missing remote object as a create case and fails on permission, credential, or provider errors instead of hiding them.
 
@@ -69,15 +79,15 @@ Terraform import bootstrap inspects state before importing. It treats only an ex
 
 For each hosted project:
 
-- Store the server secret key as `SUPABASE_SECRET_KEY` in the matching GitHub Environment.
+- Store its server secret key as `SUPABASE_SECRET_KEY` in the matching GitHub Environment.
 - Keep schema, storage, grants, RLS, and RPCs in migrations.
-- Let CI resolve `SUPABASE_PROJECT_REF`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- Let CI resolve `SUPABASE_PROJECT_REF`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_DB_PASSWORD`.
 
 ### Google OAuth
 
-Create/update a Google Cloud **Web application** OAuth client with:
+Create or update a Google Cloud **Web application** OAuth client with:
 
-- Authorized JavaScript origin: the origin from `NEXT_PUBLIC_SITE_URL`.
+- Authorized JavaScript origin: the resolved `NEXT_PUBLIC_SITE_URL` origin.
 - Authorized redirect URI: `${NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`.
 - Local development entries when needed:
   - Origin: `http://localhost:3000`
@@ -88,33 +98,42 @@ Store hosted OAuth values in the matching GitHub Environment:
 - `GOOGLE_OAUTH_CLIENT_ID` as an environment variable.
 - `GOOGLE_OAUTH_CLIENT_SECRET` as an environment secret.
 
-TODO: move Google OAuth client creation/rotation into Terraform or a dedicated provider reconcile step once the project has the right Google API surface and consent-screen ownership encoded.
+TODO: move Google OAuth client creation/rotation into Terraform or a dedicated provider reconcile step once the project has the required Google API and consent-screen ownership encoded.
 
 ### Stripe
 
 For each environment:
 
-- Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as an environment variable.
-- Store `STRIPE_SECRET_KEY` as an environment secret.
-- Enable PayNow on the Stripe account. Application-created PaymentIntents are restricted to `payment_method_types=["paynow"]` and SGD.
-- Do not configure card, reusable payment methods, setup-future-usage, or manual capture. PayNow is a single-use immediate payment method.
-- The managed webhook endpoint URL is `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`.
-- The event set is versioned in `config/environments.json`: `payment_intent.succeeded`, `payment_intent.payment_failed`, and `charge.refunded`.
+- Set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_SECRET_KEY` from the same Stripe mode.
+- Enable PayNow on the Stripe account.
+- Application-created PaymentIntents are normalized to SGD with `payment_method_types=["paynow"]`.
+- Do not rely on card, reusable-payment-method, setup-future-usage, or manual-capture behavior; the shared Stripe client removes those incompatible options.
+- The managed webhook URL is `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe`.
+- The versioned event set is `payment_intent.succeeded`, `payment_intent.payment_failed`, and `charge.refunded`.
 
-The normal deploy path performs pre-provision validation without requiring `STRIPE_WEBHOOK_SECRET`, then runs `scripts/provision-stripe-webhook.mjs` before generating the runtime environment:
+The normal deploy path runs `scripts/provision-stripe-webhook.mjs` before final runtime validation:
 
-- When the endpoint and signing secret already exist, it verifies or updates the endpoint.
-- When no endpoint exists, it creates one and passes Stripe's one-time `whsec_...` value to later workflow steps through the masked GitHub Actions environment file.
-- When an endpoint exists but its signing secret is unavailable, it creates a replacement, captures the new secret, and removes the old endpoint only after the new credentials are available.
-- The runtime environment sync stores the resulting secret in Vercel. Later deploys inject that sensitive value into the reconcile process with `vercel env run`, without writing it to a file.
+- If the endpoint and signing secret are available, it verifies or updates the endpoint.
+- If no endpoint exists, it creates one and passes the one-time `whsec_...` value to later workflow steps through the masked GitHub Actions environment file.
+- If an endpoint exists but its signing secret is unavailable, it creates a replacement and removes the old endpoint only after the new credentials are available.
+- Runtime env sync persists the resulting secret to Vercel. Later deploys inject that stored value into reconciliation with `vercel env run` without writing it to a file.
 
-A trusted local shell remains available as a recovery or manual bootstrap path:
+### Optional local Stripe pre-provisioning
+
+Use this only when you want **Configure Providers** or **Bootstrap Environment** to complete before the first app deploy. Run it from a trusted local shell, separately for each environment:
 
 ```bash
-npm run providers:apply -- --print-created-secret
+TARGET_ENV=development \
+NEXT_PUBLIC_SITE_URL=https://your-development-host.example \
+APP_NAME=Marketplace \
+STRIPE_SECRET_KEY=sk_test_... \
+STRIPE_WEBHOOK_ENABLED_EVENTS="payment_intent.succeeded payment_intent.payment_failed charge.refunded" \
+node scripts/configure-stripe.mjs --apply --print-created-secret
 ```
 
-Stripe reveals this only when an endpoint is created. When using the local path, store the printed signing secret immediately as `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment or Vercel target. CI can resolve `STRIPE_WEBHOOK_ENDPOINT_ID` later when exactly one endpoint matches the target URL, or you can set it as an environment variable to pin reconciliation.
+For production, use the production URL, `TARGET_ENV=production`, and the live Stripe key. Store the printed `whsec_...` value as `STRIPE_WEBHOOK_SECRET` in the matching GitHub Environment. Store the printed `we_...` id as the optional `STRIPE_WEBHOOK_ENDPOINT_ID` variable when you want reconciliation pinned to that endpoint.
+
+The aggregate `npm run providers:apply -- --print-created-secret` command also runs Google OAuth configuration, so use it locally only after the full resolved Supabase/OAuth environment is available. Prefer the direct Stripe command above when only the webhook needs initial provisioning.
 
 ### Vercel
 
@@ -122,28 +141,36 @@ Terraform creates/reconciles the Vercel project shell. CI resolves `VERCEL_PROJE
 
 Runtime variables are compared with keyed fingerprints inside `vercel env run`, so unchanged values are not rewritten and sensitive values are never printed. Deployments are tagged with a source-and-configuration fingerprint; rerunning the same revision with the same resolved runtime configuration reuses the existing ready deployment.
 
-## 5. Configure provider integrations
+## 5. Choose the first-time path
 
-Run **Configure Providers** with `mode=plan` for `development` and `production`, then run it with `mode=apply` after reviewing the plan. This remains useful for Google OAuth configuration and explicit provider reconciliation; the normal deploy workflow also reconciles Stripe before runtime validation.
+### Path A: deploy first and let CI provision Stripe
 
-This workflow:
+This path minimizes manual secret handling and is the simplest way to bring up `development`.
 
-- Reads Terraform outputs from state.
-- Resolves provider values through `scripts/resolve-environment.mjs`.
-- Applies hosted Supabase Google Auth provider settings after the OAuth client exists.
-- Updates/verifies Stripe webhook endpoint URL, enabled events, status, description, and metadata when the endpoint signing secret is available.
+1. Complete Terraform and the operator-supplied environment values above.
+2. Push a non-`main` branch to start **Deploy development**.
+3. The reusable deploy validates the resolved environment, checks migrations, pushes hosted migrations, creates/reconciles the Stripe webhook, syncs runtime env to Vercel, deploys, and smoke-tests the result.
+4. Run **Configure Providers** with `mode=plan`, then `mode=apply`, after the endpoint exists. This enables hosted Supabase Google Auth and explicitly reconciles provider settings.
 
-## 6. Bootstrap environments
+**Bootstrap Environment** is not required on this path. Do not run it unless `STRIPE_WEBHOOK_SECRET` is also available in the selected GitHub Environment; that workflow does not inject the Vercel-stored signing secret.
 
-Run **Bootstrap Environment** once for `development` and once for `production`.
+For a production launch, prefer the bootstrap-before-deploy path below so OAuth and provider settings can be verified before the release tag is cut.
 
-The workflow delegates to `scripts/bootstrap-environment.mjs`, which runs provider bootstrap in `--apply-if-configured` mode, validates the resolved environment, generates `.env.deploy`, syncs Vercel env, links Supabase, pushes migrations, and removes `.env.deploy`. It does not deploy the app.
+### Path B: bootstrap before the first deploy
 
-## 7. Deploy
+1. Pre-provision the Stripe endpoint locally and store `STRIPE_WEBHOOK_SECRET` as described above.
+2. Run **Configure Providers** with `mode=plan` for the target environment.
+3. Run **Configure Providers** with `mode=apply`. The workflow can update or verify an existing Stripe endpoint, but it intentionally cannot create the first endpoint because that command does not persist Stripe's one-time secret.
+4. Run **Bootstrap Environment** for the target environment.
+5. Repeat for the other active environment.
 
-Development deploys automatically from non-`main` branches unless docs-only. Before the final environment contract check and Vercel deployment, the workflow injects any existing Vercel signing secret into the Stripe reconciliation process or creates a new endpoint and secret when none exists.
+`Bootstrap Environment` delegates to `scripts/bootstrap-environment.mjs`, which applies configured providers, validates the resolved environment, generates `.env.deploy`, syncs Vercel env, links Supabase, pushes migrations, and removes `.env.deploy`. It does not deploy the app.
 
-Production deploys from a release or `v*` tag:
+## 6. Deploy
+
+Development deploys automatically from non-`main` branches unless the change is docs-only. The caller skips cleanly until the three shared deployment secrets exist.
+
+Production deploys from a published release or `v*` tag:
 
 ```bash
 git tag v0.2.0
@@ -152,17 +179,17 @@ git push origin v0.2.0
 
 Production should pause for GitHub Environment reviewer approval before mutable jobs run.
 
-All workflows that mutate a hosted environment share the same per-environment concurrency lock. Terraform, provider reconciliation, bootstrap, and deployment therefore run serially rather than racing each other. Re-running a completed operation converges on the same provider resources, environment values, database schema, and deployment URL.
+All workflows that mutate a hosted environment share the same per-environment concurrency lock. Terraform, provider reconciliation, bootstrap, and deployment therefore run serially rather than racing each other.
 
-## 8. Verify
+## 7. Verify
 
 After deploy:
 
 - `/api/health` returns HTTP 200.
 - Production `/api/health?deep=1` returns HTTP 200.
-- Google sign-in redirects through `/auth/callback` successfully.
+- Google sign-in redirects through `/auth/callback` successfully after **Configure Providers** has applied the hosted provider settings.
 - PayNow test-mode checkout works in `development` before live sales.
-- Re-running the same deploy reports unchanged Vercel environment values and reuses the ready deployment.
+- Re-running the same deploy reports unchanged Vercel environment values and reuses the ready deployment when source and resolved config are unchanged.
 
 Useful local checks:
 
@@ -180,7 +207,7 @@ npm run build
 
 1. Stop filling new values in `config/environments.json`; keep only stable defaults such as `APP_NAME` and the Stripe webhook event set.
 2. Rename any repository secret `VERCEL_API_TOKEN` to `VERCEL_TOKEN`.
-3. Move `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `GOOGLE_OAUTH_CLIENT_ID` to environment variables.
-4. Keep `SUPABASE_SECRET_KEY`, `STRIPE_SECRET_KEY`, and `GOOGLE_OAUTH_CLIENT_SECRET` as environment secrets. Existing `STRIPE_WEBHOOK_SECRET` values remain valid, but new environments can let deploy provision and persist the value automatically.
+3. Move `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `GOOGLE_OAUTH_CLIENT_ID` to environment variables when they are operator supplied.
+4. Keep `SUPABASE_SECRET_KEY`, `STRIPE_SECRET_KEY`, and `GOOGLE_OAUTH_CLIENT_SECRET` as environment secrets. Existing `STRIPE_WEBHOOK_SECRET` values remain valid; deploy can provision and persist the value to Vercel when absent.
 5. Remove manually copied `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `VERCEL_PROJECT_ID`, and `VERCEL_ORG_ID` from GitHub Environments after the resolver succeeds.
-6. Run **Configure Providers** in `plan`, then `apply`, and run **Bootstrap Environment** for both active environments.
+6. Choose either deploy-first or bootstrap-before-deploy for each active environment, then verify provider settings and health checks.

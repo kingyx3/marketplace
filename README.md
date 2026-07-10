@@ -5,7 +5,7 @@ Sealed TCG booster box distribution — **B2C retail, B2B wholesale, and pre-ord
 This repository currently contains:
 
 - **A deployable commerce foundation** — Next.js 15 + Supabase (Postgres/RLS/Auth/Storage) + Stripe, deployed to Vercel through GitHub Actions. Implemented coverage includes live catalog and storefront listing controls, Google auth, account/order/pre-order APIs, cookie cart validation, Stripe checkout/payment primitives, guarded order state transitions, B2B invoice checkout, pre-order allocation/balance conversion, waitlist/drop notifications, and staff-gated admin operations for catalog, listings, inventory, orders, pre-orders, wholesale review, and supplier PO intake. Remaining polish is tracked in `docs/build-plan.md`.
-- **Infrastructure and deployment automation** — Terraform bootstraps the GCS state bucket, shared Vercel project, and active Supabase project shells; GitHub Actions bootstrap environments, configure hosted Supabase Google OAuth, sync env to Vercel, push migrations, deploy, and smoke test.
+- **Infrastructure and deployment automation** — Terraform bootstraps the GCS state bucket, shared Vercel project, and active Supabase project shells; GitHub Actions resolve provider outputs, configure hosted Supabase Google OAuth, reconcile Stripe webhooks, sync env to Vercel, push migrations, deploy, and smoke test.
 - **A research report** — `docs/research/` covers the market, business models, supplier routes, customer segments, pre-order design, financials, and go-to-market for a TCG booster box business.
 
 ## Quickstart (local)
@@ -28,15 +28,16 @@ Two hosted GitHub Environments are active: `development` for feature branches an
 
 Start with the full bootstrap runbook:
 
-1. Configure the minimal repository secrets and GitHub Environment vars/secrets.
-2. Run **Terraform State Bootstrap**.
-3. Run **Terraform Platform**.
-4. Finish provider one-time inputs, such as Google OAuth clients and Stripe webhook signing secrets.
-5. Run **Configure Providers** for each active environment.
-6. Run **Bootstrap Environment** for each active environment.
-7. Deploy development from a feature branch or production from a `v*` tag/release.
+1. Configure the shared workflow secrets and per-environment operator values.
+2. Run **Terraform State Bootstrap** once for the shared state bucket.
+3. Run **Terraform Platform** once for the shared Vercel project and both active Supabase projects.
+4. Finish manual provider inputs such as Supabase secret keys, Google OAuth clients, and Stripe account-level PayNow settings.
+5. Choose either:
+   - deploy first and let CI create/persist the Stripe webhook secret, then run **Configure Providers**; or
+   - pre-provision the Stripe endpoint locally, store its signing secret, then run **Configure Providers** and **Bootstrap Environment** before deployment.
+6. Deploy development from a feature branch or production from a `v*` tag/release.
 
-See [`docs/bootstrap.md`](docs/bootstrap.md) for the start-to-finish provider, GitHub Environment, bootstrap, and deploy flow.
+See [`docs/bootstrap.md`](docs/bootstrap.md) for the exact prerequisites, path-dependent Stripe handling, workflow order, and verification steps.
 
 ## Documentation map
 

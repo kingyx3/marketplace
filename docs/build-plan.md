@@ -15,10 +15,10 @@ Honest status ledger. **Unchecked roadmap items are not built yet** — docs and
 - ✅ Allocation engine (`lib/allocation.ts`) — pure logic + unit tests
 - ✅ Env contract: `generate-env.mjs`, zod runtime schema, `APP_NAME` display-name propagation, and unit tests
 - ✅ CI (lint/typecheck/test/build/migrations, parallel, secretless)
-- ✅ Deploy pipeline: reusable workflow, active `development` and `production` environments, Terraform/provider output resolution, env→Vercel sync, migration gating, smoke test, production approval gate; `staging` is reserved but not active
+- ✅ Deploy pipeline: reusable workflow, active `development` and `production` environments, Terraform/provider output resolution, Stripe webhook provisioning, env→Vercel sync, migration gating, smoke test, production approval gate; `staging` is reserved but not active
 - ✅ Terraform provisioning for the GCS state bucket, shared Vercel project shell, and active Supabase project shells
 - ✅ Config-as-code checks for Vercel and Supabase: `vercel.json` security/cache headers, product image storage bucket/policies in SQL, and verifier scripts covered by CI
-- ✅ End-to-end bootstrap documentation for repository-level Terraform inputs, output-driven environment resolution, GitHub Environment vars/secrets, hosted Google OAuth configuration, bootstrap, and deploy
+- ✅ End-to-end bootstrap documentation for repository-level Terraform inputs, output-driven environment resolution, GitHub Environment vars/secrets, hosted Google OAuth configuration, path-dependent Stripe webhook provisioning, bootstrap, and deploy
 - ✅ Admin supplier purchase-order intake: service-role-only RPC records confirmed supplier POs, line items, incoming inventory deltas, and audit records from the protected admin page
 - ✅ Admin B2B pricing-tier removal: service-role-only RPC removes assigned tiers, records the staff actor, and lets the existing checkout gate disable wholesale access when no tier remains
 - ✅ Admin product/SKU/inventory management: protected product create/update/archive forms, SKU create/update/archive forms, Supabase Storage product image upload, and reason-coded inventory adjustments backed by audited service-role RPCs
@@ -53,9 +53,9 @@ Sequenced to match the 30/60/90-day plan in `docs/research/14-final-recommendati
 ### Phase 2 — pre-orders (the differentiator)
 
 - [x] Storefront pre-order placement flow around the deposit API (product detail starts a server-priced Stripe Elements deposit flow)
-- [x] Pre-order deposit PaymentIntent API primitive with manual capture and persisted pre-order/payment rows
+- [x] Pre-order deposit PaymentIntent API primitive normalized to immediate SGD PayNow payment, with persisted pre-order/payment rows
 - [x] Allocation run: `lib/allocation.ts` reads live inventory/rules and persists allocation deltas through a guarded database function
-- [x] Balance capture + pre-order conversion via authenticated balance PaymentIntent API and idempotent Stripe webhook conversion
+- [x] Balance PaymentIntent + pre-order conversion via authenticated PayNow balance flow and idempotent Stripe webhook conversion
 - [x] Customer pre-order dashboard (read-only status, allocated quantity, deposit, and balance due from live rows)
 - [x] Waitlist + drop notifications (Telegram/WhatsApp adapters)
 

@@ -34,6 +34,9 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("Sync runtime env to Vercel");
     expect(workflow).toContain("node scripts/sync-vercel-env.mjs .env.deploy");
     expect(workflow).toContain("node scripts/deploy-vercel.mjs");
+    expect(workflow).toContain("Remove generated runtime env");
+    expect(workflow).toContain("if: always()");
+    expect(workflow).toContain("rm -f .env.deploy");
     expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}");
     expect(workflow).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}");
     expect(workflow).toContain("GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}");
