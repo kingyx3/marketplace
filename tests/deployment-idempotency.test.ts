@@ -26,7 +26,7 @@ describe("deployment idempotency contract", () => {
     expect(await repoFile(".github/workflows/deploy-production.yml")).toContain("group: marketplace-environment-production");
   });
 
-  it("keeps plan mode read-only and applies an exact reviewed artifact", async () => {
+  it("keeps granular plan mode read-only and applies an exact reviewed artifact", async () => {
     for (const path of [
       ".github/workflows/terraform-state-bootstrap.yml",
       ".github/workflows/terraform-platform.yml",
@@ -35,8 +35,8 @@ describe("deployment idempotency contract", () => {
       const planSection = workflow.slice(workflow.indexOf("  plan:"), workflow.indexOf("  apply:"));
       expect(planSection).not.toContain("bootstrap-terraform");
       expect(planSection).not.toContain("terraform state rm");
-      expect(workflow).toContain("actions/upload-artifact@v4");
-      expect(workflow).toContain("actions/download-artifact@v4");
+      expect(workflow).toMatch(/actions\/upload-artifact@v\d/);
+      expect(workflow).toMatch(/actions\/download-artifact@v\d/);
       expect(workflow).toContain("plan_run_id");
       expect(workflow).toContain("source_sha");
     }

@@ -1,6 +1,6 @@
 # Marketplace
 
-Sealed TCG booster-box distribution for B2C retail, B2B wholesale, and pre-orders. The application is Next.js 15 with Supabase, Stripe PayNow, Vercel, Terraform, and GitHub Actions.
+Sealed TCG booster-box distribution for B2C retail, B2B wholesale, and pre-orders. The application is Next.js with Supabase, Stripe PayNow, Vercel, Terraform, and GitHub Actions.
 
 ## Local quickstart
 
@@ -14,21 +14,29 @@ npm run dev
 
 `bootstrap:local` installs locked npm dependencies, starts the pinned Supabase CLI stack, derives local Supabase values, writes `.env.local` without overwriting existing provider credentials, resets migrations/seed data, and reports only the remaining unavoidable provider inputs.
 
-## Hosted bootstrap
+## Hosted bootstrap and release
 
-The hosted path is convergent and safe to rerun:
+After exporting the trusted provider/account values documented in [`docs/bootstrap.md`](docs/bootstrap.md), run one command:
 
-1. From a trusted authenticated shell, inspect GitHub setup with `npm run bootstrap:github` and `npm run github:governance`, then apply it once with `npm run bootstrap:github:apply`.
-2. Run **Terraform State Bootstrap** in `reconcile`, then `plan`, then `apply` with the reviewed plan run id.
-3. Run **Terraform Platform** in `reconcile`, then `plan`, then `apply` with the reviewed plan run id.
-4. Complete dashboard-only account prerequisites: Google OAuth clients/consent ownership and Stripe PayNow account enablement.
-5. Run **Bootstrap Environment** with `mode=apply` for `development`, then `production`.
-6. Rerun **Bootstrap Environment** with `mode=verify` to prove there is no Terraform, provider, Vercel runtime, or health drift.
-7. Deploy development from the `develop` integration branch and production from a `v*` tag or published release.
+```bash
+npm run bootstrap:all -- --apply
+```
 
-**Bootstrap Environment** creates or repairs the Stripe webhook transactionally, applies/validates hosted Supabase Google Auth, syncs Vercel runtime values, links Supabase, and pushes migrations. There is no separate first-deploy Stripe path. The verification mode is non-mutating and acts as the live production-readiness gate.
+That command:
 
-See [`docs/bootstrap.md`](docs/bootstrap.md) for the complete runbook.
+1. Reconciles GitHub branch governance, environments, deployment policies, variables, secrets, and production reviewers.
+2. Dispatches the **Bootstrap & Deploy** workflow.
+3. Runs the complete CI suite once.
+4. Converges the Terraform state bucket and shared Vercel/Supabase platform.
+5. Bootstraps, deploys, and verifies development.
+6. Bootstraps, deploys, and verifies production.
+7. Follows the Actions run and exits unsuccessfully if any stage fails.
+
+Use `--target=development` or `--target=production` to limit the scope. Without `--apply`, the command is plan-only and does not dispatch anything.
+
+The same operation can be started from GitHub Actions by running **Bootstrap & Deploy** once. Production environment approval remains an intentional human trust boundary; no other workflow sequence needs to be assembled manually.
+
+The granular Terraform, provider, bootstrap, and deployment workflows remain available for recovery and diagnostics, but they are not the normal operator path.
 
 ## Checks
 
@@ -45,7 +53,7 @@ Pull-request CI also initializes and validates both Terraform stacks and verifie
 
 ## Documentation
 
-- [`docs/bootstrap.md`](docs/bootstrap.md) — end-to-end setup, release gate, and rerun guarantees
+- [`docs/bootstrap.md`](docs/bootstrap.md) — one-command hosted setup, release gate, and rerun guarantees
 - [`docs/environments.md`](docs/environments.md) — configuration sources and GitHub intake
 - [`docs/generated/environment-reference.md`](docs/generated/environment-reference.md) — generated environment contract
 - [`docs/deployment.md`](docs/deployment.md) — CI/CD and release behavior

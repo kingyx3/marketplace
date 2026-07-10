@@ -1,6 +1,22 @@
 name: Terraform Platform
 
 on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment providing shared Terraform credentials and overrides
+        required: true
+        type: string
+      mode:
+        description: Converge automatically or use a granular recovery operation
+        required: false
+        default: converge
+        type: string
+      plan_run_id:
+        description: Actions run id containing the reviewed plan artifact for apply mode
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
     inputs:
       environment:
@@ -8,13 +24,13 @@ on:
         required: true
         type: environment
       mode:
-        description: Reconcile imports, create a read-only plan, or apply an exact prior plan
+        description: Converge automatically or run a granular recovery operation
         required: true
-        default: plan
+        default: converge
         type: choice
-        options: [reconcile, plan, apply]
+        options: [converge, reconcile, plan, apply]
       plan_run_id:
-        description: Required for apply; Actions run id that produced the reviewed plan artifact
+        description: Required only for granular apply mode
         required: false
         type: string
 
@@ -27,8 +43,8 @@ permissions:
   actions: read
 
 jobs:
-  reconcile:
-    if: inputs.mode == 'reconcile'
+  converge:
+    if: inputs.mode == 'converge'
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     env: &platform_env
@@ -54,15 +70,45 @@ jobs:
       - uses: hashicorp/setup-terraform@v4.0.1
         with:
           terraform_version: 1.15.8
-      - name: Resolve Terraform inputs
-        run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Terraform init, format, and validate
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - name: Initialize and validate platform stack
         run: |
           terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
           terraform -chdir=infra/terraform/platform fmt -check
           terraform -chdir=infra/terraform/platform validate
-      - name: Reconcile existing provider resources into state
+      - name: Adopt existing provider resources
         run: node scripts/bootstrap-terraform-imports.mjs
+      - name: Plan and apply the exact converged platform state
+        shell: bash
+        run: |
+          set -euo pipefail
+          plan="$RUNNER_TEMP/terraform-platform.tfplan"
+          terraform -chdir=infra/terraform/platform plan -input=false -out="$plan"
+          terraform -chdir=infra/terraform/platform show -no-color "$plan" >> "$GITHUB_STEP_SUMMARY"
+          terraform -chdir=infra/terraform/platform apply -input=false -auto-approve "$plan"
+          terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+          echo "Terraform platform converged." >> "$GITHUB_STEP_SUMMARY"
+
+  reconcile:
+    if: inputs.mode == 'reconcile'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env: *platform_env
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.15.8
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: |
+          terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+          terraform -chdir=infra/terraform/platform fmt -check
+          terraform -chdir=infra/terraform/platform validate
+      - run: node scripts/bootstrap-terraform-imports.mjs
 
   plan:
     if: inputs.mode == 'plan'
@@ -78,10 +124,8 @@ jobs:
       - uses: hashicorp/setup-terraform@v4.0.1
         with:
           terraform_version: 1.15.8
-      - name: Resolve Terraform inputs
-        run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Terraform init, format, and validate
-        run: |
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: |
           terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
           terraform -chdir=infra/terraform/platform fmt -check
           terraform -chdir=infra/terraform/platform validate
@@ -91,8 +135,7 @@ jobs:
           terraform -chdir=infra/terraform/platform plan -input=false -out="$GITHUB_WORKSPACE/.terraform-plan/tfplan"
           terraform -chdir=infra/terraform/platform show -no-color "$GITHUB_WORKSPACE/.terraform-plan/tfplan" > .terraform-plan/plan.txt
           node -e 'const fs=require("fs"); fs.writeFileSync(".terraform-plan/metadata.json", JSON.stringify({source_sha:process.env.GITHUB_SHA,stack:"platform",workflow_run_id:process.env.GITHUB_RUN_ID},null,2)+"\n")'
-      - name: Add plan to job summary
-        run: cat .terraform-plan/plan.txt >> "$GITHUB_STEP_SUMMARY"
+      - run: cat .terraform-plan/plan.txt >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: terraform-platform-plan
@@ -130,11 +173,7 @@ jobs:
         run: |
           node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(".terraform-plan/metadata.json")); if(m.stack!=="platform"||m.source_sha!==process.env.GITHUB_SHA) throw new Error(`Plan belongs to ${m.stack}@${m.source_sha}, expected platform@${process.env.GITHUB_SHA}`)'
           test -s .terraform-plan/tfplan
-      - name: Resolve Terraform inputs
-        run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Initialize backend
-        run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-      - name: Apply exact reviewed plan
-        run: terraform -chdir=infra/terraform/platform apply -input=false -auto-approve "$GITHUB_WORKSPACE/.terraform-plan/tfplan"
-      - name: Export Terraform output contract
-        run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - run: terraform -chdir=infra/terraform/platform apply -input=false -auto-approve "$GITHUB_WORKSPACE/.terraform-plan/tfplan"
+      - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json

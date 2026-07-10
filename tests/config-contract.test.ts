@@ -56,9 +56,10 @@ describe("platform config contract", () => {
     }
   });
 
-  it("exposes convergent bootstrap, governance, and readiness commands", async () => {
+  it("exposes one-command bootstrap plus granular recovery commands", async () => {
     const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
     const versions = JSON.parse(await readFile(new URL("../config/tool-versions.json", import.meta.url), "utf8"));
+    const bootstrapAll = await readFile(new URL("../scripts/bootstrap-all.mjs", import.meta.url), "utf8");
     const bootstrap = await readFile(new URL("../scripts/bootstrap-environment.mjs", import.meta.url), "utf8");
     const runtime = await readFile(new URL("../scripts/reconcile-runtime-environment.mjs", import.meta.url), "utf8");
     const github = await readFile(new URL("../scripts/bootstrap-github.mjs", import.meta.url), "utf8");
@@ -69,12 +70,16 @@ describe("platform config contract", () => {
     expect(pkg.packageManager).toBe(`npm@${versions.npm}`);
     expect(pkg.scripts["bootstrap:doctor"]).toBeDefined();
     expect(pkg.scripts["bootstrap:local"]).toBeDefined();
+    expect(pkg.scripts["bootstrap:all"]).toBe("node scripts/bootstrap-all.mjs");
     expect(pkg.scripts["bootstrap:github"]).toBeDefined();
     expect(pkg.scripts["bootstrap:github:apply"]).toContain("configure-github-governance.mjs --apply");
     expect(pkg.scripts["bootstrap:github:apply"]).toContain("bootstrap-github.mjs --apply");
     expect(pkg.scripts["bootstrap:verify"]).toContain("verify-environment.mjs");
     expect(pkg.scripts["runtime:reconcile"]).toBeDefined();
     expect(pkg.scripts["config:check"]).toContain("generate-environment-artifacts.mjs --check");
+    expect(bootstrapAll).toContain("bootstrap-all.yml");
+    expect(bootstrapAll).toContain("gh\", [\"run\", \"watch\"");
+    expect(bootstrapAll).toContain("--exit-status");
     expect(bootstrap).toContain("reconcile-runtime-environment.mjs");
     expect(runtime).toContain("provision-stripe-webhook.mjs");
     expect(runtime).toContain("sync-vercel-env.mjs");
@@ -87,6 +92,7 @@ describe("platform config contract", () => {
     expect(verification).toContain("configure-providers.mjs");
     expect(verification).toContain("--check-only");
     expect(verification).toContain("--skip-health");
+    expect(bootstrapWorkflow).toContain("workflow_call:");
     expect(bootstrapWorkflow).toContain("options: [apply, verify]");
     expect(bootstrapWorkflow).toContain("node scripts/verify-environment.mjs");
   });

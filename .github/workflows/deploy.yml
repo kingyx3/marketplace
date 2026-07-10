@@ -7,6 +7,11 @@ on:
         description: GitHub Environment to deploy (development | production)
         required: true
         type: string
+      skip_app_checks:
+        description: Skip duplicate app checks when a parent workflow already ran them
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -48,21 +53,17 @@ jobs:
         with:
           terraform_version: 1.15.8
       - run: npm ci
-      - name: Resolve Terraform backend inputs
-        run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Terraform init
-        run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-      - name: Export Terraform outputs
-        run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
-      - name: Resolve Terraform and provider config
-        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
-      - name: Validate pre-provision environment contract
-        run: node scripts/generate-env.mjs --check --allow-missing-provisioned
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+      - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
+      - run: node scripts/generate-env.mjs --check --allow-missing-provisioned
       - name: Enforce production infrastructure and provider readiness
         if: ${{ inputs.environment == 'production' }}
         run: node scripts/verify-environment.mjs --skip-health
 
   app-checks:
+    if: ${{ !inputs.skip_app_checks }}
     uses: ./.github/workflows/app-checks.yml
     with:
       run_e2e: false
@@ -118,6 +119,7 @@ jobs:
 
   deploy:
     needs: [app-checks, migrate]
+    if: ${{ always() && needs.migrate.result == 'success' && (inputs.skip_app_checks || needs.app-checks.result == 'success') }}
     runs-on: ubuntu-latest
     environment:
       name: ${{ inputs.environment }}
