@@ -13,6 +13,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: environment-${{ inputs.environment }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
