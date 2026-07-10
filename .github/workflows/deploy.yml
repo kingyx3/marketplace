@@ -39,7 +39,7 @@ jobs:
       WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v6.4.0
         with:
           node-version-file: .nvmrc
@@ -83,7 +83,7 @@ jobs:
     env:
       PGPASSWORD: postgres
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.0
       - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql
       - name: Apply migrations in order
         run: |
@@ -99,7 +99,7 @@ jobs:
     environment: ${{ inputs.environment }}
     env: *resolved_environment
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v6.4.0
         with:
           node-version-file: .nvmrc
@@ -126,7 +126,7 @@ jobs:
       deployment_url: ${{ steps.vercel.outputs.deployment_url }}
     env: *resolved_environment
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v6.4.0
         with:
           node-version-file: .nvmrc

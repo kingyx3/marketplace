@@ -39,7 +39,7 @@ jobs:
       TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
       TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v6.4.0
         with:
           node-version-file: .nvmrc
@@ -70,7 +70,7 @@ jobs:
     environment: ${{ inputs.environment }}
     env: *state_env
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v6.4.0
         with:
           node-version-file: .nvmrc
@@ -115,7 +115,7 @@ jobs:
     environment: ${{ inputs.environment }}
     env: *state_env
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.0
       - name: Validate reviewed plan reference
         env:
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
