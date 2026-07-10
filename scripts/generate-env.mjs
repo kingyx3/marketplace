@@ -11,7 +11,7 @@ export const ENV_CONTRACT = [
   { key: "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET", required: false, secret: true, hint: "local Supabase Google OAuth client secret" },
   { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", required: true, secret: false, pattern: /^pk_/, hint: "Stripe publishable key" },
   { key: "STRIPE_SECRET_KEY", required: true, secret: true, pattern: /^sk_/, hint: "Stripe server key" },
-  { key: "STRIPE_WEBHOOK_SECRET", required: true, secret: true, pattern: /^whsec_/, hint: "Stripe webhook signing key" },
+  { key: "STRIPE_WEBHOOK_SECRET", required: true, provisioned: true, secret: true, pattern: /^whsec_/, hint: "Stripe webhook signing key" },
   { key: "NEXT_PUBLIC_SITE_URL", required: true, secret: false, pattern: /^https?:\/\/.+/, hint: "canonical public URL" },
   { key: "APP_NAME", required: true, secret: false, pattern: /\S/, hint: "display name" },
   { key: "TARGET_ENV", required: true, secret: false, deployOnly: true, pattern: /^(development|production)$/, hint: "deployment environment" },
@@ -35,12 +35,15 @@ export const ENV_CONTRACT = [
   { key: "WHATSAPP_PHONE_NUMBER_ID", required: false, secret: false, hint: "WhatsApp phone-number id" },
 ];
 
-export function validateEnv(env) {
+export function validateEnv(env, options = {}) {
   const errors = [];
+  const allowMissingProvisioned = options.allowMissingProvisioned ?? false;
   for (const entry of ENV_CONTRACT) {
     const value = env[entry.key];
     if (value === undefined || value === "") {
-      if (entry.required) errors.push(`missing required: ${entry.key} (${entry.hint})`);
+      if (entry.required && !(allowMissingProvisioned && entry.provisioned)) {
+        errors.push(`missing required: ${entry.key} (${entry.hint})`);
+      }
       continue;
     }
     if (entry.pattern && !entry.pattern.test(value)) {
@@ -95,6 +98,7 @@ export async function loadLocalDotenv(env = process.env, path = ".env") {
 
 async function main() {
   const [, , mode, outPath] = process.argv;
+  const allowMissingProvisioned = process.argv.includes("--allow-missing-provisioned");
   await loadLocalDotenv(process.env);
   const appliedConfig = await applyVersionedEnvironmentConfig(process.env);
 
@@ -107,7 +111,7 @@ async function main() {
     return;
   }
 
-  const { ok, errors } = validateEnv(process.env);
+  const { ok, errors } = validateEnv(process.env, { allowMissingProvisioned });
 
   if (!ok) {
     console.error("Environment contract validation FAILED:");
