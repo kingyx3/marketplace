@@ -17,76 +17,55 @@ jobs:
     environment: ${{ inputs.environment }}
     env: &resolved_environment
       TARGET_ENV: ${{ inputs.environment }}
-      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets['GCP_TERRAFORM_CREDENTIALS_JSON'] }}
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
       TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
       TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
-      VERCEL_TOKEN: ${{ secrets['VERCEL_TOKEN'] }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
       NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      GOOGLE_AUTH_ENABLED: ${{ vars.GOOGLE_AUTH_ENABLED }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
-      SUPABASE_SECRET_KEY: ${{ secrets['SUPABASE_SECRET_KEY'] }}
-      STRIPE_SECRET_KEY: ${{ secrets['STRIPE_SECRET_KEY'] }}
-      STRIPE_WEBHOOK_SECRET: ${{ secrets['STRIPE_WEBHOOK_SECRET'] }}
-      RESEND_API_KEY: ${{ secrets['RESEND_API_KEY'] }}
-      TWILIO_AUTH_TOKEN: ${{ secrets['TWILIO_AUTH_TOKEN'] }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets['TELEGRAM_BOT_TOKEN'] }}
-      WHATSAPP_ACCESS_TOKEN: ${{ secrets['WHATSAPP_ACCESS_TOKEN'] }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets['SUPABASE_ACCESS_TOKEN'] }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - uses: hashicorp/setup-terraform@v3
-      - name: Resolve Terraform backend inputs
-        run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Terraform init
-        working-directory: infra/terraform/platform
-        run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-      - name: Export Terraform outputs
-        working-directory: infra/terraform/platform
-        run: terraform output -json > tf-outputs.json
-      - name: Resolve Terraform and provider config
-        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
-      - name: Validate resolved environment contract before provider provisioning
-        run: |
-          case "$TARGET_ENV" in
-            development|production) ;;
-            *) echo "Unsupported deployment environment: $TARGET_ENV" >&2; exit 1 ;;
-          esac
-          if ! printf '%s' "$SUPABASE_PROJECT_REF" | grep -Eq '^[a-z0-9]{15,30}$'; then
-            echo "SUPABASE_PROJECT_REF is malformed" >&2
-            exit 1
-          fi
-          node scripts/generate-env.mjs --check --allow-missing-provisioned
-
-  app-checks:
-    name: App check (${{ matrix.check }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - check: lint
-            command: npm run lint
-          - check: typecheck
-            command: npm run typecheck
-          - check: test
-            command: npm test
-          - check: build
-            command: npm run build
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
       - run: npm ci
-      - run: ${{ matrix.command }}
+      - name: Resolve Terraform backend inputs
+        run: node scripts/resolve-terraform-inputs.mjs platform
+      - name: Terraform init
+        run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - name: Export Terraform outputs
+        run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+      - name: Resolve Terraform and provider config
+        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
+      - name: Validate pre-provision environment contract
+        run: node scripts/generate-env.mjs --check --allow-missing-provisioned
+      - name: Enforce production infrastructure and provider readiness
+        if: ${{ inputs.environment == 'production' }}
+        run: node scripts/verify-environment.mjs --skip-health
+
+  app-checks:
+    uses: ./.github/workflows/app-checks.yml
+    with:
+      run_e2e: false
 
   migration-check:
     runs-on: ubuntu-latest
@@ -95,7 +74,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
-        ports: ["5432:5432"]
+        ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
@@ -104,60 +83,38 @@ jobs:
     env:
       PGPASSWORD: postgres
     steps:
-      - uses: actions/checkout@v4
-      - name: Apply auth shim (emulates Supabase-managed schema)
-        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql
+      - uses: actions/checkout@v4.2.2
+      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql
       - name: Apply migrations in order
         run: |
           for f in supabase/migrations/*.sql; do
             echo "applying $f"
             psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
           done
-      - name: Apply seed
-        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql
+      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql
 
   migrate:
     needs: [validate-env, migration-check]
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    env:
-      TARGET_ENV: ${{ inputs.environment }}
-      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets['GCP_TERRAFORM_CREDENTIALS_JSON'] }}
-      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
-      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
-      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
-      VERCEL_TOKEN: ${{ secrets['VERCEL_TOKEN'] }}
-      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
-      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
-      STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets['SUPABASE_ACCESS_TOKEN'] }}
-      STRIPE_SECRET_KEY: ${{ secrets['STRIPE_SECRET_KEY'] }}
+    env: *resolved_environment
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: .nvmrc
-      - uses: hashicorp/setup-terraform@v3
-      - name: Resolve Terraform backend inputs
-        run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Terraform init
-        working-directory: infra/terraform/platform
-        run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-      - name: Export Terraform outputs
-        working-directory: infra/terraform/platform
-        run: terraform output -json > tf-outputs.json
-      - name: Resolve Terraform and provider config
-        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
-      - uses: supabase/setup-cli@v1
+      - uses: hashicorp/setup-terraform@v3.1.2
         with:
-          version: latest
-      - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
-      - name: Push migrations
-        run: supabase db push
+          terraform_version: 1.15.8
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+      - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
+      - name: Link and push hosted migrations with pinned CLI
+        run: |
+          SUPABASE_CLI=$(node -e 'const v=require("./config/tool-versions.json"); process.stdout.write(v.supabaseCli)')
+          npx --yes "supabase@$SUPABASE_CLI" link --project-ref "$SUPABASE_PROJECT_REF"
+          npx --yes "supabase@$SUPABASE_CLI" db push
 
   deploy:
     needs: [app-checks, migrate]
@@ -169,38 +126,24 @@ jobs:
       deployment_url: ${{ steps.vercel.outputs.deployment_url }}
     env: *resolved_environment
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
       - run: npm ci
-      - name: Resolve Terraform backend inputs
-        run: node scripts/resolve-terraform-inputs.mjs platform
-      - name: Terraform init
-        working-directory: infra/terraform/platform
-        run: terraform init -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-      - name: Export Terraform outputs
-        working-directory: infra/terraform/platform
-        run: terraform output -json > tf-outputs.json
-      - name: Resolve Terraform and provider config
-        run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict
-      - name: Reconcile Stripe webhook before runtime validation
-        run: |
-          VERCEL_ENV=preview
-          if [ "$TARGET_ENV" = "production" ]; then VERCEL_ENV=production; fi
-          npx vercel env run --environment "$VERCEL_ENV" --token "$VERCEL_TOKEN" -- node scripts/provision-stripe-webhook.mjs
-      - name: Generate runtime env from resolved config
-        run: node scripts/generate-env.mjs --write .env.deploy
-      - name: Sync runtime env to Vercel
-        run: node scripts/sync-vercel-env.mjs .env.deploy
-      - name: Deploy to Vercel
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+      - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict
+      - name: Reconcile providers and Vercel runtime environment
+        run: node scripts/reconcile-runtime-environment.mjs --providers apply-if-configured
+      - name: Deploy or reuse identical Vercel deployment
         id: vercel
         run: node scripts/deploy-vercel.mjs
-      - name: Remove generated runtime env
-        if: always()
-        run: rm -f .env.deploy
 
   smoke:
     needs: deploy
@@ -209,22 +152,16 @@ jobs:
       - name: Health check
         run: |
           URL="${{ needs.deploy.outputs.deployment_url }}"
-          echo "smoke testing $URL/api/health"
           for i in 1 2 3 4 5; do
             code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/health") && [ "$code" = "200" ] && exit 0
             echo "attempt $i: HTTP $code — retrying in $((i*5))s"
             sleep $((i*5))
           done
-          echo "health check failed" >&2
           exit 1
       - name: Deep readiness check
         if: ${{ inputs.environment == 'production' }}
         run: |
           URL="${{ needs.deploy.outputs.deployment_url }}"
-          echo "readiness testing $URL/api/health?deep=1"
           code=$(curl -s -o readiness.json -w '%{http_code}' "$URL/api/health?deep=1")
           cat readiness.json
-          if [ "$code" != "200" ]; then
-            echo "readiness check failed with HTTP $code" >&2
-            exit 1
-          fi
+          test "$code" = "200"

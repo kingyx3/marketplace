@@ -2,82 +2,50 @@
 
 ## Pipeline
 
-`deploy.yml` is a reusable workflow invoked by active environment callers. The current free-tier topology has two hosted environments:
+- Pull requests and `main` run secretless application, configuration, migration, and Terraform validation.
+- The same reusable application-check workflow gates hosted deployment, eliminating duplicated command definitions.
+- Both Terraform stacks initialize without a backend in pull-request CI, use committed multi-platform provider lockfiles, and must pass formatting and validation.
+- `develop` deploys to the shared development environment.
+- `v*` tags and published releases deploy production.
 
-| Caller | Trigger | Environment | Notes |
-| --- | --- | --- | --- |
-| `deploy-development.yml` | Push to non-`main` branches | `development` | Skips docs-only changes and skips branch deploys until the shared deploy prerequisite secrets are configured. |
-| `deploy-production.yml` | Push tag `v*` or publish a release | `production` | Pauses on required GitHub Environment reviewers before mutable production jobs run. |
-
-`staging` is intentionally empty for now. Recreate a staging caller only when a third hosted Vercel/Supabase project pair is available.
-
-Checks run before mutable deploy work:
+Hosted deployment order:
 
 ```text
-validate-env ------+
-migration-check ---+--> migrate --+
-app-checks -----------------------+--> deploy --> smoke
+pre-provision environment validation
++ production-only non-mutating Terraform/provider/runtime drift preflight
++ app checks
++ clean migration check
+→ hosted migration push
+→ shared runtime/provider reconciliation
+→ deploy or reuse identical ready deployment
+→ health checks
 ```
 
-## What each job does
+`scripts/reconcile-runtime-environment.mjs` is shared by bootstrap and deployment. It injects any Vercel-stored Stripe secret, transactionally reconciles the endpoint, applies enabled provider settings, validates the final contract, and fingerprints/syncs Vercel values.
 
-| Job | Purpose |
-| --- | --- |
-| `deploy-ready` | Development caller only: confirms the branch push is still current and checks that `GCP_TERRAFORM_CREDENTIALS_JSON`, `VERCEL_TOKEN`, and `SUPABASE_ACCESS_TOKEN` exist before invoking the reusable deploy. It logs missing key names only. |
-| `validate-env` | Targets the selected GitHub Environment, initializes Terraform state, resolves Terraform/provider values with `scripts/resolve-environment.mjs`, validates `SUPABASE_PROJECT_REF`, and runs pre-provision environment validation with `scripts/generate-env.mjs --check --allow-missing-provisioned`. |
-| `app-checks` | Runs lint, typecheck, unit tests, and build in parallel after `npm ci`. |
-| `migration-check` | Applies the auth shim, every SQL migration, and seed data to a clean Postgres service. |
-| `migrate` | Resolves Terraform/provider values, links the selected hosted Supabase project, and runs `supabase db push`. |
-| `deploy` | Resolves Terraform/provider values, injects any Vercel-stored Stripe signing secret into `scripts/provision-stripe-webhook.mjs`, creates/replaces/updates the endpoint as needed, generates `.env.deploy`, syncs runtime env to Vercel, deploys with `scripts/deploy-vercel.mjs`, and removes the temporary env file. |
-| `smoke` | Checks `/api/health`; production also checks `/api/health?deep=1`. |
+`scripts/verify-environment.mjs` is the non-mutating release gate. It fails on Terraform changes, provider differences, missing or malformed runtime values, Vercel runtime drift, or failed health checks. Production deployment runs the drift portion before any migration or deployment; Bootstrap Environment `mode=verify` runs the full gate including health.
 
-## Notes
+## Idempotency
 
-- Development deploys ignore docs-only changes. Until `GCP_TERRAFORM_CREDENTIALS_JSON`, `VERCEL_TOKEN`, and `SUPABASE_ACCESS_TOKEN` exist in the development GitHub Environment or at repository scope, branch deploys skip cleanly; once those prerequisites are present, branch pushes run the full development deploy suite.
-- Pull request CI is secretless and separate from deploys. Protect `main` with lint, typecheck, unit tests, build, config checks, and migration checks before production releases are tagged.
-- Public runtime and deploy-routing values come from Terraform outputs, provider APIs, GitHub Environment vars, and optional local fallback. Do not copy Terraform outputs into committed config.
-- Vercel dashboard env is not canonical. The deploy workflow always pushes runtime env from the resolved environment.
-- `VERCEL_TOKEN` is the single Vercel token name. Do not duplicate it as `VERCEL_API_TOKEN`.
-- Supabase migrations are forward-only. A failed migration should be fixed with a new migration, not by editing an applied migration.
+- Hosted environment mutation workflows share one per-environment lock.
+- Shared Terraform workflows use a separate global infrastructure lock.
+- Terraform plans are side-effect-free, and apply consumes the exact reviewed plan artifact.
+- Vercel environment writes are skipped when keyed fingerprints match.
+- A source/configuration deployment key reuses an existing ready deployment.
+- Stripe desired metadata and events come from one shared implementation.
+- Supabase migrations are forward-only and `db push` is safe to rerun.
 
-## Bootstrap versus deploy
+## Development topology
 
-| Workflow | When to use | Important limitation |
-| --- | --- | --- |
-| **Terraform State Bootstrap** | Create/reconcile the shared GCS state bucket. | Run once; it does not create app provider projects or deploy the app. |
-| **Terraform Platform** | Create/reconcile the shared Vercel project and both active Supabase project shells. | Run once; it does not fill runtime secrets or push app migrations. |
-| **Configure Providers** | Plan/apply/verify hosted Supabase Google Auth and explicitly reconcile an existing Stripe webhook. | Its GitHub Actions path cannot create the first Stripe endpoint because it cannot persist the one-time signing secret. |
-| **Bootstrap Environment** | Sync Vercel env, link Supabase, and push migrations without deploying the app. | Before first deploy, it requires `STRIPE_WEBHOOK_SECRET` to have been pre-provisioned into the selected GitHub Environment. |
-| **Deploy development/production** | Normal release path; it can also perform first-time Stripe webhook provisioning. | It does not create Google Cloud OAuth clients or GitHub Environment values. |
+Only the `develop` integration branch automatically mutates the shared development Supabase/Vercel target. Feature branches use CI and may be manually dispatched only when intentionally selected for integration testing.
 
-For the exact deploy-first and bootstrap-before-deploy sequences, see `docs/bootstrap.md`.
+## Production
+
+Production jobs target the protected `production` GitHub Environment. The GitHub governance reconciler configures `main` to require strict CI status checks, one independent approval, stale-review dismissal, resolved conversations, linear history, admin enforcement, and no force pushes. Production deployment performs a live drift preflight before migrations, while deep readiness checks run after deployment.
 
 ## Rollback
 
-- **App**: Vercel keeps every deployment immutable. Promote the previous deployment with `vercel rollback` or the dashboard.
-- **Database**: migrations are forward-only. To undo schema, write a new reverting migration; never edit or delete an applied migration.
-- **Config**: change the GitHub Environment variable/secret or Terraform/provider source, then rerun deploy so CI re-syncs Vercel and redeploys from the corrected source of truth.
-- **Provider config**: correct the provider dashboard prerequisite or GitHub Environment secret; rerun **Configure Providers**, then rerun bootstrap/deploy as needed.
-
-## Releasing to production
-
-```bash
-git tag v0.2.0
-git push origin v0.2.0
-```
-
-Alternatively publish a GitHub release. The `production` deploy starts, then pauses for required-reviewer approval on the GitHub Environment before jobs that target production run.
-
-## Production readiness checks
-
-For a first production launch, use the bootstrap-before-deploy path so OAuth and Stripe settings can be verified before the release tag is cut:
-
-1. Confirm `production` has required reviewers.
-2. Confirm shared secrets and production environment vars/secrets from `docs/environments.md` are present.
-3. Run **Terraform Platform** with `apply=true` after reviewing the plan.
-4. Pre-provision the production Stripe endpoint locally and store `STRIPE_WEBHOOK_SECRET` in the production GitHub Environment.
-5. Run **Configure Providers** in `plan`, then `apply`, for `production`.
-6. Run **Bootstrap Environment** for `production`.
-7. Confirm Stripe live webhook endpoint points to `${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe` and uses the matching signing secret.
-8. Confirm Google sign-in works against the production Supabase project.
-9. Cut the release tag and confirm `/api/health` and `/api/health?deep=1` return HTTP 200 after deploy.
+- Vercel application rollback: promote a previous immutable deployment.
+- Database rollback: add a forward reverting migration.
+- Configuration repair: correct the source value and rerun bootstrap/deploy.
+- Provider repair: run **Configure Providers** in plan/apply/verify mode.

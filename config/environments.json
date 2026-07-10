@@ -2,6 +2,7 @@
   "comment": "Optional local fallback only. CI/CD resolves deployment topology from Terraform outputs, provider APIs, GitHub Environment vars, and job outputs.",
   "shared": {
     "APP_NAME": "Marketplace",
+    "GOOGLE_AUTH_ENABLED": "true",
     "STRIPE_WEBHOOK_ENABLED_EVENTS": [
       "payment_intent.succeeded",
       "payment_intent.payment_failed",

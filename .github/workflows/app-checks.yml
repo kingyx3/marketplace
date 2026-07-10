@@ -1,0 +1,52 @@
+name: App checks (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      run_e2e:
+        description: Run the Playwright smoke suite
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: ${{ matrix.check }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: lint
+            command: npm run lint
+          - check: typecheck
+            command: npm run typecheck
+          - check: test
+            command: npm test
+          - check: build
+            command: npm run build
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: ${{ matrix.command }}
+
+  e2e:
+    if: inputs.run_e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e

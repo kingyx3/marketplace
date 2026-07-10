@@ -1,51 +1,49 @@
 # Local development
 
-## Prerequisites
+## Automated first run
 
-- Node 22 (`nvm use` reads `.nvmrc`)
-- Docker (for the local Supabase stack)
-- Supabase CLI (`npm i -g supabase` or `npx supabase`)
+Prerequisites:
 
-## First run
-
-```bash
-npm install
-cp .env.example .env
-npx supabase start
-```
-
-Use the local API URL and keys printed by the Supabase CLI with the environment
-variable names in `.env.example`.
+- Node/npm versions from `.nvmrc` and `package.json`.
+- Docker running.
 
 Then:
 
 ```bash
-npx supabase db reset
-npm run dev
+nvm use
+npm run bootstrap:doctor
+npm run bootstrap:local
 ```
 
-## Stripe webhooks locally
+The bootstrap command:
+
+1. Runs `npm ci`.
+2. Uses the pinned Supabase CLI version from `config/tool-versions.json`.
+3. Starts or reuses local Supabase.
+4. Reads machine-readable local URL/keys.
+5. Merges them into ignored `.env.local` without overwriting existing Stripe values.
+6. Resets migrations and seed data.
+7. Reports only missing provider values.
+
+Stripe API keys cannot be recovered automatically. Add test-mode values to `.env.local`. For webhook testing, run the Stripe CLI in another terminal:
 
 ```bash
 stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ```
 
-`stripe listen` prints the `whsec_...` signing secret for `.env`.
+Copy its temporary `whsec_...` value into `.env.local`, then run:
 
-## Everyday commands
+```bash
+npm run env:check
+npm run dev
+```
 
-| Command | Does |
-| --- | --- |
-| `npm run dev` | dev server |
-| `npm run lint` / `typecheck` / `test` | checks (see docs/testing.md) |
-| `npm run env:check` | load and validate your local `.env` against the contract |
-| `npx supabase db reset` | rebuild DB from migrations + seed |
-| `npx supabase migration new <name>` | start a new migration file |
-| `npx supabase studio` | DB browser at localhost:54323 |
+Useful reruns:
 
-## Schema changes
+```bash
+npm run bootstrap:local -- --skip-install
+npm run bootstrap:local -- --skip-reset
+npx supabase studio
+```
 
-Never edit an applied migration. Create a new file with
-`npx supabase migration new <name>`, write forward-only SQL (with RLS
-for any new table), run `npx supabase db reset`, and update
-`docs/data-model.md` in the same PR.
+Database changes remain forward-only migrations under `supabase/migrations/`.

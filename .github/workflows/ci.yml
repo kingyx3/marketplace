@@ -1,6 +1,4 @@
-# CI for pull requests: parallel, no secrets required.
-# Deploys are separate (deploy-*.yml) and gate on these checks via
-# branch protection ("required status checks"), not via this file.
+# Secretless pull-request CI. Hosted deployment remains separate.
 name: CI
 
 on:
@@ -16,7 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  # Affected-path detection: skip app jobs on docs-only changes.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -24,8 +21,8 @@ jobs:
       config: ${{ steps.filter.outputs.config }}
       migrations: ${{ steps.filter.outputs.migrations }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v4.2.2
+      - uses: dorny/paths-filter@v3.0.2
         id: filter
         with:
           filters: |
@@ -45,104 +42,40 @@ jobs:
               - 'postcss.config.mjs'
               - 'vercel.json'
               - 'supabase/**'
+              - 'config/**'
             config:
               - '.env.example'
               - '.github/workflows/**'
+              - '.github/actions/**'
               - '.github/ci/**'
               - 'config/**'
-              - 'docs/admin-operations.md'
-              - 'docs/bootstrap.md'
-              - 'docs/build-plan.md'
-              - 'docs/cost-controls.md'
-              - 'docs/deployment.md'
-              - 'docs/environments.md'
-              - 'docs/provisioning.md'
-              - 'docs/security.md'
-              - 'docs/testing.md'
-              - 'supabase/config.toml'
-              - 'supabase/migrations/**'
-              - 'vercel.json'
+              - 'docs/**'
+              - 'infra/**'
               - 'scripts/**'
               - 'tests/env.test.ts'
               - 'tests/deploy-workflow.test.ts'
+              - 'tests/deployment-idempotency.test.ts'
+              - 'tests/bootstrap-convergence.test.ts'
               - 'tests/config-contract.test.ts'
+              - 'supabase/config.toml'
+              - 'vercel.json'
             migrations:
               - 'supabase/**'
 
-  lint:
+  app-checks:
     needs: changes
     if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-
-  typecheck:
-    needs: changes
-    if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-
-  test:
-    needs: changes
-    if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm test
-
-  build:
-    needs: changes
-    if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-
-  e2e-smoke:
-    needs: changes
-    if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run build
-      - run: npm run test:e2e
+    uses: ./.github/workflows/app-checks.yml
+    with:
+      run_e2e: true
 
   config-contract:
     needs: changes
     if: needs.changes.outputs.config == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -153,10 +86,50 @@ jobs:
             npx --yes js-yaml "$file" >/dev/null
           done
       - run: npm run config:check
-      - run: npm test -- tests/env.test.ts tests/deploy-workflow.test.ts tests/config-contract.test.ts
+      - run: npm test -- tests/env.test.ts tests/deploy-workflow.test.ts tests/deployment-idempotency.test.ts tests/bootstrap-convergence.test.ts tests/config-contract.test.ts
 
-  # Apply every migration + seed against a clean postgres to catch
-  # SQL errors before they reach `supabase db push` in deploy.
+  terraform-validation:
+    needs: changes
+    if: needs.changes.outputs.config == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [bootstrap, platform]
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
+      - name: Terraform format
+        run: terraform -chdir=infra/terraform/${{ matrix.stack }} fmt -check
+      - name: Initialize providers without a backend
+        run: terraform -chdir=infra/terraform/${{ matrix.stack }} init -backend=false -input=false -lockfile=readonly
+      - name: Verify multi-platform provider lockfile
+        run: |
+          terraform -chdir=infra/terraform/${{ matrix.stack }} providers lock -platform=linux_amd64 -platform=darwin_amd64 -platform=darwin_arm64
+          git diff --exit-code -- infra/terraform/${{ matrix.stack }}/.terraform.lock.hcl
+      - name: Validate Terraform configuration
+        id: validate
+        shell: bash
+        run: |
+          set +e
+          terraform -chdir=infra/terraform/${{ matrix.stack }} validate -json > "terraform-validation-${{ matrix.stack }}.json"
+          code=$?
+          set -e
+          cat "terraform-validation-${{ matrix.stack }}.json"
+          exit "$code"
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: terraform-validation-${{ matrix.stack }}
+          path: |
+            infra/terraform/${{ matrix.stack }}/.terraform.lock.hcl
+            terraform-validation-${{ matrix.stack }}.json
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
   migrations:
     needs: changes
     if: needs.changes.outputs.migrations == 'true'
@@ -166,7 +139,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
-        ports: ["5432:5432"]
+        ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
@@ -175,8 +148,8 @@ jobs:
     env:
       PGPASSWORD: postgres
     steps:
-      - uses: actions/checkout@v4
-      - name: Apply auth shim (emulates Supabase-managed schema)
+      - uses: actions/checkout@v4.2.2
+      - name: Apply auth shim
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql 2>&1 | tee migration.log
       - name: Apply migrations in order
         run: |
@@ -184,12 +157,12 @@ jobs:
             echo "applying $f"
             psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
           done 2>&1 | tee -a migration.log
-      - name: Upload migration log
+      - uses: actions/upload-artifact@v4.6.2
         if: always()
-        uses: actions/upload-artifact@v4
         with:
           name: migration-log
           path: migration.log
           if-no-files-found: ignore
+          retention-days: 7
       - name: Apply seed
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql

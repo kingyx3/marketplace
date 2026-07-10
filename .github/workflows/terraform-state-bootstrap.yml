@@ -4,27 +4,34 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: GitHub Environment for Terraform credentials and variables
+        description: GitHub Environment providing shared Terraform credentials
         required: true
         type: environment
-      apply:
-        description: Apply the state bucket changes
+      mode:
+        description: Reconcile persistent state, create a read-only plan, or apply an exact prior plan
         required: true
-        type: boolean
-        default: false
+        default: plan
+        type: choice
+        options: [reconcile, plan, apply]
+      plan_run_id:
+        description: Required for apply; Actions run id that produced the reviewed plan artifact
+        required: false
+        type: string
 
 concurrency:
-  group: environment-${{ inputs.environment }}
+  group: marketplace-shared-infrastructure
   cancel-in-progress: false
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  bootstrap-state:
+  reconcile:
+    if: inputs.mode == 'reconcile'
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    env:
+    env: &state_env
       TARGET_ENV: ${{ inputs.environment }}
       GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -32,29 +39,132 @@ jobs:
       TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
       TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: hashicorp/setup-terraform@v3
-      - name: Resolve CI/CD variables
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
+      - name: Resolve Terraform inputs
         run: node scripts/resolve-terraform-inputs.mjs state
-      - name: Terraform init
-        working-directory: infra/terraform/bootstrap
-        run: terraform init
-      - name: Terraform fmt
-        working-directory: infra/terraform/bootstrap
-        run: terraform fmt -check
-      - name: Terraform validate
-        working-directory: infra/terraform/bootstrap
-        run: terraform validate
-      - name: Reconcile existing state bucket import
-        run: node scripts/bootstrap-terraform-state-import.mjs
-      - name: Terraform plan
-        working-directory: infra/terraform/bootstrap
-        run: terraform plan -out=tfplan
-      - name: Terraform apply
-        if: ${{ inputs.apply }}
-        working-directory: infra/terraform/bootstrap
-        run: terraform apply -auto-approve tfplan
+      - name: Inspect state bucket
+        id: bucket
+        run: node scripts/detect-gcs-bucket.mjs
+      - name: Reconcile existing bucket into persistent bootstrap state
+        run: |
+          if [ "$TF_STATE_BUCKET_EXISTS" != "true" ]; then
+            echo "State bucket is absent; no existing resource needs adoption. Run plan then apply."
+            exit 0
+          fi
+          printf 'terraform {\n  backend "gcs" {}\n}\n' > infra/terraform/bootstrap/backend.runtime.tf
+          terraform -chdir=infra/terraform/bootstrap init -input=false -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=marketplace/bootstrap"
+          terraform -chdir=infra/terraform/bootstrap fmt -check
+          terraform -chdir=infra/terraform/bootstrap validate
+          node scripts/bootstrap-terraform-state-import.mjs
+
+  plan:
+    if: inputs.mode == 'plan'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env: *state_env
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
+      - name: Resolve Terraform inputs
+        run: node scripts/resolve-terraform-inputs.mjs state
+      - name: Inspect state bucket
+        id: bucket
+        run: node scripts/detect-gcs-bucket.mjs
+      - name: Initialize matching backend
+        run: |
+          if [ "$TF_STATE_BUCKET_EXISTS" = "true" ]; then
+            printf 'terraform {\n  backend "gcs" {}\n}\n' > infra/terraform/bootstrap/backend.runtime.tf
+            terraform -chdir=infra/terraform/bootstrap init -input=false -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=marketplace/bootstrap"
+            echo "TF_BOOTSTRAP_BACKEND_MODE=remote" >> "$GITHUB_ENV"
+          else
+            terraform -chdir=infra/terraform/bootstrap init -input=false
+            echo "TF_BOOTSTRAP_BACKEND_MODE=local" >> "$GITHUB_ENV"
+          fi
+          terraform -chdir=infra/terraform/bootstrap fmt -check
+          terraform -chdir=infra/terraform/bootstrap validate
+      - name: Create side-effect-free plan
+        run: |
+          mkdir -p .terraform-plan
+          terraform -chdir=infra/terraform/bootstrap plan -input=false -out="$GITHUB_WORKSPACE/.terraform-plan/tfplan"
+          terraform -chdir=infra/terraform/bootstrap show -no-color "$GITHUB_WORKSPACE/.terraform-plan/tfplan" > .terraform-plan/plan.txt
+          node -e 'const fs=require("fs"); fs.writeFileSync(".terraform-plan/metadata.json", JSON.stringify({source_sha:process.env.GITHUB_SHA,stack:"state",backend_mode:process.env.TF_BOOTSTRAP_BACKEND_MODE,workflow_run_id:process.env.GITHUB_RUN_ID},null,2)+"\n")'
+      - run: cat .terraform-plan/plan.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: terraform-state-plan
+          path: .terraform-plan/
+          retention-days: 1
+          if-no-files-found: error
+
+  apply:
+    if: inputs.mode == 'apply'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env: *state_env
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Validate reviewed plan reference
+        env:
+          PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+        run: |
+          test -n "$PLAN_RUN_ID" || { echo "plan_run_id is required for apply" >&2; exit 1; }
+          [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]] || { echo "plan_run_id must be numeric" >&2; exit 1; }
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: terraform-state-plan
+          path: .terraform-plan
+          run-id: ${{ inputs.plan_run_id }}
+          github-token: ${{ github.token }}
+      - name: Resolve Terraform inputs
+        run: node scripts/resolve-terraform-inputs.mjs state
+      - name: Inspect current state bucket
+        id: bucket
+        run: node scripts/detect-gcs-bucket.mjs
+      - name: Verify reviewed plan and current backend mode
+        env:
+          TF_STATE_BUCKET_EXISTS: ${{ steps.bucket.outputs.exists }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const m = JSON.parse(fs.readFileSync('.terraform-plan/metadata.json'));
+          if (m.stack !== 'state' || m.source_sha !== process.env.GITHUB_SHA) throw new Error(`Plan belongs to ${m.stack}@${m.source_sha}`);
+          const currentMode = process.env.TF_STATE_BUCKET_EXISTS === 'true' ? 'remote' : 'local';
+          if (m.backend_mode !== currentMode) throw new Error(`Backend changed from ${m.backend_mode} to ${currentMode}; reconcile and create a new plan.`);
+          fs.appendFileSync(process.env.GITHUB_ENV, `TF_BOOTSTRAP_BACKEND_MODE=${m.backend_mode}\n`);
+          NODE
+          test -s .terraform-plan/tfplan
+      - name: Initialize matching backend
+        run: |
+          if [ "$TF_BOOTSTRAP_BACKEND_MODE" = "remote" ]; then
+            printf 'terraform {\n  backend "gcs" {}\n}\n' > infra/terraform/bootstrap/backend.runtime.tf
+            terraform -chdir=infra/terraform/bootstrap init -input=false -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=marketplace/bootstrap"
+          else
+            terraform -chdir=infra/terraform/bootstrap init -input=false
+          fi
+      - name: Apply exact reviewed plan
+        run: terraform -chdir=infra/terraform/bootstrap apply -input=false -auto-approve "$GITHUB_WORKSPACE/.terraform-plan/tfplan"
+      - name: Migrate first-run state into the new bucket
+        if: env.TF_BOOTSTRAP_BACKEND_MODE == 'local'
+        run: |
+          printf 'terraform {\n  backend "gcs" {}\n}\n' > infra/terraform/bootstrap/backend.runtime.tf
+          terraform -chdir=infra/terraform/bootstrap init -input=false -migrate-state -force-copy -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=marketplace/bootstrap"
