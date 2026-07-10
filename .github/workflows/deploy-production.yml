@@ -11,7 +11,7 @@ on:
     tags: ['v*']
 
 concurrency:
-  group: deploy-production
+  group: environment-production
   cancel-in-progress: false
 
 permissions:
