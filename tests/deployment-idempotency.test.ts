@@ -40,6 +40,7 @@ describe("deployment idempotency contract", () => {
     expect(workflow).not.toContain("|| true");
     expect(bootstrap).toContain("isMissingRemoteObject");
     expect(bootstrap).toContain("is already managed in Terraform state; skipping import");
+    expect(bootstrap).toContain("no state file was found");
   });
 
   it("turns unchanged Vercel configuration and deployments into no-ops", async () => {

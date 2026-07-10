@@ -46,7 +46,11 @@ function terraform(args) {
 }
 
 function isMissingStateAddress(output) {
-  return /no instance found|does not exist in the state|invalid address to set/i.test(output);
+  // A brand-new backend has no snapshot yet. Treat that exactly like an absent
+  // resource address so the import/create reconciliation can proceed.
+  return /no instance found|does not exist in the state|invalid address to set|no state file was found/i.test(
+    output
+  );
 }
 
 function isMissingRemoteObject(output) {
