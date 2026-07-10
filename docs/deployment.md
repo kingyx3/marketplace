@@ -1,51 +1,74 @@
 # Deployment
 
-## Pipeline
+## Normal operator path
 
-- Pull requests and `main` run secretless application, configuration, migration, and Terraform validation.
-- The same reusable application-check workflow gates hosted deployment, eliminating duplicated command definitions.
-- Both Terraform stacks initialize without a backend in pull-request CI, use committed multi-platform provider lockfiles, and must pass formatting and validation.
-- `develop` deploys to the shared development environment.
-- `v*` tags and published releases deploy production.
+Use one command from a trusted authenticated shell:
 
-Hosted deployment order:
-
-```text
-pre-provision environment validation
-+ production-only non-mutating Terraform/provider/runtime drift preflight
-+ app checks
-+ clean migration check
-→ hosted migration push
-→ shared runtime/provider reconciliation
-→ deploy or reuse identical ready deployment
-→ health checks
+```bash
+npm run bootstrap:all -- --apply
 ```
 
-`scripts/reconcile-runtime-environment.mjs` is shared by bootstrap and deployment. It injects any Vercel-stored Stripe secret, transactionally reconciles the endpoint, applies enabled provider settings, validates the final contract, and fingerprints/syncs Vercel values.
+Or run **Bootstrap & Deploy** once from GitHub Actions.
 
-`scripts/verify-environment.mjs` is the non-mutating release gate. It fails on Terraform changes, provider differences, missing or malformed runtime values, Vercel runtime drift, or failed health checks. Production deployment runs the drift portion before any migration or deployment; Bootstrap Environment `mode=verify` runs the full gate including health.
+The aggregate operation performs:
 
-## Idempotency
+```text
+full application + Playwright checks
+→ Terraform state convergence
+→ shared platform convergence
+→ development bootstrap, deployment, and verification
+→ production bootstrap, deployment, and verification
+```
 
-- Hosted environment mutation workflows share one per-environment lock.
-- Shared Terraform workflows use a separate global infrastructure lock.
-- Terraform plans are side-effect-free, and apply consumes the exact reviewed plan artifact.
+When `target=all`, production cannot begin until development verification succeeds. Production environment approval remains the intentional human gate.
+
+## Reusable pipeline components
+
+The aggregate workflow calls the existing components instead of duplicating their behavior:
+
+- **App checks** — lint, typecheck, tests, build, and optional Playwright E2E.
+- **Terraform State Bootstrap** — default `converge` mode plus recovery-only `reconcile`, `plan`, and exact-artifact `apply` modes.
+- **Terraform Platform** — default `converge` mode plus recovery-only granular modes.
+- **Bootstrap Environment** — targeted provider/runtime/database `apply` or non-mutating `verify`.
+- **Deploy** — migration validation/push, runtime reconciliation, immutable Vercel deployment reuse, and health checks.
+
+Application checks run once in the aggregate workflow. Deployments receive `skip_app_checks=true` so development and production do not repeat the same source validation.
+
+## Safety and idempotency
+
+- Source checks must pass before infrastructure mutation begins.
+- Shared Terraform workflows use one global infrastructure lock.
+- Hosted runtime mutation uses per-environment locks.
+- Automatic convergence creates a binary Terraform plan and applies that exact plan in the same protected run.
+- First-run state is migrated automatically into the newly created GCS backend.
+- Existing provider resources are adopted before platform planning.
+- Provider lockfiles are committed and enforced read-only.
 - Vercel environment writes are skipped when keyed fingerprints match.
-- A source/configuration deployment key reuses an existing ready deployment.
+- Identical source/runtime fingerprints reuse an existing ready deployment.
 - Stripe desired metadata and events come from one shared implementation.
-- Supabase migrations are forward-only and `db push` is safe to rerun.
+- Supabase migrations remain forward-only and safe to rerun.
+- Production refuses to deploy with Terraform, provider, or runtime drift.
+- Final verification is non-mutating and includes deployed health checks.
 
 ## Development topology
 
-Only the `develop` integration branch automatically mutates the shared development Supabase/Vercel target. Feature branches use CI and may be manually dispatched only when intentionally selected for integration testing.
+Only the `develop` integration branch automatically triggers the standalone development deployment workflow. The aggregate workflow is dispatched from `main`; bootstrap configuration explicitly permits `main` for both GitHub Environments.
 
-## Production
+## Diagnostics and recovery
 
-Production jobs target the protected `production` GitHub Environment. The GitHub governance reconciler configures `main` to require strict CI status checks, one independent approval, stale-review dismissal, resolved conversations, linear history, admin enforcement, and no force pushes. Production deployment performs a live drift preflight before migrations, while deep readiness checks run after deployment.
+Application check output is retained as short-lived artifacts for lint, typecheck, test, build, and E2E failures.
+
+Use granular workflows only when diagnosing or recovering a specific layer:
+
+- Terraform `reconcile` to adopt resources.
+- Terraform `plan` and exact-artifact `apply` for exceptional reviewed changes.
+- Bootstrap Environment `verify` for non-mutating drift diagnosis.
+- Configure Providers for provider-only repair.
+- Standalone deploy workflows for application-only releases.
 
 ## Rollback
 
 - Vercel application rollback: promote a previous immutable deployment.
 - Database rollback: add a forward reverting migration.
-- Configuration repair: correct the source value and rerun bootstrap/deploy.
-- Provider repair: run **Configure Providers** in plan/apply/verify mode.
+- Configuration repair: correct the GitHub source value and rerun the aggregate workflow.
+- Provider repair: run **Configure Providers**, then rerun **Bootstrap & Deploy**.
