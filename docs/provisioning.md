@@ -2,7 +2,7 @@
 
 ## Scope
 
-Terraform manages provider project shells; provider bootstrap scripts manage safe SaaS configuration; GitHub Environments manage secrets and unavoidable manual public values; Supabase migrations manage database schema.
+Terraform manages provider project shells; provider scripts manage SaaS configuration that does not belong in Terraform state; GitHub Environments manage secrets and unavoidable manual public values; Supabase migrations manage database schema.
 
 | Layer | Owner |
 | --- | --- |
@@ -12,8 +12,9 @@ Terraform manages provider project shells; provider bootstrap scripts manage saf
 | Deployment topology | Terraform outputs resolved by `scripts/resolve-environment.mjs` |
 | Optional local defaults | `config/environments.json` |
 | Hosted Supabase Google Auth provider | `scripts/configure-google-oauth.mjs` orchestrated by `scripts/configure-providers.mjs` |
-| Stripe webhook endpoint | `scripts/configure-stripe.mjs` orchestrated by `scripts/configure-providers.mjs` |
-| Environment bootstrap | `scripts/bootstrap-environment.mjs` through **Bootstrap Environment** |
+| First-deploy Stripe webhook provisioning | `scripts/provision-stripe-webhook.mjs` in the reusable deploy workflow |
+| Explicit Stripe webhook plan/apply/verify | `scripts/configure-stripe.mjs` orchestrated by `scripts/configure-providers.mjs` |
+| Environment bootstrap without app deployment | `scripts/bootstrap-environment.mjs` through **Bootstrap Environment** |
 | Runtime/deploy secrets | GitHub repository secrets + GitHub Environments; see `docs/environments.md` |
 | Vercel runtime env | Synced from the resolved environment by `scripts/sync-vercel-env.mjs` |
 | Database schema, storage, grants, RLS, RPCs | `supabase/migrations` + `supabase/seed.sql` |
@@ -25,6 +26,8 @@ Terraform manages provider project shells; provider bootstrap scripts manage saf
 | `development` | Preview | Development project | Active |
 | `production` | Production | Production project | Active |
 | `staging` | None | None | Reserved |
+
+The Terraform state and platform stacks are shared. Run each Terraform workflow once against an active GitHub Environment that can access the shared credentials and overrides; the platform stack creates both active Supabase project shells in one apply.
 
 ## Terraform state
 
@@ -71,20 +74,23 @@ The current default is a Vercel Hobby/personal project:
 - CI resolves the personal `VERCEL_ORG_ID` from the Vercel API when possible.
 - If you later move to a team/org, set repository-level `VERCEL_TEAM_ID` before reconciling Terraform for the team-owned project.
 
-## Provider bootstrap scripts
-
-Provider scripts are intentionally outside Terraform when secrets, one-time values, or dashboard-owned account state make Terraform state a poor fit.
+## Provider and bootstrap scripts
 
 - `scripts/resolve-environment.mjs` resolves Terraform outputs, provider API values, GitHub Environment values, and optional local fallback into the job environment.
 - `scripts/environment-config.mjs` reads optional local fallback config and never overrides existing env values by default.
 - `scripts/generate-env.mjs` validates the resolved contract and writes `.env.deploy` for Vercel runtime sync.
-- `scripts/configure-providers.mjs` is the single entry point for provider plan/apply/verify flows.
+- `scripts/configure-providers.mjs` is the entry point for provider plan/apply/verify flows.
 - `scripts/configure-google-oauth.mjs` applies and verifies the hosted Supabase Google provider after the Google Cloud OAuth client exists.
-- `scripts/configure-stripe.mjs` idempotently updates/verifies the Stripe webhook endpoint in CI and can create the first endpoint only from a trusted local shell with `--print-created-secret`.
-- `scripts/bootstrap-environment.mjs` codifies provider config, resolved env validation, `.env.deploy` generation, Vercel env sync, Supabase link, and migration push.
-- `scripts/deploy-vercel.mjs` keeps Vercel deploy invocation out of workflow shell snippets while preserving GitHub Environment approval and secret scoping.
+- `scripts/configure-stripe.mjs` plans, updates, and verifies a Stripe webhook. It can create the first endpoint only from a trusted local shell with `--print-created-secret`; its GitHub Actions path intentionally does not create an endpoint because that workflow has nowhere to persist the one-time secret.
+- `scripts/provision-stripe-webhook.mjs` is the deploy-time provisioner. It creates, replaces, or updates the endpoint, masks the one-time signing secret, and exports it through `GITHUB_ENV` for later steps in the same deploy job.
+- `scripts/bootstrap-environment.mjs` applies already-configured providers, validates resolved env, generates `.env.deploy`, syncs Vercel env, links Supabase, and pushes migrations. It requires the Stripe signing secret to be present in the selected workflow environment; it does not inject a secret stored only in Vercel.
+- `scripts/deploy-vercel.mjs` keeps Vercel deploy invocation out of workflow shell snippets and reuses an existing ready deployment when the source/configuration fingerprint matches.
 
-GitHub Actions must not create the first Stripe webhook endpoint because Stripe returns the signing secret only once and this repo does not grant Actions permission to write GitHub Environment secrets. First endpoint creation is therefore an explicit local/dashboard bootstrap step; subsequent endpoint reconciliation is automated.
+The distinction between the Stripe scripts is intentional:
+
+- **Deploy development/production** may create the first webhook because the deploy job immediately passes the masked secret to runtime env sync and persists it to Vercel.
+- **Configure Providers** may update an existing endpoint but cannot create the first endpoint in GitHub Actions.
+- **Bootstrap Environment** is suitable before the first deploy only when the signing secret was pre-provisioned locally and stored in the matching GitHub Environment.
 
 ## Dashboard-managed items
 
@@ -100,13 +106,14 @@ These remain outside Terraform/provider automation:
 
 Use `docs/bootstrap.md` for the full sequence. In short:
 
-1. Add required GitHub repository secrets and environment vars/secrets from `docs/environments.md`.
-2. Run **Terraform State Bootstrap**: plan, then apply.
-3. Run **Terraform Platform**: plan, then apply.
-4. Finish provider prerequisites for Supabase secret keys, Google OAuth, Stripe one-time webhook signing secrets, and optional notifications.
-5. Run **Configure Providers**: plan, then apply for both active environments.
-6. Run **Bootstrap Environment** for both active environments.
-7. Deploy and verify `/api/health`; production also verifies `/api/health?deep=1`.
+1. Add shared workflow secrets and per-environment operator values from `docs/environments.md`.
+2. Run **Terraform State Bootstrap** once: plan, then apply.
+3. Run **Terraform Platform** once: plan, then apply.
+4. Finish Supabase secret keys, Google OAuth clients, Stripe PayNow account settings, and optional notifications.
+5. Choose one initial path:
+   - deploy first so CI provisions/persists the Stripe webhook, then run **Configure Providers**; or
+   - pre-provision the Stripe endpoint locally, store its signing secret, then run **Configure Providers** and **Bootstrap Environment** before deploy.
+6. Deploy and verify `/api/health`; production also verifies `/api/health?deep=1`.
 
 ## Scaling path
 
