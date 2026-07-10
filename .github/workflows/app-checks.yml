@@ -35,7 +35,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: ${{ matrix.command }}
+      - name: Run ${{ matrix.check }}
+        shell: bash
+        run: |
+          set -o pipefail
+          ${{ matrix.command }} 2>&1 | tee "app-check-${{ matrix.check }}.log"
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: app-check-${{ matrix.check }}
+          path: app-check-${{ matrix.check }}.log
+          retention-days: 7
+          if-no-files-found: ignore
 
   e2e:
     if: inputs.run_e2e
@@ -48,5 +59,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run build
-      - run: npm run test:e2e
+      - name: Build and run E2E
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            npm run build
+            npm run test:e2e
+          } 2>&1 | tee app-check-e2e.log
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: app-check-e2e
+          path: app-check-e2e.log
+          retention-days: 7
+          if-no-files-found: ignore

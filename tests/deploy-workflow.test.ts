@@ -10,9 +10,38 @@ describe("deployment workflow contract", () => {
     const checks = await read(".github/workflows/app-checks.yml");
     expect(ci).toContain("uses: ./.github/workflows/app-checks.yml");
     expect(deploy).toContain("uses: ./.github/workflows/app-checks.yml");
+    expect(deploy).toContain("skip_app_checks:");
     for (const command of ["npm run lint", "npm run typecheck", "npm test", "npm run build"]) {
       expect(checks).toContain(command);
     }
+  });
+
+  it("offers one workflow that converges infrastructure, bootstraps, deploys, and verifies", async () => {
+    const workflow = await read(".github/workflows/bootstrap-all.yml");
+    expect(workflow).toContain("name: Bootstrap & Deploy");
+    expect(workflow).toContain("options: [all, development, production]");
+    expect(workflow).toContain("uses: ./.github/workflows/terraform-state-bootstrap.yml");
+    expect(workflow).toContain("uses: ./.github/workflows/terraform-platform.yml");
+    expect(workflow).toContain("uses: ./.github/workflows/bootstrap-environment.yml");
+    expect(workflow).toContain("uses: ./.github/workflows/deploy.yml");
+    expect(workflow).toContain("mode: converge");
+    expect(workflow).toContain("mode: verify");
+    expect(workflow).toContain("skip_app_checks: true");
+    expect(workflow.indexOf("bootstrap-development:")).toBeLessThan(workflow.indexOf("bootstrap-production:"));
+  });
+
+  it("keeps granular Terraform workflows reusable while defaulting to convergence", async () => {
+    const state = await read(".github/workflows/terraform-state-bootstrap.yml");
+    const platform = await read(".github/workflows/terraform-platform.yml");
+    for (const workflow of [state, platform]) {
+      expect(workflow).toContain("workflow_call:");
+      expect(workflow).toContain("default: converge");
+      expect(workflow).toContain("options: [converge, reconcile, plan, apply]");
+      expect(workflow).toContain("if: inputs.mode == 'converge'");
+      expect(workflow).toContain("-lockfile=readonly");
+    }
+    expect(state).toContain("apply -input=false -auto-approve \"$plan\"");
+    expect(platform).toContain("apply -input=false -auto-approve \"$plan\"");
   });
 
   it("runs the shared runtime reconciler before deployment", async () => {
@@ -53,6 +82,7 @@ describe("deployment workflow contract", () => {
     const bootstrap = await read(".github/workflows/bootstrap-environment.yml");
     const verifier = await read("scripts/verify-environment.mjs");
     const sync = await read("scripts/sync-vercel-env.mjs");
+    expect(bootstrap).toContain("workflow_call:");
     expect(bootstrap).toContain("options: [apply, verify]");
     expect(bootstrap).toContain("if: inputs.mode == 'verify'");
     expect(bootstrap).toContain("node scripts/verify-environment.mjs");

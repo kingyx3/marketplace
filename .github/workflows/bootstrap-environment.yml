@@ -1,6 +1,17 @@
 name: Bootstrap Environment
 
 on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment to reconcile or verify
+        required: true
+        type: string
+      mode:
+        description: Apply convergence or run non-mutating verification
+        required: false
+        default: apply
+        type: string
   workflow_dispatch:
     inputs:
       environment:
@@ -55,7 +66,7 @@ jobs:
           terraform_version: 1.15.8
       - run: npm ci
       - run: node scripts/resolve-terraform-inputs.mjs platform
-      - run: terraform -chdir=infra/terraform/platform init -input=false -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
       - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
       - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
       - name: Converge provider, runtime, and database state

@@ -1,39 +1,21 @@
 # Bootstrap guide
 
-This runbook takes blank provider accounts to converged `development` and `production` environments. Every repository-managed operation is designed for safe reruns. A second successful run should either make no changes or apply only detected drift.
+The normal hosted setup is one command or one GitHub Actions run. It is safe to rerun: unchanged infrastructure, provider configuration, runtime values, migrations, and deployments converge to no-ops.
 
-## Topology
+## External prerequisites
 
-| GitHub Environment | Trigger | Vercel target | Supabase project |
-| --- | --- | --- | --- |
-| `development` | `develop` push or manual dispatch | Preview | Development |
-| `production` | `v*` tag or published release | Production | Production |
+Create or confirm the account-level trust boundaries that repository code cannot own:
 
-The GCS state bucket, Vercel project, and both Supabase project shells are shared infrastructure. Runtime/provider/database reconciliation is per environment.
-
-## 1. Provider account prerequisites
-
-Create or confirm:
-
-- GitHub repository administration.
-- A Google Cloud project and credential with permission to manage the Terraform state bucket.
+- GitHub repository administration and an authenticated `gh` CLI session.
+- A Google Cloud project and credential allowed to manage the Terraform state bucket.
 - A Vercel API token.
 - A Supabase access token.
-- Stripe test/live keys with PayNow enabled.
-- Google OAuth Web clients and consent-screen ownership when Google Auth is enabled.
+- Stripe test/live keys with PayNow enabled at the account level.
+- Google OAuth consent-screen and Web-client ownership when Google Auth is enabled.
 
-Google Cloud OAuth-client creation and Stripe account-level PayNow enablement remain provider-account boundaries. Everything below those boundaries is reconciled by repository code.
+## Required trusted-shell values
 
-## 2. Configure GitHub from a trusted shell
-
-Authenticate the GitHub CLI, export the required values, and inspect the plan:
-
-```bash
-npm run bootstrap:github
-npm run github:governance
-```
-
-The local command expects shared values using their normal names:
+Shared values use their normal names:
 
 ```text
 GCP_TERRAFORM_CREDENTIALS_JSON
@@ -41,7 +23,7 @@ VERCEL_TOKEN
 SUPABASE_ACCESS_TOKEN
 ```
 
-Per-environment values use `DEVELOPMENT_` or `PRODUCTION_` prefixes, for example:
+Per-environment values use `DEVELOPMENT_` or `PRODUCTION_` prefixes:
 
 ```text
 DEVELOPMENT_NEXT_PUBLIC_SITE_URL
@@ -50,110 +32,100 @@ DEVELOPMENT_GOOGLE_AUTH_ENABLED
 DEVELOPMENT_GOOGLE_OAUTH_CLIENT_ID
 DEVELOPMENT_STRIPE_SECRET_KEY
 DEVELOPMENT_GOOGLE_OAUTH_CLIENT_SECRET
+
+PRODUCTION_NEXT_PUBLIC_SITE_URL
+PRODUCTION_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+PRODUCTION_GOOGLE_AUTH_ENABLED
+PRODUCTION_GOOGLE_OAUTH_CLIENT_ID
+PRODUCTION_STRIPE_SECRET_KEY
+PRODUCTION_GOOGLE_OAUTH_CLIENT_SECRET
 ```
 
-`SUPABASE_SECRET_KEY` is optional when the Supabase Management API returns a modern `sb_secret_...` key. `STRIPE_WEBHOOK_SECRET` is optional because hosted bootstrap provisions and persists it. Set `PRODUCTION_REVIEWERS=user1,user2` to configure required reviewers.
+Set `PRODUCTION_REVIEWERS=user1,user2` when creating production for the first time. `SUPABASE_SECRET_KEY` is optional when the Management API exposes a modern server key. `STRIPE_WEBHOOK_SECRET` is optional because bootstrap provisions and persists it transactionally.
 
-Apply the complete GitHub setup in one command:
+## One-command path
+
+Preview the GitHub changes without mutating anything:
 
 ```bash
-npm run bootstrap:github:apply
+npm run bootstrap:all
 ```
 
-The command reconciles strict `main` protection, required CI checks, one independent approval, stale-review dismissal, resolved conversations, `development` and `production`, deployment branch policies, supplied variables/secrets, and production environment reviewers. Secret values are passed over stdin and never printed.
+Apply everything and follow the resulting Actions run until completion:
 
-## 3. Reconcile and apply Terraform state bucket
+```bash
+npm run bootstrap:all -- --apply
+```
 
-In **Terraform State Bootstrap**:
+Optional scopes:
 
-1. Run `mode=reconcile` to adopt an existing bucket if necessary.
-2. Run `mode=plan`. This mode does not import, remove state, or apply changes.
-3. Review the plan and note the Actions run id.
-4. Run `mode=apply` with `plan_run_id=<reviewed run id>`.
+```bash
+npm run bootstrap:all -- --apply --target=development
+npm run bootstrap:all -- --apply --target=production
+```
 
-Apply downloads the exact one-day plan artifact, verifies its stack and source commit, and applies that binary plan. It never silently regenerates a different plan.
+The command performs two operations:
 
-## 4. Reconcile and apply the platform stack
+1. Reconciles GitHub branch governance, environments, deployment policies, variables, supplied secrets, and production reviewers.
+2. Dispatches **Bootstrap & Deploy**, discovers that exact workflow run, follows it, and returns its exit status.
 
-Repeat the same sequence in **Terraform Platform**:
-
-1. `mode=reconcile` adopts existing Vercel/Supabase resources and removes only state entries whose remote Supabase project is confirmed deleted.
-2. `mode=plan` produces a side-effect-free reviewed plan.
-3. `mode=apply` applies the exact artifact using its run id.
-
-Both Terraform workflows use one global shared-infrastructure concurrency lock, regardless of which GitHub Environment supplies credentials. Pull-request CI initializes both stacks without a backend, verifies committed multi-platform provider lockfiles, checks formatting, and runs `terraform validate`.
-
-## 5. Complete provider-account inputs
-
-### Google OAuth
-
-For each enabled environment, configure a Google Web application with:
-
-- JavaScript origin: the canonical `NEXT_PUBLIC_SITE_URL` origin.
-- Redirect URI: `${NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`.
-
-Hosted bootstrap reconciles the Supabase provider enablement, client credentials, site URL, and redirect allow-list. Set `GOOGLE_AUTH_ENABLED=false` to explicitly disable this capability and remove credential requirements.
-
-### Stripe
-
-Use matching publishable/secret keys for test or live mode. PayNow must be enabled at the Stripe account level. The repository-managed webhook is:
+The workflow then performs:
 
 ```text
-${NEXT_PUBLIC_SITE_URL}/api/webhooks/stripe
+full application and E2E checks
+→ converge Terraform state bucket
+→ adopt/converge shared Vercel and Supabase infrastructure
+→ bootstrap development providers, runtime values, and database
+→ deploy and verify development
+→ bootstrap production providers, runtime values, and database
+→ deploy and verify production
 ```
 
-The desired events are versioned in `config/environments.json`. One shared reconciler owns create, update, replacement, metadata, rollback, and verification. If an endpoint exists but its one-time signing secret is unavailable, bootstrap creates a replacement, persists the new credentials, then removes the old endpoint. Failure to persist credentials rolls back the replacement.
+Choosing `all` deliberately requires development to pass before production begins. Production environment approval remains an intentional human gate, but no workflow sequence needs to be assembled manually.
 
-## 6. Bootstrap each hosted environment
+## GitHub Actions path
 
-Run **Bootstrap Environment** with `mode=apply` for `development`, then `production`.
+After GitHub variables and secrets already exist, run **Bootstrap & Deploy** once from the Actions tab and choose `all`, `development`, or `production`.
 
-It performs one convergent operation:
+## What convergence includes
 
-```text
-resolve Terraform/provider values
-→ inject Vercel-stored generated secrets
-→ reconcile Stripe webhook
-→ reconcile/verify Supabase hosted auth
-→ validate generated environment contract
-→ fingerprint and sync Vercel runtime values
-→ link Supabase
-→ push migrations
-```
+### Terraform
 
-It does not deploy the application. No local Stripe pre-provisioning is required.
+- The state workflow automatically detects first-run local state versus the persistent GCS backend.
+- Existing buckets and provider projects are adopted when safe.
+- Each automatic convergence creates a binary plan and applies that exact plan in the same protected run.
+- Granular `reconcile`, `plan`, and reviewed-artifact `apply` modes remain available for recovery and exceptional review workflows.
+- Shared infrastructure uses one global concurrency lock and committed provider lockfiles.
 
-After each apply, rerun **Bootstrap Environment** with `mode=verify`. Verification is non-mutating and fails on Terraform drift, provider drift, missing or malformed runtime values, Vercel runtime drift, or unhealthy deployed endpoints. The same gate is available from an authenticated shell as `npm run bootstrap:verify`.
+### Runtime and providers
 
-## 7. Deploy
+- Stripe webhook creation, replacement, metadata, event configuration, rollback, and verification share one implementation.
+- Supabase hosted Google Auth, site URL, and redirect allow-list are reconciled when enabled.
+- Vercel runtime values are compared by keyed fingerprints and unchanged values are not rewritten.
+- Supabase migrations are pushed forward-only.
 
-Development follows only the `develop` integration branch so unrelated feature branches do not successively migrate the same shared database. A manual development dispatch remains available.
+### Deployment and verification
 
-Production deploys from a `v*` tag or published release and is protected by production environment reviewers.
+- Application checks run once in the parent workflow and are not repeated inside each deployment.
+- Identical source/runtime fingerprints reuse an existing ready Vercel deployment.
+- Production deployment refuses to proceed with Terraform, provider, or runtime drift.
+- Final verification checks provider state, Vercel runtime state, `/api/health`, and production deep readiness.
 
-Deployment reruns reuse an existing ready Vercel deployment when both source revision and resolved runtime fingerprint are unchanged.
+## Recovery workflows
 
-## 8. Release gate
+The following workflows remain available but are not the normal setup path:
 
-Before the first production release and after infrastructure/provider changes:
+- **Terraform State Bootstrap** — `reconcile`, `plan`, or reviewed-artifact `apply`.
+- **Terraform Platform** — `reconcile`, `plan`, or reviewed-artifact `apply`.
+- **Bootstrap Environment** — targeted `apply` or non-mutating `verify`.
+- **Configure Providers** — provider-only plan, repair, or verification.
+- Development and production deployment workflows — application-only deployment triggers.
 
-1. Confirm pull-request CI is green, including both Terraform validation jobs.
-2. Obtain the required independent approval.
-3. Run development bootstrap in `apply`, then `verify` mode.
-4. Exercise Google login and Stripe test-mode PayNow success, failure, and refund flows.
-5. Run production bootstrap in `verify` mode after the production reviewer approves access.
-6. Publish the release only after the verification run succeeds.
+Use recovery mode when adopting manually created resources, diagnosing state, or repairing one environment. Otherwise rerun **Bootstrap & Deploy**.
 
-Additional expected checks:
+## Operational rules
 
-- `/api/health` returns HTTP 200.
-- Production `/api/health?deep=1` returns HTTP 200.
-- Re-running bootstrap reports converged provider/runtime values.
-- Re-running the same deployment reuses the ready deployment.
-
-## Recovery rules
-
-- Run Terraform `reconcile` again after manually created resources must be adopted or a managed Supabase project was deleted.
 - Never edit an applied migration; add a forward migration.
-- Correct operator values in GitHub Environments and rerun bootstrap.
-- Use **Configure Providers** for a plan, explicit repair, or verification outside the aggregate bootstrap.
+- Correct operator values at their GitHub source and rerun the one-click workflow.
+- Keep Google OAuth redirect registration and Stripe PayNow/account compliance settings aligned with the documented provider-account prerequisites.
+- Treat any failed stage as a failed bootstrap; the command and aggregate workflow both exit unsuccessfully.
