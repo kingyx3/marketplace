@@ -23,9 +23,8 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("node scripts/resolve-environment.mjs");
     expect(workflow).toContain("Validate resolved environment contract before provider provisioning");
     expect(workflow).toContain("node scripts/generate-env.mjs --check --allow-missing-provisioned");
-    expect(workflow).toContain("Restore generated runtime secrets from Vercel");
-    expect(workflow).toContain("node scripts/restore-generated-env.mjs");
     expect(workflow).toContain("Reconcile Stripe webhook before runtime validation");
+    expect(workflow).toContain("vercel env run --environment");
     expect(workflow).toContain("node scripts/provision-stripe-webhook.mjs");
     expect(workflow.indexOf("node scripts/provision-stripe-webhook.mjs")).toBeLessThan(
       workflow.indexOf("node scripts/generate-env.mjs --write .env.deploy")
