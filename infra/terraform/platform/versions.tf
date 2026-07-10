@@ -4,7 +4,7 @@ terraform {
   required_providers {
     vercel = {
       source  = "vercel/vercel"
-      version = "= 4.8.0"
+      version = "5.4.1"
     }
 
     supabase = {
