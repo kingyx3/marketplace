@@ -52,9 +52,9 @@ test.describe("storefront navigation", () => {
     }
   });
 
-  test("returns a real 404 for an unknown product", async ({ page }) => {
-    const response = await page.goto("/catalog/not-a-real-product");
+  test("returns a real 404 for an unknown product", async ({ request }) => {
+    const response = await request.get("/catalog/not-a-real-product");
 
-    expect(response?.status()).toBe(404);
+    expect(response.status()).toBe(404);
   });
 });
