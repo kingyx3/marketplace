@@ -1,0 +1,94 @@
+name: Apply shipping checkout once
+
+on:
+  push:
+    branches:
+      - agent/production-readiness-audit
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Patch checkout service
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/checkout.ts')
+          text = path.read_text()
+
+          replacements = [
+              (
+                  'import { createStripeClient } from "@/lib/stripe";\n',
+                  'import { createStripeClient } from "@/lib/stripe";\nimport { shippingAddressSchema, type ShippingAddress } from "@/lib/shipping";\n',
+              ),
+              (
+                  'export const invoiceCheckoutRequestSchema = z.object({\n  items: z.array(cartItemSchema).min(1).max(10),\n  purchaseOrderReference: z.string().trim().max(120).optional(),\n});',
+                  'export const invoiceCheckoutRequestSchema = z.object({\n  items: z.array(cartItemSchema).min(1).max(10),\n  shippingAddress: shippingAddressSchema,\n  purchaseOrderReference: z.string().trim().max(120).optional(),\n});',
+              ),
+              (
+                  '  return quote.mode === "preorder"\n    ? createPreorderPayment(auth, quote, stripe)\n    : createOrderPayment(auth, quote, stripe);',
+                  '  const shippingAddress =\n    quote.mode === "order" ? shippingAddressSchema.parse(request.shippingAddress) : null;\n\n  return quote.mode === "preorder"\n    ? createPreorderPayment(auth, quote, stripe)\n    : createOrderPayment(auth, quote, shippingAddress as ShippingAddress, stripe);',
+              ),
+              (
+                  '    { mode: "order", channel: "b2b", items: input.items },',
+                  '    {\n      mode: "order",\n      channel: "b2b",\n      items: input.items,\n      shippingAddress: input.shippingAddress,\n    },',
+              ),
+              (
+                  '.rpc("create_checkout_order_from_cart", checkoutOrderRpcParams(auth.user.id, quote))',
+                  '.rpc(\n        "create_checkout_order_from_cart",\n        checkoutOrderRpcParams(auth.user.id, quote, input.shippingAddress)\n      )',
+              ),
+              (
+                  'export function checkoutOrderRpcParams(authUserId: string, quote: CheckoutQuote) {',
+                  'export function checkoutOrderRpcParams(\n  authUserId: string,\n  quote: CheckoutQuote,\n  shippingAddress: ShippingAddress\n) {',
+              ),
+              (
+                  '    p_channel: quote.channel,\n    p_expected_subtotal_cents: quote.subtotalCents,',
+                  '    p_channel: quote.channel,\n    p_shipping_address: shippingAddress,\n    p_expected_subtotal_cents: quote.subtotalCents,',
+              ),
+              (
+                  'async function createOrderPayment(\n  auth: ApiCustomerContext,\n  quote: CheckoutQuote,\n  stripe: Stripe\n): Promise<CheckoutResult> {',
+                  'async function createOrderPayment(\n  auth: ApiCustomerContext,\n  quote: CheckoutQuote,\n  shippingAddress: ShippingAddress,\n  stripe: Stripe\n): Promise<CheckoutResult> {',
+              ),
+              (
+                  '.rpc("create_checkout_order_from_cart", checkoutOrderRpcParams(auth.user.id, quote))',
+                  '.rpc(\n        "create_checkout_order_from_cart",\n        checkoutOrderRpcParams(auth.user.id, quote, shippingAddress)\n      )',
+              ),
+              (
+                  '      receipt_email: auth.customer.email,\n      metadata: {',
+                  '      receipt_email: auth.customer.email,\n      shipping: stripeShippingAddress(shippingAddress),\n      metadata: {',
+              ),
+              (
+                  '    discountBps: 0,\n    discountCents: 0,\n    totalCents: subtotalCents,',
+                  '    discountBps: 0,\n    discountCents: 0,\n    shippingCents: 0,\n    shippingService: null,\n    shippingPolicyKey: null,\n    taxCents: Math.round((subtotalCents * 9) / 109),\n    totalCents: subtotalCents,',
+              ),
+              (
+                  'function safeErrorMessage(error: unknown): string {',
+                  'function stripeShippingAddress(address: ShippingAddress): Stripe.PaymentIntentCreateParams.Shipping {\n  return {\n    name: address.recipientName,\n    phone: address.phone || undefined,\n    address: {\n      line1: address.line1,\n      line2: address.line2 || undefined,\n      city: address.city || undefined,\n      state: address.region || undefined,\n      postal_code: address.postalCode,\n      country: address.countryCode,\n    },\n  };\n}\n\nfunction safeErrorMessage(error: unknown): string {',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one checkout replacement, found {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/apply-shipping-checkout-once.yml
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/checkout.ts .github/workflows/apply-shipping-checkout-once.yml
+          git commit -m "feat: integrate shipping into order checkout"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
