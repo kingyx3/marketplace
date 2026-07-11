@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { createStripeClient } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase";
 import { handleStripeEvent } from "@/lib/stripe-webhooks-safe";
+import { reportOperationalFailure } from "@/lib/operational-alerts";
 import {
   logError,
   logInfo,
@@ -33,10 +34,20 @@ export async function POST(request: Request) {
 
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
-    logError("stripe.webhook.not_configured", new Error("missing signing secret"), {
+    const error = new Error("missing signing secret");
+    logError("stripe.webhook.not_configured", error, {
       ...context,
       status: 503,
     });
+    await reportOperationalFailure(
+      {
+        event: "stripe.webhook.not_configured",
+        severity: "critical",
+        summary: "Stripe webhook signing is not configured",
+        context: { ...context, status: 503 },
+      },
+      error
+    );
     return respond({ error: "webhook not configured" }, 503);
   }
 
@@ -87,6 +98,19 @@ export async function POST(request: Request) {
       status: 500,
       durationMs: Date.now() - startedAt,
     });
+    await reportOperationalFailure(
+      {
+        event: "stripe.webhook.storage_failed",
+        severity: "critical",
+        summary: "A verified Stripe webhook could not be stored",
+        context: {
+          ...eventContext,
+          status: 500,
+          durationMs: Date.now() - startedAt,
+        },
+      },
+      insertError
+    );
     return respond({ error: "storage failure" }, 500);
   }
 
@@ -99,6 +123,19 @@ export async function POST(request: Request) {
       status: 500,
       durationMs: Date.now() - startedAt,
     });
+    await reportOperationalFailure(
+      {
+        event: "stripe.webhook.processing_failed",
+        severity: "critical",
+        summary: "A verified Stripe webhook failed during commercial state processing",
+        context: {
+          ...eventContext,
+          status: 500,
+          durationMs: Date.now() - startedAt,
+        },
+      },
+      error
+    );
     return respond({ error: "processing failure" }, 500);
   }
 
