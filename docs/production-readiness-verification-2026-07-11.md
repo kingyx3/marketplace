@@ -1,40 +1,33 @@
 # Production-readiness verification addendum — 2026-07-11
 
-This addendum supplements the audit and remediation progress documents with executable evidence.
-
-## Verified code branch
-
 Verified code head: `16375359bb62cf83aba0f6b36cf65003313bede0`  
 GitHub Actions run: `29146715422` — completed successfully.
 
-| Validation | Result |
-| --- | --- |
-| Dependency installation (`npm ci`) | Passed |
-| Lint | Passed |
-| Strict type check | Passed |
-| Unit and contract tests | Passed |
-| Production build | Passed |
-| Chromium Playwright | Passed |
-| Configuration contract | Passed |
-| Terraform bootstrap validation | Passed |
-| Terraform platform validation | Passed |
-| Migration application and seed | Passed |
-| Transactional checkout database tests | Passed |
-| Logical backup and isolated restore | Passed |
+## Passed repository gates
 
-The database suite verifies the shipping snapshot and total, fail-closed legacy checkout, invoice unique reference, serialized credit exposure, payment/allocation deadlines, stale-invoice cancellation, payment cancellation, and inventory release. The restore suite creates a custom-format dump, restores it into a separate database, and validates critical commerce tables, functions, policy rows, and seed data.
+- `npm ci`
+- lint
+- strict type check
+- unit and contract tests
+- production build
+- Chromium Playwright
+- configuration contracts
+- Terraform bootstrap and platform validation
+- all migrations and seed
+- transactional checkout database tests
+- custom-format logical dump and isolated restore
 
-Subsequent commits update audit/remediation documentation only. Hosted checks on the exact final SHA remain required before review.
+The database suite verifies shipping snapshot/total, fail-closed legacy checkout, invoice unique reference, serialized credit exposure, payment/allocation deadlines, expiry cancellation, and inventory release.
 
-## Gates not proven by repository CI
+## Not proven by repository CI
 
-- Hosted Supabase Auth/RLS with real identities.
-- Stripe test-mode PayNow, webhook delivery ordering/retries, refunds, and provider outages.
-- Production Supabase PITR/backup retention and product-image recovery.
-- Production-sized restore timing and RPO/RTO compliance.
-- Log ingestion, dashboards, alerts, SLOs, and on-call response.
-- Production-like staging OAuth, Stripe, Supabase, Vercel Cron, and notifications.
+- Hosted Supabase Auth/RLS identities and sessions.
+- Stripe test-mode PayNow, webhook retry/order, refunds, and outage behavior.
+- Production Supabase PITR/retention and product-image recovery.
+- Production-sized restore duration and RPO/RTO.
+- Production log ingestion, dashboards, alerts, and on-call response.
+- Production-like staging configuration.
 
-The original P0 shipping and B2B invoice defects are fixed with fail-closed defaults, and production fixture fallback is removed. Shipping and invoice policies remain inactive until configured and verified.
+The P0 shipping and B2B invoice defects are fixed with inactive fail-closed policies, and production fixture fallback is removed.
 
 CONDITIONALLY READY — no unresolved P0 findings remain, but documented P1 provider, backup, observability, staging, and operational prerequisites must be completed before deployment.
