@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createStripeClient } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase";
-import { handleStripeEvent } from "@/lib/stripe-webhooks";
+import { handleStripeEvent } from "@/lib/stripe-webhooks-safe";
 import {
   logError,
   logInfo,
