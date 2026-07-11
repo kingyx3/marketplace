@@ -1,0 +1,48 @@
+name: Add preview fixture env contract once
+
+on:
+  push:
+    branches:
+      - agent/production-readiness-audit
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Add fixture flag to contract
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from 'node:fs/promises';
+          const path = 'config/environment-contract.json';
+          const entries = JSON.parse(await readFile(path, 'utf8'));
+          if (!entries.some((entry) => entry.key === 'MARKETPLACE_PREVIEW_FIXTURES')) {
+            const index = entries.findIndex((entry) => entry.key === 'APP_NAME');
+            entries.splice(index + 1, 0, {
+              key: 'MARKETPLACE_PREVIEW_FIXTURES',
+              section: 'Application',
+              required: false,
+              secret: false,
+              hint: 'Development and E2E-only fixture catalog flag; ignored in production',
+              validator: { type: 'boolean-string' },
+              default: 'false'
+            });
+            await writeFile(path, `${JSON.stringify(entries, null, 2)}\n`);
+          }
+          NODE
+          npm run env:artifacts:write
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/add-preview-fixture-env-once.yml
+      - name: Commit generated contract files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config/environment-contract.json .env.example lib/env-contract.generated.ts docs/generated/environment-reference.md .github/workflows/add-preview-fixture-env-once.yml
+          git commit -m "chore: register preview fixture environment flag"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
