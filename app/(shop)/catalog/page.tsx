@@ -1,5 +1,7 @@
 import { CatalogBrowser } from "@/app/(shop)/catalog/catalog-browser";
+import { createCatalogFilterProduct } from "@/app/(shop)/catalog/catalog-filters";
 import { PageHeader } from "@/app/_components/page-header";
+import { ProductCard } from "@/app/_components/product-card";
 import { StatusBadge } from "@/app/_components/status-badge";
 import {
   getProduct,
@@ -232,6 +234,7 @@ async function fetchCatalogHeader(): Promise<CatalogHeaderConfig> {
 export default async function CatalogPage() {
   const [{ products, source }, header] = await Promise.all([fetchProducts(), fetchCatalogHeader()]);
   const wholesaleAccess = await currentWholesaleAccess();
+  const sourceLabel = source === "live" ? "Live" : "Preview";
 
   return (
     <div className="space-y-8">
@@ -248,11 +251,16 @@ export default async function CatalogPage() {
           <p className="mt-3 text-sm text-zinc-600">{header.emptyDescription}</p>
         </section>
       ) : (
-        <CatalogBrowser
-          products={products}
-          sourceLabel={source === "live" ? "Live" : "Preview"}
-          wholesaleAccess={wholesaleAccess}
-        />
+        <CatalogBrowser products={products.map(createCatalogFilterProduct)}>
+          {products.map((product) => (
+            <ProductCard
+              key={product.slug}
+              product={product}
+              sourceLabel={sourceLabel}
+              wholesaleAccess={wholesaleAccess}
+            />
+          ))}
+        </CatalogBrowser>
       )}
     </div>
   );
