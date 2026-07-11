@@ -25,9 +25,15 @@ The failed checks were treated as defects, not waived.
 - Changed the B2B billing-address schema to the Zod 4 key/value `z.record` form.
 - Typed refund status from `Stripe.Refund["status"]` rather than a nonexistent nested type.
 - Pinned TypeScript to stable `5.9.3`.
+- Replaced the legacy `FlatCompat` ESLint bridge with the native Next.js flat configurations.
+- Pinned ESLint to compatible stable `9.39.2`; ESLint 10 was incompatible with the React/Next plugin stack.
 - Updated `package-lock.json` from the existing lock so `npm ci` remains reproducible.
-- Used a branch-only one-shot workflow to update the lockfile; that workflow deleted itself in the same bot commit and is not present in the final branch.
+- Used branch-only one-shot workflows to update the lockfile; each workflow deleted itself in its bot commit and neither is present in the final branch.
+
+## Intermediate repaired run
+
+GitHub Actions run `29143003471` verified that dependency installation, typecheck, unit tests, migrations, configuration checks, and both Terraform validations passed after the TypeScript and source fixes. Lint then exposed the separate ESLint 10/plugin incompatibility. That failure was fixed rather than ignored. The build and Playwright jobs were still running when the branch advanced to the ESLint repair.
 
 ## Final verification gate
 
-A clean GitHub Actions run is required on the repaired branch before this PR may be reviewed. Passing repository checks will verify only the code and migration gates available in this repository; they will not resolve the unimplemented P0/P1 product, provider-integration, backup, or observability findings in the main audit report.
+A clean GitHub Actions run is required on the fully repaired branch before this PR may be reviewed. Passing repository checks will verify only the code and migration gates available in this repository; they will not resolve the unimplemented P0/P1 product, provider-integration, backup, or observability findings in the main audit report.
