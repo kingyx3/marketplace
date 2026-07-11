@@ -18,6 +18,8 @@ const commonVariables = [
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
   "GOOGLE_AUTH_ENABLED",
   "GOOGLE_OAUTH_CLIENT_ID",
+  "RESEND_FROM_EMAIL",
+  "SUPPORT_EMAIL",
 ];
 const hostedOperationsVariables = [
   "OPERATIONS_OWNER",
@@ -35,6 +37,7 @@ const commonSecrets = [
   "SYNTHETIC_MONITOR_SECRET",
   "OPERATIONAL_ALERT_WEBHOOK_URL",
   "OPERATIONAL_ALERT_WEBHOOK_SECRET",
+  "RESEND_API_KEY",
 ];
 const targetVariables = {
   development: [],
@@ -97,6 +100,7 @@ console.log(`GitHub ${target} environment, policies, variables, and supplied sec
 function variableIsRequired(name) {
   if (name === "SUPABASE_ADVISOR_ALLOWLIST") return false;
   if (name === "GOOGLE_OAUTH_CLIENT_ID") return false;
+  if (name === "SUPPORT_EMAIL") return false;
   return true;
 }
 function secretIsRequired(name) {
@@ -109,6 +113,7 @@ function secretIsRequired(name) {
       "SYNTHETIC_MONITOR_SECRET",
       "OPERATIONAL_ALERT_WEBHOOK_URL",
       "OPERATIONAL_ALERT_WEBHOOK_SECRET",
+      "RESEND_API_KEY",
     ].includes(name)
   ) {
     return false;
