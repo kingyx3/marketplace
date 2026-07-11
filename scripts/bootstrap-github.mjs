@@ -19,6 +19,13 @@ const commonVariables = [
   "GOOGLE_AUTH_ENABLED",
   "GOOGLE_OAUTH_CLIENT_ID",
 ];
+const hostedOperationsVariables = [
+  "OPERATIONS_OWNER",
+  "INCIDENT_ESCALATION_URL",
+  "CHECKOUT_AVAILABILITY_SLO_PERCENT",
+  "CHECKOUT_LATENCY_SLO_MS",
+  "PAYMENT_RECONCILIATION_SLO_MINUTES",
+];
 const commonSecrets = [
   "SUPABASE_SECRET_KEY",
   "STRIPE_SECRET_KEY",
@@ -31,11 +38,15 @@ const commonSecrets = [
 ];
 const targetVariables = {
   development: [],
-  staging: ["RECOVERY_PROJECT_REF", "RESTORE_RTO_SECONDS"],
+  staging: [
+    "RECOVERY_PROJECT_REF",
+    "RESTORE_RTO_SECONDS",
+    ...hostedOperationsVariables,
+  ],
   production: [
     "SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS",
-    "SUPABASE_MAXIMUM_RECOVERY_LAG_MINUTES",
     "SUPABASE_ADVISOR_ALLOWLIST",
+    ...hostedOperationsVariables,
   ],
 };
 const targetSecrets = {
@@ -71,7 +82,9 @@ for (const name of environmentVariables) {
   else if (name === "GOOGLE_AUTH_ENABLED") setVariable(target, name, "true");
   else if (name === "RESTORE_RTO_SECONDS") setVariable(target, name, "1800");
   else if (name === "SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS") setVariable(target, name, "7");
-  else if (name === "SUPABASE_MAXIMUM_RECOVERY_LAG_MINUTES") setVariable(target, name, "10");
+  else if (name === "CHECKOUT_AVAILABILITY_SLO_PERCENT") setVariable(target, name, "99.9");
+  else if (name === "CHECKOUT_LATENCY_SLO_MS") setVariable(target, name, "5000");
+  else if (name === "PAYMENT_RECONCILIATION_SLO_MINUTES") setVariable(target, name, "15");
   else if (variableIsRequired(name)) fail(`${environmentPrefix(target)}_${name} is required`);
 }
 for (const name of environmentSecrets) {
@@ -89,7 +102,15 @@ function variableIsRequired(name) {
 function secretIsRequired(name) {
   if (["SUPABASE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"].includes(name)) return false;
   if (name === "GOOGLE_OAUTH_CLIENT_SECRET") return false;
-  if (target === "development" && ["CRON_SECRET", "SYNTHETIC_MONITOR_SECRET", "OPERATIONAL_ALERT_WEBHOOK_URL", "OPERATIONAL_ALERT_WEBHOOK_SECRET"].includes(name)) {
+  if (
+    target === "development" &&
+    [
+      "CRON_SECRET",
+      "SYNTHETIC_MONITOR_SECRET",
+      "OPERATIONAL_ALERT_WEBHOOK_URL",
+      "OPERATIONAL_ALERT_WEBHOOK_SECRET",
+    ].includes(name)
+  ) {
     return false;
   }
   return true;
