@@ -1,0 +1,137 @@
+name: Synchronize hosted gate contract once
+
+on:
+  push:
+    branches:
+      - agent/production-readiness-audit
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Patch environment resolver and provider validation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/resolve-environment.mjs')
+          text = path.read_text()
+          replacements = [
+            (
+              '  const supabaseRefs = terraformValue(outputs, "supabase_project_refs");\n  const supabaseUrls = terraformValue(outputs, "supabase_project_urls");\n  const supabasePasswords = terraformValue(outputs, "supabase_database_passwords");\n  setIfMissing(env, "VERCEL_PROJECT_ID", terraformValue(outputs, "vercel_project_id"));\n  setIfMissing(env, "VERCEL_ORG_ID", terraformValue(outputs, "vercel_team_id"));',
+              '  const supabaseRefs = terraformValue(outputs, "supabase_project_refs");\n  const supabaseUrls = terraformValue(outputs, "supabase_project_urls");\n  const supabasePasswords = terraformValue(outputs, "supabase_database_passwords");\n  const vercelProjectIds = terraformValue(outputs, "vercel_project_ids");\n  const vercelProjectNames = terraformValue(outputs, "vercel_project_names");\n  setIfMissing(\n    env,\n    "VERCEL_PROJECT_ID",\n    valueForEnvironment(vercelProjectIds, targetEnv) || terraformValue(outputs, "vercel_project_id")\n  );\n  setIfMissing(env, "VERCEL_ORG_ID", terraformValue(outputs, "vercel_team_id"));'
+            ),
+            (
+              '  setIfMissing(env, "VERCEL_PROJECT_NAME", terraformValue(outputs, "vercel_project_name"));',
+              '  setIfMissing(\n    env,\n    "VERCEL_PROJECT_NAME",\n    valueForEnvironment(vercelProjectNames, targetEnv) || terraformValue(outputs, "vercel_project_name")\n  );'
+            ),
+            (
+              '    targetEnv === "production" ? alias : "",',
+              '    targetEnv !== "development" ? alias : "",'
+            ),
+            (
+              '  if (value === "development" || value === "production") return value;\n  throw new Error("TARGET_ENV must be development or production");',
+              '  if (value === "development" || value === "staging" || value === "production") return value;\n  throw new Error("TARGET_ENV must be development, staging, or production");'
+            ),
+          ]
+          for old, new in replacements:
+            count = text.count(old)
+            if count != 1:
+              raise SystemExit(f'expected one resolve-environment replacement, found {count}: {old[:100]!r}')
+            text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          path = Path('scripts/lib/stripe-webhook.mjs')
+          text = path.read_text()
+          old = '  if (!/^(development|production)$/.test(config.targetEnv)) throw new Error(`Unsupported TARGET_ENV: ${config.targetEnv}`);'
+          new = '  if (!/^(development|staging|production)$/.test(config.targetEnv)) throw new Error(`Unsupported TARGET_ENV: ${config.targetEnv}`);'
+          if text.count(old) != 1:
+            raise SystemExit('stripe webhook target validation pattern changed')
+          path.write_text(text.replace(old, new, 1))
+
+          path = Path('scripts/environment-config.mjs')
+          text = path.read_text()
+          old = '    console.error("usage: node scripts/environment-config.mjs <development|production>");'
+          new = '    console.error("usage: node scripts/environment-config.mjs <development|staging|production>");'
+          if text.count(old) != 1:
+            raise SystemExit('environment-config usage pattern changed')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Extend the environment contract and package scripts
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from 'node:fs/promises';
+
+          const contractPath = 'config/environment-contract.json';
+          const entries = JSON.parse(await readFile(contractPath, 'utf8'));
+          const target = entries.find((entry) => entry.key === 'TARGET_ENV');
+          if (!target) throw new Error('TARGET_ENV contract entry is missing');
+          target.validator.values = ['development', 'staging', 'production'];
+
+          const appIndex = entries.findIndex((entry) => entry.key === 'CRON_SECRET');
+          const additions = [
+            {
+              key: 'SYNTHETIC_MONITOR_SECRET',
+              section: 'Application',
+              required: false,
+              requiredWhen: { key: 'TARGET_ENV', equals: 'production' },
+              secret: true,
+              hint: 'Bearer secret for authenticated synthetic operational probes',
+              validator: { type: 'nonempty' }
+            },
+            {
+              key: 'OPERATIONAL_ALERT_WEBHOOK_URL',
+              section: 'Application',
+              required: false,
+              requiredWhen: { key: 'TARGET_ENV', equals: 'production' },
+              secret: true,
+              hint: 'HTTPS destination for privacy-safe critical operational alerts',
+              validator: { type: 'url', protocols: ['https:'] }
+            },
+            {
+              key: 'OPERATIONAL_ALERT_WEBHOOK_SECRET',
+              section: 'Application',
+              required: false,
+              requiredWhen: { key: 'TARGET_ENV', equals: 'production' },
+              secret: true,
+              hint: 'HMAC secret used to sign operational alert deliveries',
+              validator: { type: 'nonempty' }
+            }
+          ];
+          for (const addition of additions.reverse()) {
+            if (!entries.some((entry) => entry.key === addition.key)) entries.splice(appIndex + 1, 0, addition);
+          }
+          await writeFile(contractPath, `${JSON.stringify(entries, null, 2)}\n`);
+
+          const packagePath = 'package.json';
+          const pkg = JSON.parse(await readFile(packagePath, 'utf8'));
+          pkg.scripts['verify:hosted:supabase'] = 'node scripts/verify-hosted-supabase.mjs';
+          pkg.scripts['verify:hosted:stripe'] = 'node scripts/verify-stripe-staging.mjs';
+          pkg.scripts['verify:hosted:providers'] = 'node scripts/verify-supabase-provider-readiness.mjs';
+          pkg.scripts['verify:hosted:operations'] = 'node scripts/verify-hosted-operations.mjs';
+          pkg.scripts['verify:hosted:restore'] = 'bash scripts/verify-hosted-restore.sh';
+          await writeFile(packagePath, `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+          npm run env:artifacts:write
+          npm install --package-lock-only --ignore-scripts
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/patch-hosted-gate-contract-once.yml
+      - name: Commit synchronized files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/resolve-environment.mjs scripts/lib/stripe-webhook.mjs scripts/environment-config.mjs config/environment-contract.json .env.example lib/env-contract.generated.ts docs/generated/environment-reference.md package.json package-lock.json .github/workflows/patch-hosted-gate-contract-once.yml
+          git commit -m "config: make staging and operational gates first class"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
