@@ -22,6 +22,8 @@ interface InvoiceCheckoutResponse {
   amountCents: number;
   currency: string;
   status: "pending_payment";
+  paymentDueAt: string;
+  allocationExpiresAt: string;
 }
 
 interface ApiErrorResponse {
@@ -95,6 +97,10 @@ export function InvoiceCheckoutPanel({
       setMessage("Complete the required delivery address fields before requesting an invoice");
       return;
     }
+    if (!reference.trim()) {
+      setMessage("A unique PO or invoice reference is required");
+      return;
+    }
 
     setCreating(true);
     setMessage(null);
@@ -105,11 +111,11 @@ export function InvoiceCheckoutPanel({
         body: JSON.stringify({
           items,
           shippingAddress: shippingAddressPayload(shippingAddress),
-          purchaseOrderReference: reference || undefined,
+          purchaseOrderReference: reference.trim(),
         }),
       });
       setResult(invoice);
-      setMessage("Invoice order created with the validated shipping total.");
+      setMessage("Invoice order created within the approved credit and reservation policy.");
 
       try {
         await authenticatedJson<{ cleared: true }>("/api/cart/clear", { method: "POST" });
@@ -125,6 +131,7 @@ export function InvoiceCheckoutPanel({
   }
 
   const addressReady = isShippingAddressComplete(shippingAddress);
+  const referenceReady = Boolean(reference.trim());
 
   return (
     <div className="mt-4 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
@@ -139,14 +146,28 @@ export function InvoiceCheckoutPanel({
           className="min-h-10 rounded-md border border-zinc-300 px-2 text-sm"
           disabled={disabled || creating || Boolean(result)}
           maxLength={120}
+          name="purchaseOrderReference"
           onChange={(event) => setReference(event.target.value)}
-          placeholder="Optional customer PO"
+          placeholder="Required and unique for this account"
+          required
           value={reference}
         />
       </label>
+      <p className="text-xs text-zinc-600">
+        Invoice checkout is available only when staff has approved account terms, a positive credit
+        limit, and the active B2B invoice policy. Stock is released automatically if the displayed
+        reservation deadline passes before reconciliation.
+      </p>
       <button
         className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700 disabled:cursor-not-allowed disabled:text-zinc-400"
-        disabled={disabled || !addressReady || creating || items.length === 0 || Boolean(result)}
+        disabled={
+          disabled ||
+          !addressReady ||
+          !referenceReady ||
+          creating ||
+          items.length === 0 ||
+          Boolean(result)
+        }
         onClick={requestInvoice}
         type="button"
       >
@@ -158,10 +179,16 @@ export function InvoiceCheckoutPanel({
         </p>
       ) : null}
       {result ? (
-        <div className="grid gap-2">
+        <div className="grid gap-2 rounded-md border border-zinc-200 bg-white p-3">
           <p className="text-xs text-zinc-500">Invoice reference: {result.providerPaymentId}</p>
           <p className="text-xs font-semibold text-zinc-700">
             Total: {formatMoney(result.amountCents, result.currency)}
+          </p>
+          <p className="text-xs text-zinc-600">
+            Stock reserved until {formatDateTime(result.allocationExpiresAt)}
+          </p>
+          <p className="text-xs text-zinc-600">
+            Payment due by {formatDateTime(result.paymentDueAt)}
           </p>
           <Link
             className="inline-flex min-h-10 items-center justify-center rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700"
@@ -180,4 +207,11 @@ function formatMoney(amountCents: number, currency: string): string {
     style: "currency",
     currency,
   }).format(amountCents / 100);
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("en-SG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
