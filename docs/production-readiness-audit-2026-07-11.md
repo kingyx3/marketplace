@@ -5,7 +5,7 @@ Audited base: `main` at `68a39dc6f5803114333369b691eaad9444e311e6`
 Remediation branch: `agent/production-readiness-audit`  
 Draft pull request: #43
 
-> **Progressive remediation update:** The original P0 shipping and B2B invoice defects have been fixed with fail-closed defaults. Production fixture fallback has also been removed. See `docs/production-readiness-remediation-progress-2026-07-11.md` and `docs/production-readiness-verification-2026-07-11.md` for the current implementation and verification evidence. The original findings below are retained as the audit record; their current status is superseded by the remediation progress document.
+> **Progressive remediation update:** The original P0 shipping and B2B invoice defects have been fixed with fail-closed defaults. Production fixture fallback has also been removed. See `docs/production-readiness-remediation-progress-2026-07-11.md` and `docs/production-readiness-verification-2026-07-11.md` for current implementation and verification evidence.
 
 ## 1. Executive summary
 
@@ -13,23 +13,19 @@ Draft pull request: #43
 
 The repository is a single Next.js 16 application deployed to Vercel. It contains the customer storefront, authenticated account area, admin/operator interface, route-handler APIs, and server actions. Supabase supplies PostgreSQL, Auth, Row-Level Security, and public product-image storage. Stripe PaymentIntents provide SGD PayNow payments and signed webhooks. Terraform provisions Vercel and separate development/production Supabase projects. GitHub Actions validates application code, SQL migrations, environment contracts, Terraform, provider configuration, deployment, and shallow/deep health checks.
 
-The repository is substantially more mature than a prototype: prices are recalculated server-side, checkout inventory changes use database functions, customer reads are scoped by customer ID and RLS, admin writes are routed through service-role code and explicit RPCs, webhook signatures are verified, deployments are declarative, and there is meaningful unit/contract coverage.
-
 ### Current readiness level
 
-The original audit identified two P0 commerce gaps and several P1 operational gaps. Progressive remediation has now closed the P0 code defects:
+Progressive remediation has closed the original P0 code defects:
 
 1. Order checkout requires a validated shipping address, active database shipping policy, server-calculated rate, immutable order snapshot, and matching Stripe total. The current tax contract is intentionally restricted to Singapore.
 2. B2B manual-invoice checkout requires reviewed NET terms, a positive credit limit, a unique PO reference, serialized exposure checks, payment and allocation deadlines, and authenticated hourly expiry/release.
 3. Production storefront failures no longer fall back to fixture products.
-4. CI now executes transactional PostgreSQL checkout contracts and a logical dump/isolated restore test.
+4. CI executes transactional PostgreSQL checkout contracts and a logical dump/isolated restore test.
 5. Critical routes emit structured privacy-safe logs and correlated request IDs; full Stripe webhook payload retention has been removed.
 
 The application remains gated from production deployment because hosted Supabase Auth/RLS, Stripe test-mode flows, production backup/PITR, production log ingestion/alerts, and a production-like staging rehearsal have not been demonstrated.
 
 ### Serious risks corrected in this branch
-
-The remediation branch corrects:
 
 - Partial Stripe refund ledger overstatement.
 - Unserialized order payment transitions and weak provider-reference binding.
@@ -49,17 +45,17 @@ Do not deploy for real customer orders until the remaining P1 hosted-provider an
 
 ## 2. Production-readiness scorecard
 
-Scores are 0–5. A score describes verified repository readiness, not intended design.
+Scores are 0–5 and describe verified repository readiness, not intended design.
 
 | Area | Updated score | Evidence and rationale |
 | --- | ---: | --- |
-| Customer frontend | 3.5 | Shipping address and final server total are now integrated; production fixtures fail closed. Hosted authenticated/payment journeys and broader browser/accessibility verification remain. |
+| Customer frontend | 3.5 | Shipping address and final server total are integrated; production fixtures fail closed. Hosted authenticated/payment journeys and broader browser/accessibility verification remain. |
 | Admin frontend | 3.0 | Active-staff guards, audited operations, and a dedicated B2B credit/policy page exist. Pagination, bulk tooling, role granularity, and production operator testing remain limited. |
 | Backend and APIs | 3.5 | Server pricing, shipping policy, B2B credit exposure, idempotency, signatures, correlation, and named transitions are implemented. Rate limits, durable queues, and provider-backed failure tests remain. |
 | Database and migrations | 4.0 | Strong constraints/RLS/transactions plus executable shipping, credit, expiry, payment, and logical-restore tests. Hosted RLS, PITR, production-sized restore timing, and representative query/load testing remain. |
 | Authentication and authorization | 3.5 | Active staff is authoritative and object access is scoped. Hosted session, revocation, OAuth, and RLS identities remain unverified. |
 | Security and privacy | 3.5 | Fail-closed policies, redacted structured logs, minimal webhook envelope, service-role separation, RLS, and security headers are present. Abuse controls, fuller CSP, privacy lifecycle, and automated security analysis remain. |
-| Testing and quality assurance | 3.5 | All repository gates pass; CI now includes transactional SQL contracts and logical restore. Real Supabase/Stripe identities/providers, accessibility, Firefox/WebKit, and load tests remain. |
+| Testing and quality assurance | 3.5 | All repository gates pass; CI includes transactional SQL contracts and logical restore. Real Supabase/Stripe identities/providers, accessibility, Firefox/WebKit, and load tests remain. |
 | Performance and scalability | 2.5 | Bounded requests and database transitions are present, but no measured load/query/bundle budgets or production-capacity tests exist. |
 | Reliability and observability | 3.0 | Health checks, structured correlation, cron cleanup, logical restore, and runbooks exist. External ingestion, metrics, dashboards, paging, and on-call proof remain. |
 | CI/CD and deployment | 4.0 | Reproducible install, full checks, SQL contracts, restore verification, Terraform validation, environment contracts, and immutable deploy mechanics are strong. Staging, hosted provider tests, production backup gates, and security scanning remain. |
@@ -68,8 +64,6 @@ Scores are 0–5. A score describes verified repository readiness, not intended 
 **Updated overall score: 3.5 / 5.0**
 
 ## 3. Findings register
-
-The complete original 22-finding register is preserved in the repository history and remediation progress documentation. Current statuses for the highest-priority findings are:
 
 | Finding | Priority | Current status |
 | --- | --- | --- |
