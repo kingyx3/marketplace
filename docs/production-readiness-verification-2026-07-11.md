@@ -1,7 +1,9 @@
 # Production-readiness verification addendum — 2026-07-11
 
-Verified repository head: `225cc9c59725397254b4e743e1c8420ce67058af`  
+Verified implementation head: `225cc9c59725397254b4e743e1c8420ce67058af`  
 GitHub Actions run: `29148618099` — completed successfully.
+
+The commits after that verified implementation update only the audit and verification documentation. Their exact-head configuration checks are recorded by the PR status checks.
 
 ## Passed repository gates
 
