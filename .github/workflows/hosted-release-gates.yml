@@ -103,6 +103,7 @@ jobs:
           if-no-files-found: error
 
   production-provider-readiness:
+    needs: staging-identity-payment-operations
     name: Production Supabase security and recovery window
     runs-on: ubuntu-latest
     timeout-minutes: 20
