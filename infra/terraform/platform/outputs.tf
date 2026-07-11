@@ -1,11 +1,29 @@
 output "vercel_project_id" {
-  description = "Single Vercel project id consumed by CI/CD as VERCEL_PROJECT_ID."
+  description = "Primary Vercel project id retained for backward compatibility."
   value       = vercel_project.app.id
 }
 
 output "vercel_project_name" {
-  description = "Vercel project name used by CI/CD as a fallback when resolving project metadata."
+  description = "Primary Vercel project name retained for backward compatibility."
   value       = vercel_project.app.name
+}
+
+output "vercel_project_ids" {
+  description = "Vercel project ids by deployable environment."
+  value = {
+    development = vercel_project.app.id
+    staging     = vercel_project.staging.id
+    production  = vercel_project.app.id
+  }
+}
+
+output "vercel_project_names" {
+  description = "Vercel project names by deployable environment."
+  value = {
+    development = vercel_project.app.name
+    staging     = vercel_project.staging.name
+    production  = vercel_project.app.name
+  }
 }
 
 output "vercel_team_id" {
