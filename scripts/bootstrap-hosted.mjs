@@ -4,8 +4,8 @@ import { spawnSync } from "node:child_process";
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
 const target = readOption("--target") || "development";
-if (!new Set(["development", "production"]).has(target)) {
-  fail("--target must be development or production");
+if (!new Set(["development", "staging", "production"]).has(target)) {
+  fail("--target must be development, staging, or production");
 }
 
 const applyArg = apply ? ["--apply"] : [];
@@ -32,13 +32,20 @@ function readOption(name) {
 
 function listWorkflowRuns() {
   const output = capture("gh", [
-    "run", "list",
-    "--workflow", "bootstrap.yml",
-    "--branch", "main",
-    "--event", "workflow_dispatch",
-    "--limit", "20",
-    "--json", "databaseId",
-    "--jq", ".[] | .databaseId",
+    "run",
+    "list",
+    "--workflow",
+    "bootstrap.yml",
+    "--branch",
+    "main",
+    "--event",
+    "workflow_dispatch",
+    "--limit",
+    "20",
+    "--json",
+    "databaseId",
+    "--jq",
+    ".[] | .databaseId",
   ]);
   return output.split(/\s+/).map(Number).filter(Number.isFinite);
 }
