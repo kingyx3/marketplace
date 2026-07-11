@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const appUrl = requiredUrl("STAGING_APP_URL");
@@ -22,6 +22,7 @@ const fixtures = {
   customers: [],
   orders: [],
   staff: [],
+  storagePaths: [],
 };
 
 try {
@@ -77,8 +78,11 @@ try {
   await verifyCustomerIsolation(customerA, customerARow, customerBRow, orderRows);
   await verifyCustomerIsolation(customerB, customerBRow, customerARow, orderRows);
   await verifyStaffRevocation(activeStaff, inactiveStaff);
+  await verifyStorageRoundTrip();
 
-  console.log("Hosted Supabase Auth, RLS, object isolation, and staff revocation checks passed.");
+  console.log(
+    "Hosted Supabase Auth, RLS, object isolation, staff revocation, and Storage recovery checks passed."
+  );
 } finally {
   await cleanup();
 }
@@ -206,6 +210,37 @@ async function verifyStaffRevocation(activeStaff, inactiveStaff) {
   );
 }
 
+async function verifyStorageRoundTrip() {
+  const path = `release-gates/${runId}/recovery-check.png`;
+  fixtures.storagePaths.push(path);
+  const bytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4ZQAAAAASUVORK5CYII=",
+    "base64"
+  );
+  const expectedHash = createHash("sha256").update(bytes).digest("hex");
+
+  const upload = await service.storage.from("product-images").upload(path, bytes, {
+    contentType: "image/png",
+    cacheControl: "60",
+    upsert: false,
+  });
+  assertNoError(upload.error, "upload Storage recovery fixture");
+
+  const download = await service.storage.from("product-images").download(path);
+  assertNoError(download.error, "download Storage recovery fixture");
+  const downloaded = Buffer.from(await download.data.arrayBuffer());
+  const actualHash = createHash("sha256").update(downloaded).digest("hex");
+  assert(actualHash === expectedHash, "Storage recovery fixture checksum mismatch");
+
+  const publicUrl = service.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+  const response = await fetch(publicUrl, { cache: "no-store" });
+  assert(response.ok, `public Storage recovery object returned ${response.status}`);
+  const publicHash = createHash("sha256")
+    .update(Buffer.from(await response.arrayBuffer()))
+    .digest("hex");
+  assert(publicHash === expectedHash, "public Storage object checksum mismatch");
+}
+
 async function accessToken(identity) {
   const client = createClient(supabaseUrl, publishableKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -220,6 +255,9 @@ async function accessToken(identity) {
 }
 
 async function cleanup() {
+  if (fixtures.storagePaths.length > 0) {
+    await service.storage.from("product-images").remove(fixtures.storagePaths);
+  }
   if (fixtures.orders.length > 0) {
     await service.from("payments").delete().in("order_id", fixtures.orders);
     await service.from("shipments").delete().in("order_id", fixtures.orders);
