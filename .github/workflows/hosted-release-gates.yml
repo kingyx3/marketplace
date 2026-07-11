@@ -88,7 +88,10 @@ jobs:
       - name: Verify hosted Google OAuth redirect flow
         run: node scripts/verify-google-oauth-staging.mjs 2>&1 | tee hosted-oauth.log
       - name: Verify real Stripe test mode, signed webhooks, refunds, and delivered email
-        run: node scripts/verify-stripe-staging.mjs 2>&1 | tee hosted-stripe.log
+        run: |
+          VERCEL_CLI=$(node -e 'const v=require("./config/tool-versions.json"); process.stdout.write(v.vercelCli)')
+          npx --yes "vercel@$VERCEL_CLI" env run --environment production --token "$VERCEL_TOKEN" -- \
+            node scripts/verify-stripe-staging.mjs 2>&1 | tee hosted-stripe.log
       - name: Verify deep readiness, cron, SLOs, ownership, correlation, and alert delivery
         run: node scripts/verify-hosted-operations.mjs 2>&1 | tee hosted-operations.log
       - name: Run timed hosted restore drill
