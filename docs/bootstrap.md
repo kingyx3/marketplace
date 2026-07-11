@@ -35,71 +35,71 @@ The command always operates on the repository resolved by `gh repo view`. Run it
 
 The bootstrap intake reads values from the current shell and writes them to repository secrets or the selected GitHub Environment without printing their contents.
 
-### Shared repository secrets
+### Shared repository values
 
-These unprefixed values are required for every target:
+These unprefixed values are required for every target and are stored as GitHub repository secrets:
 
-```text
-GCP_TERRAFORM_CREDENTIALS_JSON
-VERCEL_TOKEN
-SUPABASE_ACCESS_TOKEN
-```
+| Shell input | GitHub setting |
+| --- | --- |
+| `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret |
+| `VERCEL_TOKEN` | Repository secret |
+| `SUPABASE_ACCESS_TOKEN` | Repository secret |
 
-Optional Terraform overrides remain GitHub repository variables, not target-prefixed shell values: `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
+Optional Terraform overrides are stored as GitHub repository variables, not target-prefixed shell values: `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
 
 ### Target-prefixed values
 
-Prefix environment values with `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` to match `--target`.
+Prefix environment values with `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` to match `--target`. The bootstrap removes that shell prefix before storing the value in the selected GitHub Environment.
 
 Common values for all targets:
 
-| Suffix | Requirement |
-| --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Required |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Required |
-| `GOOGLE_AUTH_ENABLED` | Defaults to `true` when omitted |
-| `GOOGLE_OAUTH_CLIENT_ID` | Required by strict resolution when Google Auth is enabled |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Required by strict resolution when Google Auth is enabled |
-| `STRIPE_SECRET_KEY` | Required |
-| `RESEND_FROM_EMAIL` | Required by GitHub intake |
-| `SUPPORT_EMAIL` | Optional |
-| `SUPABASE_SECRET_KEY` | Optional fallback when the Management API cannot return a modern server key |
-| `STRIPE_WEBHOOK_SECRET` | Optional recovery override; normal bootstrap provisions and persists it transactionally |
-| `CRON_SECRET` | Optional for development; required for staging and production |
-| `SYNTHETIC_MONITOR_SECRET` | Optional for development; required for staging and production |
-| `OPERATIONAL_ALERT_WEBHOOK_URL` | Optional for development; required for staging and production |
-| `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Optional for development; required for staging and production |
-| `RESEND_API_KEY` | Optional for development; required for staging and production |
+| Suffix | GitHub setting | Requirement |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | Environment variable | Required |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Environment variable | Required |
+| `GOOGLE_AUTH_ENABLED` | Environment variable | Defaults to `true` when omitted |
+| `GOOGLE_OAUTH_CLIENT_ID` | Environment variable | Required by strict resolution when Google Auth is enabled |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Environment secret | Required by strict resolution when Google Auth is enabled |
+| `STRIPE_SECRET_KEY` | Environment secret | Required |
+| `RESEND_FROM_EMAIL` | Environment variable | Required by GitHub intake |
+| `SUPPORT_EMAIL` | Environment variable | Optional |
+| `SUPABASE_SECRET_KEY` | Environment secret | Optional fallback when the Management API cannot return a modern server key |
+| `STRIPE_WEBHOOK_SECRET` | Environment secret | Optional recovery override; normal bootstrap provisions and persists it transactionally |
+| `CRON_SECRET` | Environment secret | Optional for development; required for staging and production |
+| `SYNTHETIC_MONITOR_SECRET` | Environment secret | Optional for development; required for staging and production |
+| `OPERATIONAL_ALERT_WEBHOOK_URL` | Environment secret | Optional for development; required for staging and production |
+| `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret | Optional for development; required for staging and production |
+| `RESEND_API_KEY` | Environment secret | Optional for development; required for staging and production |
 
 Staging-only values:
 
-| Name | Requirement |
-| --- | --- |
-| `STAGING_RECOVERY_PROJECT_REF` | Required |
-| `STAGING_STAGING_DATABASE_URL` | Required |
-| `STAGING_RECOVERY_DATABASE_URL` | Required |
-| `STAGING_OPERATIONS_OWNER` | Required |
-| `STAGING_INCIDENT_ESCALATION_URL` | Required |
-| `STAGING_RESTORE_RTO_SECONDS` | Defaults to `1800` |
-| `STAGING_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Defaults to `99.9` |
-| `STAGING_CHECKOUT_LATENCY_SLO_MS` | Defaults to `5000` |
-| `STAGING_PAYMENT_RECONCILIATION_SLO_MINUTES` | Defaults to `15` |
+| Shell input | GitHub setting | Requirement |
+| --- | --- | --- |
+| `STAGING_RECOVERY_PROJECT_REF` | Environment variable `RECOVERY_PROJECT_REF` | Required |
+| `STAGING_STAGING_DATABASE_URL` | Environment secret `STAGING_DATABASE_URL` | Required |
+| `STAGING_RECOVERY_DATABASE_URL` | Environment secret `RECOVERY_DATABASE_URL` | Required |
+| `STAGING_OPERATIONS_OWNER` | Environment variable `OPERATIONS_OWNER` | Required |
+| `STAGING_INCIDENT_ESCALATION_URL` | Environment variable `INCIDENT_ESCALATION_URL` | Required |
+| `STAGING_RESTORE_RTO_SECONDS` | Environment variable `RESTORE_RTO_SECONDS` | Defaults to `1800` |
+| `STAGING_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Environment variable `CHECKOUT_AVAILABILITY_SLO_PERCENT` | Defaults to `99.9` |
+| `STAGING_CHECKOUT_LATENCY_SLO_MS` | Environment variable `CHECKOUT_LATENCY_SLO_MS` | Defaults to `5000` |
+| `STAGING_PAYMENT_RECONCILIATION_SLO_MINUTES` | Environment variable `PAYMENT_RECONCILIATION_SLO_MINUTES` | Defaults to `15` |
 
-`STAGING_STAGING_DATABASE_URL` is intentionally double-prefixed: the environment prefix is `STAGING_`, and the secret name consumed by the hosted release gate is `STAGING_DATABASE_URL`.
+`STAGING_STAGING_DATABASE_URL` is intentionally double-prefixed: the first `STAGING_` selects the GitHub Environment, while the stored secret is named `STAGING_DATABASE_URL`.
 
 Production-only values:
 
-| Name | Requirement |
-| --- | --- |
-| `PRODUCTION_OPERATIONS_OWNER` | Required |
-| `PRODUCTION_INCIDENT_ESCALATION_URL` | Required |
-| `PRODUCTION_SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS` | Defaults to `7` |
-| `PRODUCTION_SUPABASE_ADVISOR_ALLOWLIST` | Optional |
-| `PRODUCTION_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Defaults to `99.9` |
-| `PRODUCTION_CHECKOUT_LATENCY_SLO_MS` | Defaults to `5000` |
-| `PRODUCTION_PAYMENT_RECONCILIATION_SLO_MINUTES` | Defaults to `15` |
+| Shell input | GitHub setting | Requirement |
+| --- | --- | --- |
+| `PRODUCTION_OPERATIONS_OWNER` | Environment variable `OPERATIONS_OWNER` | Required |
+| `PRODUCTION_INCIDENT_ESCALATION_URL` | Environment variable `INCIDENT_ESCALATION_URL` | Required |
+| `PRODUCTION_SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS` | Environment variable `SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS` | Defaults to `7` |
+| `PRODUCTION_SUPABASE_ADVISOR_ALLOWLIST` | Environment variable `SUPABASE_ADVISOR_ALLOWLIST` | Optional |
+| `PRODUCTION_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Environment variable `CHECKOUT_AVAILABILITY_SLO_PERCENT` | Defaults to `99.9` |
+| `PRODUCTION_CHECKOUT_LATENCY_SLO_MS` | Environment variable `CHECKOUT_LATENCY_SLO_MS` | Defaults to `5000` |
+| `PRODUCTION_PAYMENT_RECONCILIATION_SLO_MINUTES` | Environment variable `PAYMENT_RECONCILIATION_SLO_MINUTES` | Defaults to `15` |
 
-Set `PRODUCTION_REVIEWERS=user1,user2` when creating the production GitHub Environment for the first time. Existing required reviewers are preserved when that value is omitted on later runs.
+Set `PRODUCTION_REVIEWERS=user1,user2` when creating the production GitHub Environment for the first time. This is bootstrap-only shell input used to configure required reviewers; it is not stored as a GitHub secret or variable. Existing required reviewers are preserved when that value is omitted on later runs.
 
 ## Plan before applying
 
