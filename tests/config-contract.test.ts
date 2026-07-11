@@ -46,6 +46,9 @@ describe("platform config contract", () => {
     const reference = await readFile(new URL("../docs/generated/environment-reference.md", import.meta.url), "utf8");
 
     expect(contract.some((entry: { key: string }) => entry.key === "GOOGLE_AUTH_ENABLED")).toBe(true);
+    expect(
+      contract.find((entry: { key: string }) => entry.key === "TARGET_ENV")?.validator?.values
+    ).toEqual(["development", "staging", "production"]);
     expect(generator).toContain("renderTypeScriptSchema");
     expect(envScript).toContain("config/environment-contract.json");
     expect(runtime).toContain("env-contract.generated");
@@ -56,7 +59,7 @@ describe("platform config contract", () => {
     }
   });
 
-  it("exposes development-default hosted bootstrap plus recovery commands", async () => {
+  it("exposes development-default hosted bootstrap plus staging and recovery commands", async () => {
     const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
     const versions = JSON.parse(await readFile(new URL("../config/tool-versions.json", import.meta.url), "utf8"));
     const hostedBootstrap = await readFile(new URL("../scripts/bootstrap-hosted.mjs", import.meta.url), "utf8");
@@ -75,9 +78,12 @@ describe("platform config contract", () => {
     expect(pkg.scripts["bootstrap:github"]).toBeDefined();
     expect(pkg.scripts["bootstrap:verify"]).toContain("verify-environment.mjs");
     expect(pkg.scripts["runtime:reconcile"]).toBeDefined();
+    expect(pkg.scripts["verify:hosted:supabase"]).toBeDefined();
+    expect(pkg.scripts["verify:hosted:stripe"]).toBeDefined();
+    expect(pkg.scripts["verify:hosted:restore"]).toBeDefined();
     expect(pkg.scripts["config:check"]).toContain("generate-environment-artifacts.mjs --check");
     expect(hostedBootstrap).toContain('|| "development"');
-    expect(hostedBootstrap).toContain('["development", "production"]');
+    expect(hostedBootstrap).toContain('["development", "staging", "production"]');
     expect(hostedBootstrap).not.toContain('"all"');
     expect(hostedBootstrap).toContain("bootstrap.yml");
     expect(hostedBootstrap).toContain("gh\", [\"run\", \"watch\"");
@@ -86,7 +92,8 @@ describe("platform config contract", () => {
     expect(runtime).toContain("provision-stripe-webhook.mjs");
     expect(runtime).toContain("sync-vercel-env.mjs");
     expect(github).toContain('|| "development"');
-    expect(github).toContain('return environment === "development" ? ["develop", "main"] : ["main", "v*"]');
+    expect(github).toContain('if (environment === "development") return ["develop", "main"]');
+    expect(github).toContain('staging: ["STAGING_DATABASE_URL", "RECOVERY_DATABASE_URL"]');
     expect(github).toContain("PRODUCTION_REVIEWERS");
     expect(governance).toContain("required_approving_review_count: 1");
     expect(governance).toContain("required_conversation_resolution: true");
@@ -98,6 +105,7 @@ describe("platform config contract", () => {
     expect(bootstrapWorkflow).toContain("workflow_call:");
     expect(bootstrapWorkflow).toContain("options: [apply, verify]");
     expect(bootstrapWorkflow).toContain("node scripts/verify-environment.mjs");
+    expect(bootstrapWorkflow).toContain("SYNTHETIC_MONITOR_SECRET");
   });
 
   it("pins Terraform core/providers and enforces committed lockfiles", async () => {
