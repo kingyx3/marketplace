@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireApiAdmin } from "@/lib/api/auth";
 import { toErrorResponse } from "@/lib/api/errors";
 import { readJsonBody } from "@/lib/api/request";
+import { logInfo, requestIdFrom, withRequestId } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +20,19 @@ const creditTermsSchema = z
 
 export async function PUT(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  routeContext: { params: Promise<{ id: string }> }
 ) {
+  const requestId = requestIdFrom(request);
+  const startedAt = Date.now();
+  const context = {
+    requestId,
+    route: "/api/admin/b2b/[id]/credit",
+    method: "PUT",
+  };
+
   try {
     const auth = await requireApiAdmin(request);
-    const { id } = await context.params;
+    const { id } = await routeContext.params;
     const input = creditTermsSchema.parse(await readJsonBody(request));
 
     const { error } = await auth.supabase.rpc("admin_set_b2b_credit_terms", {
@@ -37,12 +46,27 @@ export async function PUT(
       throw new Error(error.message);
     }
 
-    return NextResponse.json({
+    logInfo("admin.b2b_credit.updated", {
+      ...context,
+      userId: auth.user.id,
       accountId: id,
       paymentTerms: input.paymentTerms,
       creditLimitCents: input.creditLimitCents,
+      durationMs: Date.now() - startedAt,
     });
+
+    return withRequestId(
+      NextResponse.json({
+        accountId: id,
+        paymentTerms: input.paymentTerms,
+        creditLimitCents: input.creditLimitCents,
+      }),
+      requestId
+    );
   } catch (error) {
-    return toErrorResponse(error);
+    return toErrorResponse(error, {
+      ...context,
+      durationMs: Date.now() - startedAt,
+    });
   }
 }
