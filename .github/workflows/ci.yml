@@ -165,6 +165,8 @@ jobs:
             echo "testing $f"
             psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
           done 2>&1 | tee -a migration.log
+      - name: Verify logical backup and restore
+        run: bash .github/ci/verify-logical-restore.sh 2>&1 | tee -a migration.log
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
