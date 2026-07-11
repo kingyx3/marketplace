@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { createInvoiceCheckout, invoiceCheckoutResponseBody } from "@/lib/checkout";
+import { createInvoiceCheckout, invoiceCheckoutResponseBody } from "@/lib/order-checkout";
+
+const shippingAddress = {
+  recipientName: "Buyer",
+  line1: "1 Market Street",
+  city: "Singapore",
+  postalCode: "048940",
+  countryCode: "SG",
+};
 
 describe("invoice checkout", () => {
-  it("creates a B2B pending-payment order with a manual invoice payment placeholder", async () => {
+  it("creates a B2B pending-payment order with shipping and a manual invoice placeholder", async () => {
     const { supabase, calls } = fakeInvoiceSupabase();
 
     const result = await createInvoiceCheckout(
@@ -22,6 +30,7 @@ describe("invoice checkout", () => {
       } as never,
       {
         items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 2 }],
+        shippingAddress,
         purchaseOrderReference: "PO-1001",
       }
     );
@@ -30,7 +39,7 @@ describe("invoice checkout", () => {
       orderId: "order-123",
       provider: "manual_invoice",
       providerPaymentId: "invoice:order-123",
-      amountCents: 36616,
+      amountCents: 37416,
       currency: "SGD",
       status: "pending_payment",
     });
@@ -40,10 +49,11 @@ describe("invoice checkout", () => {
         p_auth_user_id: "auth-user-123",
         p_items: [{ sku_id: "11111111-1111-4111-8111-111111111111", quantity: 2 }],
         p_channel: "b2b",
+        p_shipping_address: shippingAddress,
         p_expected_subtotal_cents: 39800,
         p_discount_cents: 3184,
         p_discount_bps: 800,
-        p_expected_total_cents: 36616,
+        p_expected_total_cents: 37416,
       },
     });
     expect(calls.insert).toContainEqual({
@@ -53,7 +63,7 @@ describe("invoice checkout", () => {
         provider: "manual_invoice",
         provider_payment_id: "invoice:order-123",
         kind: "invoice",
-        amount_cents: 36616,
+        amount_cents: 37416,
         currency: "SGD",
         status: "pending",
       },
@@ -74,7 +84,7 @@ describe("invoice checkout", () => {
         paymentId: "payment-123",
         provider: "manual_invoice",
         providerPaymentId: "invoice:order-123",
-        amountCents: 36616,
+        amountCents: 37416,
         currency: "SGD",
         status: "pending_payment",
       })
@@ -83,7 +93,7 @@ describe("invoice checkout", () => {
       paymentId: "payment-123",
       provider: "manual_invoice",
       providerPaymentId: "invoice:order-123",
-      amountCents: 36616,
+      amountCents: 37416,
       currency: "SGD",
       status: "pending_payment",
     });
@@ -152,6 +162,22 @@ function tableBuilder(
       if (table === "inventory") {
         return {
           data: { on_hand: 10, allocated: 0, incoming: 0, safety_stock: 0, available: 10 },
+          error: null,
+        };
+      }
+      if (table === "storefront_configurations") {
+        return {
+          data: {
+            active: true,
+            value: {
+              enabled: true,
+              currency: "SGD",
+              supportedCountryCodes: ["SG"],
+              flatRateCents: 800,
+              freeShippingThresholdCents: null,
+              serviceName: "Tracked delivery",
+            },
+          },
           error: null,
         };
       }
