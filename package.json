@@ -59,7 +59,7 @@
     "@types/node": "^26.1.1",
     "@types/react": "^19.1.5",
     "@types/react-dom": "^19.1.5",
-    "eslint": "^10.6.0",
+    "eslint": "9.39.2",
     "eslint-config-next": "^16.2.10",
     "eslint-config-prettier": "^10.1.5",
     "prettier": "^3.9.5",
