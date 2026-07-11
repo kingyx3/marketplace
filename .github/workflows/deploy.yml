@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: GitHub Environment to deploy (development | production)
+        description: GitHub Environment to deploy (development | staging | production)
         required: true
         type: string
       skip_app_checks:
@@ -12,6 +12,10 @@ on:
         required: false
         default: false
         type: boolean
+    outputs:
+      deployment_url:
+        description: Immutable deployment URL produced or reused for this source revision
+        value: ${{ jobs.deploy.outputs.deployment_url }}
 
 permissions:
   contents: read
@@ -38,6 +42,10 @@ jobs:
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      SYNTHETIC_MONITOR_SECRET: ${{ secrets.SYNTHETIC_MONITOR_SECRET }}
+      OPERATIONAL_ALERT_WEBHOOK_URL: ${{ secrets.OPERATIONAL_ALERT_WEBHOOK_URL }}
+      OPERATIONAL_ALERT_WEBHOOK_SECRET: ${{ secrets.OPERATIONAL_ALERT_WEBHOOK_SECRET }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -58,8 +66,8 @@ jobs:
       - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
       - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
       - run: node scripts/generate-env.mjs --check --allow-missing-provisioned
-      - name: Enforce production infrastructure and provider readiness
-        if: ${{ inputs.environment == 'production' }}
+      - name: Enforce hosted infrastructure and provider readiness
+        if: ${{ inputs.environment != 'development' }}
         run: node scripts/verify-environment.mjs --skip-health
 
   app-checks:
@@ -93,6 +101,11 @@ jobs:
             psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
           done
       - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql
+      - name: Run transactional database contracts
+        run: |
+          for f in supabase/tests/*.sql; do
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
+          done
 
   migrate:
     needs: [validate-env, migration-check]
@@ -161,7 +174,7 @@ jobs:
           done
           exit 1
       - name: Deep readiness check
-        if: ${{ inputs.environment == 'production' }}
+        if: ${{ inputs.environment != 'development' }}
         run: |
           URL="${{ needs.deploy.outputs.deployment_url }}"
           code=$(curl -s -o readiness.json -w '%{http_code}' "$URL/api/health?deep=1")
