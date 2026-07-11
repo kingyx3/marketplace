@@ -57,15 +57,15 @@ export default async function CartPage({
     selectedChannel === "b2b" && !belowWholesaleMinimum
       ? calculateDiscountCents(quote.subtotalCents, discountBps)
       : 0;
-  const totalDueCents = quote.subtotalCents - discountCents;
-  const gst = Math.round((totalDueCents * 9) / 109);
+  const merchandiseTotalCents = quote.subtotalCents - discountCents;
+  const gst = Math.round((merchandiseTotalCents * 9) / 109);
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Cart"
         title="Review sealed product order"
-        description="The cart stores only SKU IDs and quantities. Prices, availability, and payment totals are recalculated on the server before payment."
+        description="The cart stores only SKU IDs and quantities. Prices, availability, shipping, tax, and payment totals are recalculated on the server before payment."
         action={
           <StatusBadge tone={quote.lines.length > 0 ? "success" : "warning"}>
             {quote.lines.length} line(s)
@@ -220,7 +220,9 @@ export default async function CartPage({
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-zinc-500">Shipping</dt>
-                <dd className="font-semibold text-zinc-950">Calculated after launch</dd>
+                <dd className="text-right font-semibold text-zinc-950">
+                  Calculated from the delivery address before payment
+                </dd>
               </div>
               {selectedChannel === "b2b" ? (
                 <>
@@ -239,7 +241,7 @@ export default async function CartPage({
                 </>
               ) : null}
               <div className="flex justify-between gap-4">
-                <dt className="text-zinc-500">GST included estimate</dt>
+                <dt className="text-zinc-500">GST included in items estimate</dt>
                 <dd className="font-semibold text-zinc-950">{formatMoney(gst, quote.currency)}</dd>
               </div>
               {belowWholesaleMinimum ? (
@@ -250,9 +252,9 @@ export default async function CartPage({
               ) : null}
               <div className="mt-3 border-t border-zinc-200 pt-4">
                 <div className="flex justify-between gap-4">
-                  <dt className="text-base font-semibold text-zinc-950">Total due now</dt>
+                  <dt className="text-base font-semibold text-zinc-950">Items total before shipping</dt>
                   <dd className="text-xl font-bold text-zinc-950">
-                    {formatMoney(totalDueCents, quote.currency)}
+                    {formatMoney(merchandiseTotalCents, quote.currency)}
                   </dd>
                 </div>
               </div>
