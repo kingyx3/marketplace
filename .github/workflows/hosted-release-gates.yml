@@ -46,6 +46,11 @@ jobs:
       SYNTHETIC_MONITOR_SECRET: ${{ secrets.SYNTHETIC_MONITOR_SECRET }}
       OPERATIONAL_ALERT_WEBHOOK_URL: ${{ secrets.OPERATIONAL_ALERT_WEBHOOK_URL }}
       OPERATIONAL_ALERT_WEBHOOK_SECRET: ${{ secrets.OPERATIONAL_ALERT_WEBHOOK_SECRET }}
+      OPERATIONS_OWNER: ${{ vars.OPERATIONS_OWNER }}
+      INCIDENT_ESCALATION_URL: ${{ vars.INCIDENT_ESCALATION_URL }}
+      CHECKOUT_AVAILABILITY_SLO_PERCENT: ${{ vars.CHECKOUT_AVAILABILITY_SLO_PERCENT }}
+      CHECKOUT_LATENCY_SLO_MS: ${{ vars.CHECKOUT_LATENCY_SLO_MS }}
+      PAYMENT_RECONCILIATION_SLO_MINUTES: ${{ vars.PAYMENT_RECONCILIATION_SLO_MINUTES }}
       STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
       RECOVERY_DATABASE_URL: ${{ secrets.RECOVERY_DATABASE_URL }}
       RECOVERY_PROJECT_REF: ${{ vars.RECOVERY_PROJECT_REF }}
@@ -79,7 +84,7 @@ jobs:
         run: node scripts/verify-hosted-supabase.mjs 2>&1 | tee hosted-supabase.log
       - name: Verify real Stripe test mode and signed webhook state machine
         run: node scripts/verify-stripe-staging.mjs 2>&1 | tee hosted-stripe.log
-      - name: Verify deep readiness, cron, correlation, and alert delivery
+      - name: Verify deep readiness, cron, SLOs, ownership, correlation, and alert delivery
         run: node scripts/verify-hosted-operations.mjs 2>&1 | tee hosted-operations.log
       - name: Run timed hosted restore drill
         run: |
@@ -98,7 +103,7 @@ jobs:
           if-no-files-found: error
 
   production-provider-readiness:
-    name: Production Supabase health, security, and recovery window
+    name: Production Supabase security and recovery window
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -114,7 +119,6 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_REQUIRED_BACKUP_MODE: pitr
       SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS: ${{ vars.SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS || '7' }}
-      SUPABASE_MAXIMUM_RECOVERY_LAG_MINUTES: ${{ vars.SUPABASE_MAXIMUM_RECOVERY_LAG_MINUTES || '10' }}
       SUPABASE_ADVISOR_ALLOWLIST: ${{ vars.SUPABASE_ADVISOR_ALLOWLIST }}
     steps:
       - uses: actions/checkout@v7.0.0
