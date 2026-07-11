@@ -39,6 +39,7 @@ jobs:
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
       STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
@@ -140,7 +141,14 @@ jobs:
       - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
       - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
       - name: Resolve production project reference
-        run: node scripts/resolve-environment.mjs --environment production --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFile, readFile } from 'node:fs/promises';
+          const outputs = JSON.parse(await readFile('infra/terraform/platform/tf-outputs.json', 'utf8'));
+          const ref = outputs.supabase_project_refs?.value?.production || '';
+          if (!ref) throw new Error('Production SUPABASE_PROJECT_REF was not found in Terraform outputs');
+          await appendFile(process.env.GITHUB_ENV, `SUPABASE_PROJECT_REF=${ref}\n`);
+          NODE
       - name: Verify recoverable PITR window and Supabase advisors
         run: node scripts/verify-supabase-provider-readiness.mjs 2>&1 | tee production-provider-readiness.log
       - uses: actions/upload-artifact@v7.0.1
