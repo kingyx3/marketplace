@@ -1,21 +1,43 @@
 # Bootstrap guide
 
-The normal hosted setup bootstraps development through one command or one GitHub Actions run. Production remains available only when explicitly selected. Unchanged infrastructure, provider configuration, runtime values, migrations, and deployments converge to no-ops.
+The hosted bootstrap supports `development`, `staging`, and `production`. `development` is the default. The local command first reconciles GitHub governance and the selected GitHub Environment, then—only with `--apply`—dispatches **Bootstrap & Deploy** from the `main` branch and follows that exact workflow run to completion.
+
+Bootstrap is convergent: unchanged branch protection, environments, infrastructure, provider settings, runtime values, migrations, and deployments become no-ops or reuse existing ready resources.
+
+## Source-of-truth map
+
+When this guide and implementation differ, update the guide against these executable contracts:
+
+- `package.json` — operator commands.
+- `scripts/bootstrap-hosted.mjs` — target selection, plan/apply behavior, dispatch, and run following.
+- `scripts/configure-github-governance.mjs` — `main` branch protection.
+- `scripts/bootstrap-github.mjs` — GitHub Environment policies and shell-value intake.
+- `.github/workflows/bootstrap.yml` — end-to-end workflow graph.
+- `config/environment-contract.json` and `docs/generated/environment-reference.md` — runtime/deploy environment contract.
+- `infra/terraform/platform` — hosted Vercel and Supabase topology.
 
 ## External prerequisites
 
-Create or confirm the account-level trust boundaries that repository code cannot own:
+Create or confirm the account-level trust boundaries repository code cannot own:
 
 - GitHub repository administration and an authenticated `gh` CLI session.
+- Node and npm versions accepted by `package.json`.
 - A Google Cloud project and credential allowed to manage the Terraform state bucket.
 - A Vercel API token.
-- A Supabase access token.
+- A Supabase access token and organization access.
 - Stripe test/live keys with PayNow enabled at the account level.
 - Google OAuth consent-screen and Web-client ownership when Google Auth is enabled.
+- Verified Resend sender/domain and operational alert destinations for staging and production readiness gates.
+
+The command always operates on the repository resolved by `gh repo view`. Run it from this repository checkout.
 
 ## Trusted-shell values
 
-Shared values use their normal names:
+The bootstrap intake reads values from the current shell and writes them to repository secrets or the selected GitHub Environment without printing their contents.
+
+### Shared repository secrets
+
+These unprefixed values are required for every target:
 
 ```text
 GCP_TERRAFORM_CREDENTIALS_JSON
@@ -23,110 +45,171 @@ VERCEL_TOKEN
 SUPABASE_ACCESS_TOKEN
 ```
 
-Development values use the `DEVELOPMENT_` prefix. Production values are only needed for an explicit production run and use `PRODUCTION_`:
+Optional Terraform overrides remain GitHub repository variables, not target-prefixed shell values: `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
 
-```text
-DEVELOPMENT_NEXT_PUBLIC_SITE_URL
-DEVELOPMENT_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-DEVELOPMENT_GOOGLE_AUTH_ENABLED
-DEVELOPMENT_GOOGLE_OAUTH_CLIENT_ID
-DEVELOPMENT_STRIPE_SECRET_KEY
-DEVELOPMENT_GOOGLE_OAUTH_CLIENT_SECRET
+### Target-prefixed values
 
-PRODUCTION_NEXT_PUBLIC_SITE_URL
-PRODUCTION_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-PRODUCTION_GOOGLE_AUTH_ENABLED
-PRODUCTION_GOOGLE_OAUTH_CLIENT_ID
-PRODUCTION_STRIPE_SECRET_KEY
-PRODUCTION_GOOGLE_OAUTH_CLIENT_SECRET
-```
+Prefix environment values with `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` to match `--target`.
 
-Set `PRODUCTION_REVIEWERS=user1,user2` when creating production for the first time. `SUPABASE_SECRET_KEY` is optional when the Management API exposes a modern server key. `STRIPE_WEBHOOK_SECRET` is optional because bootstrap provisions and persists it transactionally.
+Common values for all targets:
 
-## Development bootstrap — default
+| Suffix | Requirement |
+| --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | Required |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Required |
+| `GOOGLE_AUTH_ENABLED` | Defaults to `true` when omitted |
+| `GOOGLE_OAUTH_CLIENT_ID` | Required by strict resolution when Google Auth is enabled |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Required by strict resolution when Google Auth is enabled |
+| `STRIPE_SECRET_KEY` | Required |
+| `RESEND_FROM_EMAIL` | Required by GitHub intake |
+| `SUPPORT_EMAIL` | Optional |
+| `SUPABASE_SECRET_KEY` | Optional fallback when the Management API cannot return a modern server key |
+| `STRIPE_WEBHOOK_SECRET` | Optional recovery override; normal bootstrap provisions and persists it transactionally |
+| `CRON_SECRET` | Optional for development; required for staging and production |
+| `SYNTHETIC_MONITOR_SECRET` | Optional for development; required for staging and production |
+| `OPERATIONAL_ALERT_WEBHOOK_URL` | Optional for development; required for staging and production |
+| `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Optional for development; required for staging and production |
+| `RESEND_API_KEY` | Optional for development; required for staging and production |
 
-Preview the development GitHub changes without mutating anything:
+Staging-only values:
+
+| Name | Requirement |
+| --- | --- |
+| `STAGING_RECOVERY_PROJECT_REF` | Required |
+| `STAGING_STAGING_DATABASE_URL` | Required |
+| `STAGING_RECOVERY_DATABASE_URL` | Required |
+| `STAGING_OPERATIONS_OWNER` | Required |
+| `STAGING_INCIDENT_ESCALATION_URL` | Required |
+| `STAGING_RESTORE_RTO_SECONDS` | Defaults to `1800` |
+| `STAGING_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Defaults to `99.9` |
+| `STAGING_CHECKOUT_LATENCY_SLO_MS` | Defaults to `5000` |
+| `STAGING_PAYMENT_RECONCILIATION_SLO_MINUTES` | Defaults to `15` |
+
+`STAGING_STAGING_DATABASE_URL` is intentionally double-prefixed: the environment prefix is `STAGING_`, and the secret name consumed by the hosted release gate is `STAGING_DATABASE_URL`.
+
+Production-only values:
+
+| Name | Requirement |
+| --- | --- |
+| `PRODUCTION_OPERATIONS_OWNER` | Required |
+| `PRODUCTION_INCIDENT_ESCALATION_URL` | Required |
+| `PRODUCTION_SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS` | Defaults to `7` |
+| `PRODUCTION_SUPABASE_ADVISOR_ALLOWLIST` | Optional |
+| `PRODUCTION_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Defaults to `99.9` |
+| `PRODUCTION_CHECKOUT_LATENCY_SLO_MS` | Defaults to `5000` |
+| `PRODUCTION_PAYMENT_RECONCILIATION_SLO_MINUTES` | Defaults to `15` |
+
+Set `PRODUCTION_REVIEWERS=user1,user2` when creating the production GitHub Environment for the first time. Existing required reviewers are preserved when that value is omitted on later runs.
+
+## Plan before applying
+
+Preview development GitHub governance and Environment changes without mutation:
 
 ```bash
 npm run bootstrap
 ```
 
-Apply development and follow the resulting Actions run until completion:
+Preview another target:
+
+```bash
+npm run bootstrap -- --target=staging
+npm run bootstrap -- --target=production
+```
+
+Without `--apply`, no GitHub settings are changed and no hosted workflow is dispatched.
+
+## Apply bootstrap
+
+Development:
 
 ```bash
 npm run bootstrap -- --apply
 ```
 
-The command:
+Staging:
 
-1. Reconciles repository governance plus the development GitHub Environment, policies, variables, and supplied secrets.
-2. Dispatches **Bootstrap & Deploy** with `target=development`.
-3. Follows that exact workflow run and returns its exit status.
-
-The workflow performs:
-
-```text
-full application and E2E checks
-→ converge Terraform state bucket
-→ adopt/converge shared Vercel and Supabase infrastructure
-→ bootstrap development providers, runtime values, and database
-→ deploy development
-→ verify development
+```bash
+npm run bootstrap -- --apply --target=staging
 ```
 
-## Production bootstrap — explicit
-
-Production uses the same tested path but must be selected explicitly:
+Production bootstrap or full recovery convergence:
 
 ```bash
 npm run bootstrap -- --apply --target=production
 ```
 
-This command only requires and reconciles production-specific values. GitHub production reviewers and the existing production drift/readiness gates remain enforced.
+The command:
 
-## GitHub Actions path
+1. Reconciles `main` branch protection.
+2. Creates or updates the selected GitHub Environment, deployment policies, variables, supplied secrets, and production reviewers when applicable.
+3. Dispatches `.github/workflows/bootstrap.yml` with `--ref main` and the selected target.
+4. Finds the newly dispatched run, follows it, and returns its exit status.
 
-Run **Bootstrap & Deploy** from the Actions tab. `development` is the default; `production` is the only other option.
+Because the workflow is dispatched from `main`, unmerged local or feature-branch changes are not bootstrapped. Merge the desired implementation and documentation before applying.
+
+## Workflow sequence
+
+**Bootstrap & Deploy** runs one linear target-aware pipeline:
+
+```text
+full application and Playwright checks
+→ converge Terraform state bucket
+→ converge shared platform infrastructure
+→ reconcile selected environment providers, runtime values, and database
+→ deploy selected environment
+→ verify selected environment without mutation
+→ assert every stage succeeded
+```
+
+Application checks run once. Deployment receives `skip_app_checks=true` from the parent workflow.
+
+## Hosted topology
+
+- `development` uses the primary Vercel project and the development Supabase project.
+- `staging` uses a dedicated staging Vercel project and staging Supabase project, with production-like readiness checks.
+- `production` uses the primary Vercel project and production Supabase project, protected by the production GitHub Environment.
+- `recovery` is a Terraform-managed Supabase project used by restore and recovery verification; it is not a bootstrap target.
+
+For routine production releases, publish a `v*` tag or GitHub release. **Deploy production** first deploys the exact revision to staging, runs hosted release gates, and only then deploys production. Direct production bootstrap remains available for initial provisioning and full-stack recovery.
 
 ## What convergence includes
 
 ### Terraform
 
-- The state workflow automatically detects first-run local state versus the persistent GCS backend.
+- The state workflow detects first-run local state versus the persistent GCS backend.
 - Existing buckets and provider projects are adopted when safe.
-- Each automatic convergence creates a binary plan and applies that exact plan in the same protected run.
+- Automatic convergence creates a binary plan and applies that exact plan in the same protected run.
 - Granular `reconcile`, `plan`, and reviewed-artifact `apply` modes remain available for recovery and exceptional review workflows.
 - Shared infrastructure uses one global concurrency lock and committed provider lockfiles.
 
 ### Runtime and providers
 
-- Stripe webhook creation, replacement, metadata, event configuration, rollback, and verification share one implementation.
+- Stripe webhook discovery, creation, replacement, metadata, event configuration, rollback, and verification share one implementation.
 - Supabase hosted Google Auth, site URL, and redirect allow-list are reconciled when enabled.
 - Vercel runtime values are compared by keyed fingerprints and unchanged values are not rewritten.
-- Supabase migrations are pushed forward-only.
+- Supabase migrations are forward-only.
 
 ### Deployment and verification
 
-- Application checks run once and are not repeated inside deployment.
 - Identical source/runtime fingerprints reuse an existing ready Vercel deployment.
-- Production deployment refuses to proceed with Terraform, provider, or runtime drift.
-- Final verification checks provider state, Vercel runtime state, `/api/health`, and production deep readiness.
+- Staging and production validate infrastructure/provider readiness before migration and deployment.
+- Final verification checks Terraform drift, provider state, Vercel runtime state, `/api/health`, and deep readiness for hosted non-development targets.
 
 ## Recovery workflows
 
-The following workflows remain available but are not the normal setup path:
+The following workflows remain available but are not the normal full-stack setup path:
 
-- **Terraform State Bootstrap** — `reconcile`, `plan`, or reviewed-artifact `apply`.
-- **Terraform Platform** — `reconcile`, `plan`, or reviewed-artifact `apply`.
+- **Terraform State Bootstrap** — `converge`, `reconcile`, `plan`, or reviewed-artifact `apply`.
+- **Terraform Platform** — `converge`, `reconcile`, `plan`, or reviewed-artifact `apply`.
 - **Bootstrap Environment** — targeted `apply` or non-mutating `verify`.
 - **Configure Providers** — provider-only plan, repair, or verification.
-- Development and production deployment workflows — application-only deployment triggers.
+- Development, staging, and production deployment workflows — application release paths.
 
-Use recovery mode when adopting manually created resources, diagnosing state, or repairing one environment. Otherwise rerun **Bootstrap & Deploy** for the selected target.
+Use recovery mode when adopting manually created resources, diagnosing state, or repairing one layer. Otherwise rerun **Bootstrap & Deploy** for the selected target.
 
 ## Operational rules
 
 - Never edit an applied migration; add a forward migration.
 - Correct operator values at their GitHub source and rerun bootstrap.
-- Keep Google OAuth redirect registration and Stripe PayNow/account compliance settings aligned with the documented provider-account prerequisites.
+- Keep Google OAuth redirect registration, Resend sender verification, operational alert endpoints, and Stripe PayNow/account compliance aligned with provider-account prerequisites.
 - Treat any failed stage as a failed bootstrap; both the command and workflow exit unsuccessfully.
