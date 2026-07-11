@@ -199,7 +199,7 @@ function latestRefund(charge: Stripe.Charge): Stripe.Refund | null {
   }, null);
 }
 
-function refundStatus(status: Stripe.Refund.Status | null): "pending" | "succeeded" | "failed" {
+function refundStatus(status: Stripe.Refund["status"]): "pending" | "succeeded" | "failed" {
   if (status === "succeeded") return "succeeded";
   if (status === "failed" || status === "canceled") return "failed";
   return "pending";
