@@ -21,118 +21,44 @@ This document updates the original audit after progressive remediation on `agent
 
 ## Shipping production contract
 
-Order checkout now requires:
-
-- recipient name;
-- address line 1;
-- postal code;
-- ISO country code;
-- an active `shipping_policy` database record;
-- supported currency and destination;
-- a server-calculated rate that matches the database transaction.
-
-The database independently recalculates and validates the shipping rate and expected total before inventory allocation succeeds. The delivery address, shipping service, policy key, tax amount, and final total are snapshotted on the order. Stripe receives the same final amount and shipping address.
-
-The current tax contract is Singapore GST-inclusive. Checkout and the database therefore reject non-Singapore shipping until a jurisdiction-aware tax implementation is introduced.
+Order checkout now requires a validated Singapore delivery address, an active `shipping_policy`, a server-calculated SGD rate, and a matching database/Stripe total. The database snapshots the address, service, policy key, shipping amount, GST-inclusive tax amount, and final total. Non-Singapore checkout is rejected until jurisdiction-aware tax calculation exists.
 
 ### Activation prerequisites
 
-- Configure `shipping_policy` with Singapore only, SGD, approved flat rate, optional free-shipping threshold, and real service name.
-- Test a low-value Stripe order in staging and verify the order snapshot, Stripe amount, tax display, inventory allocation, notification, and refund path.
-- Keep the policy inactive if no approved delivery service/rate exists.
+- Configure `shipping_policy` for Singapore/SGD with the approved service and rate.
+- Complete a low-value staging Stripe order, notification, refund, and inventory reconciliation.
+- Keep the policy inactive until the staging evidence is attached to the PR.
 
 ## B2B invoice production contract
 
-Invoice checkout now requires:
-
-- approved B2B account and assigned wholesale pricing tier;
-- reviewed `NET1`–`NET90` terms;
-- positive account credit limit;
-- active global `b2b_invoice_policy`;
-- payment terms no longer than the policy maximum;
-- a required, unique per-customer PO/invoice reference;
-- total unexpired pending invoice exposure plus the new order not exceeding the credit limit;
-- validated shipping address and shipping total.
-
-The account row is locked while exposure is checked and the order is created, preventing concurrent requests from independently consuming the same credit headroom. Each invoice receives a payment deadline and a shorter or equal inventory-reservation deadline.
-
-An authenticated hourly Vercel Cron calls `expire_stale_invoice_orders`, which releases inventory, cancels the pending invoice payment placeholder and order, and writes an audit record.
+Invoice checkout now requires an approved B2B account, assigned wholesale tier, reviewed NET terms, positive credit limit, active global policy, unique PO reference, serialized exposure headroom, validated shipping, and payment/allocation deadlines. An authenticated hourly cron releases stale allocations and cancels the pending invoice order/payment with an audit record.
 
 ### Activation prerequisites
 
-- Provision `CRON_SECRET` in the production GitHub Environment and Vercel runtime.
-- Confirm Vercel Cron invokes `/api/cron/invoice-expiry` and that a completion log is received for two consecutive intervals.
-- Configure reviewed account credit terms through `/admin/wholesale/credit`.
-- Enable `b2b_invoice_policy` only after cron verification.
-- Test duplicate PO, over-credit concurrent requests, expiry, reconciliation, and paid invoice handling in staging.
+- Provision `CRON_SECRET` in GitHub Environment and Vercel.
+- Verify two consecutive hourly cron executions.
+- Configure reviewed terms and credit limits through `/admin/wholesale/credit`.
+- Enable `b2b_invoice_policy` only after duplicate-PO, concurrent over-credit, expiry, reconciliation, and paid-invoice staging tests pass.
 
-## Database integration and recovery evidence
+## Database, recovery, observability, and privacy evidence
 
-The migration CI job now:
-
-1. applies the auth shim;
-2. applies every migration in filename order;
-3. applies the seed;
-4. executes transactional checkout SQL assertions;
-5. creates a custom-format logical dump;
-6. restores into a separate PostgreSQL database;
-7. validates critical tables, checkout functions, policy rows, and seeded catalog data.
-
-The SQL assertions cover:
-
-- legacy no-address checkout failing closed;
-- shipping address/rate/tax snapshot;
-- unique PO references;
-- transactional invoice exposure rejection;
-- payment and allocation deadlines;
-- automatic invoice cancellation and inventory release.
-
-## Observability and privacy evidence
-
-Critical routes now return `x-request-id` and emit structured events for:
-
-- payment checkout creation and rejection;
-- manual-invoice creation and rejection;
-- Stripe webhook signature, duplicate, storage, processing, and success outcomes;
-- invoice-expiry cron authorization, failure, and completion;
-- B2B credit administration;
-- unhandled API errors and validation failures.
-
-Sensitive log keys are recursively redacted. Raw request bodies, customer contact details, credentials, Stripe objects, and webhook payloads are excluded from log context. Stripe webhook idempotency storage retains only a minimal event envelope rather than the full provider payload.
-
-See `docs/observability.md` and `docs/backup-restore.md` for deployment and incident procedures.
+CI applies migrations and seed, runs transactional checkout SQL assertions, creates a custom logical dump, restores it into a separate database, and validates critical commerce objects. Critical routes return `x-request-id` and emit structured redacted events. Stripe webhook idempotency storage retains a minimal envelope rather than the full customer/payment payload.
 
 ## Final repository verification
 
 Verified code head: `16375359bb62cf83aba0f6b36cf65003313bede0`  
 GitHub Actions run: `29146715422` — completed successfully.
 
-Passed:
-
-- dependency installation;
-- lint;
-- strict type check;
-- unit and contract tests;
-- production build;
-- Chromium Playwright;
-- configuration contracts;
-- both Terraform validations;
-- migrations and seed;
-- transactional database contracts;
-- logical backup and isolated restore.
+Passed: dependency installation, lint, strict type checking, unit/contract tests, production build, Chromium Playwright, configuration contracts, both Terraform validations, migrations and seed, transactional database contracts, and logical backup/isolated restore.
 
 ## Remaining launch-blocking P1 prerequisites
 
-The following remain unverified and must not be treated as passing:
-
-1. Hosted Supabase RLS and Auth tests with real anon, customer, active-staff, and deactivated-staff identities.
-2. Real Stripe test-mode PayNow, signed webhook retry/duplicate/out-of-order behavior, partial/full refund reconciliation, and provider outage tests.
-3. Production Supabase backup/PITR configuration, retention evidence, storage recovery, and a timed isolated restoration drill.
+1. Hosted Supabase RLS/Auth tests with real anon, customer, active-staff, and deactivated-staff identities.
+2. Real Stripe test-mode PayNow, signed webhook retry/duplicate/out-of-order, refund reconciliation, and outage tests.
+3. Production Supabase backup/PITR retention, product-image recovery, and a timed production-shaped restore drill.
 4. Production log ingestion, dashboards, alert delivery, SLOs, and on-call/incident ownership.
-5. Staging environment with production-like OAuth, Stripe, Supabase, Vercel, cron, and notification configuration.
+5. Production-like staging for OAuth, Stripe, Supabase, Vercel Cron, and notifications.
 
-## Current readiness interpretation
-
-The original P0 workflow defects are closed with fail-closed defaults. Shipping and invoice policies remain inactive until operators explicitly configure and verify them. The application must not be launched until the remaining P1 operational and provider-backed prerequisites are demonstrated.
+The P0 workflow defects are closed with fail-closed defaults. Shipping and invoice policies remain inactive until operators configure and verify them. The application must not be deployed until the remaining P1 prerequisites are demonstrated.
 
 CONDITIONALLY READY — no unresolved P0 findings remain, but documented P1 provider, backup, observability, staging, and operational prerequisites must be completed before deployment.
