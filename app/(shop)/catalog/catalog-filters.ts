@@ -7,6 +7,21 @@ export const ALL_CATALOG_FILTERS = "all" as const;
 
 export type CatalogStatusFilter = typeof ALL_CATALOG_FILTERS | SetStatus;
 
+export interface CatalogFilterProduct {
+  slug: string;
+  name: string;
+  game: string;
+  publisher: string;
+  setName: string;
+  setCode: string;
+  setStatus: SetStatus;
+  productType: string;
+  sku: string;
+  language: string;
+  description: string;
+  tags: string[];
+}
+
 export interface CatalogFilters {
   query: string;
   game: string;
@@ -27,10 +42,29 @@ export const EMPTY_CATALOG_FILTERS: CatalogFilters = {
   status: ALL_CATALOG_FILTERS,
 };
 
+export function createCatalogFilterProduct(
+  product: MarketplaceProduct
+): CatalogFilterProduct {
+  return {
+    slug: product.slug,
+    name: product.name,
+    game: product.game,
+    publisher: product.publisher,
+    setName: product.setName,
+    setCode: product.setCode,
+    setStatus: product.setStatus,
+    productType: product.productType,
+    sku: product.sku,
+    language: product.language,
+    description: product.description,
+    tags: [...product.tags],
+  };
+}
+
 export function filterCatalogProducts(
-  products: MarketplaceProduct[],
+  products: readonly CatalogFilterProduct[],
   filters: CatalogFilters
-): MarketplaceProduct[] {
+): CatalogFilterProduct[] {
   const query = normalize(filters.query);
   const game = normalize(filters.game);
 
@@ -44,18 +78,39 @@ export function filterCatalogProducts(
   });
 }
 
-export function catalogGames(products: MarketplaceProduct[]): string[] {
+export function catalogGames(products: readonly CatalogFilterProduct[]): string[] {
   return [...new Set(products.map((product) => product.game))].sort((left, right) =>
     left.localeCompare(right)
   );
 }
 
-export function catalogStatuses(products: MarketplaceProduct[]): SetStatus[] {
+export function catalogStatuses(products: readonly CatalogFilterProduct[]): SetStatus[] {
   const statuses = new Set(products.map((product) => product.setStatus));
   return STATUS_ORDER.filter((status) => statuses.has(status));
 }
 
-function catalogSearchText(product: MarketplaceProduct): string {
+export function hasCatalogFilters(filters: CatalogFilters): boolean {
+  return (
+    normalize(filters.query) !== "" ||
+    filters.game !== ALL_CATALOG_FILTERS ||
+    filters.status !== ALL_CATALOG_FILTERS
+  );
+}
+
+export function parseCatalogStatusFilter(value: string): CatalogStatusFilter {
+  return value === ALL_CATALOG_FILTERS || STATUS_ORDER.includes(value as SetStatus)
+    ? (value as CatalogStatusFilter)
+    : ALL_CATALOG_FILTERS;
+}
+
+export function formatCatalogStatus(status: SetStatus): string {
+  return status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function catalogSearchText(product: CatalogFilterProduct): string {
   return normalize(
     [
       product.name,
