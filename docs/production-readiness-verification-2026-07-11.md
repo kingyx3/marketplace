@@ -34,11 +34,11 @@ GitHub Actions run: `29146715422` — completed successfully.
 | Transactional checkout database tests | Passed | Shipping snapshot/total, legacy fail-closed RPC, invoice unique reference, credit exposure, deadlines, expiry, payment cancellation, and inventory release. |
 | Logical backup and isolated restore | Passed | Custom-format dump restored to a separate database and critical commerce tables/functions/policy rows/seed data were verified. |
 
-Subsequent commits update audit/remediation documentation only. The PR should still require its hosted checks on the exact final SHA before review.
+Subsequent commits update audit/remediation documentation only. The PR must still require hosted checks on the exact final SHA before review.
 
 ## Production gates not proven by repository CI
 
-The successful run verifies the code and local PostgreSQL contracts available in the repository. It does not prove the following hosted controls:
+The successful run verifies the code and local PostgreSQL contracts available in the repository. It does not prove:
 
 - Supabase Auth and RLS behavior against real anon, customer, active-staff, and deactivated-staff identities;
 - Stripe test-mode PayNow, signed webhook retries, duplicate/out-of-order delivery, refunds, and provider outage handling;
