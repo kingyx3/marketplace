@@ -12,6 +12,7 @@ export const serverEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
   NEXT_PUBLIC_SITE_URL: z.string().url(),
   APP_NAME: z.string().min(1),
+  CRON_SECRET: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_EMAIL: z.string().email().optional(),
   SUPPORT_EMAIL: z.string().email().optional(),
