@@ -68,10 +68,10 @@ export interface CheckoutQuote {
   subtotalCents: number;
   discountBps: number;
   discountCents: number;
-  shippingCents: number;
-  shippingService: string | null;
-  shippingPolicyKey: string | null;
-  taxCents: number;
+  shippingCents?: number;
+  shippingService?: string | null;
+  shippingPolicyKey?: string | null;
+  taxCents?: number;
   totalCents: number;
   depositCents: number;
   balanceCents: number;
