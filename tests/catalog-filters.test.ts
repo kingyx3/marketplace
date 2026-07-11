@@ -4,12 +4,40 @@ import {
   ALL_CATALOG_FILTERS,
   catalogGames,
   catalogStatuses,
+  createCatalogFilterProduct,
   EMPTY_CATALOG_FILTERS,
   filterCatalogProducts,
+  formatCatalogStatus,
+  hasCatalogFilters,
+  parseCatalogStatusFilter,
 } from "@/app/(shop)/catalog/catalog-filters";
 import { marketplaceProducts } from "@/app/_data/marketplace-fixtures";
 
 describe("catalog filters", () => {
+  it("projects only the metadata required by the client filter boundary", () => {
+    const product = createCatalogFilterProduct(marketplaceProducts[0]);
+
+    expect(Object.keys(product).sort()).toEqual(
+      [
+        "description",
+        "game",
+        "language",
+        "name",
+        "productType",
+        "publisher",
+        "setCode",
+        "setName",
+        "setStatus",
+        "sku",
+        "slug",
+        "tags",
+      ].sort()
+    );
+    expect(product).not.toHaveProperty("priceCents");
+    expect(product).not.toHaveProperty("onHand");
+    expect(product).not.toHaveProperty("channels");
+  });
+
   it("searches across customer-facing product fields case-insensitively", () => {
     expect(
       filterCatalogProducts(marketplaceProducts, {
@@ -64,5 +92,14 @@ describe("catalog filters", () => {
       "released",
       "announced",
     ]);
+  });
+
+  it("normalizes filter state and rejects unknown status values", () => {
+    expect(hasCatalogFilters(EMPTY_CATALOG_FILTERS)).toBe(false);
+    expect(hasCatalogFilters({ ...EMPTY_CATALOG_FILTERS, query: "   " })).toBe(false);
+    expect(hasCatalogFilters({ ...EMPTY_CATALOG_FILTERS, game: "Lorcana" })).toBe(true);
+    expect(parseCatalogStatusFilter("released")).toBe("released");
+    expect(parseCatalogStatusFilter("invalid-status")).toBe(ALL_CATALOG_FILTERS);
+    expect(formatCatalogStatus("preorder_open")).toBe("Preorder Open");
   });
 });
