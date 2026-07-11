@@ -34,6 +34,29 @@ describe("deployment workflow contract", () => {
     expect(workflow).not.toContain("bootstrap-production:");
   });
 
+  it("keeps operator documentation aligned with bootstrap and platform contracts", async () => {
+    const [bootstrap, deployment, architecture, platformDocs, platform, packageJson] = await Promise.all([
+      read("docs/bootstrap.md"),
+      read("docs/deployment.md"),
+      read("docs/architecture.md"),
+      read("infra/terraform/platform/README.md"),
+      read("infra/terraform/platform/main.tf"),
+      read("package.json"),
+    ]);
+    const nextVersion = JSON.parse(packageJson).dependencies.next as string;
+    const nextMajor = nextVersion.match(/\d+/)?.[0];
+
+    for (const target of ["development", "staging", "production"]) {
+      expect(bootstrap).toContain(`\`${target}\``);
+    }
+    expect(bootstrap).toContain("npm run bootstrap -- --apply --target=staging");
+    expect(bootstrap).toContain("npm run bootstrap -- --apply --target=production");
+    expect(deployment).toContain("Pushes to `main` deploy `staging`");
+    expect(platform).toContain('active_supabase_environments = toset(["development", "staging", "recovery", "production"])');
+    expect(platformDocs).toContain("Supabase projects for `development`, `staging`, `recovery`, and `production`");
+    expect(architecture).toContain(`Next.js ${nextMajor}`);
+  });
+
   it("keeps granular Terraform workflows reusable while defaulting to convergence", async () => {
     const state = await read(".github/workflows/terraform-state-bootstrap.yml");
     const platform = await read(".github/workflows/terraform-platform.yml");
