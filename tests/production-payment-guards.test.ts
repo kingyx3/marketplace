@@ -26,4 +26,12 @@ describe("production payment and preorder guards", () => {
     expect(route).not.toContain("updateAdminPreorder");
     expect(route).not.toContain("readJsonBody");
   });
+
+  it("allows only the configured Supabase public storage path for product images", async () => {
+    const config = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
+
+    expect(config).toContain("NEXT_PUBLIC_SUPABASE_URL");
+    expect(config).toContain("/storage/v1/object/public/**");
+    expect(config).not.toContain("hostname: \"**\"");
+  });
 });
