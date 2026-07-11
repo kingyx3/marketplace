@@ -48,7 +48,7 @@ export function validateStripeWebhookConfig(config) {
     .filter(([, value]) => !value)
     .map(([key]) => key);
   if (missing.length > 0) throw new Error(`Cannot reconcile Stripe webhook. Missing: ${missing.join(", ")}`);
-  if (!/^(development|production)$/.test(config.targetEnv)) throw new Error(`Unsupported TARGET_ENV: ${config.targetEnv}`);
+  if (!/^(development|staging|production)$/.test(config.targetEnv)) throw new Error(`Unsupported TARGET_ENV: ${config.targetEnv}`);
   validateEnabledEvents(config.enabledEvents);
 }
 
