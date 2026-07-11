@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   staging-identity-payment-operations:
-    name: Staging Auth, RLS, Stripe, recovery, and operations
+    name: Staging Auth, RLS, Stripe, OAuth, notifications, recovery, and operations
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: staging
@@ -37,6 +37,7 @@ jobs:
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       GOOGLE_AUTH_ENABLED: ${{ vars.GOOGLE_AUTH_ENABLED }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
       STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
@@ -46,6 +47,7 @@ jobs:
       SYNTHETIC_MONITOR_SECRET: ${{ secrets.SYNTHETIC_MONITOR_SECRET }}
       OPERATIONAL_ALERT_WEBHOOK_URL: ${{ secrets.OPERATIONAL_ALERT_WEBHOOK_URL }}
       OPERATIONAL_ALERT_WEBHOOK_SECRET: ${{ secrets.OPERATIONAL_ALERT_WEBHOOK_SECRET }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       OPERATIONS_OWNER: ${{ vars.OPERATIONS_OWNER }}
       INCIDENT_ESCALATION_URL: ${{ vars.INCIDENT_ESCALATION_URL }}
       CHECKOUT_AVAILABILITY_SLO_PERCENT: ${{ vars.CHECKOUT_AVAILABILITY_SLO_PERCENT }}
@@ -82,7 +84,9 @@ jobs:
           NODE
       - name: Verify real Supabase Auth, RLS, staff revocation, and Storage
         run: node scripts/verify-hosted-supabase.mjs 2>&1 | tee hosted-supabase.log
-      - name: Verify real Stripe test mode and signed webhook state machine
+      - name: Verify hosted Google OAuth redirect flow
+        run: node scripts/verify-google-oauth-staging.mjs 2>&1 | tee hosted-oauth.log
+      - name: Verify real Stripe test mode, signed webhooks, refunds, and delivered email
         run: node scripts/verify-stripe-staging.mjs 2>&1 | tee hosted-stripe.log
       - name: Verify deep readiness, cron, SLOs, ownership, correlation, and alert delivery
         run: node scripts/verify-hosted-operations.mjs 2>&1 | tee hosted-operations.log
@@ -96,6 +100,7 @@ jobs:
           name: staging-release-gate-evidence-${{ github.sha }}
           path: |
             hosted-supabase.log
+            hosted-oauth.log
             hosted-stripe.log
             hosted-operations.log
             hosted-restore.log
