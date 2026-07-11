@@ -37,23 +37,33 @@ describe("auth helpers", () => {
     expect(appendWelcomeParam("/account?tab=orders")).toBe("/account?tab=orders&welcome=1");
   });
 
-  it("uses the public host for same-origin auth redirects", () => {
+  it("uses the browser-visible loopback origin for local auth redirects", () => {
     const request = new Request("http://localhost:3100/auth/sign-in", {
       headers: { host: "127.0.0.1:3100" },
     });
 
-    expect(getRequestOrigin(request)).toBe("http://127.0.0.1:3100");
+    expect(getRequestOrigin(request, "http://localhost:3000")).toBe("http://127.0.0.1:3100");
   });
 
-  it("prefers forwarded host and protocol behind a proxy", () => {
-    const request = new Request("http://internal:3000/auth/sign-in", {
+  it("pins hosted auth redirects to the canonical site URL", () => {
+    const request = new Request("https://internal.example/auth/sign-in", {
       headers: {
-        host: "internal:3000",
-        "x-forwarded-host": "shop.example.com, proxy.internal",
-        "x-forwarded-proto": "https, http",
+        host: "internal.example",
+        "x-forwarded-host": "attacker.example",
+        "x-forwarded-proto": "http",
       },
     });
 
-    expect(getRequestOrigin(request)).toBe("https://shop.example.com");
+    expect(getRequestOrigin(request, "https://shop.example.com/path")).toBe(
+      "https://shop.example.com"
+    );
+  });
+
+  it("rejects hosted auth redirects without a valid canonical URL", () => {
+    const request = new Request("https://shop.example.com/auth/sign-in");
+
+    expect(() => getRequestOrigin(request, "not-a-url")).toThrow(
+      "NEXT_PUBLIC_SITE_URL must be a valid hosted URL"
+    );
   });
 });
