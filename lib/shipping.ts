@@ -3,6 +3,7 @@ import { z } from "zod";
 import { badRequest } from "@/lib/api/errors";
 
 const MAX_SHIPPING_CENTS = 1_000_000;
+const SUPPORTED_TAX_COUNTRY = "SG";
 
 export const shippingAddressSchema = z
   .object({
@@ -38,7 +39,11 @@ const shippingPolicySchema = z
           .transform((value) => value.toUpperCase())
       )
       .min(1)
-      .max(32),
+      .max(32)
+      .refine(
+        (countryCodes) => countryCodes.every((code) => code === SUPPORTED_TAX_COUNTRY),
+        "Only Singapore shipping is supported until jurisdiction-aware tax calculation is implemented"
+      ),
     flatRateCents: z.number().int().min(0).max(MAX_SHIPPING_CENTS),
     freeShippingThresholdCents: z.number().int().min(0).max(MAX_SHIPPING_CENTS).nullable().optional(),
     serviceName: z.string().trim().min(1).max(120),
@@ -60,6 +65,10 @@ export async function quoteShipping(
   currency: string
 ): Promise<ShippingQuote> {
   const address = shippingAddressSchema.parse(rawAddress);
+  if (address.countryCode !== SUPPORTED_TAX_COUNTRY) {
+    throw badRequest("Shipping is currently available only within Singapore");
+  }
+
   const result = await supabase
     .from("storefront_configurations")
     .select("value, active")
