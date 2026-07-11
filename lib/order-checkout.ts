@@ -25,12 +25,14 @@ export interface InvoiceCheckoutResult {
   amountCents: number;
   currency: string;
   status: "pending_payment";
+  paymentDueAt: string;
+  allocationExpiresAt: string;
 }
 
 export const invoiceCheckoutRequestSchema = z.object({
   items: z.array(cartItemSchema).min(1).max(10),
   shippingAddress: shippingAddressSchema,
-  purchaseOrderReference: z.string().trim().max(120).optional(),
+  purchaseOrderReference: z.string().trim().min(1).max(120),
 });
 
 export function checkoutResponseBody(result: CheckoutResult) {
@@ -56,6 +58,8 @@ export function invoiceCheckoutResponseBody(result: InvoiceCheckoutResult) {
     amountCents: result.amountCents,
     currency: result.currency,
     status: result.status,
+    paymentDueAt: result.paymentDueAt,
+    allocationExpiresAt: result.allocationExpiresAt,
   };
 }
 
@@ -155,15 +159,30 @@ export async function createInvoiceCheckout(
 
   try {
     const order = await auth.supabase
-      .rpc(
-        "create_checkout_order_from_cart",
-        checkoutOrderRpcParams(auth.user.id, quote, input.shippingAddress)
-      )
+      .rpc("create_b2b_invoice_order_from_cart", {
+        p_auth_user_id: auth.user.id,
+        p_items: quote.lines.map((line) => ({
+          sku_id: line.skuId,
+          quantity: line.quantity,
+        })),
+        p_shipping_address: input.shippingAddress,
+        p_invoice_reference: input.purchaseOrderReference,
+        p_expected_subtotal_cents: quote.subtotalCents,
+        p_discount_cents: quote.discountCents,
+        p_discount_bps: quote.discountBps,
+        p_expected_total_cents: quote.totalCents,
+      })
       .single();
     if (order.error || !order.data) {
       throw new Error(order.error?.message ?? "invoice order creation failed");
     }
-    orderId = (order.data as { order_id: string }).order_id;
+
+    const orderData = order.data as {
+      order_id: string;
+      payment_due_at: string;
+      allocation_expires_at: string;
+    };
+    orderId = orderData.order_id;
 
     const providerPaymentId = `invoice:${orderId}`;
     const payment = await insertManualInvoicePayment(auth.supabase, {
@@ -171,14 +190,6 @@ export async function createInvoiceCheckout(
       providerPaymentId,
       amountCents: quote.totalCents,
       currency: quote.currency,
-    });
-
-    await recordInvoiceRequestAudit(auth.supabase, {
-      orderId,
-      customerId: auth.customer.id,
-      amountCents: quote.totalCents,
-      currency: quote.currency,
-      purchaseOrderReference: input.purchaseOrderReference,
     });
 
     return {
@@ -189,6 +200,8 @@ export async function createInvoiceCheckout(
       amountCents: quote.totalCents,
       currency: quote.currency,
       status: "pending_payment",
+      paymentDueAt: orderData.payment_due_at,
+      allocationExpiresAt: orderData.allocation_expires_at,
     };
   } catch (error) {
     if (orderId) {
@@ -294,35 +307,6 @@ async function insertManualInvoicePayment(
   return { id: data.id };
 }
 
-async function recordInvoiceRequestAudit(
-  supabase: SupabaseClient,
-  input: {
-    orderId: string;
-    customerId: string;
-    amountCents: number;
-    currency: string;
-    purchaseOrderReference?: string;
-  }
-) {
-  const { error } = await supabase.from("audit_logs").insert({
-    actor: `customer:${input.customerId}`,
-    table_name: "orders",
-    record_id: input.orderId,
-    action: "B2B_INVOICE_REQUEST",
-    new_data: {
-      order_id: input.orderId,
-      customer_id: input.customerId,
-      amount_cents: input.amountCents,
-      currency: input.currency,
-      purchase_order_reference: input.purchaseOrderReference?.trim() || null,
-    },
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-}
-
 async function rollbackFailedOrderCheckout(
   supabase: SupabaseClient,
   input: {
@@ -349,5 +333,6 @@ async function rollbackFailedOrderCheckout(
 
 async function rollbackAllocatedOrder(supabase: SupabaseClient, orderId: string): Promise<void> {
   await supabase.rpc("release_order_allocation", { p_order_id: orderId });
+  await supabase.from("payments").update({ status: "cancelled" }).eq("order_id", orderId);
   await supabase.from("orders").update({ status: "cancelled" }).eq("id", orderId);
 }
