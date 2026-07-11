@@ -93,8 +93,8 @@ export async function requireApiAdmin(
     throw new Error(staff.error.message);
   }
 
-  if (!staff.data && !auth.isAdmin) {
-    throw forbidden("Admin role required");
+  if (!staff.data) {
+    throw forbidden("Active staff access required");
   }
   return auth;
 }

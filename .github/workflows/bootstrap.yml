@@ -8,7 +8,7 @@ on:
         required: true
         default: development
         type: choice
-        options: [development, production]
+        options: [development, staging, production]
 
 concurrency:
   group: marketplace-bootstrap-and-deploy-${{ inputs.target }}

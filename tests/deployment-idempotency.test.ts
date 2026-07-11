@@ -23,6 +23,7 @@ describe("deployment idempotency contract", () => {
       expect(workflow).toContain("group: marketplace-environment-${{ inputs.environment }}");
     }
     expect(await repoFile(".github/workflows/deploy-development.yml")).toContain("group: marketplace-environment-development");
+    expect(await repoFile(".github/workflows/deploy-staging.yml")).toContain("group: marketplace-environment-staging");
     expect(await repoFile(".github/workflows/deploy-production.yml")).toContain("group: marketplace-environment-production");
   });
 
@@ -49,7 +50,8 @@ describe("deployment idempotency contract", () => {
     expect(sync).toContain('"env", "update"');
     expect(sync).toContain("unchanged += 1");
     expect(deploy).toContain("marketplaceDeploymentKey");
-    expect(deploy).toContain("Reusing ready Vercel deployment");
+    expect(deploy).toContain("Reusing ready ${targetEnv} Vercel deployment");
+    expect(deploy).toContain('const target = targetEnv === "development" ? "preview" : "production"');
   });
 
   it("keeps Stripe checkout and webhooks limited to PayNow lifecycle events", async () => {

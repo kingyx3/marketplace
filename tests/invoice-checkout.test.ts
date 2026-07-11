@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { createInvoiceCheckout, invoiceCheckoutResponseBody } from "@/lib/checkout";
+import { createInvoiceCheckout, invoiceCheckoutResponseBody } from "@/lib/order-checkout";
+
+const shippingAddress = {
+  recipientName: "Buyer",
+  line1: "1 Market Street",
+  city: "Singapore",
+  postalCode: "048940",
+  countryCode: "SG",
+};
 
 describe("invoice checkout", () => {
-  it("creates a B2B pending-payment order with a manual invoice payment placeholder", async () => {
+  it("creates a credit-checked B2B invoice order with explicit deadlines", async () => {
     const { supabase, calls } = fakeInvoiceSupabase();
 
     const result = await createInvoiceCheckout(
@@ -22,6 +30,7 @@ describe("invoice checkout", () => {
       } as never,
       {
         items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 2 }],
+        shippingAddress,
         purchaseOrderReference: "PO-1001",
       }
     );
@@ -30,20 +39,23 @@ describe("invoice checkout", () => {
       orderId: "order-123",
       provider: "manual_invoice",
       providerPaymentId: "invoice:order-123",
-      amountCents: 36616,
+      amountCents: 37416,
       currency: "SGD",
       status: "pending_payment",
+      paymentDueAt: "2026-08-10T00:00:00.000Z",
+      allocationExpiresAt: "2026-07-12T00:00:00.000Z",
     });
     expect(calls.rpc).toContainEqual({
-      name: "create_checkout_order_from_cart",
+      name: "create_b2b_invoice_order_from_cart",
       params: {
         p_auth_user_id: "auth-user-123",
         p_items: [{ sku_id: "11111111-1111-4111-8111-111111111111", quantity: 2 }],
-        p_channel: "b2b",
+        p_shipping_address: shippingAddress,
+        p_invoice_reference: "PO-1001",
         p_expected_subtotal_cents: 39800,
         p_discount_cents: 3184,
         p_discount_bps: 800,
-        p_expected_total_cents: 36616,
+        p_expected_total_cents: 37416,
       },
     });
     expect(calls.insert).toContainEqual({
@@ -53,18 +65,39 @@ describe("invoice checkout", () => {
         provider: "manual_invoice",
         provider_payment_id: "invoice:order-123",
         kind: "invoice",
-        amount_cents: 36616,
+        amount_cents: 37416,
         currency: "SGD",
         status: "pending",
       },
     });
-    expect(calls.insert).toContainEqual({
-      table: "audit_logs",
-      payload: expect.objectContaining({
-        action: "B2B_INVOICE_REQUEST",
-        record_id: "order-123",
-      }),
-    });
+  });
+
+  it("requires a unique customer PO reference", async () => {
+    const { supabase } = fakeInvoiceSupabase();
+
+    await expect(
+      createInvoiceCheckout(
+        {
+          supabase: supabase as never,
+          user: { id: "auth-user-123" },
+          customer: {
+            id: "customer-123",
+            auth_user_id: "auth-user-123",
+            email: "buyer@example.test",
+            name: "Buyer",
+            phone: null,
+            segment: "reseller",
+            default_currency: "SGD",
+            marketing_opt_in: false,
+          },
+        } as never,
+        {
+          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 2 }],
+          shippingAddress,
+          purchaseOrderReference: "",
+        }
+      )
+    ).rejects.toThrow();
   });
 
   it("returns only the client-safe invoice response shape", () => {
@@ -74,18 +107,22 @@ describe("invoice checkout", () => {
         paymentId: "payment-123",
         provider: "manual_invoice",
         providerPaymentId: "invoice:order-123",
-        amountCents: 36616,
+        amountCents: 37416,
         currency: "SGD",
         status: "pending_payment",
+        paymentDueAt: "2026-08-10T00:00:00.000Z",
+        allocationExpiresAt: "2026-07-12T00:00:00.000Z",
       })
     ).toEqual({
       orderId: "order-123",
       paymentId: "payment-123",
       provider: "manual_invoice",
       providerPaymentId: "invoice:order-123",
-      amountCents: 36616,
+      amountCents: 37416,
       currency: "SGD",
       status: "pending_payment",
+      paymentDueAt: "2026-08-10T00:00:00.000Z",
+      allocationExpiresAt: "2026-07-12T00:00:00.000Z",
     });
   });
 });
@@ -105,7 +142,14 @@ function fakeInvoiceSupabase() {
       rpc(name: string, params: unknown) {
         calls.rpc.push({ name, params });
         return {
-          single: async () => ({ data: { order_id: "order-123" }, error: null }),
+          single: async () => ({
+            data: {
+              order_id: "order-123",
+              payment_due_at: "2026-08-10T00:00:00.000Z",
+              allocation_expires_at: "2026-07-12T00:00:00.000Z",
+            },
+            error: null,
+          }),
         };
       },
     },
@@ -140,9 +184,6 @@ function tableBuilder(
     limit: () => builder,
     insert: (payload: unknown) => {
       calls.insert.push({ table, payload });
-      if (table === "audit_logs") {
-        return Promise.resolve({ error: null });
-      }
       return builder;
     },
     maybeSingle: async () => {
@@ -152,6 +193,22 @@ function tableBuilder(
       if (table === "inventory") {
         return {
           data: { on_hand: 10, allocated: 0, incoming: 0, safety_stock: 0, available: 10 },
+          error: null,
+        };
+      }
+      if (table === "storefront_configurations") {
+        return {
+          data: {
+            active: true,
+            value: {
+              enabled: true,
+              currency: "SGD",
+              supportedCountryCodes: ["SG"],
+              flatRateCents: 800,
+              freeShippingThresholdCents: null,
+              serviceName: "Tracked delivery",
+            },
+          },
           error: null,
         };
       }

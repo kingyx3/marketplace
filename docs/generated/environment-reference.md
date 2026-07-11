@@ -14,6 +14,11 @@ This file is generated from `config/environment-contract.json`. Update the contr
 | `STRIPE_WEBHOOK_SECRET` | Runtime | Yes | Yes | Stripe webhook signing key |
 | `NEXT_PUBLIC_SITE_URL` | Runtime | Yes | No | Canonical public URL |
 | `APP_NAME` | Runtime | Yes | No | Display name |
+| `MARKETPLACE_PREVIEW_FIXTURES` | Runtime | No | No | Development and E2E-only fixture catalog flag; ignored in production |
+| `CRON_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | Bearer secret used by Vercel Cron to authenticate scheduled maintenance routes |
+| `SYNTHETIC_MONITOR_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | Bearer secret for authenticated synthetic operational probes |
+| `OPERATIONAL_ALERT_WEBHOOK_URL` | Runtime | When `TARGET_ENV=production` | Yes | HTTPS destination for privacy-safe critical operational alerts |
+| `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | HMAC secret used to sign operational alert deliveries |
 | `TARGET_ENV` | Deploy | Yes | No | Deployment environment |
 | `GOOGLE_AUTH_ENABLED` | Deploy | Yes | No | Whether hosted Google authentication must be configured |
 | `SUPABASE_ACCESS_TOKEN` | Deploy | No | Yes | Supabase Management API and CLI access |

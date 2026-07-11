@@ -114,6 +114,76 @@
     "default": "Marketplace"
   },
   {
+    "key": "MARKETPLACE_PREVIEW_FIXTURES",
+    "section": "Application",
+    "required": false,
+    "secret": false,
+    "hint": "Development and E2E-only fixture catalog flag; ignored in production",
+    "validator": {
+      "type": "boolean-string"
+    },
+    "default": "false"
+  },
+  {
+    "key": "CRON_SECRET",
+    "section": "Application",
+    "required": false,
+    "requiredWhen": {
+      "key": "TARGET_ENV",
+      "equals": "production"
+    },
+    "secret": true,
+    "hint": "Bearer secret used by Vercel Cron to authenticate scheduled maintenance routes",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SYNTHETIC_MONITOR_SECRET",
+    "section": "Application",
+    "required": false,
+    "requiredWhen": {
+      "key": "TARGET_ENV",
+      "equals": "production"
+    },
+    "secret": true,
+    "hint": "Bearer secret for authenticated synthetic operational probes",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "OPERATIONAL_ALERT_WEBHOOK_URL",
+    "section": "Application",
+    "required": false,
+    "requiredWhen": {
+      "key": "TARGET_ENV",
+      "equals": "production"
+    },
+    "secret": true,
+    "hint": "HTTPS destination for privacy-safe critical operational alerts",
+    "validator": {
+      "type": "url",
+      "protocols": [
+        "https:"
+      ]
+    }
+  },
+  {
+    "key": "OPERATIONAL_ALERT_WEBHOOK_SECRET",
+    "section": "Application",
+    "required": false,
+    "requiredWhen": {
+      "key": "TARGET_ENV",
+      "equals": "production"
+    },
+    "secret": true,
+    "hint": "HMAC secret used to sign operational alert deliveries",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
     "key": "TARGET_ENV",
     "section": "Hosted deployment",
     "required": true,
@@ -124,6 +194,7 @@
       "type": "enum",
       "values": [
         "development",
+        "staging",
         "production"
       ]
     },

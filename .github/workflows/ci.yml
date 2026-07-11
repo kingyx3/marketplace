@@ -157,6 +157,16 @@ jobs:
             echo "applying $f"
             psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
           done 2>&1 | tee -a migration.log
+      - name: Apply seed
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql 2>&1 | tee -a migration.log
+      - name: Run database contract tests
+        run: |
+          for f in supabase/tests/*.sql; do
+            echo "testing $f"
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
+          done 2>&1 | tee -a migration.log
+      - name: Verify logical backup and restore
+        run: bash .github/ci/verify-logical-restore.sh 2>&1 | tee -a migration.log
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
@@ -164,5 +174,3 @@ jobs:
           path: migration.log
           if-no-files-found: ignore
           retention-days: 7
-      - name: Apply seed
-        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql

@@ -3,8 +3,22 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { hasSupabasePublicEnv } from "@/lib/env";
 
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
+
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const requestId = validRequestId(request.headers.get("x-request-id")) ?? crypto.randomUUID();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-request-id", requestId);
+
+  const createResponse = () => {
+    const next = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+    next.headers.set("x-request-id", requestId);
+    return next;
+  };
+
+  let response = createResponse();
 
   if (!hasSupabasePublicEnv()) {
     return response;
@@ -23,7 +37,7 @@ export async function middleware(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = createResponse();
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });
@@ -33,6 +47,11 @@ export async function middleware(request: NextRequest) {
 
   await supabase.auth.getUser();
   return response;
+}
+
+function validRequestId(value: string | null): string | null {
+  const candidate = value?.trim();
+  return candidate && REQUEST_ID_PATTERN.test(candidate) ? candidate : null;
 }
 
 export const config = {

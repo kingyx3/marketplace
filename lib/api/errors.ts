@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import {
+  logError,
+  logWarn,
+  withRequestId,
+  type LogContext,
+} from "@/lib/observability";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -41,34 +47,69 @@ export function internalError(message = "Internal server error"): ApiError {
   return new ApiError(500, "internal_error", message);
 }
 
-export function toErrorResponse(error: unknown): NextResponse {
+export function toErrorResponse(error: unknown, context: LogContext = {}): NextResponse {
   if (error instanceof ApiError) {
-    return NextResponse.json(
-      { error: { code: error.code, message: error.message } },
-      { status: error.status }
+    if (error.status >= 500) {
+      logError("api.request.failed", error, {
+        ...context,
+        status: error.status,
+        errorCode: error.code,
+      });
+    } else {
+      logWarn("api.request.rejected", {
+        ...context,
+        status: error.status,
+        errorCode: error.code,
+      });
+    }
+
+    return attachRequestId(
+      NextResponse.json(
+        { error: { code: error.code, message: error.message } },
+        { status: error.status }
+      ),
+      context.requestId
     );
   }
 
   if (error instanceof ZodError) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "validation_failed",
-          message: "Invalid request body",
-          fields: error.issues.map((issue) => ({
-            path: issue.path.join("."),
-            message: issue.message,
-          })),
+    logWarn("api.request.validation_failed", {
+      ...context,
+      status: 400,
+      issueCount: error.issues.length,
+      issuePaths: error.issues.map((issue) => issue.path.join(".")).filter(Boolean),
+    });
+    return attachRequestId(
+      NextResponse.json(
+        {
+          error: {
+            code: "validation_failed",
+            message: "Invalid request body",
+            fields: error.issues.map((issue) => ({
+              path: issue.path.join("."),
+              message: issue.message,
+            })),
+          },
         },
-      },
-      { status: 400 }
+        { status: 400 }
+      ),
+      context.requestId
     );
   }
 
-  console.error("Unhandled API error:", error instanceof Error ? error.message : "unknown");
-  return NextResponse.json(
-    { error: { code: "internal_error", message: "Internal server error" } },
-    { status: 500 }
+  logError("api.request.unhandled_error", error, {
+    ...context,
+    status: 500,
+  });
+  return attachRequestId(
+    NextResponse.json(
+      { error: { code: "internal_error", message: "Internal server error" } },
+      { status: 500 }
+    ),
+    context.requestId
   );
 }
 
+function attachRequestId(response: NextResponse, requestId?: string): NextResponse {
+  return requestId ? withRequestId(response, requestId) : response;
+}

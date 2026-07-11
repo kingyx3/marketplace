@@ -18,6 +18,7 @@ import {
   type WholesaleAccess,
 } from "@/lib/b2b";
 import { formatMoney as formatSharedMoney } from "@/lib/money";
+import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 import {
   formatMoney,
   formatStatus,
@@ -36,7 +37,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = previewFixturesEnabled() ? getProduct(slug) : undefined;
   const appName = getAppName();
 
   return {
@@ -47,7 +48,10 @@ export async function generateMetadata({ params }: ProductPageProps) {
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
   const liveProduct = await getCatalogProduct(slug);
-  const product = mergeProduct(liveProduct, getProduct(slug));
+  const product = mergeProduct(
+    liveProduct,
+    previewFixturesEnabled() ? getProduct(slug) : undefined
+  );
   if (!product) notFound();
 
   const wholesaleAccess = await currentWholesaleAccess();

@@ -53,11 +53,12 @@ staff through `current_user_is_staff()`.
 
 ## Admin boundary
 
-Admin routes require server-verified staff access from `staff_users` or
-server-controlled app metadata. Order/payment mutations are explicit actions,
-not generic status writes. Product/SKU, listing/configuration, inventory,
-wholesale, supplier PO, and payment reconciliation changes must follow
-`docs/admin-operations.md` and require trusted operator access.
+Admin routes require a server-verified active record in `staff_users`. App
+metadata roles may be read for diagnostics, but they do not authorize an admin
+API operation. Order/payment mutations are explicit actions, not generic status
+writes. Product/SKU, listing/configuration, inventory, wholesale, supplier PO,
+and payment reconciliation changes must follow `docs/admin-operations.md` and
+require trusted operator access.
 
 ## Webhooks and payments
 

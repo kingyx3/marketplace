@@ -14,8 +14,23 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  deploy-staging:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+    secrets: inherit
+
+  hosted-release-gates:
+    needs: deploy-staging
+    uses: ./.github/workflows/hosted-release-gates.yml
+    with:
+      staging_app_url: ${{ needs.deploy-staging.outputs.deployment_url }}
+    secrets: inherit
+
+  deploy-production:
+    needs: hosted-release-gates
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production
+      skip_app_checks: true
     secrets: inherit

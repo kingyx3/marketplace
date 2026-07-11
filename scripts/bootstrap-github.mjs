@@ -4,8 +4,8 @@ import { spawnSync } from "node:child_process";
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
 const target = readOption("--target") || "development";
-if (!new Set(["development", "production"]).has(target)) {
-  fail("--target must be development or production");
+if (!new Set(["development", "staging", "production"]).has(target)) {
+  fail("--target must be development, staging, or production");
 }
 
 const repo = capture("gh", ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]).trim();
@@ -13,31 +13,61 @@ if (!repo) fail("Could not resolve the current GitHub repository.");
 run("gh", ["auth", "status"]);
 
 const sharedSecrets = ["GCP_TERRAFORM_CREDENTIALS_JSON", "VERCEL_TOKEN", "SUPABASE_ACCESS_TOKEN"];
-const environmentVariables = [
+const commonVariables = [
   "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
   "GOOGLE_AUTH_ENABLED",
   "GOOGLE_OAUTH_CLIENT_ID",
+  "RESEND_FROM_EMAIL",
+  "SUPPORT_EMAIL",
 ];
-const environmentSecrets = [
+const hostedOperationsVariables = [
+  "OPERATIONS_OWNER",
+  "INCIDENT_ESCALATION_URL",
+  "CHECKOUT_AVAILABILITY_SLO_PERCENT",
+  "CHECKOUT_LATENCY_SLO_MS",
+  "PAYMENT_RECONCILIATION_SLO_MINUTES",
+];
+const commonSecrets = [
   "SUPABASE_SECRET_KEY",
   "STRIPE_SECRET_KEY",
   "GOOGLE_OAUTH_CLIENT_SECRET",
   "STRIPE_WEBHOOK_SECRET",
+  "CRON_SECRET",
+  "SYNTHETIC_MONITOR_SECRET",
+  "OPERATIONAL_ALERT_WEBHOOK_URL",
+  "OPERATIONAL_ALERT_WEBHOOK_SECRET",
+  "RESEND_API_KEY",
 ];
+const targetVariables = {
+  development: [],
+  staging: [
+    "RECOVERY_PROJECT_REF",
+    "RESTORE_RTO_SECONDS",
+    ...hostedOperationsVariables,
+  ],
+  production: [
+    "SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS",
+    "SUPABASE_ADVISOR_ALLOWLIST",
+    ...hostedOperationsVariables,
+  ],
+};
+const targetSecrets = {
+  development: [],
+  staging: ["STAGING_DATABASE_URL", "RECOVERY_DATABASE_URL"],
+  production: [],
+};
+const environmentVariables = [...commonVariables, ...targetVariables[target]];
+const environmentSecrets = [...commonSecrets, ...targetSecrets[target]];
 
 console.log(`${apply ? "Applying" : "Planning"} GitHub bootstrap for ${repo}/${target}.`);
 for (const name of sharedSecrets) reportInput(name, process.env[name], true);
 console.log(`\n${target}:`);
 for (const name of environmentVariables) {
-  reportInput(`${environmentPrefix(target)}_${name}`, environmentValue(target, name), name !== "GOOGLE_AUTH_ENABLED");
+  reportInput(`${environmentPrefix(target)}_${name}`, environmentValue(target, name), variableIsRequired(name));
 }
 for (const name of environmentSecrets) {
-  reportInput(
-    `${environmentPrefix(target)}_${name}`,
-    environmentValue(target, name),
-    name !== "SUPABASE_SECRET_KEY" && name !== "STRIPE_WEBHOOK_SECRET"
-  );
+  reportInput(`${environmentPrefix(target)}_${name}`, environmentValue(target, name), secretIsRequired(name));
 }
 if (target === "production") reportInput("PRODUCTION_REVIEWERS", process.env.PRODUCTION_REVIEWERS, true);
 
@@ -50,24 +80,50 @@ for (const name of sharedSecrets) setSecret(name, requiredEnv(name));
 ensureEnvironment(target);
 for (const pattern of deploymentPolicies(target)) ensureDeploymentPolicy(target, pattern);
 for (const name of environmentVariables) {
-  const value = name === "GOOGLE_AUTH_ENABLED"
-    ? environmentValue(target, name) || "true"
-    : requiredEnvironmentValue(target, name);
-  setVariable(target, name, value);
+  const supplied = environmentValue(target, name);
+  if (supplied) setVariable(target, name, supplied);
+  else if (name === "GOOGLE_AUTH_ENABLED") setVariable(target, name, "true");
+  else if (name === "RESTORE_RTO_SECONDS") setVariable(target, name, "1800");
+  else if (name === "SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS") setVariable(target, name, "7");
+  else if (name === "CHECKOUT_AVAILABILITY_SLO_PERCENT") setVariable(target, name, "99.9");
+  else if (name === "CHECKOUT_LATENCY_SLO_MS") setVariable(target, name, "5000");
+  else if (name === "PAYMENT_RECONCILIATION_SLO_MINUTES") setVariable(target, name, "15");
+  else if (variableIsRequired(name)) fail(`${environmentPrefix(target)}_${name} is required`);
 }
 for (const name of environmentSecrets) {
   const value = environmentValue(target, name);
   if (value) setSecret(name, value, target);
-  else if (!["SUPABASE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"].includes(name)) {
-    fail(`${environmentPrefix(target)}_${name} is required`);
-  }
+  else if (secretIsRequired(name)) fail(`${environmentPrefix(target)}_${name} is required`);
 }
 console.log(`GitHub ${target} environment, policies, variables, and supplied secrets are converged.`);
 
-function deploymentPolicies(environment) {
-  return environment === "development" ? ["develop", "main"] : ["main", "v*"];
+function variableIsRequired(name) {
+  if (name === "SUPABASE_ADVISOR_ALLOWLIST") return false;
+  if (name === "GOOGLE_OAUTH_CLIENT_ID") return false;
+  if (name === "SUPPORT_EMAIL") return false;
+  return true;
 }
-
+function secretIsRequired(name) {
+  if (["SUPABASE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"].includes(name)) return false;
+  if (name === "GOOGLE_OAUTH_CLIENT_SECRET") return false;
+  if (
+    target === "development" &&
+    [
+      "CRON_SECRET",
+      "SYNTHETIC_MONITOR_SECRET",
+      "OPERATIONAL_ALERT_WEBHOOK_URL",
+      "OPERATIONAL_ALERT_WEBHOOK_SECRET",
+      "RESEND_API_KEY",
+    ].includes(name)
+  ) {
+    return false;
+  }
+  return true;
+}
+function deploymentPolicies(environment) {
+  if (environment === "development") return ["develop", "main"];
+  return ["main", "v*"];
+}
 function ensureEnvironment(environment) {
   const endpoint = `repos/${repo}/environments/${environment}`;
   const current = tryJson(["api", endpoint]);
@@ -86,7 +142,6 @@ function ensureEnvironment(environment) {
   runJson("gh", ["api", "--method", "PUT", endpoint, "--input", "-"], payload);
   console.log(`${environment} environment: ${current ? "updated/preserved" : "created"}`);
 }
-
 function ensureDeploymentPolicy(environment, pattern) {
   const endpoint = `repos/${repo}/environments/${environment}/deployment-branch-policies`;
   const current = JSON.parse(capture("gh", ["api", endpoint]));
@@ -98,61 +153,57 @@ function ensureDeploymentPolicy(environment, pattern) {
   runJson("gh", ["api", "--method", "POST", endpoint, "--input", "-"], { name: pattern });
   console.log(`${environment} deployment policy ${pattern}: added`);
 }
-
 function requestedProductionReviewers() {
-  const reviewers = String(process.env.PRODUCTION_REVIEWERS || "").split(",").map((value) => value.trim()).filter(Boolean);
+  const reviewers = String(process.env.PRODUCTION_REVIEWERS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   return reviewers.map((login) => {
     const user = JSON.parse(capture("gh", ["api", `users/${login}`]));
     return { type: "User", id: user.id };
   });
 }
-
 function currentReviewers(environment) {
   const rule = (environment?.protection_rules || []).find((candidate) => candidate.type === "required_reviewers");
-  return (rule?.reviewers || []).map((reviewer) => ({
-    type: reviewer.type === "Team" ? "Team" : "User",
-    id: reviewer.id,
-  })).filter((reviewer) => reviewer.id);
+  return (rule?.reviewers || [])
+    .map((reviewer) => ({
+      type: reviewer.type === "Team" ? "Team" : "User",
+      id: reviewer.id,
+    }))
+    .filter((reviewer) => reviewer.id);
 }
-
 function currentWaitTimer(environment) {
   const rule = (environment?.protection_rules || []).find((candidate) => candidate.type === "wait_timer");
   return Number(rule?.wait_timer || 0);
 }
-
 function tryJson(commandArgs) {
   const result = spawnSync("gh", commandArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   if (result.status === 0) return JSON.parse(result.stdout);
   if (/404|Not Found/i.test(result.stderr || "")) return null;
   fail(`gh ${commandArgs.join(" ")} failed: ${result.stderr || result.error?.message}`);
 }
-
 function setVariable(environment, name, value) {
   run("gh", ["variable", "set", name, "--repo", repo, "--env", environment, "--body", value], { quiet: true });
   console.log(`${environment} variable ${name}: set`);
 }
-
 function setSecret(name, value, environment = "") {
   const commandArgs = ["secret", "set", name, "--repo", repo];
   if (environment) commandArgs.push("--env", environment);
   run("gh", commandArgs, { input: value, quiet: true });
   console.log(`${environment || "repository"} secret ${name}: set`);
 }
-
 function readOption(name) {
   const inline = args.find((arg) => arg.startsWith(`${name}=`));
   if (inline) return inline.slice(name.length + 1);
   const index = args.indexOf(name);
   return index >= 0 ? args[index + 1] : "";
 }
-
 function environmentValue(environment, name) {
   return process.env[`${environmentPrefix(environment)}_${name}`] || "";
 }
-function requiredEnvironmentValue(environment, name) {
-  return requiredEnv(`${environmentPrefix(environment)}_${name}`);
+function environmentPrefix(environment) {
+  return environment.toUpperCase();
 }
-function environmentPrefix(environment) { return environment.toUpperCase(); }
 function requiredEnv(name) {
   const value = process.env[name] || "";
   if (!value) fail(`${name} is required`);

@@ -68,7 +68,13 @@ function applyTerraformOutputs(env, outputs, targetEnv) {
   const supabaseRefs = terraformValue(outputs, "supabase_project_refs");
   const supabaseUrls = terraformValue(outputs, "supabase_project_urls");
   const supabasePasswords = terraformValue(outputs, "supabase_database_passwords");
-  setIfMissing(env, "VERCEL_PROJECT_ID", terraformValue(outputs, "vercel_project_id"));
+  const vercelProjectIds = terraformValue(outputs, "vercel_project_ids");
+  const vercelProjectNames = terraformValue(outputs, "vercel_project_names");
+  setIfMissing(
+    env,
+    "VERCEL_PROJECT_ID",
+    valueForEnvironment(vercelProjectIds, targetEnv) || terraformValue(outputs, "vercel_project_id")
+  );
   setIfMissing(env, "VERCEL_ORG_ID", terraformValue(outputs, "vercel_team_id"));
   setIfMissing(env, "SUPABASE_PROJECT_REF", valueForEnvironment(supabaseRefs, targetEnv));
   setIfMissing(env, "NEXT_PUBLIC_SUPABASE_URL", valueForEnvironment(supabaseUrls, targetEnv));
@@ -77,7 +83,11 @@ function applyTerraformOutputs(env, outputs, targetEnv) {
     env.NEXT_PUBLIC_SUPABASE_URL = `https://${env.SUPABASE_PROJECT_REF}.supabase.co`;
   }
   setIfMissing(env, "PROJECT_SLUG", terraformValue(outputs, "project_slug"));
-  setIfMissing(env, "VERCEL_PROJECT_NAME", terraformValue(outputs, "vercel_project_name"));
+  setIfMissing(
+    env,
+    "VERCEL_PROJECT_NAME",
+    valueForEnvironment(vercelProjectNames, targetEnv) || terraformValue(outputs, "vercel_project_name")
+  );
 }
 
 async function resolveVercelValues(env) {
@@ -228,7 +238,7 @@ function inferVercelSiteUrl(project, targetEnv) {
   const productionTarget = project?.targets?.production || {};
   const alias = firstString(productionTarget.alias || productionTarget.aliases);
   const url = firstString([
-    targetEnv === "production" ? alias : "",
+    targetEnv !== "development" ? alias : "",
     productionTarget.url,
     productionTarget.hostname,
     project?.name ? `${project.name}.vercel.app` : "",
@@ -247,8 +257,8 @@ function normalizeOrigin(value) {
   try { return new URL(value).origin; } catch { return ""; }
 }
 function requireTargetEnv(value) {
-  if (value === "development" || value === "production") return value;
-  throw new Error("TARGET_ENV must be development or production");
+  if (value === "development" || value === "staging" || value === "production") return value;
+  throw new Error("TARGET_ENV must be development, staging, or production");
 }
 function parseArgs(argv) {
   const args = {};

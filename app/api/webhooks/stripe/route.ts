@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createStripeClient } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase";
-import { handleStripeEvent } from "@/lib/stripe-webhooks";
+import { handleStripeEvent } from "@/lib/stripe-webhooks-safe";
+import { reportOperationalFailure } from "@/lib/operational-alerts";
+import {
+  logError,
+  logInfo,
+  logWarn,
+  requestIdFrom,
+  withRequestId,
+} from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -18,14 +26,35 @@ export const dynamic = "force-dynamic";
  *     Stripe does not retry them forever.
  */
 export async function POST(request: Request) {
+  const requestId = requestIdFrom(request);
+  const startedAt = Date.now();
+  const context = { requestId, route: "/api/webhooks/stripe", method: "POST" };
+  const respond = (body: unknown, status = 200) =>
+    withRequestId(NextResponse.json(body, { status }), requestId);
+
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: "webhook not configured" }, { status: 503 });
+    const error = new Error("missing signing secret");
+    logError("stripe.webhook.not_configured", error, {
+      ...context,
+      status: 503,
+    });
+    await reportOperationalFailure(
+      {
+        event: "stripe.webhook.not_configured",
+        severity: "critical",
+        summary: "Stripe webhook signing is not configured",
+        context: { ...context, status: 503 },
+      },
+      error
+    );
+    return respond({ error: "webhook not configured" }, 503);
   }
 
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
-    return NextResponse.json({ error: "missing signature" }, { status: 400 });
+    logWarn("stripe.webhook.missing_signature", { ...context, status: 400 });
+    return respond({ error: "missing signature" }, 400);
   }
 
   const rawBody = await request.text();
@@ -33,34 +62,105 @@ export async function POST(request: Request) {
   try {
     const stripe = createStripeClient();
     event = await stripe.webhooks.constructEventAsync(rawBody, signature, secret);
-  } catch {
-    return NextResponse.json({ error: "invalid signature" }, { status: 400 });
+  } catch (error) {
+    logWarn("stripe.webhook.invalid_signature", {
+      ...context,
+      status: 400,
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
+    return respond({ error: "invalid signature" }, 400);
   }
 
+  const eventContext = {
+    ...context,
+    eventId: event.id,
+    eventType: event.type,
+  };
   const supabase = createServiceClient();
 
-  // Idempotency guard: unique(provider, event_id). 23505 = already processed.
   const { error: insertError } = await supabase.from("webhook_events").insert({
     provider: "stripe",
     event_id: event.id,
     event_type: event.type,
-    payload: event as unknown as Record<string, unknown>,
+    payload: stripeEventAuditEnvelope(event),
   });
   if (insertError) {
     if (insertError.code === "23505") {
-      return NextResponse.json({ received: true, duplicate: true });
+      logInfo("stripe.webhook.duplicate", {
+        ...eventContext,
+        status: 200,
+        durationMs: Date.now() - startedAt,
+      });
+      return respond({ received: true, duplicate: true });
     }
-    console.error("webhook_events insert failed:", insertError.message);
-    return NextResponse.json({ error: "storage failure" }, { status: 500 });
+    logError("stripe.webhook.storage_failed", insertError, {
+      ...eventContext,
+      status: 500,
+      durationMs: Date.now() - startedAt,
+    });
+    await reportOperationalFailure(
+      {
+        event: "stripe.webhook.storage_failed",
+        severity: "critical",
+        summary: "A verified Stripe webhook could not be stored",
+        context: {
+          ...eventContext,
+          status: 500,
+          durationMs: Date.now() - startedAt,
+        },
+      },
+      insertError
+    );
+    return respond({ error: "storage failure" }, 500);
   }
 
   try {
     await handleStripeEvent(supabase, event);
   } catch (error) {
     await supabase.from("webhook_events").delete().eq("provider", "stripe").eq("event_id", event.id);
-    console.error("stripe webhook processing failed:", error instanceof Error ? error.message : "unknown");
-    return NextResponse.json({ error: "processing failure" }, { status: 500 });
+    logError("stripe.webhook.processing_failed", error, {
+      ...eventContext,
+      status: 500,
+      durationMs: Date.now() - startedAt,
+    });
+    await reportOperationalFailure(
+      {
+        event: "stripe.webhook.processing_failed",
+        severity: "critical",
+        summary: "A verified Stripe webhook failed during commercial state processing",
+        context: {
+          ...eventContext,
+          status: 500,
+          durationMs: Date.now() - startedAt,
+        },
+      },
+      error
+    );
+    return respond({ error: "processing failure" }, 500);
   }
 
-  return NextResponse.json({ received: true });
+  logInfo("stripe.webhook.processed", {
+    ...eventContext,
+    status: 200,
+    durationMs: Date.now() - startedAt,
+  });
+  return respond({ received: true });
+}
+
+export function stripeEventAuditEnvelope(event: Stripe.Event): Record<string, unknown> {
+  return {
+    id: event.id,
+    object: event.object,
+    type: event.type,
+    created: event.created,
+    livemode: event.livemode,
+    apiVersion: event.api_version ?? null,
+    pendingWebhooks: event.pending_webhooks,
+    request: event.request
+      ? {
+          id: event.request.id,
+          idempotencyKey: event.request.idempotency_key,
+        }
+      : null,
+  };
 }

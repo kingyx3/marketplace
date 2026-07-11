@@ -70,7 +70,7 @@ function formatGithubEnvLine(key, value) {
 async function main() {
   const targetEnv = process.argv[2] || process.env.TARGET_ENV;
   if (!targetEnv) {
-    console.error("usage: node scripts/environment-config.mjs <development|production>");
+    console.error("usage: node scripts/environment-config.mjs <development|staging|production>");
     process.exit(2);
   }
 

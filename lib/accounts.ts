@@ -12,7 +12,7 @@ export const accountUpdateSchema = z.object({
 export const b2bApplicationSchema = z.object({
   companyName: z.string().trim().min(1).max(160),
   businessRegNo: z.string().trim().min(1).max(80).nullable().optional(),
-  billingAddress: z.record(z.unknown()).default({}),
+  billingAddress: z.record(z.string(), z.unknown()).default({}),
 });
 
 export async function getAccountProfile(supabase: SupabaseClient, customer: CustomerRecord) {
@@ -107,5 +107,7 @@ function publicCustomer(customer: CustomerRecord) {
     segment: customer.segment,
     defaultCurrency: customer.default_currency,
     marketingOptIn: customer.marketing_opt_in,
+    createdAt: customer.created_at,
+    updatedAt: customer.updated_at,
   };
 }
