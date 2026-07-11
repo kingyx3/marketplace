@@ -22,17 +22,20 @@ After exporting the trusted provider/account values documented in [`docs/bootstr
 npm run bootstrap -- --apply
 ```
 
-That command reconciles GitHub governance and the development Environment, runs the full CI suite, converges shared infrastructure, then bootstraps, deploys, and verifies development. It follows the Actions run and exits unsuccessfully if any stage fails.
+That command reconciles GitHub governance and the development Environment, runs the full CI suite, converges shared infrastructure, then bootstraps, deploys, and verifies development. It dispatches the workflow from `main`, follows the exact Actions run, and exits unsuccessfully if any stage fails.
 
-Production is retained as an explicit operation:
+Staging and production are explicit targets:
 
 ```bash
+npm run bootstrap -- --apply --target=staging
 npm run bootstrap -- --apply --target=production
 ```
 
-Without `--apply`, the command is plan-only and does not dispatch anything. The same development-default operation is available through **Bootstrap & Deploy** in GitHub Actions.
+Without `--apply`, the command is plan-only and does not change GitHub settings or dispatch a workflow. The same three-target operation is available through **Bootstrap & Deploy** in GitHub Actions, with `development` as the default.
 
-The granular Terraform, provider, environment-bootstrap, and deployment workflows remain available for recovery and diagnostics, but they are not the normal operator path.
+For routine production releases, publish a `v*` tag or GitHub release. The production release workflow deploys the exact revision to staging, runs hosted release gates, and only then deploys production.
+
+The granular Terraform, provider, environment-bootstrap, and deployment workflows remain available for recovery and diagnostics, but they are not the normal full-stack setup path.
 
 ## Checks
 
@@ -49,10 +52,10 @@ Pull-request CI also initializes and validates both Terraform stacks and verifie
 
 ## Documentation
 
-- [`docs/bootstrap.md`](docs/bootstrap.md) — one-command hosted setup, production option, and rerun guarantees
+- [`docs/bootstrap.md`](docs/bootstrap.md) — source-of-truth map, three-target hosted setup, required intake values, and rerun guarantees
 - [`docs/environments.md`](docs/environments.md) — configuration sources and GitHub intake
-- [`docs/generated/environment-reference.md`](docs/generated/environment-reference.md) — generated environment contract
-- [`docs/deployment.md`](docs/deployment.md) — CI/CD and release behavior
+- [`docs/generated/environment-reference.md`](docs/generated/environment-reference.md) — generated runtime/deploy contract
+- [`docs/deployment.md`](docs/deployment.md) — bootstrap, staging, and production release behavior
 - [`docs/provisioning.md`](docs/provisioning.md) — Terraform/provider ownership
 - [`docs/local-dev.md`](docs/local-dev.md) — local development
 - [`docs/security.md`](docs/security.md) — RLS, secrets, webhooks
