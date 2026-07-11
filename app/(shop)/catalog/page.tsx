@@ -1,5 +1,5 @@
+import { CatalogBrowser } from "@/app/(shop)/catalog/catalog-browser";
 import { PageHeader } from "@/app/_components/page-header";
-import { ProductCard } from "@/app/_components/product-card";
 import { StatusBadge } from "@/app/_components/status-badge";
 import {
   getProduct,
@@ -8,11 +8,10 @@ import {
   type MarketplaceProduct,
   type SetStatus,
 } from "@/app/_data/marketplace-fixtures";
-import { hasSupabasePublicEnv } from "@/lib/env";
 import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
 import { getWholesaleAccess, wholesaleIsActive, type WholesaleAccess } from "@/lib/b2b";
-import { createAnonClient } from "@/lib/supabase";
-import { createServiceClient } from "@/lib/supabase";
+import { hasSupabasePublicEnv } from "@/lib/env";
+import { createAnonClient, createServiceClient } from "@/lib/supabase";
 
 // Always render at request time: the catalog reads live inventory and
 // must not be frozen into the build. It also builds without DB creds.
@@ -139,7 +138,10 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
   };
 }
 
-async function fetchProducts(): Promise<{ products: MarketplaceProduct[]; source: "live" | "preview" }> {
+async function fetchProducts(): Promise<{
+  products: MarketplaceProduct[];
+  source: "live" | "preview";
+}> {
   if (!hasSupabasePublicEnv()) return { products: marketplaceProducts, source: "preview" };
 
   const supabase = createAnonClient();
@@ -240,57 +242,17 @@ export default async function CatalogPage() {
         action={<StatusBadge tone={source === "live" ? "success" : "warning"}>{source} data</StatusBadge>}
       />
 
-      <section className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_12rem_12rem_10rem]">
-        <label className="grid gap-2 text-sm font-medium text-zinc-700">
-          Search
-          <input
-            className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600"
-            placeholder="Set, game, SKU"
-            type="search"
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium text-zinc-700">
-          Game
-          <select className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600">
-            <option>All games</option>
-            <option>Magic</option>
-            <option>Pokemon</option>
-            <option>One Piece</option>
-            <option>Lorcana</option>
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium text-zinc-700">
-          Status
-          <select className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600">
-            <option>All status</option>
-            <option>Preorder open</option>
-            <option>Released</option>
-            <option>Announced</option>
-          </select>
-        </label>
-        <div className="grid content-end">
-          <button className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
-            Apply
-          </button>
-        </div>
-      </section>
-
       {products.length === 0 ? (
         <section className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
           <h2 className="text-xl font-semibold text-zinc-950">{header.emptyTitle}</h2>
           <p className="mt-3 text-sm text-zinc-600">{header.emptyDescription}</p>
         </section>
       ) : (
-        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {products.map((product) => (
-            <ProductCard
-              key={product.slug}
-              product={product}
-              sourceLabel={source === "live" ? "Live" : "Preview"}
-              wholesaleAccess={wholesaleAccess}
-            />
-          ))}
-        </section>
+        <CatalogBrowser
+          products={products}
+          sourceLabel={source === "live" ? "Live" : "Preview"}
+          wholesaleAccess={wholesaleAccess}
+        />
       )}
     </div>
   );
