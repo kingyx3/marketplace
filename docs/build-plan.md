@@ -4,7 +4,7 @@ Honest status ledger. **Unchecked roadmap items are not built yet** — docs and
 
 ## Built (this scaffold)
 
-- ✅ Next.js 15 app shell; landing, `/catalog`, and product detail pages reading live catalog rows from Postgres with fixture/image fallbacks
+- ✅ Next.js 16 app shell; landing, `/catalog`, and product detail pages reading live catalog rows from Postgres with fixture/image fallbacks
 - ✅ Google-only Supabase Auth routes, session refresh middleware, sign-out, customer row provisioning with first-signup welcome messaging, protected account/admin pages, and authenticated account/order/pre-order APIs
 - ✅ Cookie cart helpers and server-side checkout validation for SKU, quantity, inventory, currency, B2B eligibility, tier discounts, and server-derived totals
 - ✅ Checkout order RPC with atomic inventory allocation, persisted discounts, expected subtotal/total checks, and Stripe amount/currency verification before an order can become `paid`
@@ -15,17 +15,17 @@ Honest status ledger. **Unchecked roadmap items are not built yet** — docs and
 - ✅ Allocation engine (`lib/allocation.ts`) — pure logic + unit tests
 - ✅ Env contract: `generate-env.mjs`, zod runtime schema, `APP_NAME` display-name propagation, and unit tests
 - ✅ CI (lint/typecheck/test/build/migrations, parallel, secretless)
-- ✅ Deploy pipeline: reusable workflow, active `development` and `production` environments, Terraform/provider output resolution, Stripe webhook provisioning, env→Vercel sync, migration gating, smoke test, production approval gate; `staging` is reserved but not active
-- ✅ Terraform provisioning for the GCS state bucket, shared Vercel project shell, and active Supabase project shells
+- ✅ Deploy pipeline: reusable workflow with active `development`, `staging`, and `production` environments; exact-revision staging deployment and hosted release gates before routine production deployment; Terraform/provider output resolution, Stripe webhook provisioning, env→Vercel sync, migration gating, smoke tests, and production approval
+- ✅ Terraform provisioning for the GCS state bucket, primary and staging Vercel projects, and Supabase project shells for development, staging, recovery, and production
 - ✅ Config-as-code checks for Vercel and Supabase: `vercel.json` security/cache headers, product image storage bucket/policies in SQL, and verifier scripts covered by CI
-- ✅ End-to-end bootstrap documentation for repository-level Terraform inputs, output-driven environment resolution, GitHub Environment vars/secrets, hosted Google OAuth configuration, path-dependent Stripe webhook provisioning, bootstrap, and deploy
+- ✅ End-to-end bootstrap documentation for three target environments, repository-level Terraform inputs, output-driven environment resolution, GitHub Environment vars/secrets, hosted Google OAuth configuration, notification/operations readiness inputs, Stripe webhook provisioning, bootstrap, deploy, and recovery
 - ✅ Admin supplier purchase-order intake: service-role-only RPC records confirmed supplier POs, line items, incoming inventory deltas, and audit records from the protected admin page
 - ✅ Admin B2B pricing-tier removal: service-role-only RPC removes assigned tiers, records the staff actor, and lets the existing checkout gate disable wholesale access when no tier remains
 - ✅ Admin product/SKU/inventory management: protected product create/update/archive forms, SKU create/update/archive forms, Supabase Storage product image upload, and reason-coded inventory adjustments backed by audited service-role RPCs
 - ✅ Admin storefront listing management: protected listing/configuration forms control title overrides, tags, B2C/B2B channel metadata, max-per-customer display/input limits, preorder reserve display, sort order, featured/published state, and catalog header copy
 - ✅ B2B invoice/PO checkout: approved wholesale customers can create a pending-payment invoice order with server-derived tier pricing, stock allocation, manual-invoice payment placeholder, and audit record
 - ✅ Waitlist + drop notifications: authenticated customers can save SKU-level email, Telegram, or WhatsApp alerts; staff can trigger deduped drop delivery through server-side providers
-- ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks, migration SQL validation, and smoke tests
+- ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks, migration SQL validation, staging evidence, hosted provider/recovery verification, production approval, and smoke tests
 - ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
 - ✅ Explicit Supabase Data API grants paired with RLS policies for the public catalog, published listing rows, active storefront configuration, and authenticated own-row reads
 - ✅ Playwright browser smoke tests for the built storefront, preview catalog fallback, product detail route, empty cart, and shallow health endpoint
@@ -75,7 +75,6 @@ Sequenced to match the 30/60/90-day plan in `docs/research/14-final-recommendati
 - [ ] Integration tests: RLS assertions, Stripe flows, authenticated browser flows
 - [ ] Analytics/metrics dashboard (sell-through, margin, preorder conversion)
 - [ ] Shipping-rate integration (SingPost/Ninja Van/J&T APIs)
-- [ ] Third hosted `staging` environment after paid plans justify another Supabase project and Vercel target
 
 ## Deferred decisions
 

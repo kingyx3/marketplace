@@ -5,21 +5,34 @@
 | Layer | Owner |
 | --- | --- |
 | GCS Terraform state bucket | `infra/terraform/bootstrap` |
-| Shared Vercel project and hosted Supabase project shells | `infra/terraform/platform` |
+| Primary and staging Vercel projects plus hosted Supabase project shells | `infra/terraform/platform` |
 | Provider/runtime reconciliation | `scripts/reconcile-runtime-environment.mjs` and provider libraries |
 | Vercel runtime values | generated contract + `scripts/sync-vercel-env.mjs` |
 | Database schema/storage/RLS/RPCs | Supabase migrations |
-| Operator secrets and approval boundaries | GitHub Environments |
+| Operator secrets, release evidence, and approval boundaries | GitHub Environments and Actions |
 
 ## Normal provisioning path
 
 `npm run bootstrap -- --apply` defaults to development and owns the normal end-to-end lifecycle: GitHub intake, checks, Terraform convergence, provider/runtime reconciliation, migrations, deployment, and verification.
 
-Production uses the same path only when explicitly selected:
+Staging and production use the same full-stack path only when selected explicitly:
 
 ```bash
+npm run bootstrap -- --apply --target=staging
 npm run bootstrap -- --apply --target=production
 ```
+
+The command dispatches the hosted workflow from `main`. For routine production application releases, use a published release or `v*` tag so the exact revision is deployed to staging and must pass hosted release gates before production.
+
+## Managed topology
+
+The platform stack currently manages:
+
+- one primary Vercel project used by development and production;
+- one dedicated staging Vercel project;
+- Supabase projects for `development`, `staging`, `recovery`, and `production`.
+
+`recovery` supports restore verification and is not a deploy/bootstrap target. Terraform outputs map deployable environments to the correct Vercel project and every hosted data environment to its Supabase project, URL, and generated database password.
 
 ## Terraform lifecycle
 
@@ -34,14 +47,19 @@ Each Terraform workflow has four modes:
 
 The platform state reader treats only known missing-state messages as absence. Authentication, backend, lock, and provider errors fail closed.
 
+The state bootstrap starts with local state because the GCS backend bucket may not exist yet. The workflow migrates that state to the persistent backend after the bucket converges.
+
 ## Provider reconciliation
 
 Stripe uses one library for discovery, diffing, create/update/replacement, metadata, rollback, and verification. Google Auth reads current Supabase hosted auth configuration, applies only changed supported fields, and verifies enablement, site URL, and redirect allow-list.
 
+Vercel values are reconciled per environment and skipped when keyed fingerprints match. Supabase project keys and database topology are resolved from Terraform and provider APIs rather than copied into committed configuration.
+
 ## Dashboard-managed boundaries
 
-- Provider account creation and billing.
-- Google OAuth consent-screen/client ownership.
-- Stripe account-level PayNow/branding/tax/compliance controls.
+- Provider account creation, organization membership, billing, and plan selection.
+- Google OAuth consent-screen/client ownership and external redirect registration.
+- Stripe account-level PayNow, branding, tax, and compliance controls.
 - GitHub credential entry when the trusted local bootstrap CLI is not used.
-- Optional notification sender/domain verification.
+- Resend sender/domain verification and external alert endpoint ownership.
+- Supabase compute sizing until the pinned provider exposes a tested stable resource argument.
