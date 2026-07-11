@@ -1,8 +1,9 @@
 locals {
   vercel_project_name          = var.vercel_project_name == "" ? var.project_slug : var.vercel_project_name
+  staging_vercel_project_name  = "${local.vercel_project_name}-staging"
   vercel_team_id               = var.vercel_team_id == "" ? null : var.vercel_team_id
   vercel_root_directory        = var.vercel_root_directory == "" ? null : var.vercel_root_directory
-  active_supabase_environments = toset(["development", "production"])
+  active_supabase_environments = toset(["development", "staging", "recovery", "production"])
 }
 
 resource "random_password" "supabase_database" {
@@ -20,6 +21,16 @@ resource "vercel_project" "app" {
   root_directory               = local.vercel_root_directory
   team_id                      = local.vercel_team_id
   preview_deployments_disabled = false
+}
+
+resource "vercel_project" "staging" {
+  name                         = local.staging_vercel_project_name
+  framework                    = "nextjs"
+  install_command              = "npm ci"
+  build_command                = "npm run build"
+  root_directory               = local.vercel_root_directory
+  team_id                      = local.vercel_team_id
+  preview_deployments_disabled = true
 }
 
 resource "supabase_project" "app" {
