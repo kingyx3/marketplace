@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractBearerToken, isAdminRole, rolesFromUser } from "@/lib/api/auth";
+import { getRequestOrigin } from "@/lib/request-origin";
 import { appendWelcomeParam, isFreshSignup } from "@/lib/signup-welcome";
 
 describe("auth helpers", () => {
@@ -34,5 +35,35 @@ describe("auth helpers", () => {
   it("adds the welcome flag to safe internal redirect paths", () => {
     expect(appendWelcomeParam("/account")).toBe("/account?welcome=1");
     expect(appendWelcomeParam("/account?tab=orders")).toBe("/account?tab=orders&welcome=1");
+  });
+
+  it("uses the browser-visible loopback origin for local auth redirects", () => {
+    const request = new Request("http://localhost:3100/auth/sign-in", {
+      headers: { host: "127.0.0.1:3100" },
+    });
+
+    expect(getRequestOrigin(request, "http://localhost:3000")).toBe("http://127.0.0.1:3100");
+  });
+
+  it("pins hosted auth redirects to the canonical site URL", () => {
+    const request = new Request("https://internal.example/auth/sign-in", {
+      headers: {
+        host: "internal.example",
+        "x-forwarded-host": "attacker.example",
+        "x-forwarded-proto": "http",
+      },
+    });
+
+    expect(getRequestOrigin(request, "https://shop.example.com/path")).toBe(
+      "https://shop.example.com"
+    );
+  });
+
+  it("rejects hosted auth redirects without a valid canonical URL", () => {
+    const request = new Request("https://shop.example.com/auth/sign-in");
+
+    expect(() => getRequestOrigin(request, "not-a-url")).toThrow(
+      "NEXT_PUBLIC_SITE_URL must be a valid hosted URL"
+    );
   });
 });

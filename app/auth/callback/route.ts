@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { getRequestOrigin } from "@/lib/request-origin";
 import { appendWelcomeParam, isFreshSignup } from "@/lib/signup-welcome";
 import { createUserClient } from "@/lib/supabase";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = getRequestOrigin(request);
   const code = searchParams.get("code");
   const next = sanitizeNextPath(searchParams.get("next"));
 
@@ -25,11 +27,6 @@ export async function GET(request: Request) {
         data: { user },
       } = await supabase.auth.getUser();
       const redirectPath = user && isFreshSignup(user) ? appendWelcomeParam(next) : next;
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocal = process.env.NODE_ENV === "development";
-      if (!isLocal && forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`);
-      }
       return NextResponse.redirect(`${origin}${redirectPath}`);
     }
   }

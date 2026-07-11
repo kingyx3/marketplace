@@ -1,17 +1,19 @@
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
+import { getRequestOrigin } from "@/lib/request-origin";
 import { createUserClient } from "@/lib/supabase";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
+  const origin = getRequestOrigin(request);
   const next = sanitizeNextPath(requestUrl.searchParams.get("next"));
   let supabase;
   try {
     supabase = await createUserClient();
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Supabase is not configured")) {
-      return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error`);
+      return NextResponse.redirect(`${origin}/auth/auth-code-error`);
     }
     throw error;
   }
@@ -19,7 +21,7 @@ export async function GET(request: Request) {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${requestUrl.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
       queryParams: {
         access_type: "offline",
         prompt: "consent select_account",
@@ -28,7 +30,7 @@ export async function GET(request: Request) {
   });
 
   if (error || !data.url) {
-    return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error`);
+    return NextResponse.redirect(`${origin}/auth/auth-code-error`);
   }
 
   redirect(data.url);
