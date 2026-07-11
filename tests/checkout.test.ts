@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { quoteCheckout, type CheckoutQuote } from "@/lib/commerce";
-import {
-  cancelPendingCheckoutPayment,
-  checkoutResponseBody,
-  createCheckoutPayment,
-} from "@/lib/checkout";
+import { cancelPendingCheckoutPayment } from "@/lib/checkout";
+import { checkoutResponseBody, createCheckoutPayment } from "@/lib/order-checkout";
 
 vi.mock("@/lib/commerce", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/commerce")>();
@@ -15,6 +12,13 @@ vi.mock("@/lib/commerce", async (importOriginal) => {
 });
 
 const mockedQuoteCheckout = vi.mocked(quoteCheckout);
+const shippingAddress = {
+  recipientName: "Buyer",
+  line1: "1 Market Street",
+  city: "Singapore",
+  postalCode: "048940",
+  countryCode: "SG",
+};
 
 const quote: CheckoutQuote = {
   mode: "order",
@@ -35,8 +39,12 @@ const quote: CheckoutQuote = {
   subtotalCents: 19900,
   discountBps: 0,
   discountCents: 0,
-  totalCents: 19900,
-  depositCents: 19900,
+  shippingCents: 800,
+  shippingService: "Tracked delivery",
+  shippingPolicyKey: "shipping_policy",
+  taxCents: 1709,
+  totalCents: 20700,
+  depositCents: 20700,
   balanceCents: 0,
 };
 
@@ -46,7 +54,7 @@ describe("checkout PaymentIntent flow", () => {
     mockedQuoteCheckout.mockResolvedValue(quote);
   });
 
-  it("creates a client-facing PaymentIntent response without trusting client totals", async () => {
+  it("creates a shipping-aware PaymentIntent without trusting client totals", async () => {
     const { auth, supabase } = fakeAuthContext({
       rpcSingle: { data: { order_id: "order-123" }, error: null },
       paymentInsert: { data: { id: "payment-123" }, error: null },
@@ -60,6 +68,7 @@ describe("checkout PaymentIntent flow", () => {
       {
         mode: "order",
         channel: "b2c",
+        shippingAddress,
         items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
       },
       stripe as never
@@ -68,15 +77,24 @@ describe("checkout PaymentIntent flow", () => {
     expect(mockedQuoteCheckout).toHaveBeenCalledWith(
       supabase,
       expect.objectContaining({
+        shippingAddress,
         items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
       }),
       auth.customer
     );
     expect(stripe.paymentIntents.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: 19900,
+        amount: 20700,
         currency: "sgd",
         automatic_payment_methods: { enabled: true },
+        shipping: expect.objectContaining({
+          name: "Buyer",
+          address: expect.objectContaining({
+            line1: "1 Market Street",
+            postal_code: "048940",
+            country: "SG",
+          }),
+        }),
         metadata: expect.objectContaining({
           kind: "full",
           order_id: "order-123",
@@ -91,8 +109,9 @@ describe("checkout PaymentIntent flow", () => {
         paymentId: "payment-123",
         paymentIntentId: "pi_123",
         clientSecret: "pi_123_secret_abc",
-        amountCents: 19900,
+        amountCents: 20700,
         currency: "SGD",
+        quote: expect.objectContaining({ shippingCents: 800, totalCents: 20700 }),
       })
     );
   });
@@ -112,6 +131,7 @@ describe("checkout PaymentIntent flow", () => {
         {
           mode: "order",
           channel: "b2c",
+          shippingAddress,
           items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
         },
         stripe as never
