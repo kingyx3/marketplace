@@ -1,0 +1,142 @@
+name: Hosted release gates
+
+on:
+  workflow_call:
+    inputs:
+      staging_app_url:
+        description: Immutable staging deployment URL for the exact release commit
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      staging_app_url:
+        description: Immutable staging deployment URL to validate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  staging-identity-payment-operations:
+    name: Staging Auth, RLS, Stripe, recovery, and operations
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    env:
+      TARGET_ENV: staging
+      STAGING_APP_URL: ${{ inputs.staging_app_url }}
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      GOOGLE_AUTH_ENABLED: ${{ vars.GOOGLE_AUTH_ENABLED }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      SYNTHETIC_MONITOR_SECRET: ${{ secrets.SYNTHETIC_MONITOR_SECRET }}
+      OPERATIONAL_ALERT_WEBHOOK_URL: ${{ secrets.OPERATIONAL_ALERT_WEBHOOK_URL }}
+      OPERATIONAL_ALERT_WEBHOOK_SECRET: ${{ secrets.OPERATIONAL_ALERT_WEBHOOK_SECRET }}
+      STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      RECOVERY_DATABASE_URL: ${{ secrets.RECOVERY_DATABASE_URL }}
+      RECOVERY_PROJECT_REF: ${{ vars.RECOVERY_PROJECT_REF }}
+      RESTORE_DRILL_ALLOW_DESTRUCTIVE: I_UNDERSTAND
+      RESTORE_RTO_SECONDS: ${{ vars.RESTORE_RTO_SECONDS || '1800' }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.15.8
+      - run: npm ci
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+      - name: Resolve staging provider credentials
+        run: node scripts/resolve-environment.mjs --environment staging --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
+      - name: Resolve recovery project reference
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFile, readFile } from 'node:fs/promises';
+          const outputs = JSON.parse(await readFile('infra/terraform/platform/tf-outputs.json', 'utf8'));
+          const ref = process.env.RECOVERY_PROJECT_REF || outputs.supabase_project_refs?.value?.recovery || '';
+          if (!ref) throw new Error('RECOVERY_PROJECT_REF is required');
+          await appendFile(process.env.GITHUB_ENV, `RECOVERY_PROJECT_REF=${ref}\n`);
+          NODE
+      - name: Verify real Supabase Auth, RLS, staff revocation, and Storage
+        run: node scripts/verify-hosted-supabase.mjs 2>&1 | tee hosted-supabase.log
+      - name: Verify real Stripe test mode and signed webhook state machine
+        run: node scripts/verify-stripe-staging.mjs 2>&1 | tee hosted-stripe.log
+      - name: Verify deep readiness, cron, correlation, and alert delivery
+        run: node scripts/verify-hosted-operations.mjs 2>&1 | tee hosted-operations.log
+      - name: Run timed hosted restore drill
+        run: |
+          export STAGING_PROJECT_REF="$SUPABASE_PROJECT_REF"
+          bash scripts/verify-hosted-restore.sh 2>&1 | tee hosted-restore.log
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: staging-release-gate-evidence-${{ github.sha }}
+          path: |
+            hosted-supabase.log
+            hosted-stripe.log
+            hosted-operations.log
+            hosted-restore.log
+          retention-days: 90
+          if-no-files-found: error
+
+  production-provider-readiness:
+    name: Production Supabase health, security, and recovery window
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      TARGET_ENV: production
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_REQUIRED_BACKUP_MODE: pitr
+      SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS: ${{ vars.SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS || '7' }}
+      SUPABASE_MAXIMUM_RECOVERY_LAG_MINUTES: ${{ vars.SUPABASE_MAXIMUM_RECOVERY_LAG_MINUTES || '10' }}
+      SUPABASE_ADVISOR_ALLOWLIST: ${{ vars.SUPABASE_ADVISOR_ALLOWLIST }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.15.8
+      - run: npm ci
+      - run: node scripts/resolve-terraform-inputs.mjs platform
+      - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
+      - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
+      - name: Resolve production project reference
+        run: node scripts/resolve-environment.mjs --environment production --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
+      - name: Verify recoverable PITR window and Supabase advisors
+        run: node scripts/verify-supabase-provider-readiness.mjs 2>&1 | tee production-provider-readiness.log
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: production-provider-readiness-${{ github.sha }}
+          path: production-provider-readiness.log
+          retention-days: 90
+          if-no-files-found: error
