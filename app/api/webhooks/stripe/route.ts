@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     provider: "stripe",
     event_id: event.id,
     event_type: event.type,
-    payload: event as unknown as Record<string, unknown>,
+    payload: stripeEventAuditEnvelope(event),
   });
   if (insertError) {
     if (insertError.code === "23505") {
@@ -108,4 +108,22 @@ export async function POST(request: Request) {
     durationMs: Date.now() - startedAt,
   });
   return respond({ received: true });
+}
+
+export function stripeEventAuditEnvelope(event: Stripe.Event): Record<string, unknown> {
+  return {
+    id: event.id,
+    object: event.object,
+    type: event.type,
+    created: event.created,
+    livemode: event.livemode,
+    apiVersion: event.api_version ?? null,
+    pendingWebhooks: event.pending_webhooks,
+    request: event.request
+      ? {
+          id: event.request.id,
+          idempotencyKey: event.request.idempotency_key,
+        }
+      : null,
+  };
 }
