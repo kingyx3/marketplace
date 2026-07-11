@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireApiCustomer } from "@/lib/api/auth";
 import { toErrorResponse } from "@/lib/api/errors";
 import { readJsonBody } from "@/lib/api/request";
-import { createInvoiceCheckout, invoiceCheckoutResponseBody } from "@/lib/checkout";
+import { createInvoiceCheckout, invoiceCheckoutResponseBody } from "@/lib/order-checkout";
 
 export const dynamic = "force-dynamic";
 
