@@ -23,9 +23,18 @@ test.describe("public commerce", () => {
     await page.goto("/catalog");
 
     const results = page.getByRole("region", { name: "Catalog results" });
+    const search = page.getByRole("searchbox", { name: "Search" });
+    const clear = page.getByRole("button", { name: "Clear", exact: true });
     await expect(results.getByRole("article")).toHaveCount(4);
+    await expect(clear).toBeDisabled();
 
-    await page.getByRole("searchbox", { name: "Search" }).fill("pokemon");
+    await search.fill("draft query");
+    await expect(clear).toBeEnabled();
+    await clear.click();
+    await expect(search).toHaveValue("");
+    await expect(page.getByText("Showing 4 of 4 products")).toBeVisible();
+
+    await search.fill("pokemon");
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page.getByText("Showing 1 of 4 products")).toBeVisible();
     await expect(results.getByRole("heading", { name: "Prism Rift Collector Booster Box" })).toBeVisible();
@@ -33,7 +42,7 @@ test.describe("public commerce", () => {
       results.getByRole("heading", { name: "Sample Standard Play Booster Box" })
     ).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await clear.click();
     await page.getByLabel("Game").selectOption("Lorcana");
     await page.getByLabel("Status").selectOption("preorder_open");
     await page.getByRole("button", { name: "Apply" }).click();
@@ -45,7 +54,7 @@ test.describe("public commerce", () => {
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(results.getByRole("heading", { name: "Grand Line Booster Case" })).toBeVisible();
 
-    await page.getByRole("searchbox", { name: "Search" }).fill("not-a-real-product");
+    await search.fill("not-a-real-product");
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(
       page.getByRole("heading", { name: "No products match these filters" })
