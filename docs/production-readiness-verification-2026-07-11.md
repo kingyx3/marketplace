@@ -13,9 +13,9 @@ GitHub Actions run `29142698207` exposed source and dependency defects rather th
 
 The branch corrected those issues, pinned compatible TypeScript and ESLint versions, migrated to the native Next.js flat ESLint configuration, and regenerated the lockfile reproducibly.
 
-## Final verified branch
+## Final verified code branch
 
-Verified head: `16375359bb62cf83aba0f6b36cf65003313bede0`  
+Verified code head: `16375359bb62cf83aba0f6b36cf65003313bede0`  
 GitHub Actions run: `29146715422` — completed successfully.
 
 | Validation | Result | Evidence |
@@ -34,6 +34,8 @@ GitHub Actions run: `29146715422` — completed successfully.
 | Transactional checkout database tests | Passed | Shipping snapshot/total, legacy fail-closed RPC, invoice unique reference, credit exposure, deadlines, expiry, payment cancellation, and inventory release. |
 | Logical backup and isolated restore | Passed | Custom-format dump restored to a separate database and critical commerce tables/functions/policy rows/seed data were verified. |
 
+Subsequent commits update audit/remediation documentation only. The PR should still require its hosted checks on the exact final SHA before review.
+
 ## Production gates not proven by repository CI
 
 The successful run verifies the code and local PostgreSQL contracts available in the repository. It does not prove the following hosted controls:
@@ -47,4 +49,6 @@ The successful run verifies the code and local PostgreSQL contracts available in
 
 ## Readiness interpretation
 
-The original P0 shipping and B2B invoice defects are fixed with fail-closed defaults. Shipping and invoice policies remain inactive until operators explicitly configure and verify them. Production fixture fallback has been removed. The remaining P1 items are hosted-provider and operational prerequisites that must be demonstrated before deployment.
+The original P0 shipping and B2B invoice defects are fixed with fail-closed defaults. Production fixture fallback has been removed. Shipping and invoice policies remain inactive until operators explicitly configure and verify them.
+
+CONDITIONALLY READY — no unresolved P0 findings remain, but documented P1 provider, backup, observability, staging, and operational prerequisites must be completed before deployment.
