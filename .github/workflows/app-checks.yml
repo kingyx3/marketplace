@@ -51,6 +51,8 @@ jobs:
   e2e:
     if: inputs.run_e2e
     runs-on: ubuntu-latest
+    env:
+      MARKETPLACE_PREVIEW_FIXTURES: "true"
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v6.4.0
