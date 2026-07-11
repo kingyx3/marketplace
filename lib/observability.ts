@@ -68,6 +68,11 @@ export function sanitizeLogValue(value: unknown, depth = 0): unknown {
 }
 
 function writeLog(level: "info" | "warn" | "error", event: string, context: LogContext): void {
+  const sanitized = sanitizeLogValue(context);
+  const sanitizedContext =
+    sanitized && typeof sanitized === "object" && !Array.isArray(sanitized)
+      ? (sanitized as Record<string, unknown>)
+      : {};
   const record = {
     timestamp: new Date().toISOString(),
     level,
@@ -75,7 +80,7 @@ function writeLog(level: "info" | "warn" | "error", event: string, context: LogC
     service: "marketplace",
     environment:
       process.env.VERCEL_ENV ?? process.env.TARGET_ENV ?? process.env.NODE_ENV ?? "unknown",
-    ...sanitizeLogValue(context),
+    ...sanitizedContext,
   };
   const line = JSON.stringify(record);
 
