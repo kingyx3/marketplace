@@ -7,6 +7,7 @@ import {
   minimumOrderCents,
   type B2bPricingTier,
 } from "@/lib/b2b";
+import { quoteShipping, shippingAddressSchema } from "@/lib/shipping";
 
 export const MAX_CHECKOUT_LINES = 10;
 export const MAX_QUANTITY_PER_LINE = 24;
@@ -25,6 +26,7 @@ export const checkoutRequestSchema = z.object({
   mode: z.enum(["order", "preorder"]).default("order"),
   channel: z.enum(["b2c", "b2b"]).default("b2c"),
   items: z.array(cartItemSchema).min(1).max(MAX_CHECKOUT_LINES),
+  shippingAddress: shippingAddressSchema.optional(),
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
 });
@@ -42,6 +44,7 @@ export interface CheckoutRequest {
   mode: CheckoutMode;
   channel: SalesChannel;
   items: CartItem[];
+  shippingAddress?: z.infer<typeof shippingAddressSchema>;
   successUrl?: string;
   cancelUrl?: string;
 }
@@ -65,6 +68,10 @@ export interface CheckoutQuote {
   subtotalCents: number;
   discountBps: number;
   discountCents: number;
+  shippingCents: number;
+  shippingService: string | null;
+  shippingPolicyKey: string | null;
+  taxCents: number;
   totalCents: number;
   depositCents: number;
   balanceCents: number;
@@ -150,21 +157,37 @@ export async function quoteCheckout(
     lines.push(line);
   }
 
+  const resolvedCurrency = currency ?? customer.default_currency;
   const pricing = await findB2bPricing(supabase, customer.id, subtotalCents, channel);
   const discountBps = pricing.discountBps;
   const discountCents = calculateDiscountCents(subtotalCents, discountBps);
-  const totalCents = subtotalCents - discountCents;
+  const merchandiseTotalCents = subtotalCents - discountCents;
+  const shipping =
+    request.mode === "order"
+      ? await quoteShipping(
+          supabase,
+          request.shippingAddress,
+          merchandiseTotalCents,
+          resolvedCurrency
+        )
+      : null;
+  const shippingCents = shipping?.shippingCents ?? 0;
+  const totalCents = merchandiseTotalCents + shippingCents;
   const depositCents =
     request.mode === "preorder" ? calculateDepositCents(totalCents) : totalCents;
 
   return {
     mode: request.mode,
     channel,
-    currency: currency ?? customer.default_currency,
+    currency: resolvedCurrency,
     lines,
     subtotalCents,
     discountBps,
     discountCents,
+    shippingCents,
+    shippingService: shipping?.serviceName ?? null,
+    shippingPolicyKey: shipping?.policyKey ?? null,
+    taxCents: Math.round((totalCents * 9) / 109),
     totalCents,
     depositCents,
     balanceCents: Math.max(0, totalCents - depositCents),
