@@ -37,7 +37,9 @@ test.describe("storefront navigation", () => {
 
   test("opens the empty cart from a product page", async ({ page }) => {
     await page.goto("/catalog/smp-play-booster-box", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "SMP Play Booster Box" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Sample Standard Play Booster Box" })
+    ).toBeVisible();
     await page.getByRole("link", { name: "Cart", exact: true }).click();
 
     await expect(page).toHaveURL(/\/cart$/);
