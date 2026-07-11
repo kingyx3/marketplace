@@ -13,6 +13,7 @@ import {
 import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
 import { getWholesaleAccess, wholesaleIsActive, type WholesaleAccess } from "@/lib/b2b";
 import { hasSupabasePublicEnv } from "@/lib/env";
+import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 import { createAnonClient, createServiceClient } from "@/lib/supabase";
 
 // Always render at request time: the catalog reads live inventory and
@@ -83,6 +84,8 @@ interface CatalogHeaderConfig {
   emptyDescription: string;
 }
 
+type CatalogSource = "live" | "preview" | "unavailable";
+
 const DEFAULT_CATALOG_HEADER: CatalogHeaderConfig = {
   eyebrow: "Catalog",
   title: "Sealed product inventory",
@@ -103,7 +106,7 @@ function isSetStatus(value: string | undefined): value is SetStatus {
 }
 
 function normalizeRow(row: CatalogRow): MarketplaceProduct {
-  const fixture = getProduct(row.slug);
+  const fixture = previewFixturesEnabled() ? getProduct(row.slug) : undefined;
   const listing = listingForRow(row);
   const sku = row.product_variants?.[0]?.booster_box_skus?.find((candidate) => candidate.active);
   const inventory = sku?.inventory?.[0];
@@ -112,7 +115,7 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
     slug: row.slug,
     name: listing?.title_override ?? row.name,
     game: row.tcg_categories?.name ?? fixture?.game ?? "TCG",
-    publisher: row.tcg_categories?.publisher ?? fixture?.publisher ?? "Publisher",
+    publisher: row.tcg_categories?.publisher ?? fixture?.publisher ?? "Publisher not specified",
     setName: row.sets_releases?.name ?? fixture?.setName ?? "Set pending",
     setCode: row.sets_releases?.code ?? fixture?.setCode ?? "TBD",
     releaseDate: row.sets_releases?.release_date ?? fixture?.releaseDate ?? "TBD",
@@ -142,9 +145,13 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
 
 async function fetchProducts(): Promise<{
   products: MarketplaceProduct[];
-  source: "live" | "preview";
+  source: CatalogSource;
 }> {
-  if (!hasSupabasePublicEnv()) return { products: marketplaceProducts, source: "preview" };
+  if (!hasSupabasePublicEnv()) {
+    return previewFixturesEnabled()
+      ? { products: marketplaceProducts, source: "preview" }
+      : { products: [], source: "unavailable" };
+  }
 
   const supabase = createAnonClient();
   const { data, error } = await supabase
@@ -191,7 +198,9 @@ async function fetchProducts(): Promise<{
 
   if (error) {
     console.error("catalog query failed:", error.message);
-    return { products: marketplaceProducts, source: "preview" };
+    return previewFixturesEnabled()
+      ? { products: marketplaceProducts, source: "preview" }
+      : { products: [], source: "unavailable" };
   }
 
   const rows = (data ?? []) as unknown as CatalogRow[];
@@ -234,7 +243,7 @@ async function fetchCatalogHeader(): Promise<CatalogHeaderConfig> {
 export default async function CatalogPage() {
   const [{ products, source }, header] = await Promise.all([fetchProducts(), fetchCatalogHeader()]);
   const wholesaleAccess = await currentWholesaleAccess();
-  const sourceLabel = source === "live" ? "Live" : "Preview";
+  const sourceLabel = source === "live" ? "Live" : source === "preview" ? "Preview" : "Unavailable";
 
   return (
     <div className="space-y-8">
@@ -242,10 +251,25 @@ export default async function CatalogPage() {
         eyebrow={header.eyebrow}
         title={header.title}
         description={header.description}
-        action={<StatusBadge tone={source === "live" ? "success" : "warning"}>{source} data</StatusBadge>}
+        action={
+          <StatusBadge tone={source === "live" ? "success" : "warning"}>
+            {source} data
+          </StatusBadge>
+        }
       />
 
-      {products.length === 0 ? (
+      {source === "unavailable" ? (
+        <section
+          aria-live="polite"
+          className="rounded-lg border border-amber-200 bg-amber-50 p-8 text-center shadow-sm"
+        >
+          <h2 className="text-xl font-semibold text-amber-950">Catalog temporarily unavailable</h2>
+          <p className="mt-3 text-sm text-amber-900">
+            Live inventory and pricing could not be loaded. No preview products are shown in a
+            production environment. Please try again later.
+          </p>
+        </section>
+      ) : products.length === 0 ? (
         <section className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
           <h2 className="text-xl font-semibold text-zinc-950">{header.emptyTitle}</h2>
           <p className="mt-3 text-sm text-zinc-600">{header.emptyDescription}</p>
