@@ -165,16 +165,20 @@ async function handleChargeRefunded(
   const payment = await paymentByIntent(supabase, intentId);
   if (!payment) return;
 
-  const refundedCents = charge.amount_refunded ?? 0;
-  if (refundedCents <= 0) return;
+  const refund = latestRefund(charge);
+  if (!refund || refund.amount <= 0) return;
 
-  await supabase.from("refunds").insert({
+  const { error } = await supabase.from("refunds").insert({
     payment_id: payment.id,
-    provider_refund_id: latestRefundId(charge),
-    amount_cents: refundedCents,
+    provider_refund_id: refund.id,
+    amount_cents: refund.amount,
     currency: payment.currency,
-    status: charge.refunded ? "succeeded" : "pending",
+    reason: refund.reason ?? null,
+    status: refundStatus(refund.status),
   });
+  if (error) {
+    throw new Error(error.message);
+  }
 
   if (charge.refunded) {
     await updatePayment(supabase, payment.id, { status: "refunded" });
@@ -187,10 +191,18 @@ async function handleChargeRefunded(
   }
 }
 
-function latestRefundId(charge: Stripe.Charge): string | null {
-  const refunds = charge.refunds?.data;
-  const latest = refunds?.[0];
-  return latest?.id ?? null;
+function latestRefund(charge: Stripe.Charge): Stripe.Refund | null {
+  const refunds = charge.refunds?.data ?? [];
+  return refunds.reduce<Stripe.Refund | null>((latest, refund) => {
+    if (!latest || refund.created > latest.created) return refund;
+    return latest;
+  }, null);
+}
+
+function refundStatus(status: Stripe.Refund.Status | null): "pending" | "succeeded" | "failed" {
+  if (status === "succeeded") return "succeeded";
+  if (status === "failed" || status === "canceled") return "failed";
+  return "pending";
 }
 
 async function paymentByIntent(supabase: SupabaseClient, intentId: string) {
