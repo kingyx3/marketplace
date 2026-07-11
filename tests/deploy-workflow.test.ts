@@ -16,11 +16,11 @@ describe("deployment workflow contract", () => {
     }
   });
 
-  it("defaults the hosted bootstrap to development while retaining explicit production", async () => {
+  it("defaults hosted bootstrap to development with explicit staging and production", async () => {
     const workflow = await read(".github/workflows/bootstrap.yml");
     expect(workflow).toContain("name: Bootstrap & Deploy");
     expect(workflow).toContain("default: development");
-    expect(workflow).toContain("options: [development, production]");
+    expect(workflow).toContain("options: [development, staging, production]");
     expect(workflow).not.toContain("options: [all");
     expect(workflow).toContain("environment: ${{ inputs.target }}");
     expect(workflow).toContain("uses: ./.github/workflows/terraform-state-bootstrap.yml");
@@ -56,12 +56,23 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("node scripts/generate-env.mjs --check --allow-missing-provisioned");
   });
 
-  it("blocks production deploys when live infrastructure or provider state drifts", async () => {
+  it("blocks staging and production deploys when live infrastructure or provider state drifts", async () => {
     const workflow = await read(".github/workflows/deploy.yml");
-    expect(workflow).toContain("Enforce production infrastructure and provider readiness");
-    expect(workflow).toContain("if: ${{ inputs.environment == 'production' }}");
+    expect(workflow).toContain("Enforce hosted infrastructure and provider readiness");
+    expect(workflow).toContain("if: ${{ inputs.environment != 'development' }}");
     expect(workflow).toContain("node scripts/verify-environment.mjs --skip-health");
     expect(workflow.indexOf("verify-environment.mjs --skip-health")).toBeLessThan(workflow.indexOf("Link and push hosted migrations"));
+  });
+
+  it("gates production on an exact staging deployment and hosted evidence", async () => {
+    const workflow = await read(".github/workflows/deploy-production.yml");
+    expect(workflow).toContain("deploy-staging:");
+    expect(workflow).toContain("environment: staging");
+    expect(workflow).toContain("hosted-release-gates:");
+    expect(workflow).toContain("needs: deploy-staging");
+    expect(workflow).toContain("staging_app_url: ${{ needs.deploy-staging.outputs.deployment_url }}");
+    expect(workflow).toContain("deploy-production:");
+    expect(workflow).toContain("needs: hosted-release-gates");
   });
 
   it("uses one integration branch for the shared development data environment", async () => {
