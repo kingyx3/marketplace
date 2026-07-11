@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { reportOperationalFailure } from "@/lib/operational-alerts";
 import {
   logError,
   logInfo,
@@ -20,10 +21,20 @@ export async function GET(request: Request) {
 
   const secret = process.env.CRON_SECRET;
   if (!secret) {
-    logError("cron.invoice_expiry.not_configured", new Error("missing cron secret"), {
+    const error = new Error("missing cron secret");
+    logError("cron.invoice_expiry.not_configured", error, {
       ...context,
       status: 503,
     });
+    await reportOperationalFailure(
+      {
+        event: "cron.invoice_expiry.not_configured",
+        severity: "critical",
+        summary: "Invoice allocation expiry cron is not configured",
+        context: { ...context, status: 503 },
+      },
+      error
+    );
     return respond(
       { error: { code: "CRON_NOT_CONFIGURED", message: "Cron authentication is not configured" } },
       503
@@ -45,6 +56,19 @@ export async function GET(request: Request) {
       status: 500,
       durationMs: Date.now() - startedAt,
     });
+    await reportOperationalFailure(
+      {
+        event: "cron.invoice_expiry.failed",
+        severity: "critical",
+        summary: "Invoice expiry cron failed and stale inventory may remain allocated",
+        context: {
+          ...context,
+          status: 500,
+          durationMs: Date.now() - startedAt,
+        },
+      },
+      error
+    );
     return respond(
       { error: { code: "INVOICE_EXPIRY_FAILED", message: "Invoice expiry failed" } },
       500
