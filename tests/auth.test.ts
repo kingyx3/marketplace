@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { extractBearerToken, isAdminRole, rolesFromUser } from "@/lib/api/auth";
+import { describe, expect, it, vi } from "vitest";
+import {
+  extractBearerToken,
+  isAdminRole,
+  requireApiAdmin,
+  rolesFromUser,
+} from "@/lib/api/auth";
 import { getRequestOrigin } from "@/lib/request-origin";
 import { appendWelcomeParam, isFreshSignup } from "@/lib/signup-welcome";
 
@@ -22,6 +27,26 @@ describe("auth helpers", () => {
     expect(isAdminRole(["admin"])).toBe(true);
     expect(isAdminRole(["ops"])).toBe(true);
     expect(isAdminRole(["customer"])).toBe(false);
+  });
+
+  it("does not let stale app metadata bypass staff deactivation", async () => {
+    const request = new Request("https://example.test/api/admin/orders", {
+      headers: { authorization: "Bearer token-123" },
+    });
+
+    await expect(requireApiAdmin(request, fakeAdminSupabase(null) as never)).rejects.toThrow(
+      "Active staff access required"
+    );
+  });
+
+  it("allows an authenticated active staff record", async () => {
+    const request = new Request("https://example.test/api/admin/orders", {
+      headers: { authorization: "Bearer token-123" },
+    });
+
+    await expect(
+      requireApiAdmin(request, fakeAdminSupabase({ id: "staff-1" }) as never)
+    ).resolves.toMatchObject({ user: { id: "user-1" } });
   });
 
   it("detects fresh OAuth signups without treating old users as new", () => {
@@ -67,3 +92,26 @@ describe("auth helpers", () => {
     );
   });
 });
+
+function fakeAdminSupabase(staff: { id: string } | null) {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    maybeSingle: vi.fn(async () => ({ data: staff, error: null })),
+  };
+
+  return {
+    auth: {
+      getUser: vi.fn(async () => ({
+        data: {
+          user: {
+            id: "user-1",
+            app_metadata: { role: "admin" },
+          },
+        },
+        error: null,
+      })),
+    },
+    from: vi.fn(() => builder),
+  };
+}
