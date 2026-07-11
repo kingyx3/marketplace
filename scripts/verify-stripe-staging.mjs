@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
 const appUrl = requiredUrl("STAGING_APP_URL");
+const publicSiteUrl = requiredUrl("NEXT_PUBLIC_SITE_URL");
 const supabaseUrl = requiredUrl("NEXT_PUBLIC_SUPABASE_URL");
 const supabaseSecret = required("SUPABASE_SECRET_KEY");
 const stripeSecret = required("STRIPE_SECRET_KEY");
@@ -53,7 +54,7 @@ async function verifyStripeAccountAndPayNow() {
 }
 
 async function verifyRegisteredWebhookEndpoint() {
-  const expectedUrl = new URL("/api/webhooks/stripe", appUrl).toString();
+  const expectedUrl = new URL("/api/webhooks/stripe", publicSiteUrl).toString();
   const endpoints = [];
   for await (const endpoint of stripe.webhookEndpoints.list({ limit: 100 })) endpoints.push(endpoint);
   const matches = endpoints.filter((endpoint) => endpoint.url === expectedUrl);
