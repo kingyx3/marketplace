@@ -1,23 +1,38 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import {
+  logError,
+  logInfo,
+  logWarn,
+  requestIdFrom,
+  withRequestId,
+} from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const requestId = requestIdFrom(request);
+  const startedAt = Date.now();
+  const context = { requestId, route: "/api/cron/invoice-expiry", method: "GET" };
+  const respond = (body: unknown, status = 200) =>
+    withRequestId(NextResponse.json(body, { status }), requestId);
+
   const secret = process.env.CRON_SECRET;
   if (!secret) {
-    return NextResponse.json(
+    logError("cron.invoice_expiry.not_configured", new Error("missing cron secret"), {
+      ...context,
+      status: 503,
+    });
+    return respond(
       { error: { code: "CRON_NOT_CONFIGURED", message: "Cron authentication is not configured" } },
-      { status: 503 }
+      503
     );
   }
 
   if (!authorized(request.headers.get("authorization"), secret)) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
-      { status: 401 }
-    );
+    logWarn("cron.invoice_expiry.unauthorized", { ...context, status: 401 });
+    return respond({ error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, 401);
   }
 
   const { data, error } = await createServiceClient().rpc("expire_stale_invoice_orders", {
@@ -25,14 +40,25 @@ export async function GET(request: Request) {
   });
 
   if (error) {
-    console.error("invoice expiry cron failed:", error.message);
-    return NextResponse.json(
+    logError("cron.invoice_expiry.failed", error, {
+      ...context,
+      status: 500,
+      durationMs: Date.now() - startedAt,
+    });
+    return respond(
       { error: { code: "INVOICE_EXPIRY_FAILED", message: "Invoice expiry failed" } },
-      { status: 500 }
+      500
     );
   }
 
-  return NextResponse.json({ expiredOrders: Number(data ?? 0) });
+  const expiredOrders = Number(data ?? 0);
+  logInfo("cron.invoice_expiry.completed", {
+    ...context,
+    status: 200,
+    expiredOrders,
+    durationMs: Date.now() - startedAt,
+  });
+  return respond({ expiredOrders });
 }
 
 function authorized(header: string | null, secret: string): boolean {
