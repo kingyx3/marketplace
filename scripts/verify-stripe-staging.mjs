@@ -10,6 +10,7 @@ const supabaseSecret = required("SUPABASE_SECRET_KEY");
 const stripeSecret = required("STRIPE_SECRET_KEY");
 const stripePublishable = required("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
 const webhookSecret = required("STRIPE_WEBHOOK_SECRET");
+const resendApiKey = required("RESEND_API_KEY");
 
 assert(stripeSecret.startsWith("sk_test_"), "staging Stripe secret key must be test mode");
 assert(stripePublishable.startsWith("pk_test_"), "staging Stripe publishable key must be test mode");
@@ -20,14 +21,18 @@ const service = createClient(supabaseUrl, supabaseSecret, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 const runId = randomUUID();
-const providerPaymentId = `pi_release_gate_${runId.replaceAll("-", "")}`;
+const compactRunId = runId.replaceAll("-", "");
+const providerPaymentId = `pi_release_gate_${compactRunId}`;
+const notificationEmail = `delivered+marketplace-${compactRunId}@resend.dev`;
 const fixtures = { customerId: null, orderId: null, paymentId: null, eventIds: [] };
 
 try {
   await verifyStripeAccountAndPayNow();
   await verifyRegisteredWebhookEndpoint();
   await verifySignedWebhookStateMachine();
-  console.log("Stripe test-mode PayNow, webhook signature, idempotency, ordering, and refund checks passed.");
+  console.log(
+    "Stripe test-mode PayNow, signed webhook state transitions, refunds, and delivered order email checks passed."
+  );
 } finally {
   await cleanup();
 }
@@ -71,7 +76,7 @@ async function verifySignedWebhookStateMachine() {
   const { data: customer, error: customerError } = await service
     .from("customers")
     .insert({
-      email: `release-gate-${runId}@example.test`,
+      email: notificationEmail,
       name: "Stripe Release Gate",
       segment: "player",
       default_currency: "SGD",
@@ -121,6 +126,7 @@ async function verifySignedWebhookStateMachine() {
   const successResponse = await postEvent(succeeded);
   assert(successResponse.status === 200, `signed success webhook returned ${successResponse.status}`);
   await expectState({ orderStatus: "paid", paymentStatus: "captured" });
+  await expectOrderConfirmationDelivered();
 
   const duplicate = await postEvent(succeeded);
   assert(duplicate.status === 200, `duplicate Stripe webhook returned ${duplicate.status}`);
@@ -132,7 +138,7 @@ async function verifySignedWebhookStateMachine() {
   assert(failedResponse.status === 200, `out-of-order failed webhook returned ${failedResponse.status}`);
   await expectState({ orderStatus: "paid", paymentStatus: "captured" });
 
-  const partialRefundId = `re_partial_${runId.replaceAll("-", "")}`;
+  const partialRefundId = `re_partial_${compactRunId}`;
   const partial = stripeEvent(
     "charge.refunded",
     chargeObject(false, [{ id: partialRefundId, amount: 400, created: unixNow(), status: "succeeded" }])
@@ -149,7 +155,7 @@ async function verifySignedWebhookStateMachine() {
   const replayResponse = await postEvent(partialReplay);
   assert(replayResponse.status === 200, `refund replay returned ${replayResponse.status}`);
 
-  const fullRefundId = `re_full_${runId.replaceAll("-", "")}`;
+  const fullRefundId = `re_full_${compactRunId}`;
   const full = stripeEvent(
     "charge.refunded",
     chargeObject(true, [{ id: fullRefundId, amount: 600, created: unixNow() + 1, status: "succeeded" }])
@@ -158,6 +164,48 @@ async function verifySignedWebhookStateMachine() {
   assert(fullResponse.status === 200, `full refund webhook returned ${fullResponse.status}`);
   await expectRefund(fullRefundId, 600);
   await expectState({ orderStatus: "refunded", paymentStatus: "refunded" });
+}
+
+async function expectOrderConfirmationDelivered() {
+  let providerMessageId;
+  for (let attempt = 1; attempt <= 15; attempt += 1) {
+    const { data, error } = await service
+      .from("notifications")
+      .select("status, provider_message_id, error")
+      .eq("customer_id", fixtures.customerId)
+      .eq("template", "order_confirmation")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    assertNoError(error, "read order confirmation notification");
+    if (data?.status === "failed") {
+      throw new Error(`order confirmation failed: ${data.error ?? "unknown provider error"}`);
+    }
+    if (data?.status === "sent" && data.provider_message_id) {
+      providerMessageId = data.provider_message_id;
+      break;
+    }
+    await sleep(attempt * 300);
+  }
+  assert(providerMessageId, "order confirmation was not marked sent with a provider message id");
+
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    const response = await fetch(`https://api.resend.com/emails/${providerMessageId}`, {
+      headers: { Authorization: `Bearer ${resendApiKey}`, Accept: "application/json" },
+      cache: "no-store",
+    });
+    assert(response.ok, `Resend email lookup returned HTTP ${response.status}`);
+    const email = await response.json();
+    if (email.last_event === "delivered") {
+      assert(Array.isArray(email.to) && email.to.includes(notificationEmail), "Resend delivered to an unexpected recipient");
+      return;
+    }
+    if (["bounced", "complained", "failed", "canceled"].includes(email.last_event)) {
+      throw new Error(`Resend reported terminal email state ${email.last_event}`);
+    }
+    await sleep(attempt * 500);
+  }
+  throw new Error("Resend did not report the order confirmation as delivered within the release gate window");
 }
 
 function stripeEvent(type, object) {
@@ -190,7 +238,7 @@ function paymentIntentObject(status) {
 
 function chargeObject(refunded, refunds) {
   return {
-    id: `ch_release_gate_${runId.replaceAll("-", "")}`,
+    id: `ch_release_gate_${compactRunId}`,
     object: "charge",
     amount: 1000,
     amount_refunded: refunds.reduce((sum, refund) => sum + refund.amount, 0),
@@ -249,10 +297,8 @@ async function cleanup() {
     await service.from("webhook_events").delete().eq("provider", "stripe").in("event_id", fixtures.eventIds);
   }
   if (fixtures.paymentId) await service.from("payments").delete().eq("id", fixtures.paymentId);
-  if (fixtures.orderId) {
-    await service.from("notifications").delete().contains("payload", { order_id: fixtures.orderId });
-    await service.from("orders").delete().eq("id", fixtures.orderId);
-  }
+  if (fixtures.customerId) await service.from("notifications").delete().eq("customer_id", fixtures.customerId);
+  if (fixtures.orderId) await service.from("orders").delete().eq("id", fixtures.orderId);
   if (fixtures.customerId) await service.from("customers").delete().eq("id", fixtures.customerId);
 }
 
