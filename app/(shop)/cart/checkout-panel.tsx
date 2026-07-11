@@ -6,6 +6,12 @@ import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
+import {
+  ShippingAddressFields,
+  emptyShippingAddress,
+  isShippingAddressComplete,
+  shippingAddressPayload,
+} from "@/app/(shop)/cart/shipping-address-fields";
 
 type CheckoutPhase =
   | "idle"
@@ -32,6 +38,12 @@ interface CheckoutResponse {
   clientSecret: string;
   amountCents: number;
   currency: string;
+  quote?: {
+    shippingCents: number;
+    shippingService: string | null;
+    taxCents: number;
+    totalCents: number;
+  };
 }
 
 interface ApiErrorResponse {
@@ -79,6 +91,8 @@ export function CartCheckoutPanel({
   const [phase, setPhase] = useState<CheckoutPhase>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutResponse | null>(null);
+  const [shippingAddress, setShippingAddress] = useState(emptyShippingAddress);
+  const requiresShipping = mode === "order";
   const supabaseKey = supabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
 
   const stripePromise = useMemo(
@@ -128,6 +142,11 @@ export function CartCheckoutPanel({
 
   async function beginCheckout() {
     if (disabled || items.length === 0 || phase === "creating") return;
+    if (requiresShipping && !isShippingAddressComplete(shippingAddress)) {
+      setPhase("failed");
+      setMessage("Complete the required delivery address fields before checkout");
+      return;
+    }
     if (!publishableKey) {
       setPhase("failed");
       setMessage("Stripe publishable key is not configured");
@@ -138,13 +157,17 @@ export function CartCheckoutPanel({
     setMessage(null);
 
     try {
+      const baseBody = paymentBody ?? { mode, channel, items };
+      const requestBody = requiresShipping
+        ? { ...baseBody, shippingAddress: shippingAddressPayload(shippingAddress) }
+        : baseBody;
       const result = await authenticatedJson<CheckoutResponse>(paymentEndpoint, {
         method: "POST",
-        body: JSON.stringify(paymentBody ?? { mode, channel, items }),
+        body: JSON.stringify(requestBody),
       });
       setCheckout(result);
       setPhase("ready");
-      setMessage("Payment is ready");
+      setMessage("Payment is ready. Review the final server-calculated total below.");
     } catch (error) {
       setCheckout(null);
       setPhase("failed");
@@ -205,10 +228,20 @@ export function CartCheckoutPanel({
       }
     : undefined;
 
-  const canCreate = !disabled && items.length > 0 && !checkout && phase !== "creating";
+  const addressReady = !requiresShipping || isShippingAddressComplete(shippingAddress);
+  const canCreate =
+    !disabled && addressReady && items.length > 0 && !checkout && phase !== "creating";
 
   return (
     <div className="mt-6 grid gap-3">
+      {requiresShipping && !checkout ? (
+        <ShippingAddressFields
+          disabled={disabled || phase === "creating"}
+          onChange={setShippingAddress}
+          value={shippingAddress}
+        />
+      ) : null}
+
       {!checkout ? (
         <button
           className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
@@ -218,6 +251,37 @@ export function CartCheckoutPanel({
         >
           {phase === "creating" ? "Preparing payment" : startLabel}
         </button>
+      ) : null}
+
+      {checkout?.quote ? (
+        <dl className="grid gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
+          <div className="flex justify-between gap-4">
+            <dt className="text-zinc-600">Shipping</dt>
+            <dd className="font-semibold text-zinc-950">
+              {formatMoney(checkout.quote.shippingCents, checkout.currency)}
+            </dd>
+          </div>
+          {checkout.quote.shippingService ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-zinc-600">Service</dt>
+              <dd className="text-right font-semibold text-zinc-950">
+                {checkout.quote.shippingService}
+              </dd>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-4">
+            <dt className="text-zinc-600">GST included</dt>
+            <dd className="font-semibold text-zinc-950">
+              {formatMoney(checkout.quote.taxCents, checkout.currency)}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-4 border-t border-zinc-200 pt-2">
+            <dt className="font-semibold text-zinc-950">Final total</dt>
+            <dd className="text-base font-bold text-zinc-950">
+              {formatMoney(checkout.quote.totalCents, checkout.currency)}
+            </dd>
+          </div>
+        </dl>
       ) : null}
 
       {checkout && stripePromise && elementsOptions ? (
@@ -365,9 +429,20 @@ function StatusMessage({ children, phase }: { children: ReactNode; phase: Checko
           ? "border-rose-200 bg-rose-50 text-rose-800"
           : "border-zinc-200 bg-zinc-50 text-zinc-700";
 
-  return <div className={`rounded-md border p-3 text-sm ${tone}`}>{children}</div>;
+  return (
+    <div aria-live="polite" className={`rounded-md border p-3 text-sm ${tone}`}>
+      {children}
+    </div>
+  );
 }
 
 function messageFromError(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function formatMoney(amountCents: number, currency: string): string {
+  return new Intl.NumberFormat("en-SG", {
+    style: "currency",
+    currency,
+  }).format(amountCents / 100);
 }
