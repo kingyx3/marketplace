@@ -125,7 +125,11 @@ export function CatalogBrowser({
       </p>
 
       {filteredProducts.length === 0 ? (
-        <section className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
+        <section
+          aria-label="Catalog results"
+          className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm"
+          id="catalog-results"
+        >
           <h2 className="text-xl font-semibold text-zinc-950">No products match these filters</h2>
           <p className="mt-3 text-sm text-zinc-600">
             Clear the filters or try a broader search term.
