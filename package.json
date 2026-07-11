@@ -34,6 +34,7 @@
     "providers:apply": "node scripts/configure-providers.mjs --apply",
     "providers:verify": "node scripts/configure-providers.mjs --verify",
     "verify:hosted:supabase": "node scripts/verify-hosted-supabase.mjs",
+    "verify:hosted:oauth": "node scripts/verify-google-oauth-staging.mjs",
     "verify:hosted:stripe": "node scripts/verify-stripe-staging.mjs",
     "verify:hosted:providers": "node scripts/verify-supabase-provider-readiness.mjs",
     "verify:hosted:operations": "node scripts/verify-hosted-operations.mjs",
