@@ -1,13 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
-
-import { ProductCard } from "@/app/_components/product-card";
-import {
-  formatStatus,
-  type MarketplaceProduct,
-} from "@/app/_data/marketplace-fixtures";
-import type { WholesaleAccess } from "@/lib/b2b";
+import { Children, type FormEvent, type ReactNode, useMemo, useState } from "react";
 
 import {
   ALL_CATALOG_FILTERS,
@@ -15,18 +8,19 @@ import {
   catalogStatuses,
   EMPTY_CATALOG_FILTERS,
   filterCatalogProducts,
+  formatCatalogStatus,
+  hasCatalogFilters,
+  parseCatalogStatusFilter,
+  type CatalogFilterProduct,
   type CatalogFilters,
-  type CatalogStatusFilter,
 } from "./catalog-filters";
 
 export function CatalogBrowser({
+  children,
   products,
-  sourceLabel,
-  wholesaleAccess,
 }: {
-  products: MarketplaceProduct[];
-  sourceLabel: string;
-  wholesaleAccess: WholesaleAccess | null;
+  children: ReactNode;
+  products: CatalogFilterProduct[];
 }) {
   const [draftFilters, setDraftFilters] = useState<CatalogFilters>(EMPTY_CATALOG_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<CatalogFilters>(EMPTY_CATALOG_FILTERS);
@@ -36,10 +30,9 @@ export function CatalogBrowser({
     () => filterCatalogProducts(products, appliedFilters),
     [appliedFilters, products]
   );
-  const hasAppliedFilters =
-    appliedFilters.query !== "" ||
-    appliedFilters.game !== ALL_CATALOG_FILTERS ||
-    appliedFilters.status !== ALL_CATALOG_FILTERS;
+  const visibleSlugs = new Set(filteredProducts.map((product) => product.slug));
+  const cards = Children.toArray(children);
+  const canClear = hasCatalogFilters(draftFilters) || hasCatalogFilters(appliedFilters);
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,6 +47,7 @@ export function CatalogBrowser({
   return (
     <div className="space-y-6">
       <form
+        aria-label="Filter catalog"
         className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_12rem_12rem_auto]"
         onSubmit={applyFilters}
       >
@@ -93,7 +87,7 @@ export function CatalogBrowser({
             onChange={(event) =>
               setDraftFilters((current) => ({
                 ...current,
-                status: event.target.value as CatalogStatusFilter,
+                status: parseCatalogStatusFilter(event.target.value),
               }))
             }
             value={draftFilters.status}
@@ -101,21 +95,23 @@ export function CatalogBrowser({
             <option value={ALL_CATALOG_FILTERS}>All statuses</option>
             {statuses.map((status) => (
               <option key={status} value={status}>
-                {formatStatus(status)}
+                {formatCatalogStatus(status)}
               </option>
             ))}
           </select>
         </label>
         <div className="flex content-end items-end gap-2">
           <button
+            aria-controls="catalog-results"
             className="min-h-11 flex-1 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
             type="submit"
           >
             Apply
           </button>
           <button
+            aria-controls="catalog-results"
             className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!hasAppliedFilters}
+            disabled={!canClear}
             onClick={clearFilters}
             type="button"
           >
@@ -135,6 +131,7 @@ export function CatalogBrowser({
             Clear the filters or try a broader search term.
           </p>
           <button
+            aria-controls="catalog-results"
             className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
             onClick={clearFilters}
             type="button"
@@ -143,15 +140,12 @@ export function CatalogBrowser({
           </button>
         </section>
       ) : (
-        <section aria-label="Catalog results" className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {filteredProducts.map((product) => (
-            <ProductCard
-              key={product.slug}
-              product={product}
-              sourceLabel={sourceLabel}
-              wholesaleAccess={wholesaleAccess}
-            />
-          ))}
+        <section
+          aria-label="Catalog results"
+          className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+          id="catalog-results"
+        >
+          {products.map((product, index) => (visibleSlugs.has(product.slug) ? cards[index] : null))}
         </section>
       )}
     </div>
