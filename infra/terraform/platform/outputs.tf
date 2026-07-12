@@ -10,20 +10,24 @@ output "vercel_project_name" {
 
 output "vercel_project_ids" {
   description = "Vercel project ids by deployable environment."
-  value = {
-    development = vercel_project.app.id
-    staging     = vercel_project.staging.id
-    production  = vercel_project.app.id
-  }
+  value = merge(
+    {
+      development = vercel_project.app.id
+      production  = vercel_project.app.id
+    },
+    { for project in vercel_project.staging : "staging" => project.id }
+  )
 }
 
 output "vercel_project_names" {
   description = "Vercel project names by deployable environment."
-  value = {
-    development = vercel_project.app.name
-    staging     = vercel_project.staging.name
-    production  = vercel_project.app.name
-  }
+  value = merge(
+    {
+      development = vercel_project.app.name
+      production  = vercel_project.app.name
+    },
+    { for project in vercel_project.staging : "staging" => project.name }
+  )
 }
 
 output "vercel_team_id" {
@@ -50,6 +54,11 @@ output "supabase_database_passwords" {
 output "active_supabase_environments" {
   description = "Hosted Supabase environments managed by this Terraform stack."
   value       = sort(tolist(local.active_supabase_environments))
+}
+
+output "release_topology_enabled" {
+  description = "Whether staging/recovery Supabase projects and the dedicated staging Vercel project are enabled."
+  value       = var.enable_release_topology
 }
 
 output "project_slug" {

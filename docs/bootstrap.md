@@ -1,6 +1,6 @@
 # Bootstrap guide
 
-The hosted bootstrap supports `development`, `staging`, and `production`. `development` is the default. The local command first reconciles GitHub governance and the selected GitHub Environment, then—only with `--apply`—dispatches **Bootstrap & Deploy** from the `main` branch and follows that exact workflow run to completion.
+The hosted bootstrap defaults to the compact `development` and `production` topology. `development` is the default target. `staging` remains available as an opt-in target when the repository variable `ENABLE_RELEASE_TOPOLOGY=true` is set. The local command first reconciles GitHub governance and the selected GitHub Environment, then—only with `--apply`—dispatches **Bootstrap & Deploy** from the `main` branch and follows that exact workflow run to completion.
 
 Bootstrap is convergent: unchanged branch protection, environments, infrastructure, provider settings, runtime values, migrations, and deployments become no-ops or reuse existing ready resources.
 
@@ -27,7 +27,7 @@ Create or confirm the account-level trust boundaries repository code cannot own:
 - A Supabase access token and organization access.
 - Stripe test/live keys with PayNow enabled at the account level.
 - Google OAuth consent-screen and Web-client ownership when Google Auth is enabled.
-- Verified Resend sender/domain and operational alert destinations for staging and production readiness gates.
+- Verified Resend sender/domain and operational alert destinations for staging and production readiness gates when the extended release topology is enabled.
 
 The command always operates on the repository resolved by `gh repo view`. Run it from this repository checkout.
 
@@ -45,7 +45,9 @@ These unprefixed values are required for every target and are stored as GitHub r
 | `VERCEL_TOKEN` | Repository secret |
 | `SUPABASE_ACCESS_TOKEN` | Repository secret |
 
-Optional Terraform overrides are stored as GitHub repository variables, not target-prefixed shell values: `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
+Optional Terraform overrides are stored as GitHub repository variables, not target-prefixed shell values: `ENABLE_RELEASE_TOPOLOGY`, `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
+
+`ENABLE_RELEASE_TOPOLOGY` defaults to `false`. Leave it unset or export `ENABLE_RELEASE_TOPOLOGY=false` for the compact development/production topology. Set it to `true` only when you are ready to provision the dedicated staging Vercel project plus staging and recovery Supabase projects. It is repository-scoped because all targets share one platform Terraform state.
 
 ### Target-prefixed values
 
@@ -112,8 +114,13 @@ npm run bootstrap
 Preview another target:
 
 ```bash
-npm run bootstrap -- --target=staging
 npm run bootstrap -- --target=production
+```
+
+After opting into the extended topology, staging can also be previewed:
+
+```bash
+ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap -- --target=staging
 ```
 
 Without `--apply`, no GitHub settings are changed and no hosted workflow is dispatched.
@@ -126,22 +133,22 @@ Development:
 npm run bootstrap -- --apply
 ```
 
-Staging:
-
-```bash
-npm run bootstrap -- --apply --target=staging
-```
-
 Production bootstrap or full recovery convergence:
 
 ```bash
 npm run bootstrap -- --apply --target=production
 ```
 
+Staging, only after opting into the extended topology:
+
+```bash
+ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap -- --apply --target=staging
+```
+
 The command:
 
 1. Reconciles `main` branch protection.
-2. Creates or updates the selected GitHub Environment, deployment policies, variables, supplied secrets, and production reviewers when applicable.
+2. Stores the repository-wide topology flag, then creates or updates the selected GitHub Environment, deployment policies, variables, supplied secrets, and production reviewers when applicable.
 3. Dispatches `.github/workflows/bootstrap.yml` with `--ref main` and the selected target.
 4. Finds the newly dispatched run, follows it, and returns its exit status.
 
@@ -152,7 +159,8 @@ Because the workflow is dispatched from `main`, unmerged local or feature-branch
 **Bootstrap & Deploy** runs one linear target-aware pipeline:
 
 ```text
-full application and Playwright checks
+validate that the selected target is enabled
+→ full application and Playwright checks
 → converge Terraform state bucket
 → converge shared platform infrastructure
 → reconcile selected environment providers, runtime values, and database
@@ -165,12 +173,19 @@ Application checks run once. Deployment receives `skip_app_checks=true` from the
 
 ## Hosted topology
 
-- `development` uses the primary Vercel project and the development Supabase project.
+Default compact topology:
+
+- `development` uses Vercel Preview deployments in the primary Vercel project and the development Supabase project.
+- `production` uses Vercel Production in the same primary Vercel project and the production Supabase project, protected by the production GitHub Environment.
+
+Optional extended release topology when `ENABLE_RELEASE_TOPOLOGY=true`:
+
 - `staging` uses a dedicated staging Vercel project and staging Supabase project, with production-like readiness checks.
-- `production` uses the primary Vercel project and production Supabase project, protected by the production GitHub Environment.
 - `recovery` is a Terraform-managed Supabase project used by restore and recovery verification; it is not a bootstrap target.
 
-For routine production releases, publish a `v*` tag or GitHub release. **Deploy production** first deploys the exact revision to staging, runs hosted release gates, and only then deploys production. Direct production bootstrap remains available for initial provisioning and full-stack recovery.
+The staging target fails closed while the topology flag is disabled. Enabling the flag later causes the same shared Terraform stack to add the staging and recovery resources without changing the development/production resource addresses.
+
+The staged production release workflow still requires the extended release topology. Until that flag is enabled and the staging/recovery inputs are configured, use direct production bootstrap only for deliberate provisioning or recovery work rather than triggering the staged `v*` release path.
 
 ## What convergence includes
 
@@ -181,6 +196,7 @@ For routine production releases, publish a `v*` tag or GitHub release. **Deploy 
 - Automatic convergence creates a binary plan and applies that exact plan in the same protected run.
 - Granular `reconcile`, `plan`, and reviewed-artifact `apply` modes remain available for recovery and exceptional review workflows.
 - Shared infrastructure uses one global concurrency lock and committed provider lockfiles.
+- With the topology flag disabled, a convergent apply removes any Terraform-tracked staging Vercel shell or staging/recovery password state created by an earlier partial apply.
 
 ### Runtime and providers
 
@@ -192,7 +208,7 @@ For routine production releases, publish a `v*` tag or GitHub release. **Deploy 
 ### Deployment and verification
 
 - Identical source/runtime fingerprints reuse an existing ready Vercel deployment.
-- Staging and production validate infrastructure/provider readiness before migration and deployment.
+- Staging and production validate infrastructure/provider readiness before migration and deployment when those paths are used.
 - Final verification checks Terraform drift, provider state, Vercel runtime state, `/api/health`, and deep readiness for hosted non-development targets.
 
 ## Recovery workflows
@@ -203,7 +219,7 @@ The following workflows remain available but are not the normal full-stack setup
 - **Terraform Platform** — `converge`, `reconcile`, `plan`, or reviewed-artifact `apply`.
 - **Bootstrap Environment** — targeted `apply` or non-mutating `verify`.
 - **Configure Providers** — provider-only plan, repair, or verification.
-- Development, staging, and production deployment workflows — application release paths.
+- Development and production deployment workflows, plus staging when the extended topology is enabled.
 
 Use recovery mode when adopting manually created resources, diagnosing state, or repairing one layer. Otherwise rerun **Bootstrap & Deploy** for the selected target.
 

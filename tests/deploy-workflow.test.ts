@@ -16,12 +16,15 @@ describe("deployment workflow contract", () => {
     }
   });
 
-  it("defaults hosted bootstrap to development with explicit staging and production", async () => {
+  it("defaults hosted bootstrap to development while guarding the optional staging target", async () => {
     const workflow = await read(".github/workflows/bootstrap.yml");
     expect(workflow).toContain("name: Bootstrap & Deploy");
     expect(workflow).toContain("default: development");
     expect(workflow).toContain("options: [development, staging, production]");
     expect(workflow).not.toContain("options: [all");
+    expect(workflow).toContain("validate-target:");
+    expect(workflow).toContain("ENABLE_RELEASE_TOPOLOGY");
+    expect(workflow).toContain("inputs.target == 'staging'");
     expect(workflow).toContain("environment: ${{ inputs.target }}");
     expect(workflow).toContain("uses: ./.github/workflows/terraform-state-bootstrap.yml");
     expect(workflow).toContain("uses: ./.github/workflows/terraform-platform.yml");
@@ -35,12 +38,13 @@ describe("deployment workflow contract", () => {
   });
 
   it("keeps operator documentation aligned with bootstrap and platform contracts", async () => {
-    const [bootstrap, deployment, architecture, platformDocs, platform, packageJson] = await Promise.all([
+    const [bootstrap, deployment, architecture, platformDocs, platform, variables, packageJson] = await Promise.all([
       read("docs/bootstrap.md"),
       read("docs/deployment.md"),
       read("docs/architecture.md"),
       read("infra/terraform/platform/README.md"),
       read("infra/terraform/platform/main.tf"),
+      read("infra/terraform/platform/variables.tf"),
       read("package.json"),
     ]);
     const nextVersion = JSON.parse(packageJson).dependencies.next as string;
@@ -49,12 +53,41 @@ describe("deployment workflow contract", () => {
     for (const target of ["development", "staging", "production"]) {
       expect(bootstrap).toContain(`\`${target}\``);
     }
+    expect(bootstrap).toContain("ENABLE_RELEASE_TOPOLOGY");
     expect(bootstrap).toContain("npm run bootstrap -- --apply --target=staging");
     expect(bootstrap).toContain("npm run bootstrap -- --apply --target=production");
     expect(deployment).toContain("Pushes to `main` deploy `staging`");
-    expect(platform).toContain('active_supabase_environments = toset(["development", "staging", "recovery", "production"])');
-    expect(platformDocs).toContain("Supabase projects for `development`, `staging`, `recovery`, and `production`");
+    expect(platform).toContain("base_supabase_environments");
+    expect(platform).toContain("release_supabase_environments = var.enable_release_topology");
+    expect(variables).toContain('variable "enable_release_topology"');
+    expect(variables).toContain("default     = false");
+    expect(platformDocs).toContain("The default compact topology is");
+    expect(platformDocs).toContain("ENABLE_RELEASE_TOPOLOGY=true");
     expect(architecture).toContain(`Next.js ${nextMajor}`);
+  });
+
+  it("keeps the release topology disabled by default and restorable without address changes", async () => {
+    const [platform, outputs, resolver, imports, workflow, bootstrapGithub] = await Promise.all([
+      read("infra/terraform/platform/main.tf"),
+      read("infra/terraform/platform/outputs.tf"),
+      read("scripts/resolve-terraform-inputs.mjs"),
+      read("scripts/bootstrap-terraform-imports.mjs"),
+      read(".github/workflows/terraform-platform.yml"),
+      read("scripts/bootstrap-github.mjs"),
+    ]);
+    expect(platform).toContain("base_supabase_environments");
+    expect(platform).toContain('toset(["staging", "recovery"])');
+    expect(platform).toContain("count = var.enable_release_topology ? 1 : 0");
+    expect(outputs).toContain('{ for project in vercel_project.staging : "staging" => project.id }');
+    expect(outputs).toContain('output "release_topology_enabled"');
+    expect(workflow).toContain("ENABLE_RELEASE_TOPOLOGY: ${{ vars.ENABLE_RELEASE_TOPOLOGY }}");
+    expect(resolver).toContain("TF_VAR_enable_release_topology");
+    expect(resolver).toContain('"development,production"');
+    expect(resolver).toContain('"development,staging,recovery,production"');
+    expect(imports).toContain("releaseTopologyEnabled");
+    expect(imports).toContain("vercel_project.staging[0]");
+    expect(bootstrapGithub).toContain("ENABLE_RELEASE_TOPOLOGY");
+    expect(bootstrapGithub).toContain("setRepositoryVariable");
   });
 
   it("keeps granular Terraform workflows reusable while defaulting to convergence", async () => {

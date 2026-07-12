@@ -19,7 +19,17 @@ permissions:
   actions: read
 
 jobs:
+  validate-target:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require opt-in for staging topology
+        if: ${{ inputs.target == 'staging' && vars.ENABLE_RELEASE_TOPOLOGY != 'true' }}
+        run: |
+          echo "Staging is disabled. Set the repository variable ENABLE_RELEASE_TOPOLOGY=true before selecting the staging target." >&2
+          exit 1
+
   checks:
+    needs: validate-target
     uses: ./.github/workflows/app-checks.yml
     with:
       run_e2e: true

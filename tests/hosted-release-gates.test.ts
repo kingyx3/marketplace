@@ -38,7 +38,7 @@ describe("hosted production release gates", () => {
     expect(workflow).toContain("SUPABASE_REQUIRED_BACKUP_MODE: pitr");
   });
 
-  it("provisions isolated staging and recovery infrastructure", async () => {
+  it("keeps isolated staging and recovery infrastructure available as an opt-in topology", async () => {
     const terraform = await readFile(
       new URL("../infra/terraform/platform/main.tf", import.meta.url),
       "utf8"
@@ -47,12 +47,18 @@ describe("hosted production release gates", () => {
       new URL("../infra/terraform/platform/outputs.tf", import.meta.url),
       "utf8"
     );
+    const variables = await readFile(
+      new URL("../infra/terraform/platform/variables.tf", import.meta.url),
+      "utf8"
+    );
 
-    expect(terraform).toContain('"staging"');
-    expect(terraform).toContain('"recovery"');
+    expect(terraform).toContain('toset(["staging", "recovery"])');
     expect(terraform).toContain('resource "vercel_project" "staging"');
+    expect(terraform).toContain("count = var.enable_release_topology ? 1 : 0");
     expect(outputs).toContain('output "vercel_project_ids"');
-    expect(outputs).toContain("staging     = vercel_project.staging.id");
+    expect(outputs).toContain('{ for project in vercel_project.staging : "staging" => project.id }');
+    expect(variables).toContain('variable "enable_release_topology"');
+    expect(variables).toContain("default     = false");
   });
 
   it("keeps the restore target explicitly destructive and separate", async () => {

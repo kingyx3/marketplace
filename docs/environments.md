@@ -60,22 +60,26 @@ Staging additionally carries recovery-project/database inputs, operations owners
 
 ## Hosted topology
 
-Terraform manages:
+Terraform manages by default:
 
-- the primary Vercel project used by development and production;
+- the primary Vercel project used by development previews and production;
+- Supabase projects for `development` and `production`.
+
+Set the repository variable `ENABLE_RELEASE_TOPOLOGY=true` to additionally manage:
+
 - a dedicated staging Vercel project;
-- Supabase projects for `development`, `staging`, `recovery`, and `production`.
+- Supabase projects for `staging` and `recovery`.
 
-`development`, `staging`, and `production` are deploy/bootstrap targets. `recovery` is used by hosted restore verification and is not a deploy target.
+`development` and `production` are always deploy/bootstrap targets. `staging` is accepted only when the extended topology is enabled. `recovery` is used by hosted restore verification and is not a deploy target. Because one Terraform state owns the entire platform topology, `ENABLE_RELEASE_TOPOLOGY` is repository-scoped rather than environment-scoped.
 
 ## GitHub CLI intake
 
-`npm run bootstrap:github` is plan-only and defaults to `development`. `npm run bootstrap:github:apply` creates or reconciles the selected Environment, its deployment policies, variables, supplied secrets, and—when production is selected—required reviewers.
+`npm run bootstrap:github` is plan-only and defaults to `development`. `npm run bootstrap:github:apply` creates or reconciles the selected Environment, its deployment policies, variables, supplied secrets, and—when production is selected—required reviewers. It also stores the repository-wide `ENABLE_RELEASE_TOPOLOGY` flag, defaulting it to `false`.
 
 ```bash
 npm run bootstrap:github:apply
-npm run bootstrap:github:apply -- --target=staging
 npm run bootstrap:github:apply -- --target=production
+ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap:github:apply -- --target=staging
 ```
 
 Shell values use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefix. Values are never printed. The normal end-to-end entry point is `npm run bootstrap -- --apply`, which invokes governance and target-aware GitHub intake automatically before dispatching **Bootstrap & Deploy** from `main`.
@@ -84,6 +88,7 @@ Shell values use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefi
 
 Repository variables remain available when defaults cannot be inferred:
 
+- `ENABLE_RELEASE_TOPOLOGY` (defaults to `false`)
 - `GCP_PROJECT_ID`
 - `PROJECT_SLUG`
 - `TF_STATE_BUCKET_NAME`
@@ -98,7 +103,7 @@ Supabase compute sizing is not currently part of the Terraform contract because 
 
 ## Release-readiness verification
 
-The hosted bootstrap workflow automatically verifies the selected environment after deployment. Staging and production also run infrastructure/provider readiness before migration and deep readiness after deployment.
+The hosted bootstrap workflow automatically verifies the selected environment after deployment. Production runs infrastructure/provider readiness before migration and deep readiness after deployment. Staging does the same when the extended release topology is enabled.
 
 For targeted diagnostics, run **Bootstrap Environment** with `mode=verify` or use `npm run bootstrap:verify` from an authenticated shell. Verification is non-mutating and fails when Terraform, provider settings, Vercel runtime values, or deployed health differ from the resolved desired state.
 
