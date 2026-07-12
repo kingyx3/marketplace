@@ -7,10 +7,11 @@ import { isMissingStateAddress } from "./lib/terraform-state.mjs";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
 const terraformDir = resolve(repoRoot, "infra/terraform/platform");
+const releaseTopologyEnabled = optional("TF_VAR_enable_release_topology") === "true";
 const supabaseEnvironments = (optional("TERRAFORM_BOOTSTRAP_SUPABASE_ENVIRONMENTS") || "development,production")
   .split(",").map((env) => env.trim()).filter(Boolean);
 
-await bootstrapVercelProject();
+await bootstrapVercelProjects();
 await bootstrapSupabaseProjects();
 
 function optional(key) { return process.env[key]?.trim() || ""; }
@@ -49,16 +50,22 @@ function terraform(args) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-async function bootstrapVercelProject() {
-  const address = "vercel_project.app";
+async function bootstrapVercelProjects() {
+  const primaryProjectName = firstPresent("TF_VAR_vercel_project_name", "VERCEL_PROJECT_NAME") || firstPresent("TF_VAR_project_slug", "PROJECT_SLUG");
+  if (!primaryProjectName) fail("Project slug/name is required to reconcile the Vercel Terraform state.");
+  await bootstrapVercelProject("vercel_project.app", primaryProjectName);
+  if (releaseTopologyEnabled) {
+    await bootstrapVercelProject('vercel_project.staging[0]', `${primaryProjectName}-staging`);
+  }
+}
+
+async function bootstrapVercelProject(address, projectName) {
   if (readState(address).exists) {
     console.log(`${address} is already in Terraform state; skipping Vercel import.`);
     return;
   }
   const token = firstPresent("VERCEL_API_TOKEN", "VERCEL_TOKEN");
   if (!token) fail("VERCEL_TOKEN is required to reconcile the Vercel Terraform state.");
-  const projectName = firstPresent("TF_VAR_vercel_project_name", "VERCEL_PROJECT_NAME") || firstPresent("TF_VAR_project_slug", "PROJECT_SLUG");
-  if (!projectName) fail("Project slug/name is required to reconcile the Vercel Terraform state.");
   const teamId = firstPresent("TF_VAR_vercel_team_id", "VERCEL_TEAM_ID");
   const url = new URL(`https://api.vercel.com/v9/projects/${encodeURIComponent(projectName)}`);
   if (teamId) url.searchParams.set("teamId", teamId);
