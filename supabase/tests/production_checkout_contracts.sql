@@ -39,9 +39,16 @@ begin
   insert into auth.users (id, email)
   values (v_auth_user_id, 'checkout-contract@example.test');
 
-  insert into public.customers (auth_user_id, email, name, segment, default_currency)
-  values (v_auth_user_id, 'checkout-contract@example.test', 'Checkout Contract', 'reseller', 'SGD')
+  update public.customers
+  set name = 'Checkout Contract',
+      segment = 'reseller',
+      default_currency = 'SGD'
+  where auth_user_id = v_auth_user_id
   returning id into v_customer_id;
+
+  if v_customer_id is null then
+    raise exception 'auth user did not provision a customer';
+  end if;
 
   select id into v_sku_id
   from public.booster_box_skus
