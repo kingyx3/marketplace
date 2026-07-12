@@ -3,7 +3,9 @@ locals {
   staging_vercel_project_name  = "${local.vercel_project_name}-staging"
   vercel_team_id               = var.vercel_team_id == "" ? null : var.vercel_team_id
   vercel_root_directory        = var.vercel_root_directory == "" ? null : var.vercel_root_directory
-  active_supabase_environments = toset(["development", "staging", "recovery", "production"])
+  base_supabase_environments   = toset(["development", "production"])
+  release_supabase_environments = var.enable_release_topology ? toset(["staging", "recovery"]) : toset([])
+  active_supabase_environments = setunion(local.base_supabase_environments, local.release_supabase_environments)
 }
 
 resource "random_password" "supabase_database" {
@@ -24,6 +26,8 @@ resource "vercel_project" "app" {
 }
 
 resource "vercel_project" "staging" {
+  count = var.enable_release_topology ? 1 : 0
+
   name                         = local.staging_vercel_project_name
   framework                    = "nextjs"
   install_command              = "npm ci"
