@@ -18,6 +18,26 @@ describe("bootstrap convergence", () => {
     expect(provision).not.toContain("webhookEndpoints.update(");
   });
 
+  it("lets Vercel populate values masked by empty GitHub placeholders", () => {
+    const result = runModule<Record<string, string>>(`
+      import { withoutEmptyEnvironmentValues } from './scripts/lib/process-environment.mjs';
+      console.log(JSON.stringify(withoutEmptyEnvironmentValues({
+        STRIPE_WEBHOOK_SECRET: '',
+        OPTIONAL_SECRET: '   ',
+        STRIPE_SECRET_KEY: 'sk_test_x',
+        ZERO: '0'
+      })));
+    `);
+    expect(result).toEqual({ STRIPE_SECRET_KEY: "sk_test_x", ZERO: "0" });
+  });
+
+  it("sanitizes every Vercel env run used by bootstrap apply and verification", async () => {
+    const reconcile = await readFile(new URL("../scripts/reconcile-runtime-environment.mjs", import.meta.url), "utf8");
+    const verify = await readFile(new URL("../scripts/verify-environment.mjs", import.meta.url), "utf8");
+    expect(reconcile).toContain("env: withoutEmptyEnvironmentValues(process.env)");
+    expect(verify.match(/env: vercelEnvRunEnvironment/g)).toHaveLength(2);
+  });
+
   it("performs zero provider writes when the Stripe endpoint already matches", () => {
     const result = runModule<{
       action: string;
