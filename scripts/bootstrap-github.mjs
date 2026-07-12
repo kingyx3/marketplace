@@ -13,6 +13,9 @@ if (!repo) fail("Could not resolve the current GitHub repository.");
 run("gh", ["auth", "status"]);
 
 const sharedSecrets = ["GCP_TERRAFORM_CREDENTIALS_JSON", "VERCEL_TOKEN", "SUPABASE_ACCESS_TOKEN"];
+const sharedVariableValues = {
+  ENABLE_RELEASE_TOPOLOGY: booleanValue("ENABLE_RELEASE_TOPOLOGY", false),
+};
 const commonVariables = [
   "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
@@ -62,6 +65,7 @@ const environmentSecrets = [...commonSecrets, ...targetSecrets[target]];
 
 console.log(`${apply ? "Applying" : "Planning"} GitHub bootstrap for ${repo}/${target}.`);
 for (const name of sharedSecrets) reportInput(name, process.env[name], true);
+for (const [name, value] of Object.entries(sharedVariableValues)) reportInput(name, value, true);
 console.log(`\n${target}:`);
 for (const name of environmentVariables) {
   reportInput(`${environmentPrefix(target)}_${name}`, environmentValue(target, name), variableIsRequired(name));
@@ -77,6 +81,7 @@ if (!apply) {
 }
 
 for (const name of sharedSecrets) setSecret(name, requiredEnv(name));
+for (const [name, value] of Object.entries(sharedVariableValues)) setRepositoryVariable(name, value);
 ensureEnvironment(target);
 for (const pattern of deploymentPolicies(target)) ensureDeploymentPolicy(target, pattern);
 for (const name of environmentVariables) {
@@ -182,6 +187,10 @@ function tryJson(commandArgs) {
   if (/404|Not Found/i.test(result.stderr || "")) return null;
   fail(`gh ${commandArgs.join(" ")} failed: ${result.stderr || result.error?.message}`);
 }
+function setRepositoryVariable(name, value) {
+  run("gh", ["variable", "set", name, "--repo", repo, "--body", value], { quiet: true });
+  console.log(`repository variable ${name}: set`);
+}
 function setVariable(environment, name, value) {
   run("gh", ["variable", "set", name, "--repo", repo, "--env", environment, "--body", value], { quiet: true });
   console.log(`${environment} variable ${name}: set`);
@@ -208,6 +217,12 @@ function requiredEnv(name) {
   const value = process.env[name] || "";
   if (!value) fail(`${name} is required`);
   return value;
+}
+function booleanValue(name, fallback) {
+  const value = String(process.env[name] ?? "").trim().toLowerCase();
+  if (!value) return String(fallback);
+  if (value === "true" || value === "false") return value;
+  fail(`${name} must be true or false`);
 }
 function reportInput(name, value, required) {
   console.log(`  ${name}: ${value ? "supplied" : required ? "MISSING" : "optional/not supplied"}`);
