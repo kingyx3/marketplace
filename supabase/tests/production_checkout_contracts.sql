@@ -36,12 +36,29 @@ declare
   v_status public.order_status;
   v_payment_status public.payment_status;
 begin
-  insert into auth.users (id, email)
-  values (v_auth_user_id, 'checkout-contract@example.test');
+  insert into auth.users (id, email, raw_user_meta_data)
+  values (
+    v_auth_user_id,
+    'checkout-contract@example.test',
+    '{"full_name":"Checkout Contract"}'::jsonb
+  );
 
-  insert into public.customers (auth_user_id, email, name, segment, default_currency)
-  values (v_auth_user_id, 'checkout-contract@example.test', 'Checkout Contract', 'reseller', 'SGD')
-  returning id into v_customer_id;
+  -- auth.users provisioning owns customer creation. Reuse that row instead of
+  -- inserting a duplicate auth_user_id, and assert the trigger populated it.
+  select id into v_customer_id
+  from public.customers
+  where auth_user_id = v_auth_user_id
+    and email = 'checkout-contract@example.test'
+    and name = 'Checkout Contract';
+
+  if v_customer_id is null then
+    raise exception 'auth user customer provisioning failed';
+  end if;
+
+  update public.customers
+  set segment = 'reseller',
+      default_currency = 'SGD'
+  where id = v_customer_id;
 
   select id into v_sku_id
   from public.booster_box_skus
