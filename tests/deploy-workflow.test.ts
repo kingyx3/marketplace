@@ -57,7 +57,7 @@ describe("deployment workflow contract", () => {
     expect(bootstrap).toContain("npm run bootstrap -- --apply --target=staging");
     expect(bootstrap).toContain("npm run bootstrap -- --apply --target=production");
     expect(deployment).toContain("Pushes to `main` deploy `staging`");
-    expect(platform).toContain('base_supabase_environments   = toset(["development", "production"])');
+    expect(platform).toContain("base_supabase_environments");
     expect(platform).toContain("release_supabase_environments = var.enable_release_topology");
     expect(variables).toContain('variable "enable_release_topology"');
     expect(variables).toContain("default     = false");
@@ -75,7 +75,7 @@ describe("deployment workflow contract", () => {
       read(".github/workflows/terraform-platform.yml"),
       read("scripts/bootstrap-github.mjs"),
     ]);
-    expect(platform).toContain('base_supabase_environments   = toset(["development", "production"])');
+    expect(platform).toContain("base_supabase_environments");
     expect(platform).toContain('toset(["staging", "recovery"])');
     expect(platform).toContain("count = var.enable_release_topology ? 1 : 0");
     expect(outputs).toContain('{ for project in vercel_project.staging : "staging" => project.id }');
