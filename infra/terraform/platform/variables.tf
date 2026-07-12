@@ -32,3 +32,9 @@ variable "supabase_region" {
   type        = string
   default     = "ap-southeast-1"
 }
+
+variable "enable_release_topology" {
+  description = "Opt in to staging/recovery Supabase projects and a dedicated staging Vercel project."
+  type        = bool
+  default     = false
+}
