@@ -28,6 +28,7 @@ const values = {
 
 if (mode === "platform") {
   const vercelToken = optional("VERCEL_API_TOKEN") || required("VERCEL_TOKEN");
+  const enableReleaseTopology = booleanOption("ENABLE_RELEASE_TOPOLOGY", false);
   required("SUPABASE_ACCESS_TOKEN");
 
   values.VERCEL_API_TOKEN = vercelToken;
@@ -37,6 +38,10 @@ if (mode === "platform") {
   values.TF_VAR_vercel_root_directory = optional("VERCEL_ROOT_DIRECTORY");
   values.TF_VAR_supabase_organization_id = optional("SUPABASE_ORGANIZATION_ID") || await resolveSingleSupabaseOrganizationId();
   values.TF_VAR_supabase_region = optional("SUPABASE_REGION") || "ap-southeast-1";
+  values.TF_VAR_enable_release_topology = String(enableReleaseTopology);
+  values.TERRAFORM_BOOTSTRAP_SUPABASE_ENVIRONMENTS = enableReleaseTopology
+    ? "development,staging,recovery,production"
+    : "development,production";
 }
 
 await appendFile(githubEnv, Object.entries(values).map(([key, value]) => formatGithubEnvLine(key, value)).join(""), "utf8");
@@ -49,6 +54,14 @@ function required(key) {
   const value = optional(key);
   if (!value) fail(`${key} is required`);
   return value;
+}
+
+function booleanOption(key, fallback) {
+  const value = optional(key).toLowerCase();
+  if (!value) return fallback;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  fail(`${key} must be true or false`);
 }
 
 function readGoogleProjectId(raw) {
