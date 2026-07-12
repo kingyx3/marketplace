@@ -37,7 +37,10 @@ describe("B2B invoice production controls", () => {
     );
 
     expect(vercel.crons).toBeUndefined();
+    expect(migration).toContain("from pg_available_extensions");
+    expect(migration).toContain("where name = 'pg_cron'");
     expect(migration).toContain("create extension if not exists pg_cron schema pg_catalog");
+    expect(migration).toContain("pg_cron is unavailable; skipping invoice expiry schedule");
     expect(migration).toContain("expire-stale-invoice-orders-hourly");
     expect(migration).toContain("7 * * * *");
     expect(migration).toContain("expire_stale_invoice_orders(500)");
