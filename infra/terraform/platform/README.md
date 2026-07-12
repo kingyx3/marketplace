@@ -1,12 +1,18 @@
 # Platform Terraform
 
-This stack manages the provider project shells for the current hosted topology:
+This stack manages the provider project shells for the current hosted topology.
 
-- one primary Vercel project derived from `project_slug` (defaults to `marketplace`), used by development and production;
+The default compact topology is:
+
+- one primary Vercel project derived from `project_slug` (defaults to `marketplace`), used by development previews and production;
+- Supabase projects for `development` and `production`.
+
+The extended release topology is opt-in with the repository variable `ENABLE_RELEASE_TOPOLOGY=true`. When enabled, Terraform additionally manages:
+
 - one dedicated staging Vercel project named `<primary>-staging`;
-- Supabase projects for `development`, `staging`, `recovery`, and `production`.
+- Supabase projects for `staging` and `recovery`.
 
-`development`, `staging`, and `production` are deployable environments. `recovery` is used by hosted restore verification and is not passed to the reusable deployment workflow.
+`development` and `production` are always deployable environments. `staging` becomes deployable only when the extended release topology is enabled. `recovery` is used by hosted restore verification and is not passed to the reusable deployment workflow.
 
 ## State
 
@@ -26,6 +32,7 @@ Required repository secrets:
 
 Optional repository variables:
 
+- `ENABLE_RELEASE_TOPOLOGY` (defaults to `false`; set to `true` to add staging/recovery resources)
 - `GCP_PROJECT_ID` (derived from Google credential JSON when omitted)
 - `SUPABASE_ORGANIZATION_ID` (set this when the token can access multiple organizations)
 - `PROJECT_SLUG` (defaults to the repository name)
@@ -35,6 +42,8 @@ Optional repository variables:
 - `VERCEL_TEAM_ID`
 - `VERCEL_ROOT_DIRECTORY`
 - `SUPABASE_REGION` (defaults to `ap-southeast-1`)
+
+`ENABLE_RELEASE_TOPOLOGY` is repository-scoped because the platform stack uses one shared Terraform state. Keep it consistent for every environment that invokes the platform workflow.
 
 Supabase project compute sizing is intentionally not declared because the pinned Supabase Terraform provider does not expose that setting. Manage paid-plan compute through the Supabase account control plane until a tested provider release supports it.
 
@@ -49,12 +58,13 @@ Hosted workflows read `terraform output -json` from this stack and pass the resu
 Outputs consumed downstream:
 
 - `vercel_project_id` and `vercel_project_name` — primary-project compatibility outputs;
-- `vercel_project_ids` and `vercel_project_names` — environment-to-project maps for development, staging, and production;
+- `vercel_project_ids` and `vercel_project_names` — environment-to-project maps for development and production, plus staging when enabled;
 - `vercel_team_id`;
 - `supabase_project_refs`;
 - `supabase_project_urls`;
 - `supabase_database_passwords` (sensitive);
 - `active_supabase_environments`;
+- `release_topology_enabled`;
 - `project_slug`.
 
 ## Local use
@@ -67,10 +77,15 @@ terraform init -backend-config=backend.config.example
 terraform plan
 ```
 
-Set provider credentials and `TF_VAR_*` values in your shell first. After a local apply, reconcile the GitHub Environments and run provider/environment bootstrap for each deployable target. The supported end-to-end commands are:
+Set provider credentials and `TF_VAR_*` values in your shell first. After a local apply, reconcile the GitHub Environments and run provider/environment bootstrap for each deployable target. The supported default end-to-end commands are:
 
 ```bash
 npm run bootstrap -- --apply
-npm run bootstrap -- --apply --target=staging
 npm run bootstrap -- --apply --target=production
+```
+
+To restore the staged release topology later, set `ENABLE_RELEASE_TOPOLOGY=true`, rerun GitHub bootstrap so the repository variable is stored, and then run:
+
+```bash
+npm run bootstrap -- --apply --target=staging
 ```
