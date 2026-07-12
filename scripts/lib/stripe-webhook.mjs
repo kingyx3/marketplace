@@ -63,8 +63,8 @@ export async function inspectStripeWebhook({ stripe, config }) {
 }
 
 export async function reconcileStripeWebhook({
-  stripe = createStripeClient(config),
   config,
+  stripe = createStripeClient(config),
   allowCreate,
   requireSigningSecret = true,
   onCredentials = async () => {},
@@ -104,7 +104,7 @@ export async function reconcileStripeWebhook({
   return { action: Object.keys(update).length > 0 ? "updated" : "unchanged", endpoint };
 }
 
-export async function verifyStripeWebhook({ stripe = createStripeClient(config), config, requireSigningSecret = true }) {
+export async function verifyStripeWebhook({ config, stripe = createStripeClient(config), requireSigningSecret = true }) {
   const state = await inspectStripeWebhook({ stripe, config });
   if (!state.endpoint) throw new Error(`No Stripe webhook endpoint exists for ${config.webhookUrl}.`);
   if (state.update && Object.keys(state.update).length > 0) {
