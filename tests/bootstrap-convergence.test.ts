@@ -49,6 +49,26 @@ describe("bootstrap convergence", () => {
     expect(result).toEqual({ action: "unchanged", updates: 0, creates: 0, deletes: 0, credentials: 1 });
   });
 
+  it("binds Stripe config before constructing the default client", () => {
+    const result = runModule<Record<string, string>>(`
+      import { buildStripeWebhookConfig, reconcileStripeWebhook, verifyStripeWebhook } from './scripts/lib/stripe-webhook.mjs';
+      const config = buildStripeWebhookConfig({ STRIPE_SECRET_KEY: 'sk_test_x' });
+      const errors = {};
+      for (const [name, operation] of Object.entries({
+        reconcile: () => reconcileStripeWebhook({ config, allowCreate: true }),
+        verify: () => verifyStripeWebhook({ config }),
+      })) {
+        try { await operation(); }
+        catch (error) { errors[name] = error.message; }
+      }
+      console.log(JSON.stringify(errors));
+    `);
+    expect(result).toEqual({
+      reconcile: "Cannot reconcile Stripe webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",
+      verify: "Cannot reconcile Stripe webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",
+    });
+  });
+
   it("fails closed on Terraform state errors that are not explicit absence", () => {
     const result = runModule<Record<string, boolean>>(`
       import { isMissingRemoteObject, isMissingStateAddress } from './scripts/lib/terraform-state.mjs';
