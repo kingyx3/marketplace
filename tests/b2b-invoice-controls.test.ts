@@ -20,19 +20,27 @@ describe("B2B invoice production controls", () => {
     expect(migration).toContain("expire_stale_invoice_orders");
   });
 
-  it("schedules an authenticated hourly expiry job", async () => {
+  it("schedules hourly expiry in Supabase without a Vercel cron", async () => {
     const vercel = JSON.parse(
       await readFile(new URL("../vercel.json", import.meta.url), "utf8")
     ) as { crons?: Array<{ path: string; schedule: string }> };
+    const migration = await readFile(
+      new URL(
+        "../supabase/migrations/20260712000000_schedule_invoice_expiry_cron.sql",
+        import.meta.url
+      ),
+      "utf8"
+    );
     const route = await readFile(
       new URL("../app/api/cron/invoice-expiry/route.ts", import.meta.url),
       "utf8"
     );
 
-    expect(vercel.crons).toContainEqual({
-      path: "/api/cron/invoice-expiry",
-      schedule: "0 * * * *",
-    });
+    expect(vercel.crons).toBeUndefined();
+    expect(migration).toContain("create extension if not exists pg_cron schema pg_catalog");
+    expect(migration).toContain("expire-stale-invoice-orders-hourly");
+    expect(migration).toContain("7 * * * *");
+    expect(migration).toContain("expire_stale_invoice_orders(500)");
     expect(route).toContain("CRON_SECRET");
     expect(route).toContain("timingSafeEqual");
     expect(route).toContain("expire_stale_invoice_orders");
