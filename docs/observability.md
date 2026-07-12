@@ -31,6 +31,12 @@ For a reported API failure:
 
 Stripe webhook requests generate their own correlation ID because the webhook route bypasses authentication middleware. The Stripe event ID is logged separately after signature verification.
 
+## Scheduled invoice expiry
+
+The recurring invoice-allocation expiry job runs inside Supabase Postgres through `pg_cron`. It calls `public.expire_stale_invoice_orders(500)` hourly at minute 7 and does not make an HTTP request or invoke a Supabase Edge Function. This keeps the scheduler on the existing database compute and avoids Vercel Hobby's once-daily Cron Job limit.
+
+The authenticated `/api/cron/invoice-expiry` route remains available for manual release verification and operational recovery. It is not registered as a Vercel Cron Job and should not be used as the primary scheduler.
+
 ## Required production dashboards
 
 Create dashboards for at least:
@@ -41,7 +47,7 @@ Create dashboards for at least:
 - payment exceptions by age and reason;
 - pending Stripe payments older than the expected confirmation window;
 - pending manual invoices approaching allocation expiry;
-- hourly invoice-expiry job success, duration, and expired-order count;
+- hourly Supabase invoice-expiry job success, duration, and expired-order count;
 - deep readiness status;
 - database connection, CPU, storage, and API saturation;
 - application 5xx rate and latency by route.
@@ -52,7 +58,7 @@ Alerts must identify an owner and escalation target. Recommended initial conditi
 
 - any Stripe webhook storage or processing failure;
 - webhook invalid-signature rate above an agreed abuse threshold;
-- no successful invoice-expiry cron execution for two scheduled intervals;
+- no successful Supabase invoice-expiry job execution for two scheduled intervals;
 - checkout 5xx rate above 1% for five minutes;
 - payment exception older than 15 minutes for Stripe or 24 hours for manual invoice;
 - deep readiness failure for two consecutive checks;
@@ -84,9 +90,10 @@ Before launch and after observability changes:
 2. Send an invalid request; verify the error response is correlated and the log contains no submitted personal data.
 3. Deliver a signed Stripe test webhook; verify received/processed events and event ID correlation.
 4. Trigger a controlled webhook handler failure in a non-production environment and verify alert delivery.
-5. Run the invoice-expiry route with the cron bearer secret and verify a completion event.
-6. Attempt the cron route without the secret and verify a warning without exposing the expected value.
-7. Confirm alert delivery reaches the designated operator and escalation path.
+5. Confirm `expire-stale-invoice-orders-hourly` is active in Supabase Cron and its latest run succeeded.
+6. Run the invoice-expiry route with the cron bearer secret and verify a completion event.
+7. Attempt the cron route without the secret and verify a warning without exposing the expected value.
+8. Confirm alert delivery reaches the designated operator and escalation path.
 
 ## Incident fields
 
