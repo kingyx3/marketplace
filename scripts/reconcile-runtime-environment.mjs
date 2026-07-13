@@ -49,7 +49,11 @@ async function main() {
     baseEnv: process.env,
     target: vercelEnvironment,
   });
+  if (storedSigningSecretPresent) {
+    delete provisionEnvironment.STRIPE_WEBHOOK_SECRET;
+  }
   for (const [key, value] of Object.entries(provisionEnvironment)) process.env[key] = value;
+  if (storedSigningSecretPresent) delete process.env.STRIPE_WEBHOOK_SECRET;
   delete process.env.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT;
   if (storedSigningSecretPresent) {
     provisionEnvironment.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT = "true";
@@ -73,7 +77,9 @@ async function main() {
 
     run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);
     run(process.execPath, ["scripts/generate-env.mjs", "--write", runtimePath, "--allow-missing-provisioned"]);
-    run(process.execPath, ["scripts/sync-vercel-env.mjs", runtimePath, "--preserve-unset-optional"]);
+    const syncArgs = ["scripts/sync-vercel-env.mjs", runtimePath, "--preserve-unset-optional"];
+    if (credentials.STRIPE_WEBHOOK_SECRET) syncArgs.push("--rotate-provisioned");
+    run(process.execPath, syncArgs);
     console.log(`Runtime environment ${process.env.TARGET_ENV} reconciled successfully.`);
   } finally {
     await Promise.all([rm(credentialPath, { force: true }), rm(runtimePath, { force: true })]);
