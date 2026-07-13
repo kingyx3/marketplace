@@ -8,7 +8,7 @@ const BEARER_PATTERN = /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
 const PROVIDER_SECRET_PATTERN =
   /\b(?:sk_(?:live|test)_[A-Za-z0-9]+|rk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|[A-Za-z0-9_-]+_secret_[A-Za-z0-9_-]+)\b/g;
-const PHONE_PATTERN = /(?<![A-Za-z0-9])\+?(?:\d[\s().-]?){8,15}(?![A-Za-z0-9])/g;
+const PHONE_PATTERN = /(?<![A-Za-z0-9_-])\+?(?:\d[\s().-]?){8,15}(?![A-Za-z0-9_-])/g;
 
 export type TelemetryPrimitive = string | number | boolean;
 
