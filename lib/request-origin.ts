@@ -2,16 +2,23 @@ export function getRequestOrigin(
   request: Request,
   canonicalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL,
   vercelEnvironment = process.env.VERCEL_ENV,
-  vercelUrl = process.env.VERCEL_URL
+  vercelUrl = process.env.VERCEL_URL,
+  vercelBranchUrl = process.env.VERCEL_BRANCH_URL
 ): string {
-  const previewOrigin = parseVercelPreviewOrigin(vercelEnvironment, vercelUrl);
+  const previewOrigin = getVercelPreviewOrigin(
+    request,
+    vercelEnvironment,
+    vercelUrl,
+    vercelBranchUrl
+  );
   if (previewOrigin) return previewOrigin;
 
   const canonicalOrigin = parseHttpOrigin(canonicalSiteUrl);
 
   // Hosted auth redirects must be anchored to a trusted deployment URL.
-  // Production uses the configured canonical URL, while Vercel previews use
-  // VERCEL_URL so PKCE cookies and the OAuth callback stay on the same host.
+  // Production uses the configured canonical URL. Vercel previews preserve
+  // the exact incoming deployment or branch host so the PKCE verifier cookie
+  // and callback remain same-origin.
   if (canonicalOrigin && !isLoopbackHostname(new URL(canonicalOrigin).hostname)) {
     return canonicalOrigin;
   }
@@ -22,6 +29,37 @@ export function getRequestOrigin(
   }
 
   throw new Error("NEXT_PUBLIC_SITE_URL must be a valid hosted URL for auth redirects");
+}
+
+function getVercelPreviewOrigin(
+  request: Request,
+  vercelEnvironment: string | undefined,
+  vercelUrl: string | undefined,
+  vercelBranchUrl: string | undefined
+): string | null {
+  if (vercelEnvironment !== "preview") return null;
+
+  const trustedOrigins = [vercelUrl, vercelBranchUrl]
+    .map(parseVercelSystemOrigin)
+    .filter((origin): origin is string => Boolean(origin));
+  if (trustedOrigins.length === 0) return null;
+
+  const trustedHostnames = new Set(
+    trustedOrigins.map((origin) => new URL(origin).hostname)
+  );
+  const visibleOrigins = [getForwardedRequestOrigin(request), parseHttpOrigin(request.url)]
+    .filter((origin): origin is string => Boolean(origin));
+
+  for (const origin of visibleOrigins) {
+    const url = new URL(origin);
+    if (url.protocol === "https:" && trustedHostnames.has(url.hostname)) {
+      return url.origin;
+    }
+  }
+
+  // Some runtimes reconstruct request.url with an internal hostname. In that
+  // case, fall back to the immutable deployment URL supplied by Vercel.
+  return trustedOrigins[0];
 }
 
 function getForwardedRequestOrigin(request: Request): string {
@@ -44,19 +82,15 @@ function getForwardedRequestOrigin(request: Request): string {
   }
 }
 
-function parseVercelPreviewOrigin(
-  vercelEnvironment: string | undefined,
-  vercelUrl: string | undefined
-): string | null {
-  if (vercelEnvironment !== "preview" || !vercelUrl) return null;
+function parseVercelSystemOrigin(value: string | undefined): string | null {
+  if (!value) return null;
 
-  const value = /^https?:\/\//i.test(vercelUrl) ? vercelUrl : `https://${vercelUrl}`;
-  const origin = parseHttpOrigin(value);
+  const origin = parseHttpOrigin(/^https?:\/\//i.test(value) ? value : `https://${value}`);
   if (!origin) return null;
 
   const url = new URL(origin);
   if (url.protocol !== "https:" || !url.hostname.endsWith(".vercel.app")) return null;
-  return origin;
+  return url.origin;
 }
 
 function parseHttpOrigin(value: string | undefined): string | null {
