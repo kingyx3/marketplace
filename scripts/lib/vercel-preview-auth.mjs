@@ -1,5 +1,11 @@
 const VERCEL_ACCOUNT_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
+/** @typedef {Record<string, string | undefined>} Environment */
+
+/**
+ * @param {Environment} [env]
+ * @param {typeof fetch} [fetchImpl]
+ */
 export async function resolveVercelPreviewRedirectPattern(env = process.env, fetchImpl = fetch) {
   if (env.TARGET_ENV !== "development") return "";
 
@@ -7,6 +13,10 @@ export async function resolveVercelPreviewRedirectPattern(env = process.env, fet
   return accountSlug ? `https://*-${accountSlug}.vercel.app/auth/callback**` : "";
 }
 
+/**
+ * @param {Environment} [env]
+ * @param {typeof fetch} [fetchImpl]
+ */
 export async function resolveVercelAccountSlug(env = process.env, fetchImpl = fetch) {
   const explicitSlug = normalizeAccountSlug(env.VERCEL_PREVIEW_ACCOUNT_SLUG);
   if (explicitSlug) return explicitSlug;
