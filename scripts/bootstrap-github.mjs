@@ -19,6 +19,17 @@ const sharedVariableValues = {
 const commonVariables = [
   "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_SENTRY_DSN",
+  "SENTRY_DSN",
+  "NEXT_PUBLIC_SENTRY_ENVIRONMENT",
+  "SENTRY_ENVIRONMENT",
+  "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE",
+  "SENTRY_TRACES_SAMPLE_RATE",
+  "NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE",
+  "NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE",
+  "SENTRY_RELEASE",
+  "SENTRY_ORG",
+  "SENTRY_PROJECT",
   "GOOGLE_AUTH_ENABLED",
   "GOOGLE_OAUTH_CLIENT_ID",
   "RESEND_FROM_EMAIL",
@@ -36,6 +47,7 @@ const commonSecrets = [
   "STRIPE_SECRET_KEY",
   "GOOGLE_OAUTH_CLIENT_SECRET",
   "STRIPE_WEBHOOK_SECRET",
+  "SENTRY_AUTH_TOKEN",
   "CRON_SECRET",
   "SYNTHETIC_MONITOR_SECRET",
   "OPERATIONAL_ALERT_WEBHOOK_URL",
@@ -88,7 +100,16 @@ for (const name of environmentVariables) {
   const supplied = environmentValue(target, name);
   if (supplied) setVariable(target, name, supplied);
   else if (name === "GOOGLE_AUTH_ENABLED") setVariable(target, name, "true");
-  else if (name === "RESTORE_RTO_SECONDS") setVariable(target, name, "1800");
+  else if (name === "NEXT_PUBLIC_SENTRY_ENVIRONMENT") setVariable(target, name, target);
+  else if (name === "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE") {
+    setVariable(target, name, target === "production" ? "0.1" : target === "staging" ? "0.5" : "1");
+  } else if (name === "SENTRY_TRACES_SAMPLE_RATE") {
+    setVariable(target, name, target === "production" ? "0.1" : target === "staging" ? "0.5" : "1");
+  } else if (name === "NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE") {
+    setVariable(target, name, "0");
+  } else if (name === "NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE") {
+    setVariable(target, name, "1");
+  } else if (name === "RESTORE_RTO_SECONDS") setVariable(target, name, "1800");
   else if (name === "SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS") setVariable(target, name, "7");
   else if (name === "CHECKOUT_AVAILABILITY_SLO_PERCENT") setVariable(target, name, "99.9");
   else if (name === "CHECKOUT_LATENCY_SLO_MS") setVariable(target, name, "5000");
@@ -103,14 +124,32 @@ for (const name of environmentSecrets) {
 console.log(`GitHub ${target} environment, policies, variables, and supplied secrets are converged.`);
 
 function variableIsRequired(name) {
-  if (name === "SUPABASE_ADVISOR_ALLOWLIST") return false;
-  if (name === "GOOGLE_OAUTH_CLIENT_ID") return false;
-  if (name === "SUPPORT_EMAIL") return false;
+  if (
+    [
+      "SUPABASE_ADVISOR_ALLOWLIST",
+      "GOOGLE_OAUTH_CLIENT_ID",
+      "SUPPORT_EMAIL",
+      "SENTRY_DSN",
+      "SENTRY_ENVIRONMENT",
+      "SENTRY_RELEASE",
+      "NEXT_PUBLIC_SENTRY_ENVIRONMENT",
+      "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE",
+      "SENTRY_TRACES_SAMPLE_RATE",
+      "NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE",
+      "NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE",
+    ].includes(name)
+  ) {
+    return false;
+  }
+  if (["NEXT_PUBLIC_SENTRY_DSN", "SENTRY_ORG", "SENTRY_PROJECT"].includes(name)) {
+    return target !== "development";
+  }
   return true;
 }
 function secretIsRequired(name) {
   if (["SUPABASE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"].includes(name)) return false;
   if (name === "GOOGLE_OAUTH_CLIENT_SECRET") return false;
+  if (name === "SENTRY_AUTH_TOKEN") return target !== "development";
   if (
     target === "development" &&
     [
