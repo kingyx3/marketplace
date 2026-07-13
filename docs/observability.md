@@ -20,7 +20,7 @@ Shared build values:
 
 The DSN is the only Sentry runtime setting and is not a credential. The shared organization/project identifiers and token are not duplicated across environments. They are optional for local and development work but required by bootstrap for staging and production so deployed errors have readable source-mapped stack traces.
 
-Environment names come from Vercel/target metadata and releases use the Vercel Git commit SHA. Code defaults are:
+The deployment command derives `NEXT_PUBLIC_SENTRY_ENVIRONMENT` from the selected target and supplies it directly to both the Vercel build and runtime. No GitHub variable is required for it, and browser, Node.js, and Edge events are consistently labeled `development`, `staging`, or `production`. Releases use the Vercel Git commit SHA. Code defaults are:
 
 - non-production browser/server traces: `1.0`;
 - production browser/server traces: `0.1`;
@@ -45,7 +45,7 @@ Browser replay masks all text and blocks all media. Every handled API exception 
 
 ## Releases and source maps
 
-`next.config.ts` uploads source maps only when the shared `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` settings are available. Uploaded maps are deleted from the deployment output so they are not publicly served. Releases use the Vercel Git commit SHA. Browser envelopes are tunneled through `/monitoring` to reduce event loss from ad blockers.
+`next.config.ts` uploads source maps only when the shared repository `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` settings are available. Uploaded maps are deleted from the deployment output so they are not publicly served. Releases use the Vercel Git commit SHA. Browser envelopes are tunneled through `/monitoring` to reduce event loss from ad blockers.
 
 The build integration also enables App Router, middleware, server-function, React component, and Vercel cron instrumentation. SDK debug logging is tree-shaken from production bundles while Sentry application logs remain enabled.
 
@@ -153,4 +153,4 @@ An incident record should capture:
 
 ## Residual limitations
 
-Repository CI validates SDK wiring, configuration generation, correlation, response headers, sampling bounds, and redaction helpers. It cannot prove that a Sentry account/project exists, that credentials are valid, that production ingestion and alert routing work, or that on-call responders act correctly. The staging smoke tests, source-map inspection, dashboards, alert rules, ownership, and incident drills remain release gates until demonstrated in the selected hosted environments.
+Repository CI validates SDK wiring, configuration generation, correlation, response headers, sampling bounds, environment derivation, and redaction helpers. It cannot prove that a Sentry account/project exists, that credentials are valid, that production ingestion and alert routing work, or that on-call responders act correctly. The staging smoke tests, source-map inspection, dashboards, alert rules, ownership, and incident drills remain release gates until demonstrated in the selected hosted environments.
