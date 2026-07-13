@@ -41,7 +41,7 @@ describe("Sentry telemetry privacy", () => {
     });
   });
 
-  it("redacts sensitive values embedded inside error text", () => {
+  it("redacts sensitive values embedded inside error text without breaking correlation IDs", () => {
     const text = sanitizeTelemetryText(
       "Checkout failed for buyer@example.test from 203.0.113.10 using Bearer abc.def-123 and sk_live_abc123456"
     );
@@ -50,6 +50,8 @@ describe("Sentry telemetry privacy", () => {
     expect(text).not.toContain("203.0.113.10");
     expect(text).not.toContain("abc.def-123");
     expect(text).not.toContain("sk_live_abc123456");
+    expect(sanitizeTelemetryText("request-12345678")).toBe("request-12345678");
+    expect(sanitizeTelemetryText("Call +65 8123 4567")).toBe("Call [redacted-phone]");
 
     expect(
       scrubSentryEvent({
