@@ -44,17 +44,12 @@ function getVercelPreviewOrigin(
     .filter((origin): origin is string => Boolean(origin));
   if (trustedOrigins.length === 0) return null;
 
-  const trustedHostnames = new Set(
-    trustedOrigins.map((origin) => new URL(origin).hostname)
-  );
+  const trustedOriginSet = new Set(trustedOrigins);
   const visibleOrigins = [getForwardedRequestOrigin(request), parseHttpOrigin(request.url)]
     .filter((origin): origin is string => Boolean(origin));
 
   for (const origin of visibleOrigins) {
-    const url = new URL(origin);
-    if (url.protocol === "https:" && trustedHostnames.has(url.hostname)) {
-      return url.origin;
-    }
+    if (trustedOriginSet.has(origin)) return origin;
   }
 
   // Some runtimes reconstruct request.url with an internal hostname. In that
