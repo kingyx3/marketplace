@@ -1,5 +1,7 @@
+import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
+import { findOrCreateCustomer } from "@/lib/api/auth";
 import { createServiceClient, createUserClient } from "@/lib/supabase";
 
 export class AuthenticationError extends Error {
@@ -16,10 +18,7 @@ export class AuthorizationError extends Error {
   }
 }
 
-export interface AuthUser {
-  id: string;
-  email: string | null;
-}
+export type AuthUser = User;
 
 export interface CustomerProfile {
   id: string;
@@ -50,7 +49,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     return null;
   }
 
-  return { id: user.id, email: user.email ?? null };
+  return user;
 }
 
 export async function requireUser(next = "/account"): Promise<AuthUser> {
@@ -78,13 +77,19 @@ export async function getCustomerProfile(authUserId: string): Promise<CustomerPr
 
 export async function requireCustomer(next = "/account") {
   const user = await requireUser(next);
-  const customer = await getCustomerProfile(user.id);
+  const customer = await findOrCreateCustomer(createServiceClient(), user);
 
-  if (!customer) {
-    throw new AuthenticationError("Customer profile has not been provisioned");
-  }
-
-  return { user, customer };
+  return {
+    user,
+    customer: {
+      id: customer.id,
+      email: customer.email,
+      name: customer.name,
+      billing_state: customer.billing_state ?? "unpaid",
+      provisioning_state: customer.provisioning_state ?? "active",
+      provisioning_error: customer.provisioning_error ?? null,
+    } satisfies CustomerProfile,
+  };
 }
 
 export async function requireStaff(next = "/admin") {
