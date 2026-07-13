@@ -1,4 +1,4 @@
-import type { Breadcrumb, Event } from "@sentry/nextjs";
+import type { Breadcrumb, ErrorEvent } from "@sentry/nextjs";
 
 const SENSITIVE_KEY_PATTERN =
   /authorization|cookie|secret|token|password|client[_-]?secret|access[_-]?key|api[_-]?key|signature|card|email|phone|address|payload|payment[_-]?method/i;
@@ -27,7 +27,7 @@ export function sentrySampleRate(value: string | undefined, fallback: number): n
 }
 
 /** Remove credentials, contact details, request bodies, and URL query strings before export. */
-export function scrubSentryEvent(event: Event): Event {
+export function scrubSentryEvent(event: ErrorEvent): ErrorEvent {
   if (event.user) {
     event.user = event.user.id ? { id: String(event.user.id) } : undefined;
   }
@@ -45,7 +45,7 @@ export function scrubSentryEvent(event: Event): Event {
   }
 
   event.extra = sanitizeRecord(event.extra);
-  event.contexts = sanitizeRecord(event.contexts) as Event["contexts"];
+  event.contexts = sanitizeRecord(event.contexts) as ErrorEvent["contexts"];
   event.breadcrumbs = event.breadcrumbs?.map(scrubBreadcrumb);
   return event;
 }
