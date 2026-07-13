@@ -24,16 +24,21 @@ npm run bootstrap -- --apply
 
 That command reconciles GitHub governance and the development Environment, runs the full CI suite, converges shared infrastructure, then bootstraps, deploys, and verifies development. It dispatches the workflow from `main`, follows the exact Actions run, and exits unsuccessfully if any stage fails.
 
-Staging and production are explicit targets:
+Production is always available as an explicit target:
 
 ```bash
-npm run bootstrap -- --apply --target=staging
 npm run bootstrap -- --apply --target=production
 ```
 
-Without `--apply`, the command is plan-only and does not change GitHub settings or dispatch a workflow. The same three-target operation is available through **Bootstrap & Deploy** in GitHub Actions, with `development` as the default.
+Staging belongs to the optional extended release topology. Enable it at repository scope before selecting the target:
 
-For routine production releases, publish a `v*` tag or GitHub release. The production release workflow deploys the exact revision to staging, runs hosted release gates, and only then deploys production.
+```bash
+ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap -- --apply --target=staging
+```
+
+Without `--apply`, the command is plan-only and does not change GitHub settings or dispatch a workflow. **Bootstrap & Deploy** exposes development, staging, and production choices in GitHub Actions, but staging fails closed unless the repository variable `ENABLE_RELEASE_TOPOLOGY=true` is set.
+
+The staged production release path also requires the extended release topology and its readiness inputs. Once enabled, publish a `v*` tag or GitHub release to deploy the exact revision to staging, run hosted release gates, and only then deploy production. Direct production bootstrap remains available for deliberate initial provisioning and full-stack recovery.
 
 The granular Terraform, provider, environment-bootstrap, and deployment workflows remain available for recovery and diagnostics, but they are not the normal full-stack setup path.
 
@@ -52,7 +57,7 @@ Pull-request CI also initializes and validates both Terraform stacks and verifie
 
 ## Documentation
 
-- [`docs/bootstrap.md`](docs/bootstrap.md) — source-of-truth map, three-target hosted setup, required intake values, and rerun guarantees
+- [`docs/bootstrap.md`](docs/bootstrap.md) — source-of-truth map, target-aware hosted setup, optional release topology, required intake values, and rerun guarantees
 - [`docs/environments.md`](docs/environments.md) — configuration sources and GitHub intake
 - [`docs/generated/environment-reference.md`](docs/generated/environment-reference.md) — generated runtime/deploy contract
 - [`docs/deployment.md`](docs/deployment.md) — bootstrap, staging, and production release behavior

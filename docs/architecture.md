@@ -36,7 +36,7 @@ Browser ──▶ Vercel (Next.js 16, App Router)
 | Config source of truth | GitHub Environments own secrets and approval boundaries; Terraform/provider outputs resolve deployment topology. |
 | Downstream reconciliation | CI resolves environment values, syncs runtime env to Vercel, and pushes Supabase migrations. |
 | Hosted operational model | Vercel and Supabase provide managed compute, database, auth, and storage without application-server operations. |
-| Environment separation | Dedicated development, staging, recovery, and production data projects; staging has a separate Vercel project. |
+| Environment separation | Dedicated development and production data projects by default; the optional release topology adds dedicated staging and recovery projects plus a separate staging Vercel project. |
 | Config as code | Terraform, migrations, workflows, env contract, and validation. |
 | Bootstrap repeatability | One target-aware bootstrap command composes Terraform State Bootstrap, Terraform Platform, Bootstrap Environment, Deploy, and Verify workflows. |
 
@@ -45,7 +45,7 @@ Browser ──▶ Vercel (Next.js 16, App Router)
 Terraform manages provider project shells, not application runtime secrets:
 
 - `infra/terraform/bootstrap` creates/reconciles the GCS Terraform state bucket.
-- `infra/terraform/platform` creates/reconciles the primary and staging Vercel projects plus development, staging, recovery, and production Supabase projects.
+- `infra/terraform/platform` always creates/reconciles the primary Vercel project plus development and production Supabase projects; with `ENABLE_RELEASE_TOPOLOGY=true`, it additionally manages the staging Vercel project plus staging and recovery Supabase projects.
 - GitHub Environments hold runtime secrets, operational evidence inputs, and unavoidable manual public values.
 - CI resolves Terraform/provider values, reconciles Stripe and hosted auth, generates deploy environment values, syncs runtime keys to Vercel, links Supabase, applies migrations, and deploys.
 - Supabase schema and storage/RLS setup are migrations, not Terraform resources.
@@ -62,11 +62,15 @@ See `docs/bootstrap.md`, `docs/environments.md`, and `docs/provisioning.md` for 
 
 ## Environment topology
 
-The hosted topology has three deployable targets and one recovery-only data environment:
+The default compact topology has two deployable targets:
 
 - `development` maps to the primary Vercel project and development Supabase project. Pushes to `develop` use this target.
-- `staging` maps to a dedicated staging Vercel project and staging Supabase project. Pushes to `main` use this target, and production releases validate the exact revision here first.
-- `production` maps to the primary Vercel project's production deployment target and the production Supabase project. Published releases and `v*` tags use the gated production workflow.
-- `recovery` is a Terraform-managed Supabase project used by timed restore verification and is never passed to the reusable deploy workflow.
+- `production` maps to the primary Vercel project's production deployment target and the production Supabase project. Direct bootstrap supports initial provisioning and full-stack recovery.
+
+The optional extended release topology, enabled with the repository variable `ENABLE_RELEASE_TOPOLOGY=true`, adds:
+
+- `staging`, mapped to a dedicated staging Vercel project and staging Supabase project. Pushes to `main` use this target, and production releases validate the exact revision here first.
+- `recovery`, a Terraform-managed Supabase project used by timed restore verification and never passed to the reusable deploy workflow.
+- the gated production release path for published releases and `v*` tags.
 
 The reusable deploy workflow derives `TARGET_ENV` from its caller, resolves the matching Terraform outputs and GitHub Environment, syncs runtime values to the environment-specific Vercel project, pushes migrations to the selected Supabase project, deploys or reuses an immutable deployment, and runs smoke/readiness checks.

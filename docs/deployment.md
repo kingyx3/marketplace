@@ -8,14 +8,19 @@ From a trusted authenticated shell, bootstrap development from `main`:
 npm run bootstrap -- --apply
 ```
 
-Staging and production are explicit targets:
+Production is always available as an explicit target:
 
 ```bash
-npm run bootstrap -- --apply --target=staging
 npm run bootstrap -- --apply --target=production
 ```
 
-The same operation is available as **Bootstrap & Deploy** in GitHub Actions. `development` is the default; `staging` and `production` are the other choices.
+Staging is an explicit target only after opting into the extended release topology:
+
+```bash
+ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap -- --apply --target=staging
+```
+
+The same operation is available as **Bootstrap & Deploy** in GitHub Actions. `development` is the default and `production` is always available; selecting `staging` fails closed unless the repository variable `ENABLE_RELEASE_TOPOLOGY=true` is set.
 
 The local command reconciles GitHub governance and the selected Environment before dispatching `.github/workflows/bootstrap.yml` with `--ref main`. Feature-branch or unmerged local changes are not included.
 
@@ -36,8 +41,8 @@ full application + Playwright checks
 The standalone release workflows use the reusable deployment pipeline:
 
 - Pushes to `develop` deploy `development` unless the change is documentation-only.
-- Pushes to `main` deploy `staging`.
-- A published GitHub release or `v*` tag runs **Deploy production**.
+- Pushes to `main` deploy `staging` only when the extended release topology is enabled; otherwise the staging workflow fails closed during environment resolution.
+- A published GitHub release or `v*` tag runs **Deploy production**, which requires the extended release topology and configured staging/recovery readiness inputs.
 
 The production release workflow does not deploy production immediately. It:
 
@@ -49,7 +54,7 @@ The production release workflow does not deploy production immediately. It:
 
 Hosted release evidence covers real Supabase Auth/RLS/storage behavior, Google OAuth redirects, Stripe test-mode payments/webhooks/refunds, delivered email, deep operational readiness, alerting/SLO ownership, and a timed restore drill. Evidence artifacts are retained by the workflow.
 
-Direct `--target=production` bootstrap remains available for initial provisioning and full-stack recovery. Routine application releases should use the tag/release path so staging evidence is tied to the exact production revision.
+Direct `--target=production` bootstrap remains available for initial provisioning and full-stack recovery. After the extended topology is enabled, routine application releases should use the tag/release path so staging evidence is tied to the exact production revision.
 
 ## Reusable pipeline components
 
@@ -82,12 +87,18 @@ Application checks run once in **Bootstrap & Deploy**. Deployment receives `skip
 
 ## Environment topology
 
-- `development`: primary Vercel project plus development Supabase project; integration branch is `develop`.
-- `staging`: dedicated staging Vercel project plus staging Supabase project; `main` is the automatic release branch.
-- `production`: primary Vercel project production target plus production Supabase project; `v*` tags and published releases trigger the gated release path.
-- `recovery`: Supabase project used by hosted restore verification, not a deploy target.
+The default compact topology has two deployable targets:
 
-Target-aware GitHub setup permits `develop` and `main` for development, and `main` and `v*` for staging and production.
+- `development`: primary Vercel project plus development Supabase project; integration branch is `develop`.
+- `production`: primary Vercel project production target plus production Supabase project; direct bootstrap supports provisioning/recovery.
+
+Set `ENABLE_RELEASE_TOPOLOGY=true` to add the release topology:
+
+- `staging`: dedicated staging Vercel project plus staging Supabase project; `main` is the automatic release branch.
+- `recovery`: Supabase project used by hosted restore verification, not a deploy target.
+- `production`: `v*` tags and published releases trigger the gated staging-to-production path.
+
+Target-aware GitHub setup permits `develop` and `main` for development, and `main` and `v*` for staging and production. Staging policies are created only when the extended topology is selected.
 
 ## Diagnostics and recovery
 
@@ -99,7 +110,7 @@ Use granular workflows only when diagnosing or recovering a specific layer:
 - Terraform `plan` and exact-artifact `apply` for exceptional reviewed changes.
 - Bootstrap Environment `verify` for non-mutating drift diagnosis.
 - Configure Providers for provider-only repair.
-- Standalone development or staging deployment workflows for application-only releases.
+- Standalone development deployment, plus staging deployment when the extended topology is enabled, for application-only releases.
 - Direct production bootstrap for initial provisioning or full-stack recovery, not routine release promotion.
 
 ## Rollback
