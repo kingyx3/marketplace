@@ -1,3 +1,4 @@
+# Primary full-stack convergence entry point.
 name: Bootstrap & Deploy
 
 on:
@@ -40,7 +41,6 @@ jobs:
     uses: ./.github/workflows/terraform-state-bootstrap.yml
     with:
       environment: ${{ inputs.target }}
-      mode: converge
     secrets: inherit
 
   platform:
@@ -48,7 +48,6 @@ jobs:
     uses: ./.github/workflows/terraform-platform.yml
     with:
       environment: ${{ inputs.target }}
-      mode: converge
     secrets: inherit
 
   bootstrap:
