@@ -10,7 +10,12 @@ export async function resolveVercelPreviewRedirectPattern(env = process.env, fet
   if (env.TARGET_ENV !== "development") return "";
 
   const accountSlug = await resolveVercelAccountSlug(env, fetchImpl);
-  return accountSlug ? `https://*-${accountSlug}.vercel.app/auth/callback**` : "";
+  if (!accountSlug) {
+    throw new Error(
+      "Development Google OAuth requires VERCEL_TOKEN or VERCEL_PREVIEW_ACCOUNT_SLUG to configure preview redirects"
+    );
+  }
+  return `https://*-${accountSlug}.vercel.app/auth/callback**`;
 }
 
 /**
