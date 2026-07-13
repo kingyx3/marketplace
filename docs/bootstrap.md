@@ -26,6 +26,7 @@ Repository code cannot create every account-level trust boundary. Confirm:
 - A Supabase access token and organization access.
 - Stripe test/live keys with PayNow enabled at the account level.
 - Google OAuth consent-screen and Web-client ownership when Google Auth is enabled.
+- A Sentry organization/project plus a least-privilege release/source-map auth token for staging and production.
 - Verified Resend sender/domain and operational alert destinations for hosted release gates.
 
 Run bootstrap from this repository checkout; the command resolves the target repository through `gh repo view`.
@@ -56,6 +57,18 @@ Common values:
 | --- | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | Environment variable | Required |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Environment variable | Required |
+| `NEXT_PUBLIC_SENTRY_DSN` | Environment variable | Optional in development; required for staging/production |
+| `SENTRY_ORG` | Environment variable | Optional in development; required for staging/production |
+| `SENTRY_PROJECT` | Environment variable | Optional in development; required for staging/production |
+| `SENTRY_AUTH_TOKEN` | Environment secret | Optional in development; required for staging/production |
+| `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | Environment variable | Defaults to selected target |
+| `SENTRY_DSN` | Environment variable | Optional server/Edge DSN override |
+| `SENTRY_ENVIRONMENT` | Environment variable | Optional server/Edge environment override |
+| `SENTRY_RELEASE` | Environment variable | Optional explicit release override |
+| `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | Environment variable | Defaults to `1`, `0.5`, or `0.1` for development, staging, or production |
+| `SENTRY_TRACES_SAMPLE_RATE` | Environment variable | Defaults to `1`, `0.5`, or `0.1` for development, staging, or production |
+| `NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE` | Environment variable | Defaults to `0` |
+| `NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE` | Environment variable | Defaults to `1` |
 | `GOOGLE_AUTH_ENABLED` | Environment variable | Defaults to `true` |
 | `GOOGLE_OAUTH_CLIENT_ID` | Environment variable | Required when Google Auth is enabled |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Environment secret | Required when Google Auth is enabled |
@@ -69,6 +82,8 @@ Common values:
 | `OPERATIONAL_ALERT_WEBHOOK_URL` | Environment secret | Required for staging/production |
 | `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret | Required for staging/production |
 | `RESEND_API_KEY` | Environment secret | Required for staging/production |
+
+The Sentry DSN is not a credential and is stored as a variable. `SENTRY_AUTH_TOKEN` is build-only secret material and must never use a `NEXT_PUBLIC_` name. The bootstrap/deploy workflows copy these settings into Vercel through the normal runtime reconciler so reruns are drift-aware and idempotent.
 
 Staging release-gate values:
 
@@ -160,6 +175,7 @@ Enabling the extended topology later adds staging and recovery resources without
 - Shared infrastructure uses one global concurrency lock and committed read-only provider lockfiles.
 - Stripe webhook configuration uses one desired-state implementation.
 - Supabase Google Auth, site URL, redirects, and migrations are reconciled through the environment bootstrap.
+- Sentry runtime values, sampling, build token, releases, and source-map upload settings are reconciled through the same protected environment path.
 - Vercel runtime values are fingerprinted; unchanged values are not rewritten.
 - Identical source/runtime fingerprints reuse an existing ready deployment.
 - Staging and production fail closed on infrastructure, provider, or runtime drift.
@@ -171,4 +187,4 @@ Rerun **Bootstrap & Deploy** for the affected target. This is the supported conv
 
 Use **Configure Providers (recovery)** only as a break-glass provider-only diagnostic or repair workflow, then rerun **Bootstrap & Deploy**. Application-only retries use **Deploy App**.
 
-Never edit an applied migration; add a forward migration. Correct operator values at their GitHub source and rerun the appropriate orchestrator.
+Never edit an applied migration; add a forward migration. Correct operator values at their GitHub source and rerun the appropriate orchestrator. See `docs/observability.md` for Sentry smoke tests, privacy controls, and production alerting requirements.
