@@ -42,11 +42,14 @@ Bootstrap reads values from the current shell and writes them to repository or E
 | `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret | Required |
 | `VERCEL_TOKEN` | Repository secret | Required |
 | `SUPABASE_ACCESS_TOKEN` | Repository secret | Required |
+| `NEXT_PUBLIC_SENTRY_DSN` | Repository variable | Required for staging/production runtime capture |
 | `SENTRY_ORG` | Repository variable | Required for staging/production source maps |
 | `SENTRY_PROJECT` | Repository variable | Required for staging/production source maps |
 | `SENTRY_AUTH_TOKEN` | Repository secret | Required for staging/production source maps |
 
-`SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are shared build settings, not per-environment application configuration. The organization and project slugs are non-secret identifiers. The auth token must be scoped only to the release/source-map permissions required by the build.
+`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are shared Sentry settings, not per-environment application configuration. The DSN and organization/project slugs are non-secret identifiers. The auth token must be scoped only to the release/source-map permissions required by the build.
+
+One DSN is used for development, staging, and production. The deployment target is supplied separately as the Sentry environment tag, so events remain distinguishable inside the shared project. Bootstrap removes any environment-scoped Sentry overrides from all deployment environments so repository-level values cannot be shadowed.
 
 Optional shared Terraform overrides are repository variables: `ENABLE_RELEASE_TOPOLOGY`, `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
 
@@ -62,7 +65,6 @@ Common values:
 | --- | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | Environment variable | Required |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Environment variable | Required |
-| `NEXT_PUBLIC_SENTRY_DSN` | Environment variable | Optional in development; required for staging/production |
 | `GOOGLE_AUTH_ENABLED` | Environment variable | Defaults to `true` |
 | `GOOGLE_OAUTH_CLIENT_ID` | Environment variable | Required when Google Auth is enabled |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Environment secret | Required when Google Auth is enabled |
@@ -77,7 +79,7 @@ Common values:
 | `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret | Required for staging/production |
 | `RESEND_API_KEY` | Environment secret | Required for staging/production |
 
-The DSN is the only Sentry runtime value that must be stored per environment, and it is not a credential. Environment naming, release identification, trace sampling, and replay sampling use safe code defaults and Vercel metadata. Bootstrap removes redundant environment-scoped Sentry build settings so repository-level values cannot be accidentally shadowed.
+Environment naming, release identification, trace sampling, and replay sampling use safe code defaults and deployment metadata. No target-prefixed Sentry setting is required.
 
 Staging release-gate values:
 
@@ -169,7 +171,7 @@ Enabling the extended topology later adds staging and recovery resources without
 - Shared infrastructure uses one global concurrency lock and committed read-only provider lockfiles.
 - Stripe webhook configuration uses one desired-state implementation.
 - Supabase Google Auth, site URL, redirects, and migrations are reconciled through the environment bootstrap.
-- The environment DSN and shared Sentry source-map build settings are reconciled through the same protected path.
+- The shared Sentry DSN and source-map build settings are reconciled once at repository scope; environment labels come from the deployment target.
 - Vercel runtime values are fingerprinted; unchanged values are not rewritten.
 - Identical source/runtime fingerprints reuse an existing ready deployment.
 - Staging and production fail closed on infrastructure, provider, or runtime drift.
