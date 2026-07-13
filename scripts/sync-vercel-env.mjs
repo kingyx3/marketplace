@@ -41,6 +41,7 @@ let added = 0;
 let updated = 0;
 let removed = 0;
 let preserved = 0;
+let verifiedByPresence = 0;
 let unchanged = 0;
 
 for (const entry of runtimeEntries) {
@@ -85,7 +86,7 @@ for (const entry of runtimeEntries) {
   }
   if (currentExists) {
     if (checkOnly && currentUnreadable) {
-      unchanged += 1;
+      verifiedByPresence += 1;
       continue;
     }
     updated += 1;
@@ -112,7 +113,7 @@ const deploymentFingerprint = createHash("sha256")
 if (!checkOnly && process.env.GITHUB_ENV) {
   await appendFile(process.env.GITHUB_ENV, `VERCEL_DEPLOYMENT_CONFIG_FINGERPRINT=${deploymentFingerprint}\n`, "utf8");
 }
-const summary = `Vercel ${targetEnv}/${vercelEnv} env ${checkOnly ? "checked" : "reconciled"}: ${added} added, ${updated} updated, ${removed} removed, ${preserved} preserved, ${unchanged} unchanged.`;
+const summary = `Vercel ${targetEnv}/${vercelEnv} env ${checkOnly ? "checked" : "reconciled"}: ${added} added, ${updated} updated, ${removed} removed, ${preserved} preserved, ${verifiedByPresence} verified by presence, ${unchanged} unchanged.`;
 console.log(summary);
 if (checkOnly && added + updated + removed > 0) fail(`Vercel runtime drift detected. ${summary}`);
 
