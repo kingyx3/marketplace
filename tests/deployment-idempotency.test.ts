@@ -46,9 +46,11 @@ describe("deployment idempotency contract", () => {
   it("turns unchanged Vercel configuration and deployments into no-ops", async () => {
     const sync = await repoFile("scripts/sync-vercel-env.mjs");
     const deploy = await repoFile("scripts/deploy-vercel.mjs");
-    expect(sync).toContain("scripts/fingerprint-runtime-env.mjs");
-    expect(sync).toContain('"env", "update"');
+    expect(sync).toContain("fetchVercelEnvironmentRecords");
+    expect(sync).toContain("updateVercelEnvironmentRecord");
+    expect(sync).toContain("currentFingerprint === desiredFingerprint");
     expect(sync).toContain("unchanged += 1");
+    expect(sync).not.toContain("scripts/fingerprint-runtime-env.mjs");
     expect(deploy).toContain("marketplaceDeploymentKey");
     expect(deploy).toContain("Reusing ready ${targetEnv} Vercel deployment");
     expect(deploy).toContain('const target = targetEnv === "development" ? "preview" : "production"');
