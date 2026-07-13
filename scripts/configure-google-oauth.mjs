@@ -11,10 +11,11 @@ const mode = args.has("--apply")
     : args.has("--verify")
       ? "verify"
       : "plan";
-const previewRedirectPattern = await resolveVercelPreviewRedirectPattern(process.env);
-const config = buildConfig(process.env, previewRedirectPattern);
 
 try {
+  const previewRedirectPattern = await resolveVercelPreviewRedirectPattern(process.env);
+  const config = buildConfig(process.env, previewRedirectPattern);
+
   if (mode === "plan") {
     await printPlan(config);
   } else if (mode === "verify") {
