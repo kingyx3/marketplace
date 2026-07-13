@@ -82,7 +82,7 @@ async function main() {
       if (targetEnv !== "development") await checkHealth(new URL("/api/health?deep=1", siteUrl));
     }
     console.log(
-      `Environment ${targetEnv} is release-ready: no Terraform, provider, or runtime drift detected${skipHealth ? "" : ", and health checks passed"}.`
+      `Environment ${targetEnv} is release-ready: no Terraform or provider drift detected, the runtime contract is satisfied (sensitive values verified by presence), and health checks ${skipHealth ? "were skipped" : "passed"}.`
     );
   } finally {
     await Promise.all([rm(runtimePath, { force: true }), rm(planPath, { force: true })]);
