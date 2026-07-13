@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { inspect } from "node:util";
 
+import { resolveVercelPreviewRedirectPattern } from "./lib/vercel-preview-auth.mjs";
+
 const args = new Set(process.argv.slice(2));
 const mode = args.has("--apply")
   ? "apply"
@@ -9,9 +11,11 @@ const mode = args.has("--apply")
     : args.has("--verify")
       ? "verify"
       : "plan";
-const config = buildConfig(process.env);
 
 try {
+  const previewRedirectPattern = await resolveVercelPreviewRedirectPattern(process.env);
+  const config = buildConfig(process.env, previewRedirectPattern);
+
   if (mode === "plan") {
     await printPlan(config);
   } else if (mode === "verify") {
@@ -25,7 +29,7 @@ try {
   process.exit(1);
 }
 
-function buildConfig(env) {
+function buildConfig(env, previewRedirectPattern = "") {
   const siteUrl = normalizeOrigin(env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000");
   const supabaseUrl = normalizeOrigin(env.NEXT_PUBLIC_SUPABASE_URL || "");
   const projectRef = env.SUPABASE_PROJECT_REF || projectRefFromUrl(supabaseUrl);
@@ -33,6 +37,7 @@ function buildConfig(env) {
   const redirectAllowList = unique([
     `${siteUrl}/auth/callback`,
     `${siteUrl}/auth/callback**`,
+    previewRedirectPattern,
     "http://localhost:3000/auth/callback",
     "http://localhost:3000/auth/callback**",
   ]);

@@ -16,25 +16,27 @@ resource "random_password" "supabase_database" {
 }
 
 resource "vercel_project" "app" {
-  name                         = local.vercel_project_name
-  framework                    = "nextjs"
-  install_command              = "npm ci"
-  build_command                = "npm run build"
-  root_directory               = local.vercel_root_directory
-  team_id                      = local.vercel_team_id
-  preview_deployments_disabled = false
+  name                                              = local.vercel_project_name
+  framework                                         = "nextjs"
+  install_command                                   = "npm ci"
+  build_command                                     = "npm run build"
+  root_directory                                    = local.vercel_root_directory
+  team_id                                           = local.vercel_team_id
+  preview_deployments_disabled                      = false
+  automatically_expose_system_environment_variables = true
 }
 
 resource "vercel_project" "staging" {
   count = var.enable_release_topology ? 1 : 0
 
-  name                         = local.staging_vercel_project_name
-  framework                    = "nextjs"
-  install_command              = "npm ci"
-  build_command                = "npm run build"
-  root_directory               = local.vercel_root_directory
-  team_id                      = local.vercel_team_id
-  preview_deployments_disabled = true
+  name                                              = local.staging_vercel_project_name
+  framework                                         = "nextjs"
+  install_command                                   = "npm ci"
+  build_command                                     = "npm run build"
+  root_directory                                    = local.vercel_root_directory
+  team_id                                           = local.vercel_team_id
+  preview_deployments_disabled                      = true
+  automatically_expose_system_environment_variables = true
 }
 
 resource "supabase_project" "app" {
