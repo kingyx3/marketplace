@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 describe("Vercel sensitive runtime environment", () => {
-  it("filters target and branch records while distinguishing unreadable sensitive values", () => {
+  it("filters target and branch records while distinguishing unreadable values", () => {
     const result = runModule<Array<{ key: string; unreadable: boolean }>>(`
       import {
         genericVercelEnvironmentRecords,
@@ -16,8 +16,10 @@ describe("Vercel sensitive runtime environment", () => {
       const records = genericVercelEnvironmentRecords(parseVercelEnvironmentList(
         'Vercel API\\n' + JSON.stringify({ envs: [
           { key: 'STRIPE_WEBHOOK_SECRET', type: 'sensitive', target: ['production'] },
-          { key: 'PREVIEW_ONLY', type: 'encrypted', target: ['preview'], value: 'preview' },
-          { key: 'BRANCH_ONLY', type: 'encrypted', target: ['production'], gitBranch: 'feature' },
+          { key: 'ENCRYPTED_CIPHERTEXT', type: 'encrypted', decrypted: false, target: ['production'], value: 'ciphertext' },
+          { key: 'ENCRYPTED_PLAINTEXT', type: 'encrypted', decrypted: true, target: ['production'], value: 'plaintext' },
+          { key: 'PREVIEW_ONLY', type: 'encrypted', decrypted: true, target: ['preview'], value: 'preview' },
+          { key: 'BRANCH_ONLY', type: 'encrypted', decrypted: true, target: ['production'], gitBranch: 'feature' },
         ] })
       ), 'production');
       console.log(JSON.stringify([...records.values()].map((record) => ({
@@ -26,23 +28,30 @@ describe("Vercel sensitive runtime environment", () => {
       }))));
     `);
 
-    expect(result).toEqual([{ key: "STRIPE_WEBHOOK_SECRET", unreadable: true }]);
+    expect(result).toEqual([
+      { key: "STRIPE_WEBHOOK_SECRET", unreadable: true },
+      { key: "ENCRYPTED_CIPHERTEXT", unreadable: true },
+      { key: "ENCRYPTED_PLAINTEXT", unreadable: false },
+    ]);
   });
 
   it("requests decrypted target-scoped values from the authoritative Vercel API", () => {
     const result = runModule<{ url: string; authorization: string; value: string }>(`
-      import { fetchVercelEnvironmentRecords } from './scripts/lib/vercel-environment.mjs';
+      import {
+        fetchVercelEnvironmentRecords,
+        readableVercelEnvironmentValue,
+      } from './scripts/lib/vercel-environment.mjs';
       let captured;
       const records = await fetchVercelEnvironmentRecords({
         token: 'token_x', projectId: 'prj_x', teamId: 'team_x', target: 'production',
         fetchImpl: async (url, options) => {
           captured = { url: String(url), authorization: options.headers.Authorization };
           return { ok: true, status: 200, statusText: 'OK', text: async () => JSON.stringify({ envs: [
-            { id: 'env_1', key: 'APP_NAME', type: 'encrypted', target: ['production'], value: 'Marketplace' }
+            { id: 'env_1', key: 'APP_NAME', type: 'encrypted', decrypted: true, target: ['production'], value: 'Marketplace' }
           ] }) };
         },
       });
-      console.log(JSON.stringify({ ...captured, value: records[0].value }));
+      console.log(JSON.stringify({ ...captured, value: readableVercelEnvironmentValue(records[0]) }));
     `);
 
     const url = new URL(result.url);
@@ -55,50 +64,92 @@ describe("Vercel sensitive runtime environment", () => {
     expect(result.value).toBe("Marketplace");
   });
 
-  it("creates readable encrypted records and refuses cross-target mutations", () => {
-    const result = runModule<{ body: Record<string, unknown>; sharedError: string }>(`
+  it("rejects encrypted ciphertext as a readable runtime value", () => {
+    const result = runModule<{ booleanFalse: string | null; stringFalse: string | null; missingFlag: string | null }>(`
+      import { readableVercelEnvironmentValue } from './scripts/lib/vercel-environment.mjs';
+      console.log(JSON.stringify({
+        booleanFalse: readableVercelEnvironmentValue({ type: 'encrypted', decrypted: false, value: 'ciphertext' }) ?? null,
+        stringFalse: readableVercelEnvironmentValue({ type: 'encrypted', decrypted: 'false', value: 'ciphertext' }) ?? null,
+        missingFlag: readableVercelEnvironmentValue({ type: 'encrypted', value: 'legacy-plaintext' }) ?? null,
+      }));
+    `);
+
+    expect(result).toEqual({
+      booleanFalse: null,
+      stringFalse: null,
+      missingFlag: "legacy-plaintext",
+    });
+  });
+
+  it("creates readable encrypted records, uses the documented edit endpoint, and refuses cross-target mutations", () => {
+    const result = runModule<{
+      requests: Array<{ url: string; method: string; body: Record<string, unknown> }>;
+      sharedError: string;
+    }>(`
       import {
         createVercelEnvironmentRecord,
         updateVercelEnvironmentRecord,
       } from './scripts/lib/vercel-environment.mjs';
-      let body;
-      const fetchImpl = async (_url, options) => {
-        body = JSON.parse(options.body);
+      const requests = [];
+      const fetchImpl = async (url, options) => {
+        requests.push({ url: String(url), method: options.method, body: JSON.parse(options.body) });
         return { ok: true, status: 200, statusText: 'OK', text: async () => '{}' };
       };
       await createVercelEnvironmentRecord({
-        token: 'token_x', projectId: 'prj_x', key: 'APP_NAME', value: 'Marketplace',
+        token: 'token_x', projectId: 'prj_x', teamId: 'team_x', key: 'APP_NAME', value: 'Marketplace',
         target: 'production', fetchImpl,
+      });
+      await updateVercelEnvironmentRecord({
+        token: 'token_x', projectId: 'prj_x', teamId: 'team_x', target: 'production', value: 'Updated', fetchImpl,
+        record: { id: 'env_1', key: 'APP_NAME', type: 'encrypted', target: ['production'] },
       });
       let sharedError = '';
       try {
         await updateVercelEnvironmentRecord({
           token: 'token_x', projectId: 'prj_x', target: 'production', value: 'new', fetchImpl,
-          record: { id: 'env_1', key: 'APP_NAME', type: 'encrypted', target: ['preview', 'production'] },
+          record: { id: 'env_2', key: 'APP_NAME', type: 'encrypted', target: ['preview', 'production'] },
         });
       } catch (error) {
         sharedError = error.message;
       }
-      console.log(JSON.stringify({ body, sharedError }));
+      console.log(JSON.stringify({ requests, sharedError }));
     `);
 
-    expect(result.body).toEqual({
-      key: "APP_NAME",
-      value: "Marketplace",
-      type: "encrypted",
-      target: ["production"],
+    const createUrl = new URL(result.requests[0].url);
+    expect(createUrl.pathname).toBe("/v10/projects/prj_x/env");
+    expect(result.requests[0]).toMatchObject({
+      method: "POST",
+      body: {
+        key: "APP_NAME",
+        value: "Marketplace",
+        type: "encrypted",
+        target: ["production"],
+      },
+    });
+
+    const updateUrl = new URL(result.requests[1].url);
+    expect(updateUrl.pathname).toBe("/v9/projects/prj_x/env/env_1");
+    expect(result.requests[1]).toMatchObject({
+      method: "PATCH",
+      body: {
+        key: "APP_NAME",
+        value: "Updated",
+        type: "encrypted",
+        target: ["production"],
+      },
     });
     expect(result.sharedError).toContain("Refusing to update shared Vercel environment record APP_NAME");
   });
 
-  it("uses Vercel values only as fallback and disables local dotenv loading", () => {
+  it("uses only decrypted Vercel values as fallback and disables local dotenv loading", () => {
     const result = runModule<Record<string, string>>(`
       import { buildEnvironmentWithVercelFallback } from './scripts/lib/vercel-environment.mjs';
       const env = buildEnvironmentWithVercelFallback({
-        target: 'production', runtimeKeys: ['APP_NAME', 'STRIPE_SECRET_KEY'],
+        target: 'production', runtimeKeys: ['APP_NAME', 'STRIPE_SECRET_KEY', 'REMOTE_ONLY'],
         records: [
-          { key: 'APP_NAME', type: 'encrypted', target: ['production'], value: 'Remote' },
-          { key: 'STRIPE_SECRET_KEY', type: 'encrypted', target: ['production'], value: 'sk_remote' },
+          { key: 'APP_NAME', type: 'encrypted', decrypted: true, target: ['production'], value: 'Remote' },
+          { key: 'STRIPE_SECRET_KEY', type: 'encrypted', decrypted: false, target: ['production'], value: 'ciphertext' },
+          { key: 'REMOTE_ONLY', type: 'encrypted', decrypted: true, target: ['production'], value: 'remote-value' },
         ],
         baseEnv: { APP_NAME: 'Desired', EMPTY: '', TARGET_ENV: 'production' },
       });
@@ -106,7 +157,8 @@ describe("Vercel sensitive runtime environment", () => {
     `);
 
     expect(result.APP_NAME).toBe("Desired");
-    expect(result.STRIPE_SECRET_KEY).toBe("sk_remote");
+    expect(result.REMOTE_ONLY).toBe("remote-value");
+    expect(result).not.toHaveProperty("STRIPE_SECRET_KEY");
     expect(result.TARGET_ENV).toBe("production");
     expect(result.MARKETPLACE_DISABLE_LOCAL_DOTENV).toBe("true");
     expect(result).not.toHaveProperty("EMPTY");
@@ -196,7 +248,7 @@ describe("Vercel sensitive runtime environment", () => {
     expect(sync).toContain("fetchVercelEnvironmentRecords");
     expect(sync).toContain("createVercelEnvironmentRecord");
     expect(sync).toContain("updateVercelEnvironmentRecord");
-    expect(sync).toContain("type: \"encrypted\"");
+    expect(sync).toContain('type: "encrypted"');
     expect(sync).toContain("isRequiredEnvironmentEntry(entry, desiredEnvironment)");
     expect(sync).toContain("refusing unverifiable reconciliation");
     expect(sync).not.toContain('"env", "run"');
@@ -206,7 +258,7 @@ describe("Vercel sensitive runtime environment", () => {
     expect(provision).toContain("requireSigningSecret: !storedSigningSecretPresent");
     expect(verify).toContain("buildEnvironmentWithVercelFallback");
     expect(verify).not.toContain('"env", "run"');
-    expect(verify).toContain("sensitive values verified by presence");
+    expect(verify).toContain("unreadable values verified by presence");
   });
 });
 
