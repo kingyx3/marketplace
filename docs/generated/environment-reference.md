@@ -19,6 +19,18 @@ This file is generated from `config/environment-contract.json`. Update the contr
 | `SYNTHETIC_MONITOR_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | Bearer secret for authenticated synthetic operational probes |
 | `OPERATIONAL_ALERT_WEBHOOK_URL` | Runtime | When `TARGET_ENV=production` | Yes | HTTPS destination for privacy-safe critical operational alerts |
 | `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | HMAC secret used to sign operational alert deliveries |
+| `NEXT_PUBLIC_SENTRY_DSN` | Runtime | No | No | Sentry project DSN for browser, Node.js, and Edge telemetry |
+| `SENTRY_DSN` | Runtime | No | No | Optional server-only Sentry DSN override |
+| `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | Runtime | No | No | Explicit Sentry environment name shared with browser telemetry |
+| `SENTRY_ENVIRONMENT` | Runtime | No | No | Optional server-only Sentry environment override |
+| `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | Runtime | No | No | Browser performance trace sample rate from 0 to 1 |
+| `SENTRY_TRACES_SAMPLE_RATE` | Runtime | No | No | Server and Edge performance trace sample rate from 0 to 1 |
+| `NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE` | Runtime | No | No | Browser session replay sample rate from 0 to 1 |
+| `NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE` | Runtime | No | No | Browser error replay sample rate from 0 to 1 |
+| `SENTRY_RELEASE` | Runtime | No | No | Optional explicit Sentry release identifier |
+| `SENTRY_ORG` | Runtime | No | No | Sentry organization slug for release and source-map uploads |
+| `SENTRY_PROJECT` | Runtime | No | No | Sentry project slug for release and source-map uploads |
+| `SENTRY_AUTH_TOKEN` | Runtime | No | Yes | Scoped Sentry build token for release and source-map uploads |
 | `TARGET_ENV` | Deploy | Yes | No | Deployment environment |
 | `GOOGLE_AUTH_ENABLED` | Deploy | Yes | No | Whether hosted Google authentication must be configured |
 | `SUPABASE_ACCESS_TOKEN` | Deploy | No | Yes | Supabase Management API and CLI access |
