@@ -6,27 +6,28 @@ Sentry is integrated with the existing logging and error-handling layer rather t
 
 ## Sentry configuration
 
-The trusted-shell bootstrap stores values in each GitHub Environment and the normal bootstrap/deploy workflows reconcile them into Vercel. Use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefix when running bootstrap.
+The GitHub configuration is intentionally minimal.
 
-Core hosted values:
+Per-environment runtime value:
 
-- `NEXT_PUBLIC_SENTRY_DSN` — Environment variable containing the project DSN used by browser, Node.js, and Edge runtimes.
-- `SENTRY_ORG` — Environment variable containing the Sentry organization slug.
-- `SENTRY_PROJECT` — Environment variable containing the Sentry project slug.
-- `SENTRY_AUTH_TOKEN` — Environment secret containing a scoped build token for release creation and source-map upload.
+- `NEXT_PUBLIC_SENTRY_DSN` — GitHub Environment variable containing the project DSN used by browser, Node.js, and Edge runtimes.
 
-The core values are optional for local and development work, but bootstrap requires them for staging and production. `SENTRY_DSN` may override the server/Edge DSN without changing the browser DSN. `NEXT_PUBLIC_SENTRY_ENVIRONMENT`, `SENTRY_ENVIRONMENT`, and `SENTRY_RELEASE` may override automatic environment/release detection.
+Shared build values:
 
-Sampling defaults applied by bootstrap are:
+- `SENTRY_ORG` — repository variable containing the Sentry organization slug.
+- `SENTRY_PROJECT` — repository variable containing the Sentry project slug.
+- `SENTRY_AUTH_TOKEN` — repository secret containing a scoped build token for release creation and source-map upload.
 
-- development: browser/server traces `1.0`;
-- staging: browser/server traces `0.5`;
-- production: browser/server traces `0.1`;
-- all environments: background session replay `0`, replay on error `1.0`.
+The DSN is the only Sentry runtime setting and is not a credential. The shared organization/project identifiers and token are not duplicated across environments. They are optional for local and development work but required by bootstrap for staging and production so deployed errors have readable source-mapped stack traces.
 
-Override these through `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE`, and `NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`. Values must be between `0` and `1`.
+Environment names come from Vercel/target metadata and releases use the Vercel Git commit SHA. Code defaults are:
 
-If runtime DSNs are absent, the SDK stays disabled. If the DSN is present but build credentials are absent, runtime capture still works, but releases and readable uploaded source maps are unavailable. Never expose `SENTRY_AUTH_TOKEN` through a `NEXT_PUBLIC_` key.
+- non-production browser/server traces: `1.0`;
+- production browser/server traces: `0.1`;
+- background session replay: `0`;
+- replay on error: `1.0`.
+
+If the DSN is absent, the SDK stays disabled. If only the DSN is present, runtime capture works, but release/source-map upload is unavailable. Never expose `SENTRY_AUTH_TOKEN` through a `NEXT_PUBLIC_` key.
 
 ## Privacy and correlation
 
@@ -44,7 +45,7 @@ Browser replay masks all text and blocks all media. Every handled API exception 
 
 ## Releases and source maps
 
-`next.config.ts` uploads source maps only when `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are available. Uploaded maps are deleted from the deployment output so they are not publicly served. Releases use `SENTRY_RELEASE` when supplied and otherwise use the Vercel Git commit SHA. Browser envelopes are tunneled through `/monitoring` to reduce event loss from ad blockers.
+`next.config.ts` uploads source maps only when the shared `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` settings are available. Uploaded maps are deleted from the deployment output so they are not publicly served. Releases use the Vercel Git commit SHA. Browser envelopes are tunneled through `/monitoring` to reduce event loss from ad blockers.
 
 The build integration also enables App Router, middleware, server-function, React component, and Vercel cron instrumentation. SDK debug logging is tree-shaken from production bundles while Sentry application logs remain enabled.
 
@@ -117,7 +118,7 @@ Tune thresholds with production traffic; do not suppress an alert merely because
 
 ## Access, retention, and ownership
 
-Configure Sentry with least-privilege team access, audited organization membership, retention appropriate for operational and privacy requirements, and the required regional/data-processing settings. The source-map token should be scoped only to the release/project permissions needed by the build and stored as a GitHub Environment secret.
+Configure Sentry with least-privilege team access, audited organization membership, retention appropriate for operational and privacy requirements, and the required regional/data-processing settings. The source-map token should be scoped only to the release/project permissions needed by the build and stored as a repository secret.
 
 Do not send raw Stripe webhook payloads, credentials, customer addresses, authorization headers, or full request bodies to Sentry or another provider.
 
