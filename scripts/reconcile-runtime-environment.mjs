@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";
 import { loadLocalDotenv, parseDotenv } from "./generate-env.mjs";
+import { withoutEmptyEnvironmentValues } from "./lib/process-environment.mjs";
 import { pinnedNpxPackage } from "./tool-versions.mjs";
 
 await loadLocalDotenv(process.env);
@@ -36,7 +37,7 @@ try {
     "scripts/provision-stripe-webhook.mjs",
     "--credentials-file",
     credentialPath,
-  ]);
+  ], { env: withoutEmptyEnvironmentValues(process.env) });
 
   const credentials = parseDotenv(await readFile(credentialPath, "utf8"));
   for (const [key, value] of Object.entries(credentials)) process.env[key] = value;
@@ -57,10 +58,10 @@ function argumentValue(flag) {
   const index = process.argv.indexOf(flag);
   return index >= 0 ? process.argv[index + 1] || "" : "";
 }
-function run(command, args) {
+function run(command, args, options = {}) {
   const printable = [command, ...args].map(redactArgument).join(" ");
   console.log(`\n$ ${printable}`);
-  const result = spawnSync(command, args, { env: process.env, stdio: "inherit" });
+  const result = spawnSync(command, args, { env: options.env || process.env, stdio: "inherit" });
   if (result.error) fail(`${printable} failed to start: ${result.error.message}`);
   if (result.status !== 0) fail(`${printable} failed with exit code ${result.status}`);
 }

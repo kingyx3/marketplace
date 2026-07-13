@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { rm } from "node:fs/promises";
+import { withoutEmptyEnvironmentValues } from "./lib/process-environment.mjs";
 import { pinnedNpxPackage } from "./tool-versions.mjs";
 
 const targetEnv = process.env.TARGET_ENV;
@@ -27,6 +28,7 @@ async function main() {
   }
 
   const vercelEnvironment = targetEnv === "development" ? "preview" : "production";
+  const vercelEnvRunEnvironment = withoutEmptyEnvironmentValues(process.env);
   try {
     const plan = run(
       "terraform",
@@ -56,7 +58,7 @@ async function main() {
       "node",
       "scripts/configure-providers.mjs",
       "--verify",
-    ]);
+    ], { env: vercelEnvRunEnvironment });
     run("npx", [
       "--yes",
       pinnedNpxPackage("vercel"),
@@ -71,7 +73,7 @@ async function main() {
       "scripts/generate-env.mjs",
       "--write",
       runtimePath,
-    ]);
+    ], { env: vercelEnvRunEnvironment });
     run(process.execPath, ["scripts/sync-vercel-env.mjs", runtimePath, "--check-only"]);
 
     if (!skipHealth) {
@@ -106,7 +108,7 @@ function run(command, args, options = {}) {
     .map((value) => (value === token ? "[redacted-vercel-token]" : value))
     .join(" ");
   console.log(`\n$ ${printable}`);
-  const result = spawnSync(command, args, { env: process.env, stdio: "inherit" });
+  const result = spawnSync(command, args, { env: options.env || process.env, stdio: "inherit" });
   if (result.error) throw new Error(`${command} failed to start: ${result.error.message}`);
   const allowedStatuses = options.allowedStatuses || [0];
   if (!allowedStatuses.includes(result.status ?? 1)) {

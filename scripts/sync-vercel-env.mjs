@@ -3,6 +3,7 @@ import { createHash, createHmac } from "node:crypto";
 import { appendFile, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { ENV_CONTRACT, parseDotenv } from "./generate-env.mjs";
+import { withoutEmptyEnvironmentValues } from "./lib/process-environment.mjs";
 import { pinnedNpxPackage } from "./tool-versions.mjs";
 
 const args = process.argv.slice(2);
@@ -72,6 +73,8 @@ for (const entry of runtimeEntries) {
   }
 }
 
+if (!checkOnly) await verifyPersistedFingerprints(fingerprintKey, effective);
+
 const deploymentFingerprint = createHash("sha256")
   .update(JSON.stringify(Object.fromEntries(Object.entries(effective).sort(([a], [b]) => a.localeCompare(b)))))
   .digest("hex");
@@ -97,7 +100,7 @@ function readCurrentFingerprints(key) {
       "node",
       "scripts/fingerprint-runtime-env.mjs",
     ],
-    { env: cleanEnv, capture: true }
+    { env: withoutEmptyEnvironmentValues(cleanEnv), capture: true }
   );
   const jsonLine = result.stdout
     .split(/\r?\n/)
@@ -110,6 +113,22 @@ function readCurrentFingerprints(key) {
   } catch {
     fail("Vercel env fingerprint command returned malformed JSON");
   }
+}
+
+async function verifyPersistedFingerprints(key, expected) {
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    if (sameFingerprintMap(readCurrentFingerprints(key), expected)) return;
+    if (attempt < 4) await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+  }
+  fail("Vercel runtime environment did not persist the reconciled values.");
+}
+
+function sameFingerprintMap(left, right) {
+  return JSON.stringify(sortedEntries(left)) === JSON.stringify(sortedEntries(right));
+}
+
+function sortedEntries(value) {
+  return Object.entries(value).sort(([a], [b]) => a.localeCompare(b));
 }
 
 function fingerprint(value, key) {
