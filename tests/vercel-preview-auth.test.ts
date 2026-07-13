@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -75,9 +76,30 @@ describe("Vercel preview OAuth redirects", () => {
     );
   });
 
+  it("fails closed when the Vercel account lookup fails", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ error: { message: "forbidden" } }), { status: 403 })
+    );
+
+    await expect(
+      resolveVercelAccountSlug({ VERCEL_TOKEN: "token" }, fetchImpl)
+    ).rejects.toThrow("Vercel account lookup failed (403): forbidden");
+  });
+
   it("rejects an unsafe account slug", async () => {
     await expect(
       resolveVercelAccountSlug({ VERCEL_PREVIEW_ACCOUNT_SLUG: "example.com/redirect" })
     ).rejects.toThrow("unsupported characters");
+  });
+
+  it("exposes Vercel system hostnames on every managed project", async () => {
+    const terraform = await readFile(
+      new URL("../infra/terraform/platform/main.tf", import.meta.url),
+      "utf8"
+    );
+
+    expect(
+      terraform.match(/automatically_expose_system_environment_variables = true/g)
+    ).toHaveLength(2);
   });
 });
