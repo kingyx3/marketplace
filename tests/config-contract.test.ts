@@ -102,8 +102,10 @@ describe("platform config contract", () => {
     expect(verification).toContain("configure-providers.mjs");
     expect(verification).toContain("--check-only");
     expect(verification).toContain("--skip-health");
+    expect(bootstrapWorkflow).toContain("name: ZZZ-Bootstrap Environment");
     expect(bootstrapWorkflow).toContain("workflow_call:");
-    expect(bootstrapWorkflow).toContain("options: [apply, verify]");
+    expect(bootstrapWorkflow).not.toContain("workflow_dispatch:");
+    expect(bootstrapWorkflow).toContain("default: apply");
     expect(bootstrapWorkflow).toContain("node scripts/verify-environment.mjs");
     expect(bootstrapWorkflow).toContain("SYNTHETIC_MONITOR_SECRET");
   });
@@ -134,10 +136,12 @@ describe("platform config contract", () => {
 function flattenHeaders(entries: Array<{ headers?: Array<{ key: string; value: string }> }>) {
   return Object.fromEntries(entries.flatMap((entry) => (entry.headers ?? []).map((header) => [header.key, header.value])));
 }
+
 function headersForSource(entries: Array<{ source: string; headers?: Array<{ key: string; value: string }> }>, source: string) {
   const entry = entries.find((candidate) => candidate.source === source);
   return Object.fromEntries((entry?.headers ?? []).map((header) => [header.key, header.value]));
 }
+
 async function allMigrationSql() {
   const dir = fileURLToPath(new URL("../supabase/migrations", import.meta.url));
   const files = (await readdir(dir)).filter((file) => file.endsWith(".sql")).sort();
