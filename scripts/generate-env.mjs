@@ -7,13 +7,18 @@ import {
 const CONTRACT_URL = new URL("../config/environment-contract.json", import.meta.url);
 export const ENV_CONTRACT = Object.freeze(JSON.parse(readFileSync(CONTRACT_URL, "utf8")));
 
+export function isRequiredEnvironmentEntry(entry, env) {
+  if (entry.required) return true;
+  const requiredWhen = entry.requiredWhen;
+  return Boolean(requiredWhen && String(env[requiredWhen.key] || "") === requiredWhen.equals);
+}
+
 export function validateEnv(env, options = {}) {
   const errors = [];
   const allowMissingProvisioned = options.allowMissingProvisioned ?? false;
   for (const entry of ENV_CONTRACT) {
     const value = env[entry.key];
-    const conditionRequired = entry.requiredWhen && String(env[entry.requiredWhen.key] || "") === entry.requiredWhen.equals;
-    const required = entry.required || conditionRequired;
+    const required = isRequiredEnvironmentEntry(entry, env);
     if (value === undefined || value === "") {
       if (required && !(allowMissingProvisioned && entry.provisioned)) {
         errors.push(`missing required: ${entry.key} (${entry.hint})`);
