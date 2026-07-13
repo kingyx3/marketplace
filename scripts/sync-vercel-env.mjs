@@ -2,7 +2,11 @@
 import { createHash, createHmac } from "node:crypto";
 import { appendFile, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { ENV_CONTRACT, parseDotenv } from "./generate-env.mjs";
+import {
+  ENV_CONTRACT,
+  isRequiredEnvironmentEntry,
+  parseDotenv,
+} from "./generate-env.mjs";
 import { withoutEmptyEnvironmentValues } from "./lib/process-environment.mjs";
 import {
   genericVercelEnvironmentRecords,
@@ -25,6 +29,7 @@ if (!token) fail("VERCEL_TOKEN is required");
 
 const vercelEnv = targetEnv === "development" ? "preview" : "production";
 const dotenv = parseDotenv(await readFile(dotenvPath, "utf8"));
+const desiredEnvironment = { ...process.env, ...dotenv };
 const runtimeEntries = ENV_CONTRACT.filter((entry) => !entry.deployOnly);
 const fingerprintKey = createHmac("sha256", token)
   .update("marketplace-runtime-env-fingerprint-v1")
@@ -40,6 +45,7 @@ let unchanged = 0;
 
 for (const entry of runtimeEntries) {
   const value = dotenv[entry.key];
+  const required = isRequiredEnvironmentEntry(entry, desiredEnvironment);
   const record = currentRecords.get(entry.key);
   const currentFingerprint = currentFingerprints[entry.key];
   const currentExists = Boolean(record) || currentFingerprint !== undefined;
@@ -53,10 +59,10 @@ for (const entry of runtimeEntries) {
       preserved += 1;
       continue;
     }
-    if (entry.provisioned && entry.required) {
-      fail(`Missing required provisioned Vercel environment variable: ${entry.key}`);
+    if (required) {
+      fail(`Missing required desired Vercel environment variable: ${entry.key}`);
     }
-    if (preserveUnsetOptional && !entry.required) {
+    if (preserveUnsetOptional) {
       expectedStates.set(entry.key, currentFingerprint === undefined
         ? currentExists ? { mode: "exists" } : { mode: "absent" }
         : { mode: "value", fingerprint: currentFingerprint });
