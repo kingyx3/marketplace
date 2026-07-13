@@ -35,6 +35,8 @@ jobs:
               - 'package-lock.json'
               - 'tsconfig.json'
               - 'next.config.ts'
+              - 'instrumentation*.ts'
+              - 'sentry.*.config.ts'
               - 'eslint.config.mjs'
               - 'vitest.config.ts'
               - 'playwright.config.ts'
