@@ -34,7 +34,8 @@ describe("bootstrap convergence", () => {
   it("sanitizes every Vercel env run used by bootstrap apply and verification", async () => {
     const reconcile = await readFile(new URL("../scripts/reconcile-runtime-environment.mjs", import.meta.url), "utf8");
     const verify = await readFile(new URL("../scripts/verify-environment.mjs", import.meta.url), "utf8");
-    expect(reconcile).toContain("env: withoutEmptyEnvironmentValues(process.env)");
+    expect(reconcile).toContain("const vercelEnvRunEnvironment = withoutEmptyEnvironmentValues(");
+    expect(reconcile.match(/env: vercelEnvRunEnvironment/g)).toHaveLength(1);
     expect(verify.match(/env: vercelEnvRunEnvironment/g)).toHaveLength(2);
   });
 
