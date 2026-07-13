@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
+
+import { sanitizeSentryContext } from "@/lib/sentry-config";
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 const SENSITIVE_KEY_PATTERN =
@@ -32,10 +35,12 @@ export function withRequestId<T extends NextResponse>(response: T, requestId: st
 
 export function logInfo(event: string, context: LogContext = {}): void {
   writeLog("info", event, context);
+  writeSentryLog("info", event, context);
 }
 
 export function logWarn(event: string, context: LogContext = {}): void {
   writeLog("warn", event, context);
+  writeSentryLog("warn", event, context);
 }
 
 export function logError(event: string, error: unknown, context: LogContext = {}): void {
@@ -43,6 +48,7 @@ export function logError(event: string, error: unknown, context: LogContext = {}
     ...context,
     error: safeError(error),
   });
+  captureHandledError(event, error, context);
 }
 
 export function sanitizeLogValue(value: unknown, depth = 0): unknown {
@@ -91,6 +97,63 @@ function writeLog(level: "info" | "warn" | "error", event: string, context: LogC
   } else {
     console.info(line);
   }
+}
+
+function writeSentryLog(level: "info" | "warn", event: string, context: LogContext): void {
+  try {
+    const attributes = sentryLogAttributes(context);
+    if (level === "warn") Sentry.logger.warn(event, attributes);
+    else Sentry.logger.info(event, attributes);
+  } catch {
+    // Telemetry must never make an application path fail.
+  }
+}
+
+function captureHandledError(event: string, error: unknown, context: LogContext): void {
+  try {
+    const sanitizedContext = sanitizeSentryContext(context);
+    Sentry.logger.error(event, sentryLogAttributes({ ...context, error: safeError(error) }));
+    Sentry.withScope((scope) => {
+      scope.setTag("application_event", event);
+      setTag(scope, "route", context.route);
+      setTag(scope, "method", context.method);
+      setTag(scope, "event_type", context.eventType);
+      setTag(scope, "status", context.status);
+      setTag(scope, "request_id", context.requestId);
+      if (context.userId) scope.setUser({ id: context.userId });
+      scope.setContext("marketplace", sanitizedContext);
+      Sentry.captureException(normalizeError(error));
+    });
+  } catch {
+    // Telemetry must never make an application path fail.
+  }
+}
+
+function sentryLogAttributes(context: LogContext): Record<string, string | number | boolean> {
+  const sanitized = sanitizeSentryContext(context);
+  return Object.fromEntries(
+    Object.entries(sanitized).map(([key, value]) => {
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        return [key, value];
+      }
+      return [key, JSON.stringify(value)];
+    })
+  );
+}
+
+function setTag(
+  scope: Parameters<Parameters<typeof Sentry.withScope>[0]>[0],
+  key: string,
+  value: unknown
+): void {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    scope.setTag(key, String(value));
+  }
+}
+
+function normalizeError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new Error(typeof error === "string" ? error : "Unknown application error");
 }
 
 function safeError(error: unknown): Record<string, unknown> {
