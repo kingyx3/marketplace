@@ -1,16 +1,10 @@
-name: Hosted release gates
+name: ZZZ-Hosted Release Gates
 
 on:
   workflow_call:
     inputs:
       staging_app_url:
         description: Immutable staging deployment URL for the exact release commit
-        required: true
-        type: string
-  workflow_dispatch:
-    inputs:
-      staging_app_url:
-        description: Immutable staging deployment URL to validate
         required: true
         type: string
 
