@@ -115,11 +115,17 @@ function captureHandledError(event: string, error: unknown, context: LogContext)
     Sentry.logger.error(event, sentryLogAttributes({ ...context, error: safeError(error) }));
     Sentry.withScope((scope) => {
       scope.setTag("application_event", event);
-      setTag(scope, "route", context.route);
-      setTag(scope, "method", context.method);
-      setTag(scope, "event_type", context.eventType);
-      setTag(scope, "status", context.status);
-      setTag(scope, "request_id", context.requestId);
+      for (const [key, value] of [
+        ["route", context.route],
+        ["method", context.method],
+        ["event_type", context.eventType],
+        ["status", context.status],
+        ["request_id", context.requestId],
+      ] as const) {
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+          scope.setTag(key, String(value));
+        }
+      }
       if (context.userId) scope.setUser({ id: context.userId });
       scope.setContext("marketplace", sanitizedContext);
       Sentry.captureException(normalizeError(error));
@@ -139,16 +145,6 @@ function sentryLogAttributes(context: LogContext): Record<string, string | numbe
       return [key, JSON.stringify(value)];
     })
   );
-}
-
-function setTag(
-  scope: Parameters<Parameters<typeof Sentry.withScope>[0]>[0],
-  key: string,
-  value: unknown
-): void {
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    scope.setTag(key, String(value));
-  }
 }
 
 function normalizeError(error: unknown): Error {
