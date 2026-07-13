@@ -48,6 +48,7 @@ async function main() {
     .digest("hex");
   const current = await readCurrentState(context, vercelEnv, runtimeEntries, fingerprintKey);
   const expectedStates = new Map();
+  const verificationStates = new Map();
   let added = 0;
   let updated = 0;
   let removed = 0;
@@ -68,9 +69,11 @@ async function main() {
         if (rotateProvisioned) {
           fail(`Cannot rotate provisioned Vercel environment variable without a desired value: ${entry.key}`);
         }
-        expectedStates.set(entry.key, currentFingerprint === undefined
+        const state = currentFingerprint === undefined
           ? { mode: "exists" }
-          : { mode: "value", fingerprint: currentFingerprint });
+          : { mode: "value", fingerprint: currentFingerprint };
+        expectedStates.set(entry.key, state);
+        verificationStates.set(entry.key, state);
         preserved += 1;
         continue;
       }
@@ -78,13 +81,16 @@ async function main() {
         fail(`Missing required desired Vercel environment variable: ${entry.key}`);
       }
       if (preserveUnsetOptional) {
-        expectedStates.set(entry.key, currentFingerprint === undefined
+        const state = currentFingerprint === undefined
           ? currentExists ? { mode: "exists" } : { mode: "absent" }
-          : { mode: "value", fingerprint: currentFingerprint });
+          : { mode: "value", fingerprint: currentFingerprint };
+        expectedStates.set(entry.key, state);
+        verificationStates.set(entry.key, state);
         preserved += 1;
         continue;
       }
       expectedStates.set(entry.key, { mode: "absent" });
+      verificationStates.set(entry.key, { mode: "absent" });
       if (currentExists) {
         removed += 1;
         if (!checkOnly) {
@@ -96,6 +102,7 @@ async function main() {
 
     if (currentExists && currentUnreadable) {
       expectedStates.set(entry.key, { mode: "exists" });
+      verificationStates.set(entry.key, { mode: "exists" });
       if (checkOnly) {
         verifiedByPresence += 1;
         continue;
@@ -112,15 +119,18 @@ async function main() {
     const desiredFingerprint = fingerprint(value, fingerprintKey);
     expectedStates.set(entry.key, { mode: "value", fingerprint: desiredFingerprint });
     if (currentFingerprint === desiredFingerprint) {
+      verificationStates.set(entry.key, { mode: "value", fingerprint: desiredFingerprint });
       unchanged += 1;
       continue;
     }
     if (currentExists) {
+      verificationStates.set(entry.key, { mode: "exists" });
       updated += 1;
       if (!checkOnly) {
         await updateVercelEnvironmentRecord({ ...context, record, value, target: vercelEnv });
       }
     } else {
+      verificationStates.set(entry.key, { mode: "exists" });
       added += 1;
       if (!checkOnly) {
         await createVercelEnvironmentRecord({
@@ -135,7 +145,7 @@ async function main() {
   }
 
   if (!checkOnly) {
-    await verifyPersistedState(context, vercelEnv, runtimeEntries, fingerprintKey, expectedStates);
+    await verifyPersistedState(context, vercelEnv, runtimeEntries, fingerprintKey, verificationStates);
   }
 
   const deploymentFingerprint = createHash("sha256")
