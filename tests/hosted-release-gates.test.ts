@@ -38,6 +38,20 @@ describe("hosted production release gates", () => {
     expect(workflow).toContain("SUPABASE_REQUIRED_BACKUP_MODE: pitr");
   });
 
+  it("checks protected Vercel deployments with an authenticated CLI probe", async () => {
+    const script = await readFile(
+      new URL("../scripts/verify-environment.mjs", import.meta.url),
+      "utf8"
+    );
+
+    expect(script).toContain('pinnedNpxPackage("vercel")');
+    expect(script).toContain('"curl"');
+    expect(script).toContain('"--deployment"');
+    expect(script).toContain('"--fail-with-body"');
+    expect(script).toContain('process.env.VERCEL_TOKEN');
+    expect(script).not.toContain("await fetch(url");
+  });
+
   it("keeps isolated staging and recovery infrastructure available as an opt-in topology", async () => {
     const terraform = await readFile(
       new URL("../infra/terraform/platform/main.tf", import.meta.url),
