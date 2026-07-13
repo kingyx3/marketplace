@@ -123,18 +123,24 @@ export async function updateVercelEnvironmentRecord({
       `Refusing to update shared Vercel environment record ${record.key}; split it into one record per target first.`
     );
   }
-  const url = vercelApiUrl(
-    `/v10/projects/${encodeURIComponent(projectId)}/env/${encodeURIComponent(record.id)}`,
-    teamId
-  );
-  const body = {
-    type: record.type || "encrypted",
+  await deleteVercelEnvironmentRecord({
+    token,
+    projectId,
+    teamId,
+    record,
+    target,
+    fetchImpl,
+  });
+  return createVercelEnvironmentRecord({
+    token,
+    projectId,
+    teamId,
+    key: record.key,
     value,
-    target: [target],
-    gitBranch: undefined,
-    ...(record.type === "sensitive" ? {} : { key: record.key }),
-  };
-  return vercelApiRequest(url, { token, fetchImpl, method: "PATCH", body });
+    target,
+    type: record.type || "encrypted",
+    fetchImpl,
+  });
 }
 
 export async function deleteVercelEnvironmentRecord({

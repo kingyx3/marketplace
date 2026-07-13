@@ -55,20 +55,33 @@ describe("Vercel sensitive runtime environment", () => {
     expect(result.value).toBe("Marketplace");
   });
 
-  it("creates readable encrypted records and refuses cross-target mutations", () => {
-    const result = runModule<{ body: Record<string, unknown>; sharedError: string }>(`
+  it("creates readable encrypted records, replaces target-exclusive updates, and refuses cross-target mutations", () => {
+    const result = runModule<{
+      createBody: Record<string, unknown>;
+      updateMethods: string[];
+      updateBodies: Array<Record<string, unknown> | null>;
+      sharedError: string;
+    }>(`
       import {
         createVercelEnvironmentRecord,
         updateVercelEnvironmentRecord,
       } from './scripts/lib/vercel-environment.mjs';
-      let body;
-      const fetchImpl = async (_url, options) => {
-        body = JSON.parse(options.body);
+      const calls = [];
+      const fetchImpl = async (url, options = {}) => {
+        calls.push({
+          url: String(url),
+          method: options.method || 'GET',
+          body: options.body ? JSON.parse(options.body) : null,
+        });
         return { ok: true, status: 200, statusText: 'OK', text: async () => '{}' };
       };
       await createVercelEnvironmentRecord({
         token: 'token_x', projectId: 'prj_x', key: 'APP_NAME', value: 'Marketplace',
         target: 'production', fetchImpl,
+      });
+      await updateVercelEnvironmentRecord({
+        token: 'token_x', projectId: 'prj_x', target: 'production', value: 'New Marketplace', fetchImpl,
+        record: { id: 'env_1', key: 'APP_NAME', type: 'encrypted', target: ['production'] },
       });
       let sharedError = '';
       try {
@@ -79,15 +92,30 @@ describe("Vercel sensitive runtime environment", () => {
       } catch (error) {
         sharedError = error.message;
       }
-      console.log(JSON.stringify({ body, sharedError }));
+      console.log(JSON.stringify({
+        createBody: calls[0].body,
+        updateMethods: calls.slice(1, 3).map((call) => call.method),
+        updateBodies: calls.slice(1, 3).map((call) => call.body),
+        sharedError,
+      }));
     `);
 
-    expect(result.body).toEqual({
+    expect(result.createBody).toEqual({
       key: "APP_NAME",
       value: "Marketplace",
       type: "encrypted",
       target: ["production"],
     });
+    expect(result.updateMethods).toEqual(["DELETE", "POST"]);
+    expect(result.updateBodies).toEqual([
+      null,
+      {
+        key: "APP_NAME",
+        value: "New Marketplace",
+        type: "encrypted",
+        target: ["production"],
+      },
+    ]);
     expect(result.sharedError).toContain("Refusing to update shared Vercel environment record APP_NAME");
   });
 
