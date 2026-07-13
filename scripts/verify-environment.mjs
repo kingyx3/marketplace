@@ -73,6 +73,7 @@ async function main() {
       "scripts/generate-env.mjs",
       "--write",
       runtimePath,
+      "--allow-missing-provisioned",
     ], { env: vercelEnvRunEnvironment });
     run(process.execPath, ["scripts/sync-vercel-env.mjs", runtimePath, "--check-only"]);
 
