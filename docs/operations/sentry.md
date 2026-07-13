@@ -41,7 +41,7 @@ After deploying to staging:
 2. Trigger a controlled exception from a temporary staging-only code path, then remove that code immediately after verification.
 3. Confirm the issue shows the correct `staging` environment, deployed commit/release, readable original TypeScript stack frames, browser or server runtime tag, and request/user correlation where applicable.
 4. Confirm a normal navigation produces a trace and that an error session produces a privacy-masked replay.
-5. Confirm the application error page displays a Sentry event reference without exposing exception details.
+5. Confirm the application error page exposes no exception details and only displays Next.js's safe server digest when one is available.
 
 Do not add a permanently reachable endpoint that throws errors. Use the Sentry project alert rules to page the operational channel for new production regressions, elevated error volume, and checkout/payment failures.
 
