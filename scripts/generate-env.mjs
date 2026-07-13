@@ -85,6 +85,7 @@ export function parseDotenv(content) {
 }
 
 export async function loadLocalDotenv(env = process.env, path) {
+  if (String(env.MARKETPLACE_DISABLE_LOCAL_DOTENV || "") === "true") return false;
   const { readFile } = await import("node:fs/promises");
   const paths = path ? [path] : [".env.local", ".env"];
   let loaded = false;
