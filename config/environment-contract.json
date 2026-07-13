@@ -184,6 +184,136 @@
     }
   },
   {
+    "key": "NEXT_PUBLIC_SENTRY_DSN",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Sentry project DSN for browser, Node.js, and Edge telemetry",
+    "validator": {
+      "type": "url",
+      "protocols": [
+        "https:"
+      ]
+    }
+  },
+  {
+    "key": "SENTRY_DSN",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Optional server-only Sentry DSN override",
+    "validator": {
+      "type": "url",
+      "protocols": [
+        "https:"
+      ]
+    }
+  },
+  {
+    "key": "NEXT_PUBLIC_SENTRY_ENVIRONMENT",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Explicit Sentry environment name shared with browser telemetry",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SENTRY_ENVIRONMENT",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Optional server-only Sentry environment override",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Browser performance trace sample rate from 0 to 1",
+    "validator": {
+      "type": "pattern",
+      "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
+    }
+  },
+  {
+    "key": "SENTRY_TRACES_SAMPLE_RATE",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Server and Edge performance trace sample rate from 0 to 1",
+    "validator": {
+      "type": "pattern",
+      "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
+    }
+  },
+  {
+    "key": "NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Browser session replay sample rate from 0 to 1",
+    "validator": {
+      "type": "pattern",
+      "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
+    }
+  },
+  {
+    "key": "NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Browser error replay sample rate from 0 to 1",
+    "validator": {
+      "type": "pattern",
+      "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
+    }
+  },
+  {
+    "key": "SENTRY_RELEASE",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Optional explicit Sentry release identifier",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SENTRY_ORG",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Sentry organization slug for release and source-map uploads",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SENTRY_PROJECT",
+    "section": "Observability",
+    "required": false,
+    "secret": false,
+    "hint": "Sentry project slug for release and source-map uploads",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "SENTRY_AUTH_TOKEN",
+    "section": "Observability",
+    "required": false,
+    "secret": true,
+    "hint": "Scoped Sentry build token for release and source-map uploads",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
     "key": "TARGET_ENV",
     "section": "Hosted deployment",
     "required": true,
