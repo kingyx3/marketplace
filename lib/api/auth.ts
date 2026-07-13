@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { conflict, forbidden, unauthorized } from "@/lib/api/errors";
+import { setTelemetryUser } from "@/lib/observability";
 import { createServiceClient } from "@/lib/supabase";
 
 export interface CustomerRecord {
@@ -72,6 +73,7 @@ export async function authenticateApiRequest(
   }
 
   const roles = rolesFromUser(data.user);
+  setTelemetryUser(data.user.id, roles);
   return {
     supabase,
     user: data.user,
