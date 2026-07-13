@@ -1,7 +1,7 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 export default function GlobalError({
   error,
@@ -10,10 +10,8 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const [eventId, setEventId] = useState("");
-
   useEffect(() => {
-    setEventId(Sentry.captureException(error));
+    Sentry.captureException(error);
   }, [error]);
 
   return (
@@ -39,9 +37,9 @@ export default function GlobalError({
           <p style={{ color: "#52525b", lineHeight: 1.6 }}>
             The failure has been recorded. Reload the page, or share the reference below with support if it continues.
           </p>
-          {eventId ? (
+          {error.digest ? (
             <p style={{ color: "#71717a", fontFamily: "ui-monospace, monospace", fontSize: "0.75rem" }}>
-              Reference: {eventId}
+              Reference: {error.digest}
             </p>
           ) : null}
           <button
