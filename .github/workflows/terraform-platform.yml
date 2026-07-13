@@ -1,4 +1,4 @@
-name: Terraform Platform
+name: ZZZ-Terraform Platform
 
 on:
   workflow_call:
@@ -7,32 +7,6 @@ on:
         description: GitHub Environment providing shared Terraform credentials and overrides
         required: true
         type: string
-      mode:
-        description: Converge automatically or use a granular recovery operation
-        required: false
-        default: converge
-        type: string
-      plan_run_id:
-        description: Actions run id containing the reviewed plan artifact for apply mode
-        required: false
-        default: ""
-        type: string
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: GitHub Environment providing shared Terraform credentials and overrides
-        required: true
-        type: environment
-      mode:
-        description: Converge automatically or run a granular recovery operation
-        required: true
-        default: converge
-        type: choice
-        options: [converge, reconcile, plan, apply]
-      plan_run_id:
-        description: Required only for granular apply mode
-        required: false
-        type: string
 
 concurrency:
   group: marketplace-shared-infrastructure
@@ -40,14 +14,12 @@ concurrency:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   converge:
-    if: inputs.mode == 'converge'
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    env: &platform_env
+    env:
       TARGET_ENV: ${{ inputs.environment }}
       GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -89,92 +61,3 @@ jobs:
           terraform -chdir=infra/terraform/platform apply -input=false -auto-approve "$plan"
           terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
           echo "Terraform platform converged." >> "$GITHUB_STEP_SUMMARY"
-
-  reconcile:
-    if: inputs.mode == 'reconcile'
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    env: *platform_env
-    steps:
-      - uses: actions/checkout@v7.0.0
-      - uses: actions/setup-node@v6.4.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - uses: hashicorp/setup-terraform@v4.0.1
-        with:
-          terraform_version: 1.15.8
-      - run: node scripts/resolve-terraform-inputs.mjs platform
-      - run: |
-          terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-          terraform -chdir=infra/terraform/platform fmt -check
-          terraform -chdir=infra/terraform/platform validate
-      - run: node scripts/bootstrap-terraform-imports.mjs
-
-  plan:
-    if: inputs.mode == 'plan'
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    env: *platform_env
-    steps:
-      - uses: actions/checkout@v7.0.0
-      - uses: actions/setup-node@v6.4.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - uses: hashicorp/setup-terraform@v4.0.1
-        with:
-          terraform_version: 1.15.8
-      - run: node scripts/resolve-terraform-inputs.mjs platform
-      - run: |
-          terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-          terraform -chdir=infra/terraform/platform fmt -check
-          terraform -chdir=infra/terraform/platform validate
-      - name: Create side-effect-free plan
-        run: |
-          mkdir -p .terraform-plan
-          terraform -chdir=infra/terraform/platform plan -input=false -out="$GITHUB_WORKSPACE/.terraform-plan/tfplan"
-          terraform -chdir=infra/terraform/platform show -no-color "$GITHUB_WORKSPACE/.terraform-plan/tfplan" > .terraform-plan/plan.txt
-          node -e 'const fs=require("fs"); fs.writeFileSync(".terraform-plan/metadata.json", JSON.stringify({source_sha:process.env.GITHUB_SHA,stack:"platform",workflow_run_id:process.env.GITHUB_RUN_ID},null,2)+"\n")'
-      - run: cat .terraform-plan/plan.txt >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7.0.1
-        with:
-          name: terraform-platform-plan
-          path: .terraform-plan/
-          retention-days: 1
-          if-no-files-found: error
-
-  apply:
-    if: inputs.mode == 'apply'
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    env: *platform_env
-    steps:
-      - uses: actions/checkout@v7.0.0
-      - name: Validate reviewed plan reference
-        env:
-          PLAN_RUN_ID: ${{ inputs.plan_run_id }}
-        run: |
-          test -n "$PLAN_RUN_ID" || { echo "plan_run_id is required for apply" >&2; exit 1; }
-          [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]] || { echo "plan_run_id must be numeric" >&2; exit 1; }
-      - uses: actions/setup-node@v6.4.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - uses: hashicorp/setup-terraform@v4.0.1
-        with:
-          terraform_version: 1.15.8
-      - uses: actions/download-artifact@v8.0.1
-        with:
-          name: terraform-platform-plan
-          path: .terraform-plan
-          run-id: ${{ inputs.plan_run_id }}
-          github-token: ${{ github.token }}
-      - name: Verify exact reviewed plan
-        run: |
-          node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(".terraform-plan/metadata.json")); if(m.stack!=="platform"||m.source_sha!==process.env.GITHUB_SHA) throw new Error(`Plan belongs to ${m.stack}@${m.source_sha}, expected platform@${process.env.GITHUB_SHA}`)'
-          test -s .terraform-plan/tfplan
-      - run: node scripts/resolve-terraform-inputs.mjs platform
-      - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
-      - run: terraform -chdir=infra/terraform/platform apply -input=false -auto-approve "$GITHUB_WORKSPACE/.terraform-plan/tfplan"
-      - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
