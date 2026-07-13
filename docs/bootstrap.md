@@ -26,6 +26,7 @@ Repository code cannot create every account-level trust boundary. Confirm:
 - A Supabase access token and organization access.
 - Stripe test/live keys with PayNow enabled at the account level.
 - Google OAuth consent-screen and Web-client ownership when Google Auth is enabled.
+- A Sentry organization/project plus a least-privilege release/source-map auth token for staging and production.
 - Verified Resend sender/domain and operational alert destinations for hosted release gates.
 
 Run bootstrap from this repository checkout; the command resolves the target repository through `gh repo view`.
@@ -34,13 +35,21 @@ Run bootstrap from this repository checkout; the command resolves the target rep
 
 Bootstrap reads values from the current shell and writes them to repository or Environment settings without printing secret contents.
 
-### Shared repository secrets
+### Shared repository settings
 
-| Shell input | GitHub setting |
-| --- | --- |
-| `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret |
-| `VERCEL_TOKEN` | Repository secret |
-| `SUPABASE_ACCESS_TOKEN` | Repository secret |
+| Shell input | GitHub setting | Requirement |
+| --- | --- | --- |
+| `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret | Required |
+| `VERCEL_TOKEN` | Repository secret | Required |
+| `SUPABASE_ACCESS_TOKEN` | Repository secret | Required |
+| `NEXT_PUBLIC_SENTRY_DSN` | Repository variable | Required for staging/production runtime capture |
+| `SENTRY_ORG` | Repository variable | Required for staging/production source maps |
+| `SENTRY_PROJECT` | Repository variable | Required for staging/production source maps |
+| `SENTRY_AUTH_TOKEN` | Repository secret | Required for staging/production source maps |
+
+`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are shared Sentry settings, not per-environment application configuration. The DSN and organization/project slugs are non-secret identifiers. The auth token must be scoped only to the release/source-map permissions required by the build.
+
+One DSN is used for development, staging, and production. The deployment target is supplied separately as the Sentry environment tag, so events remain distinguishable inside the shared project. Bootstrap removes any environment-scoped Sentry overrides from all deployment environments so repository-level values cannot be shadowed.
 
 Optional shared Terraform overrides are repository variables: `ENABLE_RELEASE_TOPOLOGY`, `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
 
@@ -69,6 +78,8 @@ Common values:
 | `OPERATIONAL_ALERT_WEBHOOK_URL` | Environment secret | Required for staging/production |
 | `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret | Required for staging/production |
 | `RESEND_API_KEY` | Environment secret | Required for staging/production |
+
+Environment naming, release identification, trace sampling, and replay sampling use safe code defaults and deployment metadata. No target-prefixed Sentry setting is required.
 
 Staging release-gate values:
 
@@ -160,6 +171,7 @@ Enabling the extended topology later adds staging and recovery resources without
 - Shared infrastructure uses one global concurrency lock and committed read-only provider lockfiles.
 - Stripe webhook configuration uses one desired-state implementation.
 - Supabase Google Auth, site URL, redirects, and migrations are reconciled through the environment bootstrap.
+- The shared Sentry DSN and source-map build settings are reconciled once at repository scope; environment labels come from the deployment target.
 - Vercel runtime values are fingerprinted; unchanged values are not rewritten.
 - Identical source/runtime fingerprints reuse an existing ready deployment.
 - Staging and production fail closed on infrastructure, provider, or runtime drift.
@@ -171,4 +183,4 @@ Rerun **Bootstrap & Deploy** for the affected target. This is the supported conv
 
 Use **Configure Providers (recovery)** only as a break-glass provider-only diagnostic or repair workflow, then rerun **Bootstrap & Deploy**. Application-only retries use **Deploy App**.
 
-Never edit an applied migration; add a forward migration. Correct operator values at their GitHub source and rerun the appropriate orchestrator.
+Never edit an applied migration; add a forward migration. Correct operator values at their GitHub source and rerun the appropriate orchestrator. See `docs/observability.md` for Sentry smoke tests, privacy controls, and production alerting requirements.

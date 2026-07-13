@@ -60,6 +60,9 @@ describe("deployment idempotency contract", () => {
     expect(deploy).toContain("marketplaceDeploymentKey");
     expect(deploy).toContain("Reusing ready ${targetEnv} Vercel deployment");
     expect(deploy).toContain('const target = targetEnv === "development" ? "preview" : "production"');
+    expect(deploy).toContain('"--build-env"');
+    expect(deploy).toContain('`NEXT_PUBLIC_SENTRY_ENVIRONMENT=${targetEnv}`');
+    expect(deploy).toContain('"--env"');
   });
 
   it("keeps Stripe checkout and webhooks limited to PayNow lifecycle events", async () => {

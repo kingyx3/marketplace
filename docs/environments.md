@@ -23,13 +23,21 @@ Committed defaults never override explicit values.
 
 Every workflow job that directly reads the GitHub Actions `vars` or `secrets` contexts declares its target GitHub Environment at the job level. Reusable-workflow callers may use `secrets: inherit`; the called workflow is responsible for attaching the environment to the jobs that consume those values.
 
-## Shared repository secrets
+## Shared repository settings
+
+Repository secrets:
 
 - `GCP_TERRAFORM_CREDENTIALS_JSON`
 - `VERCEL_TOKEN`
 - `SUPABASE_ACCESS_TOKEN`
+- `SENTRY_AUTH_TOKEN` for staging/production source-map uploads
 
-These are required by the hosted bootstrap for every target and are stored as repository-level secrets.
+Repository variables:
+
+- `NEXT_PUBLIC_SENTRY_DSN` for all Sentry runtime ingestion
+- `SENTRY_ORG` and `SENTRY_PROJECT` for staging/production source-map uploads
+
+The Sentry DSN, organization/project slugs, and auth token are shared settings. They are intentionally not duplicated across GitHub Environments. The bootstrap removes environment-scoped Sentry overrides from development, staging, and production so they cannot shadow the repository values.
 
 ## Per-environment operator inputs
 
@@ -50,6 +58,8 @@ Common secrets:
 - `STRIPE_WEBHOOK_SECRET` only as an optional recovery override
 - `CRON_SECRET`, `SYNTHETIC_MONITOR_SECRET`, `OPERATIONAL_ALERT_WEBHOOK_URL`, `OPERATIONAL_ALERT_WEBHOOK_SECRET`, and `RESEND_API_KEY`; optional in development and required by bootstrap intake for staging and production
 
+The shared DSN sends all deployment targets to one Sentry project. Environment names come from deployment metadata, so events remain separated as `development`, `staging`, or `production`. Releases use the Vercel Git commit SHA, trace sampling defaults to `1.0` outside production and `0.1` in production, background replay is disabled, and replay-on-error is enabled.
+
 Staging additionally carries recovery-project/database inputs, operations ownership, escalation, and SLO targets. Production carries operations ownership, escalation, SLO targets, backup retention, an optional advisor allow-list, and required reviewers when the GitHub Environment is first created. See `docs/bootstrap.md` for the exact prefixed shell names and defaults.
 
 ## Automatically resolved or generated
@@ -59,6 +69,7 @@ Staging additionally carries recovery-project/database inputs, operations owners
 - Vercel project/scope metadata from Terraform and Vercel APIs.
 - Stripe endpoint id by exact URL match.
 - Stripe signing secret during transactional create/replacement, persisted directly to Vercel.
+- Sentry environment names and releases from deployment metadata.
 
 ## Hosted topology
 
@@ -84,7 +95,7 @@ npm run bootstrap:github:apply -- --target=production
 ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap:github:apply -- --target=staging
 ```
 
-Shell values use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefix. Values are never printed. The normal end-to-end entry point is `npm run bootstrap -- --apply`, which invokes governance and target-aware GitHub intake automatically before dispatching **Bootstrap & Deploy** from `main`.
+Environment-specific shell values use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefix. Shared Sentry values use the unprefixed names `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN`. Values are never printed. The normal end-to-end entry point is `npm run bootstrap -- --apply`, which invokes governance and target-aware GitHub intake automatically before dispatching **Bootstrap & Deploy** from `main`.
 
 ## Optional Terraform overrides
 
@@ -109,4 +120,4 @@ The hosted bootstrap workflow automatically verifies the selected environment af
 
 For targeted diagnostics, run **Bootstrap Environment** with `mode=verify` or use `npm run bootstrap:verify` from an authenticated shell. Verification is non-mutating and fails when Terraform, provider settings, Vercel runtime values, or deployed health differ from the resolved desired state.
 
-See the generated reference for the complete application runtime/deploy key list and `docs/bootstrap.md` for bootstrap-only operational inputs.
+See the generated reference for the complete application runtime/deploy key list, `docs/observability.md` for Sentry verification and privacy controls, and `docs/bootstrap.md` for bootstrap-only operational inputs.

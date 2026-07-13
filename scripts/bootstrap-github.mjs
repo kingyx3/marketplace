@@ -3,8 +3,9 @@ import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
+const deploymentEnvironments = ["development", "staging", "production"];
 const target = readOption("--target") || "development";
-if (!new Set(["development", "staging", "production"]).has(target)) {
+if (!new Set(deploymentEnvironments).has(target)) {
   fail("--target must be development, staging, or production");
 }
 
@@ -13,6 +14,8 @@ if (!repo) fail("Could not resolve the current GitHub repository.");
 run("gh", ["auth", "status"]);
 
 const sharedSecrets = ["GCP_TERRAFORM_CREDENTIALS_JSON", "VERCEL_TOKEN", "SUPABASE_ACCESS_TOKEN"];
+const sharedSentryVariables = ["NEXT_PUBLIC_SENTRY_DSN", "SENTRY_ORG", "SENTRY_PROJECT"];
+const sharedSentrySecrets = ["SENTRY_AUTH_TOKEN"];
 const sharedVariableValues = {
   ENABLE_RELEASE_TOPOLOGY: booleanValue("ENABLE_RELEASE_TOPOLOGY", false),
 };
@@ -23,6 +26,19 @@ const commonVariables = [
   "GOOGLE_OAUTH_CLIENT_ID",
   "RESEND_FROM_EMAIL",
   "SUPPORT_EMAIL",
+];
+const redundantEnvironmentSentryVariables = [
+  "NEXT_PUBLIC_SENTRY_DSN",
+  "SENTRY_DSN",
+  "NEXT_PUBLIC_SENTRY_ENVIRONMENT",
+  "SENTRY_ENVIRONMENT",
+  "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE",
+  "SENTRY_TRACES_SAMPLE_RATE",
+  "NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE",
+  "NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE",
+  "SENTRY_RELEASE",
+  "SENTRY_ORG",
+  "SENTRY_PROJECT",
 ];
 const hostedOperationsVariables = [
   "OPERATIONS_OWNER",
@@ -66,6 +82,12 @@ const environmentSecrets = [...commonSecrets, ...targetSecrets[target]];
 console.log(`${apply ? "Applying" : "Planning"} GitHub bootstrap for ${repo}/${target}.`);
 for (const name of sharedSecrets) reportInput(name, process.env[name], true);
 for (const [name, value] of Object.entries(sharedVariableValues)) reportInput(name, value, true);
+for (const name of sharedSentryVariables) {
+  reportInput(name, process.env[name], target !== "development");
+}
+for (const name of sharedSentrySecrets) {
+  reportInput(name, process.env[name], target !== "development");
+}
 console.log(`\n${target}:`);
 for (const name of environmentVariables) {
   reportInput(`${environmentPrefix(target)}_${name}`, environmentValue(target, name), variableIsRequired(name));
@@ -82,7 +104,26 @@ if (!apply) {
 
 for (const name of sharedSecrets) setSecret(name, requiredEnv(name));
 for (const [name, value] of Object.entries(sharedVariableValues)) setRepositoryVariable(name, value);
+for (const name of sharedSentryVariables) {
+  const value = process.env[name] || "";
+  if (value) setRepositoryVariable(name, value);
+  else if (target !== "development") {
+    const purpose = name === "NEXT_PUBLIC_SENTRY_DSN" ? "runtime capture" : "source maps";
+    fail(`${name} is required for hosted Sentry ${purpose}`);
+  }
+}
+for (const name of sharedSentrySecrets) {
+  const value = process.env[name] || "";
+  if (value) setSecret(name, value);
+  else if (target !== "development") fail(`${name} is required for hosted Sentry source maps`);
+}
 ensureEnvironment(target);
+for (const environment of deploymentEnvironments) {
+  for (const name of redundantEnvironmentSentryVariables) {
+    deleteEnvironmentSettingIfPresent("variable", environment, name);
+  }
+  deleteEnvironmentSettingIfPresent("secret", environment, "SENTRY_AUTH_TOKEN");
+}
 for (const pattern of deploymentPolicies(target)) ensureDeploymentPolicy(target, pattern);
 for (const name of environmentVariables) {
   const supplied = environmentValue(target, name);
@@ -103,9 +144,9 @@ for (const name of environmentSecrets) {
 console.log(`GitHub ${target} environment, policies, variables, and supplied secrets are converged.`);
 
 function variableIsRequired(name) {
-  if (name === "SUPABASE_ADVISOR_ALLOWLIST") return false;
-  if (name === "GOOGLE_OAUTH_CLIENT_ID") return false;
-  if (name === "SUPPORT_EMAIL") return false;
+  if (["SUPABASE_ADVISOR_ALLOWLIST", "GOOGLE_OAUTH_CLIENT_ID", "SUPPORT_EMAIL"].includes(name)) {
+    return false;
+  }
   return true;
 }
 function secretIsRequired(name) {
@@ -157,6 +198,19 @@ function ensureDeploymentPolicy(environment, pattern) {
   }
   runJson("gh", ["api", "--method", "POST", endpoint, "--input", "-"], { name: pattern });
   console.log(`${environment} deployment policy ${pattern}: added`);
+}
+function deleteEnvironmentSettingIfPresent(kind, environment, name) {
+  const commandArgs = [kind, "delete", name, "--repo", repo, "--env", environment];
+  const result = spawnSync("gh", commandArgs, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.status === 0) {
+    console.log(`${environment} ${kind} ${name}: removed redundant override`);
+    return;
+  }
+  if (/not found|404/i.test(result.stderr || "")) return;
+  fail(`gh ${commandArgs.join(" ")} failed${result.stderr ? `: ${result.stderr.trim()}` : ""}`);
 }
 function requestedProductionReviewers() {
   const reviewers = String(process.env.PRODUCTION_REVIEWERS || "")
