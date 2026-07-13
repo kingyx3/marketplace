@@ -18,7 +18,7 @@ describe("release topology documentation", () => {
     }
 
     expect(readme).toContain("staging fails closed");
-    expect(deployment).toContain("otherwise the staging workflow fails closed");
+    expect(deployment).toContain("staging resolution fails closed");
     expect(provisioning).toContain("The default compact topology manages");
     expect(architecture).toContain("The default compact topology has two deployable targets");
 
