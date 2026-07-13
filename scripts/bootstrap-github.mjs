@@ -3,8 +3,9 @@ import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
+const deploymentEnvironments = ["development", "staging", "production"];
 const target = readOption("--target") || "development";
-if (!new Set(["development", "staging", "production"]).has(target)) {
+if (!new Set(deploymentEnvironments).has(target)) {
   fail("--target must be development, staging, or production");
 }
 
@@ -13,7 +14,7 @@ if (!repo) fail("Could not resolve the current GitHub repository.");
 run("gh", ["auth", "status"]);
 
 const sharedSecrets = ["GCP_TERRAFORM_CREDENTIALS_JSON", "VERCEL_TOKEN", "SUPABASE_ACCESS_TOKEN"];
-const sharedSentryVariables = ["SENTRY_ORG", "SENTRY_PROJECT"];
+const sharedSentryVariables = ["NEXT_PUBLIC_SENTRY_DSN", "SENTRY_ORG", "SENTRY_PROJECT"];
 const sharedSentrySecrets = ["SENTRY_AUTH_TOKEN"];
 const sharedVariableValues = {
   ENABLE_RELEASE_TOPOLOGY: booleanValue("ENABLE_RELEASE_TOPOLOGY", false),
@@ -21,13 +22,13 @@ const sharedVariableValues = {
 const commonVariables = [
   "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-  "NEXT_PUBLIC_SENTRY_DSN",
   "GOOGLE_AUTH_ENABLED",
   "GOOGLE_OAUTH_CLIENT_ID",
   "RESEND_FROM_EMAIL",
   "SUPPORT_EMAIL",
 ];
 const redundantEnvironmentSentryVariables = [
+  "NEXT_PUBLIC_SENTRY_DSN",
   "SENTRY_DSN",
   "NEXT_PUBLIC_SENTRY_ENVIRONMENT",
   "SENTRY_ENVIRONMENT",
@@ -106,7 +107,10 @@ for (const [name, value] of Object.entries(sharedVariableValues)) setRepositoryV
 for (const name of sharedSentryVariables) {
   const value = process.env[name] || "";
   if (value) setRepositoryVariable(name, value);
-  else if (target !== "development") fail(`${name} is required for hosted Sentry source maps`);
+  else if (target !== "development") {
+    const purpose = name === "NEXT_PUBLIC_SENTRY_DSN" ? "runtime capture" : "source maps";
+    fail(`${name} is required for hosted Sentry ${purpose}`);
+  }
 }
 for (const name of sharedSentrySecrets) {
   const value = process.env[name] || "";
@@ -114,10 +118,12 @@ for (const name of sharedSentrySecrets) {
   else if (target !== "development") fail(`${name} is required for hosted Sentry source maps`);
 }
 ensureEnvironment(target);
-for (const name of redundantEnvironmentSentryVariables) {
-  deleteEnvironmentSettingIfPresent("variable", target, name);
+for (const environment of deploymentEnvironments) {
+  for (const name of redundantEnvironmentSentryVariables) {
+    deleteEnvironmentSettingIfPresent("variable", environment, name);
+  }
+  deleteEnvironmentSettingIfPresent("secret", environment, "SENTRY_AUTH_TOKEN");
 }
-deleteEnvironmentSettingIfPresent("secret", target, "SENTRY_AUTH_TOKEN");
 for (const pattern of deploymentPolicies(target)) ensureDeploymentPolicy(target, pattern);
 for (const name of environmentVariables) {
   const supplied = environmentValue(target, name);
@@ -141,7 +147,6 @@ function variableIsRequired(name) {
   if (["SUPABASE_ADVISOR_ALLOWLIST", "GOOGLE_OAUTH_CLIENT_ID", "SUPPORT_EMAIL"].includes(name)) {
     return false;
   }
-  if (name === "NEXT_PUBLIC_SENTRY_DSN") return target !== "development";
   return true;
 }
 function secretIsRequired(name) {
