@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
@@ -14,6 +14,56 @@ describe("deployment workflow contract", () => {
     for (const command of ["npm run lint", "npm run typecheck", "npm test", "npm run build"]) {
       expect(checks).toContain(command);
     }
+  });
+
+  it("scopes every workflow job that reads GitHub vars or secrets to an environment", async () => {
+    const workflowsDirectory = new URL("../.github/workflows/", import.meta.url);
+    const workflowNames = (await readdir(workflowsDirectory)).filter((name) => /\.ya?ml$/.test(name));
+    const violations: string[] = [];
+
+    for (const workflowName of workflowNames) {
+      const workflow = await readFile(new URL(workflowName, workflowsDirectory), "utf8");
+      const lines = workflow.split("\n");
+      const jobsIndex = lines.findIndex((line) => line === "jobs:");
+      if (jobsIndex === -1) continue;
+
+      const jobs: Array<{ name: string; body: string }> = [];
+      let current: { name: string; lines: string[] } | undefined;
+
+      for (const line of lines.slice(jobsIndex + 1)) {
+        const match = line.match(/^  ([A-Za-z0-9_-]+):\s*$/);
+        if (match) {
+          if (current) jobs.push({ name: current.name, body: current.lines.join("\n") });
+          current = { name: match[1]!, lines: [line] };
+        } else if (current) {
+          current.lines.push(line);
+        }
+      }
+      if (current) jobs.push({ name: current.name, body: current.lines.join("\n") });
+
+      const sensitiveAnchors = new Set<string>();
+      for (const job of jobs) {
+        const anchor = job.body.match(/^    env:\s*&([A-Za-z0-9_-]+)\s*$/m)?.[1];
+        if (anchor && /\$\{\{\s*(?:vars|secrets)(?:\.|\[)/.test(job.body)) {
+          sensitiveAnchors.add(anchor);
+        }
+      }
+
+      for (const job of jobs) {
+        const directlyReadsGitHubValues = /\$\{\{\s*(?:vars|secrets)(?:\.|\[)/.test(job.body);
+        const referencedAnchors = [...job.body.matchAll(/^    env:\s*\*([A-Za-z0-9_-]+)\s*$/gm)].map(
+          (match) => match[1]!,
+        );
+        const readsGitHubValues =
+          directlyReadsGitHubValues || referencedAnchors.some((anchor) => sensitiveAnchors.has(anchor));
+
+        if (readsGitHubValues && !/^    environment:/m.test(job.body)) {
+          violations.push(`${workflowName}:${job.name}`);
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
   });
 
   it("defaults hosted bootstrap to development while guarding the optional staging target", async () => {

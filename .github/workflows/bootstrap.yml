@@ -21,6 +21,7 @@ permissions:
 jobs:
   validate-target:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
     steps:
       - name: Require opt-in for staging topology
         if: ${{ inputs.target == 'staging' && vars.ENABLE_RELEASE_TOPOLOGY != 'true' }}
