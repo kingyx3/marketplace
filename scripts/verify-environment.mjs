@@ -69,9 +69,16 @@ async function main() {
       ["scripts/generate-env.mjs", "--write", runtimePath, "--allow-missing-provisioned"],
       { env: verificationEnvironment }
     );
-    run(process.execPath, ["scripts/sync-vercel-env.mjs", runtimePath, "--check-only"], {
-      env: verificationEnvironment,
-    });
+    run(
+      process.execPath,
+      [
+        "scripts/sync-vercel-env.mjs",
+        runtimePath,
+        "--check-only",
+        "--preserve-unset-optional",
+      ],
+      { env: verificationEnvironment }
+    );
 
     if (!skipHealth) {
       await checkHealth(new URL("/api/health", siteUrl));
