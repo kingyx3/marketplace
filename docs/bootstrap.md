@@ -1,24 +1,23 @@
 # Bootstrap guide
 
-The hosted bootstrap defaults to the compact `development` and `production` topology. `development` is the default target. `staging` remains available as an opt-in target when the repository variable `ENABLE_RELEASE_TOPOLOGY=true` is set. The local command first reconciles GitHub governance and the selected GitHub Environment, then—only with `--apply`—dispatches **Bootstrap & Deploy** from the `main` branch and follows that exact workflow run to completion.
+The hosted bootstrap defaults to `development`. It converges one selected target through the **Bootstrap & Deploy** workflow on `main`. The normal application-release path is the separate **Deploy App** workflow.
 
-Bootstrap is convergent: unchanged branch protection, environments, infrastructure, provider settings, runtime values, migrations, and deployments become no-ops or reuse existing ready resources.
+Bootstrap is idempotent: unchanged GitHub settings, infrastructure, provider configuration, runtime values, migrations, and deployments become no-ops or reuse existing ready resources.
 
-## Source-of-truth map
-
-When this guide and implementation differ, update the guide against these executable contracts:
+## Source of truth
 
 - `package.json` — operator commands.
 - `scripts/bootstrap-hosted.mjs` — target selection, plan/apply behavior, dispatch, and run following.
 - `scripts/configure-github-governance.mjs` — `main` branch protection.
-- `scripts/bootstrap-github.mjs` — GitHub Environment policies and shell-value intake.
-- `.github/workflows/bootstrap.yml` — end-to-end workflow graph.
-- `config/environment-contract.json` and `docs/generated/environment-reference.md` — runtime/deploy environment contract.
+- `scripts/bootstrap-github.mjs` — GitHub Environment policies and trusted-shell value intake.
+- `.github/workflows/bootstrap.yml` — full-stack convergence orchestration.
+- `.github/workflows/deploy-app.yml` — branch, tag, release, and manual app deployment routing.
+- `config/environment-contract.json` — runtime and deployment environment contract.
 - `infra/terraform/platform` — hosted Vercel and Supabase topology.
 
 ## External prerequisites
 
-Create or confirm the account-level trust boundaries repository code cannot own:
+Repository code cannot create every account-level trust boundary. Confirm:
 
 - GitHub repository administration and an authenticated `gh` CLI session.
 - Node and npm versions accepted by `package.json`.
@@ -27,17 +26,15 @@ Create or confirm the account-level trust boundaries repository code cannot own:
 - A Supabase access token and organization access.
 - Stripe test/live keys with PayNow enabled at the account level.
 - Google OAuth consent-screen and Web-client ownership when Google Auth is enabled.
-- Verified Resend sender/domain and operational alert destinations for staging and production readiness gates when the extended release topology is enabled.
+- Verified Resend sender/domain and operational alert destinations for hosted release gates.
 
-The command always operates on the repository resolved by `gh repo view`. Run it from this repository checkout.
+Run bootstrap from this repository checkout; the command resolves the target repository through `gh repo view`.
 
 ## Trusted-shell values
 
-The bootstrap intake reads values from the current shell and writes them to repository secrets or the selected GitHub Environment without printing their contents.
+Bootstrap reads values from the current shell and writes them to repository or Environment settings without printing secret contents.
 
-### Shared repository values
-
-These unprefixed values are required for every target and are stored as GitHub repository secrets:
+### Shared repository secrets
 
 | Shell input | GitHub setting |
 | --- | --- |
@@ -45,67 +42,55 @@ These unprefixed values are required for every target and are stored as GitHub r
 | `VERCEL_TOKEN` | Repository secret |
 | `SUPABASE_ACCESS_TOKEN` | Repository secret |
 
-Optional Terraform overrides are stored as GitHub repository variables, not target-prefixed shell values: `ENABLE_RELEASE_TOPOLOGY`, `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
+Optional shared Terraform overrides are repository variables: `ENABLE_RELEASE_TOPOLOGY`, `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
 
-`ENABLE_RELEASE_TOPOLOGY` defaults to `false`. Leave it unset or export `ENABLE_RELEASE_TOPOLOGY=false` for the compact development/production topology. Set it to `true` only when you are ready to provision the dedicated staging Vercel project plus staging and recovery Supabase projects. It is repository-scoped because all targets share one platform Terraform state.
+`ENABLE_RELEASE_TOPOLOGY` defaults to `false`. Set it to `true` only when provisioning dedicated staging and recovery resources.
 
 ### Target-prefixed values
 
-Prefix environment values with `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` to match `--target`. The bootstrap removes that shell prefix before storing the value in the selected GitHub Environment.
+Prefix values with `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_`. Bootstrap removes the target prefix before writing the selected GitHub Environment.
 
-Common values for all targets:
+Common values:
 
 | Suffix | GitHub setting | Requirement |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | Environment variable | Required |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Environment variable | Required |
-| `GOOGLE_AUTH_ENABLED` | Environment variable | Defaults to `true` when omitted |
-| `GOOGLE_OAUTH_CLIENT_ID` | Environment variable | Required by strict resolution when Google Auth is enabled |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Environment secret | Required by strict resolution when Google Auth is enabled |
+| `GOOGLE_AUTH_ENABLED` | Environment variable | Defaults to `true` |
+| `GOOGLE_OAUTH_CLIENT_ID` | Environment variable | Required when Google Auth is enabled |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Environment secret | Required when Google Auth is enabled |
 | `STRIPE_SECRET_KEY` | Environment secret | Required |
-| `RESEND_FROM_EMAIL` | Environment variable | Required by GitHub intake |
+| `RESEND_FROM_EMAIL` | Environment variable | Required |
 | `SUPPORT_EMAIL` | Environment variable | Optional |
-| `SUPABASE_SECRET_KEY` | Environment secret | Optional fallback when the Management API cannot return a modern server key |
-| `STRIPE_WEBHOOK_SECRET` | Environment secret | Optional recovery override; normal bootstrap provisions and persists it transactionally |
-| `CRON_SECRET` | Environment secret | Optional for development; required for staging and production |
-| `SYNTHETIC_MONITOR_SECRET` | Environment secret | Optional for development; required for staging and production |
-| `OPERATIONAL_ALERT_WEBHOOK_URL` | Environment secret | Optional for development; required for staging and production |
-| `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret | Optional for development; required for staging and production |
-| `RESEND_API_KEY` | Environment secret | Optional for development; required for staging and production |
+| `SUPABASE_SECRET_KEY` | Environment secret | Optional fallback |
+| `STRIPE_WEBHOOK_SECRET` | Environment secret | Optional recovery override |
+| `CRON_SECRET` | Environment secret | Required for staging/production |
+| `SYNTHETIC_MONITOR_SECRET` | Environment secret | Required for staging/production |
+| `OPERATIONAL_ALERT_WEBHOOK_URL` | Environment secret | Required for staging/production |
+| `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret | Required for staging/production |
+| `RESEND_API_KEY` | Environment secret | Required for staging/production |
 
-Staging-only values:
+Staging release-gate values:
 
-| Shell input | GitHub setting | Requirement |
-| --- | --- | --- |
-| `STAGING_RECOVERY_PROJECT_REF` | Environment variable `RECOVERY_PROJECT_REF` | Required |
-| `STAGING_STAGING_DATABASE_URL` | Environment secret `STAGING_DATABASE_URL` | Required |
-| `STAGING_RECOVERY_DATABASE_URL` | Environment secret `RECOVERY_DATABASE_URL` | Required |
-| `STAGING_OPERATIONS_OWNER` | Environment variable `OPERATIONS_OWNER` | Required |
-| `STAGING_INCIDENT_ESCALATION_URL` | Environment variable `INCIDENT_ESCALATION_URL` | Required |
-| `STAGING_RESTORE_RTO_SECONDS` | Environment variable `RESTORE_RTO_SECONDS` | Defaults to `1800` |
-| `STAGING_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Environment variable `CHECKOUT_AVAILABILITY_SLO_PERCENT` | Defaults to `99.9` |
-| `STAGING_CHECKOUT_LATENCY_SLO_MS` | Environment variable `CHECKOUT_LATENCY_SLO_MS` | Defaults to `5000` |
-| `STAGING_PAYMENT_RECONCILIATION_SLO_MINUTES` | Environment variable `PAYMENT_RECONCILIATION_SLO_MINUTES` | Defaults to `15` |
+| Shell input | Stored setting |
+| --- | --- |
+| `STAGING_RECOVERY_PROJECT_REF` | Environment variable `RECOVERY_PROJECT_REF` |
+| `STAGING_STAGING_DATABASE_URL` | Environment secret `STAGING_DATABASE_URL` |
+| `STAGING_RECOVERY_DATABASE_URL` | Environment secret `RECOVERY_DATABASE_URL` |
+| `STAGING_OPERATIONS_OWNER` | Environment variable `OPERATIONS_OWNER` |
+| `STAGING_INCIDENT_ESCALATION_URL` | Environment variable `INCIDENT_ESCALATION_URL` |
+| `STAGING_RESTORE_RTO_SECONDS` | Environment variable `RESTORE_RTO_SECONDS` |
+| `STAGING_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Environment variable |
+| `STAGING_CHECKOUT_LATENCY_SLO_MS` | Environment variable |
+| `STAGING_PAYMENT_RECONCILIATION_SLO_MINUTES` | Environment variable |
 
-`STAGING_STAGING_DATABASE_URL` is intentionally double-prefixed: the first `STAGING_` selects the GitHub Environment, while the stored secret is named `STAGING_DATABASE_URL`.
+Production values include `PRODUCTION_OPERATIONS_OWNER`, `PRODUCTION_INCIDENT_ESCALATION_URL`, `PRODUCTION_SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS`, `PRODUCTION_SUPABASE_ADVISOR_ALLOWLIST`, and the production SLO variables.
 
-Production-only values:
+Set `PRODUCTION_REVIEWERS=user1,user2` only when creating or changing required production reviewers. It is bootstrap input and is not stored as a secret or variable.
 
-| Shell input | GitHub setting | Requirement |
-| --- | --- | --- |
-| `PRODUCTION_OPERATIONS_OWNER` | Environment variable `OPERATIONS_OWNER` | Required |
-| `PRODUCTION_INCIDENT_ESCALATION_URL` | Environment variable `INCIDENT_ESCALATION_URL` | Required |
-| `PRODUCTION_SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS` | Environment variable `SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS` | Defaults to `7` |
-| `PRODUCTION_SUPABASE_ADVISOR_ALLOWLIST` | Environment variable `SUPABASE_ADVISOR_ALLOWLIST` | Optional |
-| `PRODUCTION_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Environment variable `CHECKOUT_AVAILABILITY_SLO_PERCENT` | Defaults to `99.9` |
-| `PRODUCTION_CHECKOUT_LATENCY_SLO_MS` | Environment variable `CHECKOUT_LATENCY_SLO_MS` | Defaults to `5000` |
-| `PRODUCTION_PAYMENT_RECONCILIATION_SLO_MINUTES` | Environment variable `PAYMENT_RECONCILIATION_SLO_MINUTES` | Defaults to `15` |
+## Preview and apply
 
-Set `PRODUCTION_REVIEWERS=user1,user2` when creating the production GitHub Environment for the first time. This is bootstrap-only shell input used to configure required reviewers; it is not stored as a GitHub secret or variable. Existing required reviewers are preserved when that value is omitted on later runs.
-
-## Plan before applying
-
-Preview development GitHub governance and Environment changes without mutation:
+Preview development GitHub changes without mutation:
 
 ```bash
 npm run bootstrap
@@ -117,115 +102,73 @@ Preview another target:
 npm run bootstrap -- --target=production
 ```
 
-After opting into the extended topology, staging can also be previewed:
-
-```bash
-ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap -- --target=staging
-```
-
-Without `--apply`, no GitHub settings are changed and no hosted workflow is dispatched.
-
-## Apply bootstrap
-
-Development:
+Apply development bootstrap:
 
 ```bash
 npm run bootstrap -- --apply
 ```
 
-Production bootstrap or full recovery convergence:
+Apply production provisioning or full recovery convergence:
 
 ```bash
 npm run bootstrap -- --apply --target=production
 ```
 
-Staging, only after opting into the extended topology:
+Apply staging after enabling the extended topology:
 
 ```bash
 ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap -- --apply --target=staging
 ```
 
-The command:
+Without `--apply`, no GitHub settings are changed and no hosted workflow is dispatched. With `--apply`, the command reconciles governance and the selected Environment, dispatches `.github/workflows/bootstrap.yml` from `main`, follows that exact run, and returns its exit status. Unmerged local changes are not included.
 
-1. Reconciles `main` branch protection.
-2. Stores the repository-wide topology flag, then creates or updates the selected GitHub Environment, deployment policies, variables, supplied secrets, and production reviewers when applicable.
-3. Dispatches `.github/workflows/bootstrap.yml` with `--ref main` and the selected target.
-4. Finds the newly dispatched run, follows it, and returns its exit status.
-
-Because the workflow is dispatched from `main`, unmerged local or feature-branch changes are not bootstrapped. Merge the desired implementation and documentation before applying.
-
-## Workflow sequence
-
-**Bootstrap & Deploy** runs one linear target-aware pipeline:
+## Bootstrap & Deploy sequence
 
 ```text
-validate that the selected target is enabled
+validate target availability
 → full application and Playwright checks
 → converge Terraform state bucket
 → converge shared platform infrastructure
-→ reconcile selected environment providers, runtime values, and database
-→ deploy selected environment
-→ verify selected environment without mutation
+→ reconcile selected provider/runtime/database state
+→ deploy or reuse the identical application revision
+→ verify without mutation
 → assert every stage succeeded
 ```
 
-Application checks run once. Deployment receives `skip_app_checks=true` from the parent workflow.
+The internal workflows are reusable-only and prefixed `ZZZ-`. They are implementation details of the two orchestration flows, not separate operator entry points.
 
 ## Hosted topology
 
 Default compact topology:
 
-- `development` uses Vercel Preview deployments in the primary Vercel project and the development Supabase project.
-- `production` uses Vercel Production in the same primary Vercel project and the production Supabase project, protected by the production GitHub Environment.
+- `development`: Vercel Preview deployments in the primary project plus the development Supabase project.
+- `production`: Vercel Production in the primary project plus the production Supabase project.
 
-Optional extended release topology when `ENABLE_RELEASE_TOPOLOGY=true`:
+Extended topology with `ENABLE_RELEASE_TOPOLOGY=true`:
 
-- `staging` uses a dedicated staging Vercel project and staging Supabase project, with production-like readiness checks.
-- `recovery` is a Terraform-managed Supabase project used by restore and recovery verification; it is not a bootstrap target.
+- `staging`: dedicated staging Vercel and Supabase projects.
+- `recovery`: Supabase project used only by restore verification.
+- `production`: gated staging-to-production releases through **Deploy App**.
 
-The staging target fails closed while the topology flag is disabled. Enabling the flag later causes the same shared Terraform stack to add the staging and recovery resources without changing the development/production resource addresses.
+Enabling the extended topology later adds staging and recovery resources without changing development or production Terraform addresses.
 
-The staged production release workflow still requires the extended release topology. Until that flag is enabled and the staging/recovery inputs are configured, use direct production bootstrap only for deliberate provisioning or recovery work rather than triggering the staged `v*` release path.
+## Convergence guarantees
 
-## What convergence includes
+- State bootstrap detects first-run local state versus the persistent GCS backend and migrates state automatically.
+- Existing state buckets and provider resources are safely adopted before planning.
+- Terraform creates and applies the exact binary plan in the same protected run.
+- Shared infrastructure uses one global concurrency lock and committed read-only provider lockfiles.
+- Stripe webhook configuration uses one desired-state implementation.
+- Supabase Google Auth, site URL, redirects, and migrations are reconciled through the environment bootstrap.
+- Vercel runtime values are fingerprinted; unchanged values are not rewritten.
+- Identical source/runtime fingerprints reuse an existing ready deployment.
+- Staging and production fail closed on infrastructure, provider, or runtime drift.
+- Final verification is non-mutating and includes hosted health/readiness checks.
 
-### Terraform
+## Recovery
 
-- The state workflow detects first-run local state versus the persistent GCS backend.
-- Existing buckets and provider projects are adopted when safe.
-- Automatic convergence creates a binary plan and applies that exact plan in the same protected run.
-- Granular `reconcile`, `plan`, and reviewed-artifact `apply` modes remain available for recovery and exceptional review workflows.
-- Shared infrastructure uses one global concurrency lock and committed provider lockfiles.
-- With the topology flag disabled, a convergent apply removes any Terraform-tracked staging Vercel shell or staging/recovery password state created by an earlier partial apply.
+Rerun **Bootstrap & Deploy** for the affected target. This is the supported convergence and recovery path.
 
-### Runtime and providers
+Use **Configure Providers (recovery)** only as a break-glass provider-only diagnostic or repair workflow, then rerun **Bootstrap & Deploy**. Application-only retries use **Deploy App**.
 
-- Stripe webhook discovery, creation, replacement, metadata, event configuration, rollback, and verification share one implementation.
-- Supabase hosted Google Auth, site URL, and redirect allow-list are reconciled when enabled.
-- Vercel runtime values are compared by keyed fingerprints and unchanged values are not rewritten.
-- Supabase migrations are forward-only.
-
-### Deployment and verification
-
-- Identical source/runtime fingerprints reuse an existing ready Vercel deployment.
-- Staging and production validate infrastructure/provider readiness before migration and deployment when those paths are used.
-- Final verification checks Terraform drift, provider state, Vercel runtime state, `/api/health`, and deep readiness for hosted non-development targets.
-
-## Recovery workflows
-
-The following workflows remain available but are not the normal full-stack setup path:
-
-- **Terraform State Bootstrap** — `converge`, `reconcile`, `plan`, or reviewed-artifact `apply`.
-- **Terraform Platform** — `converge`, `reconcile`, `plan`, or reviewed-artifact `apply`.
-- **Bootstrap Environment** — targeted `apply` or non-mutating `verify`.
-- **Configure Providers** — provider-only plan, repair, or verification.
-- Development and production deployment workflows, plus staging when the extended topology is enabled.
-
-Use recovery mode when adopting manually created resources, diagnosing state, or repairing one layer. Otherwise rerun **Bootstrap & Deploy** for the selected target.
-
-## Operational rules
-
-- Never edit an applied migration; add a forward migration.
-- Correct operator values at their GitHub source and rerun bootstrap.
-- Keep Google OAuth redirect registration, Resend sender verification, operational alert endpoints, and Stripe PayNow/account compliance aligned with provider-account prerequisites.
-- Treat any failed stage as a failed bootstrap; both the command and workflow exit unsuccessfully.
+Never edit an applied migration; add a forward migration. Correct operator values at their GitHub source and rerun the appropriate orchestrator.

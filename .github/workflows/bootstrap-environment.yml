@@ -1,4 +1,4 @@
-name: Bootstrap Environment
+name: ZZZ-Bootstrap Environment
 
 on:
   workflow_call:
@@ -12,18 +12,6 @@ on:
         required: false
         default: apply
         type: string
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: GitHub Environment to reconcile or verify
-        required: true
-        type: environment
-      mode:
-        description: Apply convergence or run non-mutating release-readiness verification
-        required: true
-        default: apply
-        type: choice
-        options: [apply, verify]
 
 concurrency:
   group: marketplace-environment-${{ inputs.environment }}
