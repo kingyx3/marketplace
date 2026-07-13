@@ -45,6 +45,7 @@
     "npm": ">=10.9.2 <11"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.42.0",
     "@stripe/react-stripe-js": "^6.7.0",
     "@stripe/stripe-js": "^9.9.0",
     "@supabase/ssr": "^0.12.0",

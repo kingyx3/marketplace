@@ -19,6 +19,14 @@ This file is generated from `config/environment-contract.json`. Update the contr
 | `SYNTHETIC_MONITOR_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | Bearer secret for authenticated synthetic operational probes |
 | `OPERATIONAL_ALERT_WEBHOOK_URL` | Runtime | When `TARGET_ENV=production` | Yes | HTTPS destination for privacy-safe critical operational alerts |
 | `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | HMAC secret used to sign operational alert deliveries |
+| `NEXT_PUBLIC_SENTRY_DSN` | Runtime | When `TARGET_ENV=production` | No | Public Sentry DSN used by browser, server, and edge SDKs |
+| `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | Runtime | When `TARGET_ENV=production` | No | Stable Sentry environment name such as development, staging, or production |
+| `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | Runtime | No | No | Fraction of performance traces captured by Sentry |
+| `NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE` | Runtime | No | No | Fraction of normal browser sessions captured by Sentry Replay |
+| `NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE` | Runtime | No | No | Fraction of browser sessions with errors captured by Sentry Replay |
+| `SENTRY_ORG` | Runtime | When `TARGET_ENV=production` | No | Sentry organization slug used for source-map uploads |
+| `SENTRY_PROJECT` | Runtime | When `TARGET_ENV=production` | No | Sentry project slug used for source-map uploads |
+| `SENTRY_AUTH_TOKEN` | Runtime | When `TARGET_ENV=production` | Yes | Sentry organization token with project release and source-map upload access |
 | `TARGET_ENV` | Deploy | Yes | No | Deployment environment |
 | `GOOGLE_AUTH_ENABLED` | Deploy | Yes | No | Whether hosted Google authentication must be configured |
 | `SUPABASE_ACCESS_TOKEN` | Deploy | No | Yes | Supabase Management API and CLI access |
