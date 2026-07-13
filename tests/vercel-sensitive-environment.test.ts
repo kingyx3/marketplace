@@ -28,6 +28,25 @@ describe("Vercel sensitive runtime environment", () => {
     expect(result).toEqual([{ key: "STRIPE_WEBHOOK_SECRET", unreadable: true }]);
   });
 
+  it("shares conditional requiredness between validation and Vercel reconciliation", () => {
+    const result = runModule<Record<string, boolean>>(`
+      import { ENV_CONTRACT, isRequiredEnvironmentEntry } from './scripts/generate-env.mjs';
+      const cron = ENV_CONTRACT.find((entry) => entry.key === 'CRON_SECRET');
+      const siteUrl = ENV_CONTRACT.find((entry) => entry.key === 'NEXT_PUBLIC_SITE_URL');
+      console.log(JSON.stringify({
+        cronDevelopment: isRequiredEnvironmentEntry(cron, { TARGET_ENV: 'development' }),
+        cronProduction: isRequiredEnvironmentEntry(cron, { TARGET_ENV: 'production' }),
+        siteUrlDevelopment: isRequiredEnvironmentEntry(siteUrl, { TARGET_ENV: 'development' }),
+      }));
+    `);
+
+    expect(result).toEqual({
+      cronDevelopment: false,
+      cronProduction: true,
+      siteUrlDevelopment: true,
+    });
+  });
+
   it("does not replace a matching Stripe webhook when Vercel stores an unreadable signing secret", () => {
     const result = runModule<{
       action: string;
@@ -73,6 +92,8 @@ describe("Vercel sensitive runtime environment", () => {
     const verify = await readFile(new URL("../scripts/verify-environment.mjs", import.meta.url), "utf8");
 
     expect(sync).toContain('"env", "ls"');
+    expect(sync).toContain("isRequiredEnvironmentEntry(entry, desiredEnvironment)");
+    expect(sync).toContain("Missing required desired Vercel environment variable");
     expect(sync).toContain("isUnreadableVercelEnvironmentRecord(record)");
     expect(sync).toContain("entry.provisioned && currentExists");
     expect(reconcile).toContain(
