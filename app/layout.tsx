@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { SentryUserContext } from "@/app/sentry-user-context";
 import { getAppName } from "@/lib/app-config";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -21,6 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body className="min-h-screen bg-zinc-50 text-zinc-900 antialiased">
+        <SentryUserContext userId={user?.id} />
         <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
             <Link href="/" className="text-lg font-semibold text-zinc-950">
