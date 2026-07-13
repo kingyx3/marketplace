@@ -94,6 +94,7 @@ describe("Vercel sensitive runtime environment", () => {
     expect(sync).toContain('"env", "ls"');
     expect(sync).toContain("isRequiredEnvironmentEntry(entry, desiredEnvironment)");
     expect(sync).toContain("Missing required desired Vercel environment variable");
+    expect(sync).toContain("verifiedByPresence");
     expect(sync).toContain("isUnreadableVercelEnvironmentRecord(record)");
     expect(sync).toContain("entry.provisioned && currentExists");
     expect(reconcile).toContain(
@@ -102,6 +103,7 @@ describe("Vercel sensitive runtime environment", () => {
     expect(reconcile).toContain('"--allow-missing-provisioned"');
     expect(provision).toContain("requireSigningSecret: !storedSigningSecretPresent");
     expect(verify).toContain('"--allow-missing-provisioned"');
+    expect(verify).toContain("sensitive values verified by presence");
   });
 });
 
