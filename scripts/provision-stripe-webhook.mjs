@@ -11,11 +11,13 @@ import {
 await applyVersionedEnvironmentConfig(process.env);
 const credentialsFile = valueAfter("--credentials-file");
 const config = buildStripeWebhookConfig(process.env);
+const storedSigningSecretPresent = process.env.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT === "true";
 
 try {
   const result = await reconcileStripeWebhook({
     config,
     allowCreate: true,
+    requireSigningSecret: !storedSigningSecretPresent,
     onCredentials: exportCredentials,
   });
   console.log(`Stripe webhook ${result.action}: ${summarizeStripeWebhook(result.endpoint)}`);
