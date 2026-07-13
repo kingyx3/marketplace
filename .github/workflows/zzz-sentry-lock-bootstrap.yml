@@ -1,0 +1,134 @@
+name: ZZZ-Sentry Lock Bootstrap
+
+on:
+  push:
+    branches: [agent/add-production-sentry]
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: agent/add-production-sentry
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Add Sentry dependency and environment contract
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const packagePath = 'package.json';
+          const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+          pkg.dependencies['@sentry/nextjs'] = '^10.42.0';
+          pkg.dependencies = Object.fromEntries(Object.entries(pkg.dependencies).sort(([a], [b]) => a.localeCompare(b)));
+          fs.writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`);
+
+          const contractPath = 'config/environment-contract.json';
+          const contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
+          const sentryKeys = new Set([
+            'NEXT_PUBLIC_SENTRY_DSN',
+            'NEXT_PUBLIC_SENTRY_ENVIRONMENT',
+            'NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE',
+            'NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE',
+            'NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE',
+            'SENTRY_ORG',
+            'SENTRY_PROJECT',
+            'SENTRY_AUTH_TOKEN',
+          ]);
+          const withoutSentry = contract.filter((entry) => !sentryKeys.has(entry.key));
+          const insertAt = withoutSentry.findIndex((entry) => entry.key === 'TARGET_ENV');
+          const sentryEntries = [
+            {
+              key: 'NEXT_PUBLIC_SENTRY_DSN',
+              section: 'Observability',
+              required: false,
+              requiredWhen: { key: 'TARGET_ENV', equals: 'production' },
+              secret: false,
+              hint: 'Public Sentry DSN used by browser, server, and edge SDKs',
+              validator: { type: 'url', protocols: ['https:'] },
+            },
+            {
+              key: 'NEXT_PUBLIC_SENTRY_ENVIRONMENT',
+              section: 'Observability',
+              required: false,
+              requiredWhen: { key: 'TARGET_ENV', equals: 'production' },
+              secret: false,
+              hint: 'Stable Sentry environment name such as development, staging, or production',
+              validator: { type: 'enum', values: ['development', 'staging', 'production'] },
+            },
+            {
+              key: 'NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE',
+              section: 'Observability',
+              required: false,
+              secret: false,
+              hint: 'Fraction of performance traces captured by Sentry',
+              validator: { type: 'pattern', value: '^(?:0(?:\\.\\d+)?|1(?:\\.0+)?)$' },
+              default: '0.1',
+            },
+            {
+              key: 'NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE',
+              section: 'Observability',
+              required: false,
+              secret: false,
+              hint: 'Fraction of normal browser sessions captured by Sentry Replay',
+              validator: { type: 'pattern', value: '^(?:0(?:\\.\\d+)?|1(?:\\.0+)?)$' },
+              default: '0.02',
+            },
+            {
+              key: 'NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE',
+              section: 'Observability',
+              required: false,
+              secret: false,
+              hint: 'Fraction of browser sessions with errors captured by Sentry Replay',
+              validator: { type: 'pattern', value: '^(?:0(?:\\.\\d+)?|1(?:\\.0+)?)$' },
+              default: '1',
+            },
+            {
+              key: 'SENTRY_ORG',
+              section: 'Observability',
+              required: false,
+              requiredWhen: { key: 'TARGET_ENV', equals: 'production' },
+              secret: false,
+              hint: 'Sentry organization slug used for source-map uploads',
+              validator: { type: 'nonempty' },
+            },
+            {
+              key: 'SENTRY_PROJECT',
+              section: 'Observability',
+              required: false,
+              requiredWhen: { key: 'TARGET_ENV', equals: 'production' },
+              secret: false,
+              hint: 'Sentry project slug used for source-map uploads',
+              validator: { type: 'nonempty' },
+            },
+            {
+              key: 'SENTRY_AUTH_TOKEN',
+              section: 'Observability',
+              required: false,
+              requiredWhen: { key: 'TARGET_ENV', equals: 'production' },
+              secret: true,
+              hint: 'Sentry organization token with project release and source-map upload access',
+              validator: { type: 'nonempty' },
+            },
+          ];
+          withoutSentry.splice(insertAt < 0 ? withoutSentry.length : insertAt, 0, ...sentryEntries);
+          fs.writeFileSync(contractPath, `${JSON.stringify(withoutSentry, null, 2)}\n`);
+          NODE
+          npm install --package-lock-only --ignore-scripts
+          npm run env:artifacts:write
+      - name: Commit generated dependency metadata
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add package.json package-lock.json config/environment-contract.json .env.example lib/env-contract.generated.ts docs/generated/environment-reference.md
+          git commit -m 'Add Sentry dependency and environment contract'
+          git push
