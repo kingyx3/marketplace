@@ -1,0 +1,95 @@
+# Primary application deployment entry point.
+name: Deploy App
+
+on:
+  push:
+    branches: [develop, main]
+    tags: ['v*']
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to deploy
+        required: true
+        default: development
+        type: choice
+        options: [development, staging, production]
+
+concurrency:
+  group: marketplace-deploy-${{ inputs.target || github.ref_name || github.event_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  development-ready:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'development')
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        name: Check development revision freshness
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            latest_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${GITHUB_REF_NAME}" | awk '{print $1}')"
+            test -n "$latest_sha" || { echo "Could not resolve branch head" >&2; exit 1; }
+            if [ "$latest_sha" != "$GITHUB_SHA" ]; then
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              echo "Skipping superseded development deployment for $GITHUB_SHA; branch head is $latest_sha."
+              exit 0
+            fi
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+  deploy-development:
+    needs: development-ready
+    if: needs.development-ready.outputs.ready == 'true'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: development
+    secrets: inherit
+
+  deploy-staging:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+    secrets: inherit
+
+  deploy-release-staging:
+    if: >-
+      github.event_name == 'release' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+    secrets: inherit
+
+  hosted-release-gates:
+    needs: deploy-release-staging
+    if: needs.deploy-release-staging.result == 'success'
+    uses: ./.github/workflows/hosted-release-gates.yml
+    with:
+      staging_app_url: ${{ needs.deploy-release-staging.outputs.deployment_url }}
+    secrets: inherit
+
+  deploy-production:
+    needs: hosted-release-gates
+    if: needs.hosted-release-gates.result == 'success'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      skip_app_checks: true
+    secrets: inherit
