@@ -103,15 +103,30 @@ async function checkHealth(url) {
   let lastError;
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     try {
-      const response = await fetch(url, { headers: buildVercelProtectionHeaders() });
+      const response = await fetch(url, {
+        headers: buildVercelProtectionHeaders(),
+        redirect: "manual",
+      });
       if (response.ok) return;
-      lastError = new Error(`${url.pathname}${url.search} returned HTTP ${response.status}`);
+      lastError = healthError(url, response);
     } catch (error) {
       lastError = error;
     }
     await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
   }
   throw lastError || new Error(`Health check failed for ${url}`);
+}
+
+function healthError(url, response) {
+  if (response.status >= 300 && response.status < 400) {
+    const protectionHint = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim()
+      ? "Verify that VERCEL_AUTOMATION_BYPASS_SECRET matches Vercel's Protection Bypass for Automation secret."
+      : "Configure the environment-scoped VERCEL_AUTOMATION_BYPASS_SECRET GitHub secret from Vercel's Protection Bypass for Automation setting.";
+    return new Error(
+      `${url.pathname}${url.search} returned HTTP ${response.status}. Redirects are rejected so an authentication page cannot pass readiness verification. ${protectionHint}`
+    );
+  }
+  return new Error(`${url.pathname}${url.search} returned HTTP ${response.status}`);
 }
 
 function run(command, args, options = {}) {

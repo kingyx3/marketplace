@@ -165,20 +165,17 @@ jobs:
   smoke:
     needs: deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ inputs.environment }}
+    env:
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: .nvmrc
       - name: Health check
-        run: |
-          URL="${{ needs.deploy.outputs.deployment_url }}"
-          for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/health") && [ "$code" = "200" ] && exit 0
-            echo "attempt $i: HTTP $code — retrying in $((i*5))s"
-            sleep $((i*5))
-          done
-          exit 1
+        run: node scripts/check-deployment-health.mjs "${{ needs.deploy.outputs.deployment_url }}"
       - name: Deep readiness check
         if: ${{ inputs.environment != 'development' }}
-        run: |
-          URL="${{ needs.deploy.outputs.deployment_url }}"
-          code=$(curl -s -o readiness.json -w '%{http_code}' "$URL/api/health?deep=1")
-          cat readiness.json
-          test "$code" = "200"
+        run: node scripts/check-deployment-health.mjs "${{ needs.deploy.outputs.deployment_url }}" --deep
