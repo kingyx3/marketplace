@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 describe("Vercel sensitive runtime environment", () => {
-  it("uses environment metadata to distinguish unreadable sensitive values", () => {
+  it("filters target and branch records while distinguishing unreadable sensitive values", () => {
     const result = runModule<Array<{ key: string; unreadable: boolean }>>(`
       import {
         genericVercelEnvironmentRecords,
@@ -14,11 +14,12 @@ describe("Vercel sensitive runtime environment", () => {
         parseVercelEnvironmentList,
       } from './scripts/lib/vercel-environment.mjs';
       const records = genericVercelEnvironmentRecords(parseVercelEnvironmentList(
-        'Vercel CLI\\n' + JSON.stringify({ envs: [
-          { key: 'STRIPE_WEBHOOK_SECRET', type: 'sensitive', target: ['preview'] },
-          { key: 'BRANCH_ONLY', type: 'encrypted', target: ['preview'], gitBranch: 'feature' },
+        'Vercel API\\n' + JSON.stringify({ envs: [
+          { key: 'STRIPE_WEBHOOK_SECRET', type: 'sensitive', target: ['production'] },
+          { key: 'PREVIEW_ONLY', type: 'encrypted', target: ['preview'], value: 'preview' },
+          { key: 'BRANCH_ONLY', type: 'encrypted', target: ['production'], gitBranch: 'feature' },
         ] })
-      ));
+      ), 'production');
       console.log(JSON.stringify([...records.values()].map((record) => ({
         key: record.key,
         unreadable: isUnreadableVercelEnvironmentRecord(record),
@@ -26,6 +27,107 @@ describe("Vercel sensitive runtime environment", () => {
     `);
 
     expect(result).toEqual([{ key: "STRIPE_WEBHOOK_SECRET", unreadable: true }]);
+  });
+
+  it("requests decrypted target-scoped values from the authoritative Vercel API", () => {
+    const result = runModule<{ url: string; authorization: string; value: string }>(`
+      import { fetchVercelEnvironmentRecords } from './scripts/lib/vercel-environment.mjs';
+      let captured;
+      const records = await fetchVercelEnvironmentRecords({
+        token: 'token_x', projectId: 'prj_x', teamId: 'team_x', target: 'production',
+        fetchImpl: async (url, options) => {
+          captured = { url: String(url), authorization: options.headers.Authorization };
+          return { ok: true, status: 200, statusText: 'OK', text: async () => JSON.stringify({ envs: [
+            { id: 'env_1', key: 'APP_NAME', type: 'encrypted', target: ['production'], value: 'Marketplace' }
+          ] }) };
+        },
+      });
+      console.log(JSON.stringify({ ...captured, value: records[0].value }));
+    `);
+
+    const url = new URL(result.url);
+    expect(url.origin).toBe("https://api.vercel.com");
+    expect(url.pathname).toBe("/v10/projects/prj_x/env");
+    expect(url.searchParams.get("teamId")).toBe("team_x");
+    expect(url.searchParams.get("target")).toBe("production");
+    expect(url.searchParams.get("decrypt")).toBe("true");
+    expect(result.authorization).toBe("Bearer token_x");
+    expect(result.value).toBe("Marketplace");
+  });
+
+  it("creates readable encrypted records and refuses cross-target mutations", () => {
+    const result = runModule<{ body: Record<string, unknown>; sharedError: string }>(`
+      import {
+        createVercelEnvironmentRecord,
+        updateVercelEnvironmentRecord,
+      } from './scripts/lib/vercel-environment.mjs';
+      let body;
+      const fetchImpl = async (_url, options) => {
+        body = JSON.parse(options.body);
+        return { ok: true, status: 200, statusText: 'OK', text: async () => '{}' };
+      };
+      await createVercelEnvironmentRecord({
+        token: 'token_x', projectId: 'prj_x', key: 'APP_NAME', value: 'Marketplace',
+        target: 'production', fetchImpl,
+      });
+      let sharedError = '';
+      try {
+        await updateVercelEnvironmentRecord({
+          token: 'token_x', projectId: 'prj_x', target: 'production', value: 'new', fetchImpl,
+          record: { id: 'env_1', key: 'APP_NAME', type: 'encrypted', target: ['preview', 'production'] },
+        });
+      } catch (error) {
+        sharedError = error.message;
+      }
+      console.log(JSON.stringify({ body, sharedError }));
+    `);
+
+    expect(result.body).toEqual({
+      key: "APP_NAME",
+      value: "Marketplace",
+      type: "encrypted",
+      target: ["production"],
+    });
+    expect(result.sharedError).toContain("Refusing to update shared Vercel environment record APP_NAME");
+  });
+
+  it("uses Vercel values only as fallback and disables local dotenv loading", () => {
+    const result = runModule<Record<string, string>>(`
+      import { buildEnvironmentWithVercelFallback } from './scripts/lib/vercel-environment.mjs';
+      const env = buildEnvironmentWithVercelFallback({
+        target: 'production', runtimeKeys: ['APP_NAME', 'STRIPE_SECRET_KEY'],
+        records: [
+          { key: 'APP_NAME', type: 'encrypted', target: ['production'], value: 'Remote' },
+          { key: 'STRIPE_SECRET_KEY', type: 'encrypted', target: ['production'], value: 'sk_remote' },
+        ],
+        baseEnv: { APP_NAME: 'Desired', EMPTY: '', TARGET_ENV: 'production' },
+      });
+      console.log(JSON.stringify(env));
+    `);
+
+    expect(result.APP_NAME).toBe("Desired");
+    expect(result.STRIPE_SECRET_KEY).toBe("sk_remote");
+    expect(result.TARGET_ENV).toBe("production");
+    expect(result.MARKETPLACE_DISABLE_LOCAL_DOTENV).toBe("true");
+    expect(result).not.toHaveProperty("EMPTY");
+  });
+
+  it("does not load dotenv files in authoritative hosted child processes", () => {
+    const result = runModule<{ loaded: boolean; appName: string | null }>(`
+      import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+      import { tmpdir } from 'node:os';
+      import { join } from 'node:path';
+      import { loadLocalDotenv } from './scripts/generate-env.mjs';
+      const directory = await mkdtemp(join(tmpdir(), 'marketplace-dotenv-'));
+      const path = join(directory, '.env');
+      await writeFile(path, 'APP_NAME=LocalOverride\\n');
+      const env = { MARKETPLACE_DISABLE_LOCAL_DOTENV: 'true' };
+      const loaded = await loadLocalDotenv(env, path);
+      await rm(directory, { recursive: true, force: true });
+      console.log(JSON.stringify({ loaded, appName: env.APP_NAME || null }));
+    `);
+
+    expect(result).toEqual({ loaded: false, appName: null });
   });
 
   it("shares conditional requiredness between validation and Vercel reconciliation", () => {
@@ -85,24 +187,25 @@ describe("Vercel sensitive runtime environment", () => {
     expect(result).toEqual({ action: "unchanged", creates: 0, deletes: 0, credentials: 0 });
   });
 
-  it("verifies sensitive values by presence while preserving one-time provisioned secrets", async () => {
+  it("uses authoritative API reads and avoids vercel env run precedence", async () => {
     const sync = await readFile(new URL("../scripts/sync-vercel-env.mjs", import.meta.url), "utf8");
     const reconcile = await readFile(new URL("../scripts/reconcile-runtime-environment.mjs", import.meta.url), "utf8");
     const provision = await readFile(new URL("../scripts/provision-stripe-webhook.mjs", import.meta.url), "utf8");
     const verify = await readFile(new URL("../scripts/verify-environment.mjs", import.meta.url), "utf8");
 
-    expect(sync).toContain('"env", "ls"');
+    expect(sync).toContain("fetchVercelEnvironmentRecords");
+    expect(sync).toContain("createVercelEnvironmentRecord");
+    expect(sync).toContain("updateVercelEnvironmentRecord");
+    expect(sync).toContain("type: \"encrypted\"");
     expect(sync).toContain("isRequiredEnvironmentEntry(entry, desiredEnvironment)");
-    expect(sync).toContain("Missing required desired Vercel environment variable");
-    expect(sync).toContain("verifiedByPresence");
-    expect(sync).toContain("isUnreadableVercelEnvironmentRecord(record)");
-    expect(sync).toContain("entry.provisioned && currentExists");
-    expect(reconcile).toContain(
-      'MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT: storedSigningSecretPresent ? "true" : ""'
-    );
-    expect(reconcile).toContain('"--allow-missing-provisioned"');
+    expect(sync).toContain("refusing unverifiable reconciliation");
+    expect(sync).not.toContain('"env", "run"');
+    expect(reconcile).toContain("buildEnvironmentWithVercelFallback");
+    expect(reconcile).not.toContain('"env", "run"');
+    expect(reconcile).toContain('process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true"');
     expect(provision).toContain("requireSigningSecret: !storedSigningSecretPresent");
-    expect(verify).toContain('"--allow-missing-provisioned"');
+    expect(verify).toContain("buildEnvironmentWithVercelFallback");
+    expect(verify).not.toContain('"env", "run"');
     expect(verify).toContain("sensitive values verified by presence");
   });
 });
