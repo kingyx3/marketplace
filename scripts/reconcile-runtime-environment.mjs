@@ -53,6 +53,7 @@ async function main() {
     delete provisionEnvironment.STRIPE_WEBHOOK_SECRET;
   }
   for (const [key, value] of Object.entries(provisionEnvironment)) process.env[key] = value;
+  process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";
   if (storedSigningSecretPresent) delete process.env.STRIPE_WEBHOOK_SECRET;
   delete process.env.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT;
   if (storedSigningSecretPresent) {
