@@ -84,7 +84,7 @@ describe("auth helpers", () => {
     );
   });
 
-  it("keeps Vercel preview OAuth callbacks on the preview deployment", () => {
+  it("falls back to the immutable Vercel preview deployment URL", () => {
     const request = new Request("https://internal.example/auth/sign-in");
 
     expect(
@@ -92,9 +92,47 @@ describe("auth helpers", () => {
         request,
         "https://shop.example.com",
         "preview",
+        "marketplace-a1b2c3-kingyx3.vercel.app"
+      )
+    ).toBe("https://marketplace-a1b2c3-kingyx3.vercel.app");
+  });
+
+  it("preserves a trusted Vercel branch alias used by the browser", () => {
+    const request = new Request("https://internal.example/auth/sign-in", {
+      headers: {
+        "x-forwarded-host": "marketplace-git-feature-kingyx3.vercel.app",
+        "x-forwarded-proto": "https",
+      },
+    });
+
+    expect(
+      getRequestOrigin(
+        request,
+        "https://shop.example.com",
+        "preview",
+        "marketplace-a1b2c3-kingyx3.vercel.app",
         "marketplace-git-feature-kingyx3.vercel.app"
       )
     ).toBe("https://marketplace-git-feature-kingyx3.vercel.app");
+  });
+
+  it("does not trust a forwarded preview host that Vercel did not supply", () => {
+    const request = new Request("https://internal.example/auth/sign-in", {
+      headers: {
+        "x-forwarded-host": "attacker-kingyx3.vercel.app",
+        "x-forwarded-proto": "https",
+      },
+    });
+
+    expect(
+      getRequestOrigin(
+        request,
+        "https://shop.example.com",
+        "preview",
+        "marketplace-a1b2c3-kingyx3.vercel.app",
+        "marketplace-git-feature-kingyx3.vercel.app"
+      )
+    ).toBe("https://marketplace-a1b2c3-kingyx3.vercel.app");
   });
 
   it("does not trust a non-Vercel hostname supplied as the preview URL", () => {
