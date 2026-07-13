@@ -75,7 +75,9 @@ describe("Vercel sensitive runtime environment", () => {
     expect(sync).toContain('"env", "ls"');
     expect(sync).toContain("isUnreadableVercelEnvironmentRecord(record)");
     expect(sync).toContain("entry.provisioned && currentExists");
-    expect(reconcile).toContain("MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT");
+    expect(reconcile).toContain(
+      'MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT: storedSigningSecretPresent ? "true" : ""'
+    );
     expect(reconcile).toContain('"--allow-missing-provisioned"');
     expect(provision).toContain("requireSigningSecret: !storedSigningSecretPresent");
     expect(verify).toContain('"--allow-missing-provisioned"');
