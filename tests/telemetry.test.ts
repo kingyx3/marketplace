@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseSampleRate,
   sanitizeTelemetryAttributes,
+  sanitizeTelemetryText,
   scrubSentryBreadcrumb,
   scrubSentryEvent,
 } from "@/lib/telemetry";
@@ -35,6 +36,35 @@ describe("Sentry telemetry privacy", () => {
         headers: { accept: "application/json" },
       },
       user: { id: "user-1" },
+      logentry: undefined,
+      exception: undefined,
+    });
+  });
+
+  it("redacts sensitive values embedded inside error text", () => {
+    const text = sanitizeTelemetryText(
+      "Checkout failed for buyer@example.test from 203.0.113.10 using Bearer abc.def-123 and sk_live_abc123456"
+    );
+
+    expect(text).not.toContain("buyer@example.test");
+    expect(text).not.toContain("203.0.113.10");
+    expect(text).not.toContain("abc.def-123");
+    expect(text).not.toContain("sk_live_abc123456");
+
+    expect(
+      scrubSentryEvent({
+        message: "Failed for buyer@example.test",
+        exception: {
+          values: [{ type: "Error", value: "Provider rejected sk_test_abc123456" }],
+        },
+      })
+    ).toEqual({
+      message: "Failed for [redacted-email]",
+      logentry: undefined,
+      exception: {
+        values: [{ type: "Error", value: "Provider rejected [redacted-secret]" }],
+      },
+      user: undefined,
     });
   });
 
@@ -52,10 +82,12 @@ describe("Sentry telemetry privacy", () => {
     expect(
       scrubSentryBreadcrumb({
         category: "checkout",
+        message: "Failed for buyer@example.test",
         data: { client_secret: "secret", orderId: "order-1" },
       })
     ).toEqual({
       category: "checkout",
+      message: "Failed for [redacted-email]",
       data: { client_secret: "[redacted]", orderId: "order-1" },
     });
   });
