@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 async function repoFile(path: string): Promise<string> {
@@ -6,7 +6,7 @@ async function repoFile(path: string): Promise<string> {
 }
 
 describe("deployment idempotency contract", () => {
-  it("uses a global lock for shared infrastructure and per-environment runtime locks", async () => {
+  it("serializes shared infrastructure and target deployments", async () => {
     for (const path of [
       ".github/workflows/terraform-state-bootstrap.yml",
       ".github/workflows/terraform-platform.yml",
@@ -15,32 +15,38 @@ describe("deployment idempotency contract", () => {
       expect(workflow).toContain("group: marketplace-shared-infrastructure");
       expect(workflow).toContain("cancel-in-progress: false");
     }
-    for (const path of [
-      ".github/workflows/configure-providers.yml",
-      ".github/workflows/bootstrap-environment.yml",
-    ]) {
-      const workflow = await repoFile(path);
-      expect(workflow).toContain("group: marketplace-environment-${{ inputs.environment }}");
-    }
-    expect(await repoFile(".github/workflows/deploy-development.yml")).toContain("group: marketplace-environment-development");
-    expect(await repoFile(".github/workflows/deploy-staging.yml")).toContain("group: marketplace-environment-staging");
-    expect(await repoFile(".github/workflows/deploy-production.yml")).toContain("group: marketplace-environment-production");
+
+    expect(await repoFile(".github/workflows/bootstrap-environment.yml")).toContain(
+      "group: marketplace-environment-${{ inputs.environment }}",
+    );
+    const deployApp = await repoFile(".github/workflows/deploy-app.yml");
+    expect(deployApp).toContain(
+      "group: marketplace-deploy-${{ inputs.target || github.ref_name || github.event_name }}",
+    );
+    expect(deployApp).toContain("cancel-in-progress: false");
   });
 
-  it("keeps granular plan mode read-only and applies an exact reviewed artifact", async () => {
+  it("uses one convergent infrastructure path and applies the exact generated plan", async () => {
     for (const path of [
       ".github/workflows/terraform-state-bootstrap.yml",
       ".github/workflows/terraform-platform.yml",
     ]) {
       const workflow = await repoFile(path);
-      const planSection = workflow.slice(workflow.indexOf("  plan:"), workflow.indexOf("  apply:"));
-      expect(planSection).not.toContain("bootstrap-terraform");
-      expect(planSection).not.toContain("terraform state rm");
-      expect(workflow).toMatch(/actions\/upload-artifact@v\d/);
-      expect(workflow).toMatch(/actions\/download-artifact@v\d/);
-      expect(workflow).toContain("plan_run_id");
-      expect(workflow).toContain("source_sha");
+      expect(workflow).toContain("  converge:");
+      expect(workflow).not.toContain("workflow_dispatch:");
+      expect(workflow).not.toContain("plan_run_id");
+      expect(workflow).toContain('plan="$RUNNER_TEMP/');
+      expect(workflow).toContain('apply -input=false -auto-approve "$plan"');
     }
+  });
+
+  it("keeps only one code-change deployment workflow", async () => {
+    const workflowsDirectory = new URL("../.github/workflows/", import.meta.url);
+    const workflowNames = (await readdir(workflowsDirectory)).filter((name) => /\.ya?ml$/.test(name));
+    expect(workflowNames).toContain("deploy-app.yml");
+    expect(workflowNames).not.toContain("deploy-development.yml");
+    expect(workflowNames).not.toContain("deploy-staging.yml");
+    expect(workflowNames).not.toContain("deploy-production.yml");
   });
 
   it("turns unchanged Vercel configuration and deployments into no-ops", async () => {
