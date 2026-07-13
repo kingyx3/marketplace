@@ -135,6 +135,25 @@ describe("auth helpers", () => {
     ).toBe("https://marketplace-a1b2c3-kingyx3.vercel.app");
   });
 
+  it("does not trust a nonstandard port on an otherwise trusted preview host", () => {
+    const request = new Request("https://internal.example/auth/sign-in", {
+      headers: {
+        "x-forwarded-host": "marketplace-git-feature-kingyx3.vercel.app:444",
+        "x-forwarded-proto": "https",
+      },
+    });
+
+    expect(
+      getRequestOrigin(
+        request,
+        "https://shop.example.com",
+        "preview",
+        "marketplace-a1b2c3-kingyx3.vercel.app",
+        "marketplace-git-feature-kingyx3.vercel.app"
+      )
+    ).toBe("https://marketplace-a1b2c3-kingyx3.vercel.app");
+  });
+
   it("does not trust a non-Vercel hostname supplied as the preview URL", () => {
     const request = new Request("https://internal.example/auth/sign-in");
 
