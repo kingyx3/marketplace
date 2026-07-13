@@ -43,7 +43,9 @@ export function genericVercelEnvironmentRecords(records, target) {
 }
 
 export function isUnreadableVercelEnvironmentRecord(record) {
-  return record?.type === "sensitive";
+  if (!record) return false;
+  if (record.type === "sensitive") return true;
+  return record.decrypted === false || record.decrypted === "false";
 }
 
 export function readableVercelEnvironmentValue(record) {
@@ -124,7 +126,7 @@ export async function updateVercelEnvironmentRecord({
     );
   }
   const url = vercelApiUrl(
-    `/v10/projects/${encodeURIComponent(projectId)}/env/${encodeURIComponent(record.id)}`,
+    `/v9/projects/${encodeURIComponent(projectId)}/env/${encodeURIComponent(record.id)}`,
     teamId
   );
   const body = {
