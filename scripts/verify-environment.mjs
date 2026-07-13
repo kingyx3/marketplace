@@ -5,6 +5,8 @@ import { ENV_CONTRACT } from "./generate-env.mjs";
 import {
   buildEnvironmentWithVercelFallback,
   fetchVercelEnvironmentRecords,
+  genericVercelEnvironmentRecords,
+  isUnreadableVercelEnvironmentRecord,
   resolveVercelProjectContext,
 } from "./lib/vercel-environment.mjs";
 
@@ -32,6 +34,7 @@ async function main() {
     target: vercelEnvironment,
     decrypt: true,
   });
+  const recordsByKey = genericVercelEnvironmentRecords(records, vercelEnvironment);
   const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);
   const verificationEnvironment = buildEnvironmentWithVercelFallback({
     records,
@@ -39,6 +42,9 @@ async function main() {
     baseEnv: process.env,
     target: vercelEnvironment,
   });
+  if (isUnreadableVercelEnvironmentRecord(recordsByKey.get("STRIPE_WEBHOOK_SECRET"))) {
+    delete verificationEnvironment.STRIPE_WEBHOOK_SECRET;
+  }
   const siteUrl = verificationEnvironment.NEXT_PUBLIC_SITE_URL;
   if (!siteUrl && !skipHealth) {
     throw new Error("NEXT_PUBLIC_SITE_URL is required unless --skip-health is used");
