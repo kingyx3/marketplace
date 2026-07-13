@@ -37,6 +37,12 @@ Common variables:
 
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_SENTRY_DSN` (required by bootstrap for staging and production)
+- `SENTRY_ORG` and `SENTRY_PROJECT` (required by bootstrap for staging and production source-map releases)
+- `NEXT_PUBLIC_SENTRY_ENVIRONMENT` (defaults to the target name)
+- `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` and `SENTRY_TRACES_SAMPLE_RATE`
+- `NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE` and `NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`
+- optional `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, and `SENTRY_RELEASE` overrides
 - `GOOGLE_AUTH_ENABLED` (`true` by default)
 - `GOOGLE_OAUTH_CLIENT_ID` when Google Auth is enabled
 - `RESEND_FROM_EMAIL`
@@ -45,10 +51,13 @@ Common variables:
 Common secrets:
 
 - `STRIPE_SECRET_KEY`
+- `SENTRY_AUTH_TOKEN` (required by bootstrap for staging and production)
 - `GOOGLE_OAUTH_CLIENT_SECRET` when Google Auth is enabled
 - `SUPABASE_SECRET_KEY` only as a fallback when it cannot be resolved through the Management API
 - `STRIPE_WEBHOOK_SECRET` only as an optional recovery override
 - `CRON_SECRET`, `SYNTHETIC_MONITOR_SECRET`, `OPERATIONAL_ALERT_WEBHOOK_URL`, `OPERATIONAL_ALERT_WEBHOOK_SECRET`, and `RESEND_API_KEY`; optional in development and required by bootstrap intake for staging and production
+
+Sentry trace defaults are `1.0` for development, `0.5` for staging, and `0.1` for production. Background session replay defaults to `0`; replay-on-error defaults to `1.0`. The deployment and bootstrap workflows explicitly map these GitHub Environment values into the runtime reconciler so they reach Vercel idempotently.
 
 Staging additionally carries recovery-project/database inputs, operations ownership, escalation, and SLO targets. Production carries operations ownership, escalation, SLO targets, backup retention, an optional advisor allow-list, and required reviewers when the GitHub Environment is first created. See `docs/bootstrap.md` for the exact prefixed shell names and defaults.
 
@@ -59,6 +68,7 @@ Staging additionally carries recovery-project/database inputs, operations owners
 - Vercel project/scope metadata from Terraform and Vercel APIs.
 - Stripe endpoint id by exact URL match.
 - Stripe signing secret during transactional create/replacement, persisted directly to Vercel.
+- Sentry releases from `SENTRY_RELEASE` or the Vercel Git commit SHA during builds.
 
 ## Hosted topology
 
@@ -109,4 +119,4 @@ The hosted bootstrap workflow automatically verifies the selected environment af
 
 For targeted diagnostics, run **Bootstrap Environment** with `mode=verify` or use `npm run bootstrap:verify` from an authenticated shell. Verification is non-mutating and fails when Terraform, provider settings, Vercel runtime values, or deployed health differ from the resolved desired state.
 
-See the generated reference for the complete application runtime/deploy key list and `docs/bootstrap.md` for bootstrap-only operational inputs.
+See the generated reference for the complete application runtime/deploy key list, `docs/observability.md` for Sentry verification and privacy controls, and `docs/bootstrap.md` for bootstrap-only operational inputs.
