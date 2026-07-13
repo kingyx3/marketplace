@@ -21,6 +21,8 @@ Hosted jobs resolve values in this order:
 
 Committed defaults never override explicit values.
 
+Every workflow job that directly reads the GitHub Actions `vars` or `secrets` contexts declares its target GitHub Environment at the job level. Reusable-workflow callers may use `secrets: inherit`; the called workflow is responsible for attaching the environment to the jobs that consume those values.
+
 ## Shared repository secrets
 
 - `GCP_TERRAFORM_CREDENTIALS_JSON`
