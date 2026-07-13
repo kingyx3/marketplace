@@ -41,6 +41,10 @@ const args = [
   `githubCommitSha=${revision}`,
   "--meta",
   `marketplaceEnvironment=${targetEnv}`,
+  "--build-env",
+  `NEXT_PUBLIC_SENTRY_ENVIRONMENT=${targetEnv}`,
+  "--env",
+  `NEXT_PUBLIC_SENTRY_ENVIRONMENT=${targetEnv}`,
 ];
 if (target !== "preview") args.push("--prod");
 const result = spawnSync("npx", args, {
