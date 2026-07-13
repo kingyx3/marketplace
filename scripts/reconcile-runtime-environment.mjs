@@ -27,11 +27,12 @@ const vercelEnvironment = process.env.TARGET_ENV === "development" ? "preview" :
 const credentialPath = `.stripe-credentials-${process.pid}.env`;
 const runtimePath = `.env.deploy-${process.pid}`;
 const vercelRecords = readVercelEnvironmentRecords();
+const storedSigningSecretPresent = isUnreadableVercelEnvironmentRecord(
+  vercelRecords.get("STRIPE_WEBHOOK_SECRET")
+);
 const vercelEnvRunEnvironment = withoutEmptyEnvironmentValues({
   ...process.env,
-  ...(isUnreadableVercelEnvironmentRecord(vercelRecords.get("STRIPE_WEBHOOK_SECRET"))
-    ? { MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT: "true" }
-    : {}),
+  MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT: storedSigningSecretPresent ? "true" : "",
 });
 
 try {
