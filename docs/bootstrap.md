@@ -35,13 +35,18 @@ Run bootstrap from this repository checkout; the command resolves the target rep
 
 Bootstrap reads values from the current shell and writes them to repository or Environment settings without printing secret contents.
 
-### Shared repository secrets
+### Shared repository settings
 
-| Shell input | GitHub setting |
-| --- | --- |
-| `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret |
-| `VERCEL_TOKEN` | Repository secret |
-| `SUPABASE_ACCESS_TOKEN` | Repository secret |
+| Shell input | GitHub setting | Requirement |
+| --- | --- | --- |
+| `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret | Required |
+| `VERCEL_TOKEN` | Repository secret | Required |
+| `SUPABASE_ACCESS_TOKEN` | Repository secret | Required |
+| `SENTRY_ORG` | Repository variable | Required for staging/production source maps |
+| `SENTRY_PROJECT` | Repository variable | Required for staging/production source maps |
+| `SENTRY_AUTH_TOKEN` | Repository secret | Required for staging/production source maps |
+
+`SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are shared build settings, not per-environment application configuration. The organization and project slugs are non-secret identifiers. The auth token must be scoped only to the release/source-map permissions required by the build.
 
 Optional shared Terraform overrides are repository variables: `ENABLE_RELEASE_TOPOLOGY`, `GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, `TF_STATE_BUCKET_LOCATION`, `SUPABASE_ORGANIZATION_ID`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_NAME`, `VERCEL_ROOT_DIRECTORY`, and `SUPABASE_REGION`.
 
@@ -58,17 +63,6 @@ Common values:
 | `NEXT_PUBLIC_SITE_URL` | Environment variable | Required |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Environment variable | Required |
 | `NEXT_PUBLIC_SENTRY_DSN` | Environment variable | Optional in development; required for staging/production |
-| `SENTRY_ORG` | Environment variable | Optional in development; required for staging/production |
-| `SENTRY_PROJECT` | Environment variable | Optional in development; required for staging/production |
-| `SENTRY_AUTH_TOKEN` | Environment secret | Optional in development; required for staging/production |
-| `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | Environment variable | Defaults to selected target |
-| `SENTRY_DSN` | Environment variable | Optional server/Edge DSN override |
-| `SENTRY_ENVIRONMENT` | Environment variable | Optional server/Edge environment override |
-| `SENTRY_RELEASE` | Environment variable | Optional explicit release override |
-| `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | Environment variable | Defaults to `1`, `0.5`, or `0.1` for development, staging, or production |
-| `SENTRY_TRACES_SAMPLE_RATE` | Environment variable | Defaults to `1`, `0.5`, or `0.1` for development, staging, or production |
-| `NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE` | Environment variable | Defaults to `0` |
-| `NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE` | Environment variable | Defaults to `1` |
 | `GOOGLE_AUTH_ENABLED` | Environment variable | Defaults to `true` |
 | `GOOGLE_OAUTH_CLIENT_ID` | Environment variable | Required when Google Auth is enabled |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Environment secret | Required when Google Auth is enabled |
@@ -83,7 +77,7 @@ Common values:
 | `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret | Required for staging/production |
 | `RESEND_API_KEY` | Environment secret | Required for staging/production |
 
-The Sentry DSN is not a credential and is stored as a variable. `SENTRY_AUTH_TOKEN` is build-only secret material and must never use a `NEXT_PUBLIC_` name. The bootstrap/deploy workflows copy these settings into Vercel through the normal runtime reconciler so reruns are drift-aware and idempotent.
+The DSN is the only Sentry runtime value that must be stored per environment, and it is not a credential. Environment naming, release identification, trace sampling, and replay sampling use safe code defaults and Vercel metadata. Bootstrap removes redundant environment-scoped Sentry build settings so repository-level values cannot be accidentally shadowed.
 
 Staging release-gate values:
 
@@ -175,7 +169,7 @@ Enabling the extended topology later adds staging and recovery resources without
 - Shared infrastructure uses one global concurrency lock and committed read-only provider lockfiles.
 - Stripe webhook configuration uses one desired-state implementation.
 - Supabase Google Auth, site URL, redirects, and migrations are reconciled through the environment bootstrap.
-- Sentry runtime values, sampling, build token, releases, and source-map upload settings are reconciled through the same protected environment path.
+- The environment DSN and shared Sentry source-map build settings are reconciled through the same protected path.
 - Vercel runtime values are fingerprinted; unchanged values are not rewritten.
 - Identical source/runtime fingerprints reuse an existing ready deployment.
 - Staging and production fail closed on infrastructure, provider, or runtime drift.
