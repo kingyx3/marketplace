@@ -19,6 +19,12 @@ describe("Vercel preview OAuth redirects", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("fails closed when development cannot resolve the Vercel account", async () => {
+    await expect(
+      resolveVercelPreviewRedirectPattern({ TARGET_ENV: "development" })
+    ).rejects.toThrow("requires VERCEL_TOKEN or VERCEL_PREVIEW_ACCOUNT_SLUG");
+  });
+
   it("uses an explicit account slug without an API request", async () => {
     const fetchImpl = vi.fn();
 
