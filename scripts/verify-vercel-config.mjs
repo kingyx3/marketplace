@@ -56,7 +56,17 @@ async function main() {
   if (!runtimeReconciler.includes("provision-stripe-webhook.mjs") || !runtimeReconciler.includes("sync-vercel-env.mjs")) {
     errors.push("runtime reconciler must own Stripe provisioning and Vercel environment sync");
   }
-  if (!syncScript.includes('pinnedNpxPackage("vercel")')) errors.push("Vercel env sync must use the pinned CLI");
+  for (const marker of [
+    "fetchVercelEnvironmentRecords",
+    "createVercelEnvironmentRecord",
+    "updateVercelEnvironmentRecord",
+    'type: "encrypted"',
+  ]) {
+    if (!syncScript.includes(marker)) errors.push(`Vercel env sync missing authoritative API marker: ${marker}`);
+  }
+  if (syncScript.includes('pinnedNpxPackage("vercel")') || syncScript.includes('"env", "run"')) {
+    errors.push("Vercel env sync must not use CLI-based mutation or readback");
+  }
   if (!deployScript.includes('pinnedNpxPackage("vercel")')) errors.push("Vercel deployment must use the pinned CLI");
   if (!toolVersions?.vercelCli) errors.push("config/tool-versions.json must pin vercelCli");
 

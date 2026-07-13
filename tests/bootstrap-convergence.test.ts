@@ -31,12 +31,14 @@ describe("bootstrap convergence", () => {
     expect(result).toEqual({ STRIPE_SECRET_KEY: "sk_test_x", ZERO: "0" });
   });
 
-  it("sanitizes every Vercel env run used by bootstrap apply and verification", async () => {
+  it("hydrates hosted child processes without vercel env run precedence", async () => {
     const reconcile = await readFile(new URL("../scripts/reconcile-runtime-environment.mjs", import.meta.url), "utf8");
     const verify = await readFile(new URL("../scripts/verify-environment.mjs", import.meta.url), "utf8");
-    expect(reconcile).toContain("const vercelEnvRunEnvironment = withoutEmptyEnvironmentValues(");
-    expect(reconcile.match(/env: vercelEnvRunEnvironment/g)).toHaveLength(1);
-    expect(verify.match(/env: vercelEnvRunEnvironment/g)).toHaveLength(2);
+    expect(reconcile).toContain("buildEnvironmentWithVercelFallback");
+    expect(reconcile).toContain('MARKETPLACE_DISABLE_LOCAL_DOTENV = "true"');
+    expect(reconcile).not.toContain('"env", "run"');
+    expect(verify).toContain("buildEnvironmentWithVercelFallback");
+    expect(verify).not.toContain('"env", "run"');
   });
 
   it("performs zero provider writes when the Stripe endpoint already matches", () => {

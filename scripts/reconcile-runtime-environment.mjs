@@ -2,69 +2,89 @@
 import { spawnSync } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";
-import { loadLocalDotenv, parseDotenv } from "./generate-env.mjs";
-import { withoutEmptyEnvironmentValues } from "./lib/process-environment.mjs";
+import { ENV_CONTRACT, loadLocalDotenv, parseDotenv } from "./generate-env.mjs";
 import {
+  buildEnvironmentWithVercelFallback,
+  fetchVercelEnvironmentRecords,
   genericVercelEnvironmentRecords,
   isUnreadableVercelEnvironmentRecord,
-  parseVercelEnvironmentList,
+  resolveVercelProjectContext,
 } from "./lib/vercel-environment.mjs";
-import { pinnedNpxPackage } from "./tool-versions.mjs";
-
-await loadLocalDotenv(process.env);
-await applyVersionedEnvironmentConfig(process.env);
-
-const providerMode = argumentValue("--providers") || "apply-if-configured";
-if (!["skip", "plan", "apply", "apply-if-configured", "verify"].includes(providerMode)) {
-  fail(`Unsupported --providers mode: ${providerMode}`);
-}
-if (!/^(development|staging|production)$/.test(process.env.TARGET_ENV || "")) {
-  fail("TARGET_ENV must be development, staging, or production");
-}
-if (!process.env.VERCEL_TOKEN) fail("VERCEL_TOKEN is required");
-
-const vercelEnvironment = process.env.TARGET_ENV === "development" ? "preview" : "production";
-const credentialPath = `.stripe-credentials-${process.pid}.env`;
-const runtimePath = `.env.deploy-${process.pid}`;
-const vercelRecords = readVercelEnvironmentRecords();
-const storedSigningSecretPresent = isUnreadableVercelEnvironmentRecord(
-  vercelRecords.get("STRIPE_WEBHOOK_SECRET")
-);
-const vercelEnvRunEnvironment = withoutEmptyEnvironmentValues({
-  ...process.env,
-  MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT: storedSigningSecretPresent ? "true" : "",
-});
 
 try {
-  run("npx", [
-    "--yes",
-    pinnedNpxPackage("vercel"),
-    "env",
-    "run",
-    "--environment",
-    vercelEnvironment,
-    "--token",
-    process.env.VERCEL_TOKEN,
-    "--",
-    "node",
-    "scripts/provision-stripe-webhook.mjs",
-    "--credentials-file",
-    credentialPath,
-  ], { env: vercelEnvRunEnvironment });
+  await main();
+} catch (error) {
+  fail(error?.message || String(error));
+}
 
-  const credentials = await readOptionalCredentials(credentialPath);
-  for (const [key, value] of Object.entries(credentials)) process.env[key] = value;
+async function main() {
+  await loadLocalDotenv(process.env);
+  await applyVersionedEnvironmentConfig(process.env);
 
-  if (providerMode !== "skip") {
-    run(process.execPath, ["scripts/configure-providers.mjs", `--${providerMode}`]);
+  const providerMode = argumentValue("--providers") || "apply-if-configured";
+  if (!["skip", "plan", "apply", "apply-if-configured", "verify"].includes(providerMode)) {
+    fail(`Unsupported --providers mode: ${providerMode}`);
+  }
+  if (!/^(development|staging|production)$/.test(process.env.TARGET_ENV || "")) {
+    fail("TARGET_ENV must be development, staging, or production");
   }
 
-  run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);
-  run(process.execPath, ["scripts/generate-env.mjs", "--write", runtimePath, "--allow-missing-provisioned"]);
-  run(process.execPath, ["scripts/sync-vercel-env.mjs", runtimePath, "--preserve-unset-optional"]);
-  console.log(`Runtime environment ${process.env.TARGET_ENV} reconciled successfully.`);
-} finally {
-  await Promise.all([rm(credentialPath, { force: true }), rm(runtimePath, { force: true })]);
+  const vercelEnvironment = process.env.TARGET_ENV === "development" ? "preview" : "production";
+  const credentialPath = `.stripe-credentials-${process.pid}.env`;
+  const runtimePath = `.env.deploy-${process.pid}`;
+  const context = await resolveVercelProjectContext(process.env);
+  const records = await fetchVercelEnvironmentRecords({
+    ...context,
+    target: vercelEnvironment,
+    decrypt: true,
+  });
+  const recordsByKey = genericVercelEnvironmentRecords(records, vercelEnvironment);
+  const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);
+  const storedSigningSecretPresent = isUnreadableVercelEnvironmentRecord(
+    recordsByKey.get("STRIPE_WEBHOOK_SECRET")
+  );
+  const provisionEnvironment = buildEnvironmentWithVercelFallback({
+    records,
+    runtimeKeys,
+    baseEnv: process.env,
+    target: vercelEnvironment,
+  });
+  if (storedSigningSecretPresent) {
+    delete provisionEnvironment.STRIPE_WEBHOOK_SECRET;
+  }
+  for (const [key, value] of Object.entries(provisionEnvironment)) process.env[key] = value;
+  process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";
+  if (storedSigningSecretPresent) delete process.env.STRIPE_WEBHOOK_SECRET;
+  delete process.env.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT;
+  if (storedSigningSecretPresent) {
+    provisionEnvironment.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT = "true";
+  } else {
+    delete provisionEnvironment.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT;
+  }
+
+  try {
+    run(
+      process.execPath,
+      ["scripts/provision-stripe-webhook.mjs", "--credentials-file", credentialPath],
+      { env: provisionEnvironment }
+    );
+
+    const credentials = await readOptionalCredentials(credentialPath);
+    for (const [key, value] of Object.entries(credentials)) process.env[key] = value;
+
+    if (providerMode !== "skip") {
+      run(process.execPath, ["scripts/configure-providers.mjs", `--${providerMode}`]);
+    }
+
+    run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);
+    run(process.execPath, ["scripts/generate-env.mjs", "--write", runtimePath, "--allow-missing-provisioned"]);
+    const syncArgs = ["scripts/sync-vercel-env.mjs", runtimePath, "--preserve-unset-optional"];
+    if (credentials.STRIPE_WEBHOOK_SECRET) syncArgs.push("--rotate-provisioned");
+    run(process.execPath, syncArgs);
+    console.log(`Runtime environment ${process.env.TARGET_ENV} reconciled successfully.`);
+  } finally {
+    await Promise.all([rm(credentialPath, { force: true }), rm(runtimePath, { force: true })]);
+  }
 }
 
 async function readOptionalCredentials(path) {
@@ -76,49 +96,27 @@ async function readOptionalCredentials(path) {
   }
 }
 
-function readVercelEnvironmentRecords() {
-  const result = run("npx", [
-    "--yes",
-    pinnedNpxPackage("vercel"),
-    "env",
-    "ls",
-    vercelEnvironment,
-    "--format",
-    "json",
-    "--token",
-    process.env.VERCEL_TOKEN,
-  ], { capture: true });
-  try {
-    return genericVercelEnvironmentRecords(parseVercelEnvironmentList(result.stdout));
-  } catch (error) {
-    fail(error?.message || String(error));
-  }
-}
-
 function argumentValue(flag) {
   const index = process.argv.indexOf(flag);
   return index >= 0 ? process.argv[index + 1] || "" : "";
 }
+
 function run(command, args, options = {}) {
   const printable = [command, ...args].map(redactArgument).join(" ");
   console.log(`\n$ ${printable}`);
   const result = spawnSync(command, args, {
-    encoding: options.capture ? "utf8" : undefined,
     env: options.env || process.env,
-    stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    stdio: "inherit",
   });
   if (result.error) fail(`${printable} failed to start: ${result.error.message}`);
-  if (result.status !== 0) {
-    const detail = options.capture
-      ? `\n${[result.stderr, result.stdout].filter(Boolean).join("\n").trim()}`
-      : "";
-    fail(`${printable} failed with exit code ${result.status}${detail}`);
-  }
+  if (result.status !== 0) fail(`${printable} failed with exit code ${result.status}`);
   return result;
 }
+
 function redactArgument(value) {
   return value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value;
 }
+
 function fail(message) {
   console.error(message);
   process.exit(1);

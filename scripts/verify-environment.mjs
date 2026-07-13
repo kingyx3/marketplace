@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { rm } from "node:fs/promises";
-import { withoutEmptyEnvironmentValues } from "./lib/process-environment.mjs";
-import { pinnedNpxPackage } from "./tool-versions.mjs";
+import { ENV_CONTRACT } from "./generate-env.mjs";
+import {
+  buildEnvironmentWithVercelFallback,
+  fetchVercelEnvironmentRecords,
+  genericVercelEnvironmentRecords,
+  isUnreadableVercelEnvironmentRecord,
+  resolveVercelProjectContext,
+} from "./lib/vercel-environment.mjs";
 
 const targetEnv = process.env.TARGET_ENV;
-const token = process.env.VERCEL_TOKEN;
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 const skipHealth = process.argv.includes("--skip-health");
 const runtimePath = `.env.readiness-${process.pid}`;
 const planPath = `infra/terraform/platform/.terraform-readiness-${process.pid}.tfplan`;
@@ -22,13 +26,31 @@ async function main() {
   if (!/^(development|staging|production)$/.test(targetEnv || "")) {
     throw new Error("TARGET_ENV must be development, staging, or production");
   }
-  if (!token) throw new Error("VERCEL_TOKEN is required");
+
+  const vercelEnvironment = targetEnv === "development" ? "preview" : "production";
+  const context = await resolveVercelProjectContext(process.env);
+  const records = await fetchVercelEnvironmentRecords({
+    ...context,
+    target: vercelEnvironment,
+    decrypt: true,
+  });
+  const recordsByKey = genericVercelEnvironmentRecords(records, vercelEnvironment);
+  const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);
+  const verificationEnvironment = buildEnvironmentWithVercelFallback({
+    records,
+    runtimeKeys,
+    baseEnv: process.env,
+    target: vercelEnvironment,
+  });
+  if (isUnreadableVercelEnvironmentRecord(recordsByKey.get("STRIPE_WEBHOOK_SECRET"))) {
+    delete verificationEnvironment.STRIPE_WEBHOOK_SECRET;
+  }
+  const siteUrl = verificationEnvironment.NEXT_PUBLIC_SITE_URL;
   if (!siteUrl && !skipHealth) {
     throw new Error("NEXT_PUBLIC_SITE_URL is required unless --skip-health is used");
   }
+  process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";
 
-  const vercelEnvironment = targetEnv === "development" ? "preview" : "production";
-  const vercelEnvRunEnvironment = withoutEmptyEnvironmentValues(process.env);
   try {
     const plan = run(
       "terraform",
@@ -45,37 +67,24 @@ async function main() {
       throw new Error("Terraform drift detected. Reconcile and apply a reviewed exact plan before release.");
     }
 
-    run("npx", [
-      "--yes",
-      pinnedNpxPackage("vercel"),
-      "env",
-      "run",
-      "--environment",
-      vercelEnvironment,
-      "--token",
-      token,
-      "--",
-      "node",
-      "scripts/configure-providers.mjs",
-      "--verify",
-    ], { env: vercelEnvRunEnvironment });
-    run("npx", [
-      "--yes",
-      pinnedNpxPackage("vercel"),
-      "env",
-      "run",
-      "--environment",
-      vercelEnvironment,
-      "--token",
-      token,
-      "--",
-      "node",
-      "scripts/generate-env.mjs",
-      "--write",
-      runtimePath,
-      "--allow-missing-provisioned",
-    ], { env: vercelEnvRunEnvironment });
-    run(process.execPath, ["scripts/sync-vercel-env.mjs", runtimePath, "--check-only"]);
+    run(process.execPath, ["scripts/configure-providers.mjs", "--verify"], {
+      env: verificationEnvironment,
+    });
+    run(
+      process.execPath,
+      ["scripts/generate-env.mjs", "--write", runtimePath, "--allow-missing-provisioned"],
+      { env: verificationEnvironment }
+    );
+    run(
+      process.execPath,
+      [
+        "scripts/sync-vercel-env.mjs",
+        runtimePath,
+        "--check-only",
+        "--preserve-unset-optional",
+      ],
+      { env: verificationEnvironment }
+    );
 
     if (!skipHealth) {
       await checkHealth(new URL("/api/health", siteUrl));
@@ -106,7 +115,7 @@ async function checkHealth(url) {
 
 function run(command, args, options = {}) {
   const printable = [command, ...args]
-    .map((value) => (value === token ? "[redacted-vercel-token]" : value))
+    .map((value) => (value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value))
     .join(" ");
   console.log(`\n$ ${printable}`);
   const result = spawnSync(command, args, { env: options.env || process.env, stdio: "inherit" });
