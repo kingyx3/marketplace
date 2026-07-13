@@ -11,6 +11,9 @@ export interface CustomerRecord {
   segment: string;
   default_currency: string;
   marketing_opt_in: boolean;
+  billing_state?: string;
+  provisioning_state?: string;
+  provisioning_error?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -108,7 +111,7 @@ export async function requireApiCustomer(
   return { ...auth, customer };
 }
 
-async function findOrCreateCustomer(
+export async function findOrCreateCustomer(
   supabase: SupabaseClient,
   user: User
 ): Promise<CustomerRecord> {
