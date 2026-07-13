@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
+import {
+  sanitizeTelemetryAttributes,
+  sanitizeTelemetryValue,
+  sentryEnvironment,
+} from "@/lib/telemetry";
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
-const SENSITIVE_KEY_PATTERN =
-  /authorization|cookie|secret|token|password|client[_-]?secret|access[_-]?key|api[_-]?key|signature|card|email|phone|address|payload/i;
 
 export interface LogContext {
   requestId?: string;
@@ -30,6 +34,11 @@ export function withRequestId<T extends NextResponse>(response: T, requestId: st
   return response;
 }
 
+export function setTelemetryUser(userId: string | null, roles: string[] = []): void {
+  Sentry.setUser(userId ? { id: userId } : null);
+  if (roles.length > 0) Sentry.setTag("auth.roles", roles.slice(0, 10).join(","));
+}
+
 export function logInfo(event: string, context: LogContext = {}): void {
   writeLog("info", event, context);
 }
@@ -43,32 +52,21 @@ export function logError(event: string, error: unknown, context: LogContext = {}
     ...context,
     error: safeError(error),
   });
+
+  Sentry.withScope((scope) => {
+    scope.setLevel("error");
+    scope.setTag("marketplace.event", event);
+    attachScopeContext(scope, context);
+    Sentry.captureException(normalizeError(error));
+  });
 }
 
 export function sanitizeLogValue(value: unknown, depth = 0): unknown {
-  if (depth > 4) return "[truncated]";
-  if (value === null || value === undefined) return value;
-  if (typeof value === "string") return value.length > 500 ? `${value.slice(0, 500)}…` : value;
-  if (typeof value === "number" || typeof value === "boolean") return value;
-  if (value instanceof Date) return value.toISOString();
-  if (Array.isArray(value)) {
-    return value.slice(0, 25).map((entry) => sanitizeLogValue(entry, depth + 1));
-  }
-  if (typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .slice(0, 50)
-        .map(([key, entry]) => [
-          key,
-          SENSITIVE_KEY_PATTERN.test(key) ? "[redacted]" : sanitizeLogValue(entry, depth + 1),
-        ])
-    );
-  }
-  return String(value);
+  return sanitizeTelemetryValue(value, depth);
 }
 
 function writeLog(level: "info" | "warn" | "error", event: string, context: LogContext): void {
-  const sanitized = sanitizeLogValue(context);
+  const sanitized = sanitizeTelemetryValue(context);
   const sanitizedContext =
     sanitized && typeof sanitized === "object" && !Array.isArray(sanitized)
       ? (sanitized as Record<string, unknown>)
@@ -78,19 +76,42 @@ function writeLog(level: "info" | "warn" | "error", event: string, context: LogC
     level,
     event,
     service: "marketplace",
-    environment:
-      process.env.VERCEL_ENV ?? process.env.TARGET_ENV ?? process.env.NODE_ENV ?? "unknown",
+    environment: sentryEnvironment(),
     ...sanitizedContext,
   };
   const line = JSON.stringify(record);
+  const attributes = sanitizeTelemetryAttributes({
+    service: "marketplace",
+    environment: sentryEnvironment(),
+    ...sanitizedContext,
+  });
 
   if (level === "error") {
+    Sentry.logger.error(event, attributes, {});
     console.error(line);
   } else if (level === "warn") {
+    Sentry.logger.warn(event, attributes, {});
     console.warn(line);
   } else {
+    Sentry.logger.info(event, attributes, {});
     console.info(line);
   }
+}
+
+interface TelemetryScope {
+  setContext(name: string, context: Record<string, unknown>): void;
+  setTag(key: string, value: string): void;
+}
+
+function attachScopeContext(scope: TelemetryScope, context: LogContext): void {
+  const sanitized = sanitizeTelemetryValue(context);
+  if (sanitized && typeof sanitized === "object" && !Array.isArray(sanitized)) {
+    scope.setContext("marketplace", sanitized as Record<string, unknown>);
+  }
+  if (context.requestId) scope.setTag("request.id", context.requestId);
+  if (context.route) scope.setTag("http.route", context.route);
+  if (context.method) scope.setTag("http.request.method", context.method);
+  if (context.status !== undefined) scope.setTag("http.response.status_code", String(context.status));
 }
 
 function safeError(error: unknown): Record<string, unknown> {
@@ -106,4 +127,9 @@ function safeError(error: unknown): Record<string, unknown> {
   }
 
   return { message: typeof error === "string" ? error : "unknown error" };
+}
+
+function normalizeError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new Error(typeof error === "string" ? error : "Unknown application error");
 }
