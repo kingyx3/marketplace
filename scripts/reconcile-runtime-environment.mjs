@@ -49,12 +49,13 @@ async function main() {
     baseEnv: process.env,
     target: vercelEnvironment,
   });
+  for (const [key, value] of Object.entries(provisionEnvironment)) process.env[key] = value;
+  delete process.env.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT;
   if (storedSigningSecretPresent) {
     provisionEnvironment.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT = "true";
   } else {
     delete provisionEnvironment.MARKETPLACE_STRIPE_WEBHOOK_SECRET_PRESENT;
   }
-  process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";
 
   try {
     run(
