@@ -70,7 +70,7 @@ describe("Sentry observability contract", () => {
 
     expect(observability).toContain("Sentry.captureException");
     expect(observability).toContain("Sentry.logger.error");
-    expect(observability).toContain('scope.setTag("request_id"');
+    expect(observability).toContain('["request_id", context.requestId]');
     expect(privacy).toContain("event.request.cookies = undefined");
     expect(privacy).toContain("event.request.data = undefined");
     expect(privacy).toContain("event.request.query_string = undefined");
