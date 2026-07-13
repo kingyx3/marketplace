@@ -23,13 +23,20 @@ Committed defaults never override explicit values.
 
 Every workflow job that directly reads the GitHub Actions `vars` or `secrets` contexts declares its target GitHub Environment at the job level. Reusable-workflow callers may use `secrets: inherit`; the called workflow is responsible for attaching the environment to the jobs that consume those values.
 
-## Shared repository secrets
+## Shared repository settings
+
+Repository secrets:
 
 - `GCP_TERRAFORM_CREDENTIALS_JSON`
 - `VERCEL_TOKEN`
 - `SUPABASE_ACCESS_TOKEN`
+- `SENTRY_AUTH_TOKEN` for staging/production source-map uploads
 
-These are required by the hosted bootstrap for every target and are stored as repository-level secrets.
+Repository variables:
+
+- `SENTRY_ORG` and `SENTRY_PROJECT` for staging/production source-map uploads
+
+The Sentry organization/project slugs and auth token are shared build settings. They are intentionally not duplicated across GitHub Environments.
 
 ## Per-environment operator inputs
 
@@ -37,12 +44,7 @@ Common variables:
 
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `NEXT_PUBLIC_SENTRY_DSN` (required by bootstrap for staging and production)
-- `SENTRY_ORG` and `SENTRY_PROJECT` (required by bootstrap for staging and production source-map releases)
-- `NEXT_PUBLIC_SENTRY_ENVIRONMENT` (defaults to the target name)
-- `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` and `SENTRY_TRACES_SAMPLE_RATE`
-- `NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE` and `NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`
-- optional `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, and `SENTRY_RELEASE` overrides
+- `NEXT_PUBLIC_SENTRY_DSN` (optional in development; required by bootstrap for staging and production)
 - `GOOGLE_AUTH_ENABLED` (`true` by default)
 - `GOOGLE_OAUTH_CLIENT_ID` when Google Auth is enabled
 - `RESEND_FROM_EMAIL`
@@ -51,13 +53,12 @@ Common variables:
 Common secrets:
 
 - `STRIPE_SECRET_KEY`
-- `SENTRY_AUTH_TOKEN` (required by bootstrap for staging and production)
 - `GOOGLE_OAUTH_CLIENT_SECRET` when Google Auth is enabled
 - `SUPABASE_SECRET_KEY` only as a fallback when it cannot be resolved through the Management API
 - `STRIPE_WEBHOOK_SECRET` only as an optional recovery override
 - `CRON_SECRET`, `SYNTHETIC_MONITOR_SECRET`, `OPERATIONAL_ALERT_WEBHOOK_URL`, `OPERATIONAL_ALERT_WEBHOOK_SECRET`, and `RESEND_API_KEY`; optional in development and required by bootstrap intake for staging and production
 
-Sentry trace defaults are `1.0` for development, `0.5` for staging, and `0.1` for production. Background session replay defaults to `0`; replay-on-error defaults to `1.0`. The deployment and bootstrap workflows explicitly map these GitHub Environment values into the runtime reconciler so they reach Vercel idempotently.
+The DSN is the only Sentry runtime setting stored per environment. Environment names come from Vercel/target metadata, releases use the Vercel Git commit SHA, trace sampling defaults to `1.0` outside production and `0.1` in production, background replay is disabled, and replay-on-error is enabled. Bootstrap removes redundant environment-scoped Sentry build settings so repository values cannot be shadowed.
 
 Staging additionally carries recovery-project/database inputs, operations ownership, escalation, and SLO targets. Production carries operations ownership, escalation, SLO targets, backup retention, an optional advisor allow-list, and required reviewers when the GitHub Environment is first created. See `docs/bootstrap.md` for the exact prefixed shell names and defaults.
 
@@ -68,7 +69,7 @@ Staging additionally carries recovery-project/database inputs, operations owners
 - Vercel project/scope metadata from Terraform and Vercel APIs.
 - Stripe endpoint id by exact URL match.
 - Stripe signing secret during transactional create/replacement, persisted directly to Vercel.
-- Sentry releases from `SENTRY_RELEASE` or the Vercel Git commit SHA during builds.
+- Sentry environment names and releases from deployment metadata.
 
 ## Hosted topology
 
@@ -94,7 +95,7 @@ npm run bootstrap:github:apply -- --target=production
 ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap:github:apply -- --target=staging
 ```
 
-Shell values use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefix. Values are never printed. The normal end-to-end entry point is `npm run bootstrap -- --apply`, which invokes governance and target-aware GitHub intake automatically before dispatching **Bootstrap & Deploy** from `main`.
+Environment-specific shell values use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefix. Shared Sentry build values use the unprefixed names `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN`. Values are never printed. The normal end-to-end entry point is `npm run bootstrap -- --apply`, which invokes governance and target-aware GitHub intake automatically before dispatching **Bootstrap & Deploy** from `main`.
 
 ## Optional Terraform overrides
 
