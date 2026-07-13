@@ -36,5 +36,26 @@ describe("Vercel deployment protection bypass", () => {
       "VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}"
     );
     expect(verification).toContain("buildVercelProtectionHeaders()");
+    expect(verification).toContain('redirect: "manual"');
+  });
+
+  it("runs deployment smoke checks with the environment-scoped bypass secret", async () => {
+    const workflow = await readFile(
+      new URL("../.github/workflows/deploy.yml", import.meta.url),
+      "utf8"
+    );
+    const smokeCheck = await readFile(
+      new URL("../scripts/check-deployment-health.mjs", import.meta.url),
+      "utf8"
+    );
+
+    expect(workflow).toContain("environment: ${{ inputs.environment }}");
+    expect(workflow).toContain(
+      "VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}"
+    );
+    expect(workflow).toContain("node scripts/check-deployment-health.mjs");
+    expect(smokeCheck).toContain("buildVercelProtectionHeaders()");
+    expect(smokeCheck).toContain('redirect: "manual"');
+    expect(smokeCheck).toContain("Redirects are rejected");
   });
 });
