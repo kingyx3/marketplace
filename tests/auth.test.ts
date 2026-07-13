@@ -84,6 +84,32 @@ describe("auth helpers", () => {
     );
   });
 
+  it("keeps Vercel preview OAuth callbacks on the preview deployment", () => {
+    const request = new Request("https://internal.example/auth/sign-in");
+
+    expect(
+      getRequestOrigin(
+        request,
+        "https://shop.example.com",
+        "preview",
+        "marketplace-git-feature-kingyx3.vercel.app"
+      )
+    ).toBe("https://marketplace-git-feature-kingyx3.vercel.app");
+  });
+
+  it("does not trust a non-Vercel hostname supplied as the preview URL", () => {
+    const request = new Request("https://internal.example/auth/sign-in");
+
+    expect(
+      getRequestOrigin(
+        request,
+        "https://shop.example.com",
+        "preview",
+        "marketplace.vercel.app.attacker.example"
+      )
+    ).toBe("https://shop.example.com");
+  });
+
   it("rejects hosted auth redirects without a valid canonical URL", () => {
     const request = new Request("https://shop.example.com/auth/sign-in");
 
