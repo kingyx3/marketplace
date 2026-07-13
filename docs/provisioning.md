@@ -5,7 +5,7 @@
 | Layer | Owner |
 | --- | --- |
 | GCS Terraform state bucket | `infra/terraform/bootstrap` |
-| Primary and staging Vercel projects plus hosted Supabase project shells | `infra/terraform/platform` |
+| Primary and optional staging Vercel projects plus hosted Supabase project shells | `infra/terraform/platform` |
 | Provider/runtime reconciliation | `scripts/reconcile-runtime-environment.mjs` and provider libraries |
 | Vercel runtime values | generated contract + `scripts/sync-vercel-env.mjs` |
 | Database schema/storage/RLS/RPCs | Supabase migrations |
@@ -15,24 +15,33 @@
 
 `npm run bootstrap -- --apply` defaults to development and owns the normal end-to-end lifecycle: GitHub intake, checks, Terraform convergence, provider/runtime reconciliation, migrations, deployment, and verification.
 
-Staging and production use the same full-stack path only when selected explicitly:
+Production uses the same full-stack path when selected explicitly:
 
 ```bash
-npm run bootstrap -- --apply --target=staging
 npm run bootstrap -- --apply --target=production
 ```
 
-The command dispatches the hosted workflow from `main`. For routine production application releases, use a published release or `v*` tag so the exact revision is deployed to staging and must pass hosted release gates before production.
+Staging is available only after opting into the extended release topology:
+
+```bash
+ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap -- --apply --target=staging
+```
+
+The command dispatches the hosted workflow from `main`. When the extended release topology and its readiness inputs are configured, routine production application releases should use a published release or `v*` tag so the exact revision is deployed to staging and must pass hosted release gates before production. Direct production bootstrap remains the deliberate path for initial provisioning and full-stack recovery.
 
 ## Managed topology
 
-The platform stack currently manages:
+The default compact topology manages:
 
 - one primary Vercel project used by development and production;
-- one dedicated staging Vercel project;
-- Supabase projects for `development`, `staging`, `recovery`, and `production`.
+- Supabase projects for `development` and `production`.
 
-`recovery` supports restore verification and is not a deploy/bootstrap target. Terraform outputs map deployable environments to the correct Vercel project and every hosted data environment to its Supabase project, URL, and generated database password.
+Set the repository variable `ENABLE_RELEASE_TOPOLOGY=true` to additionally manage:
+
+- one dedicated staging Vercel project;
+- Supabase projects for `staging` and `recovery`.
+
+`recovery` supports restore verification and is not a deploy/bootstrap target. Terraform outputs map deployable environments to the correct Vercel project and every active hosted data environment to its Supabase project, URL, and generated database password.
 
 ## Terraform lifecycle
 
