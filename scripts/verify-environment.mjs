@@ -9,6 +9,7 @@ import {
   isUnreadableVercelEnvironmentRecord,
   resolveVercelProjectContext,
 } from "./lib/vercel-environment.mjs";
+import { buildVercelProtectionHeaders } from "./lib/vercel-protection.mjs";
 
 const targetEnv = process.env.TARGET_ENV;
 const skipHealth = process.argv.includes("--skip-health");
@@ -102,7 +103,7 @@ async function checkHealth(url) {
   let lastError;
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     try {
-      const response = await fetch(url, { headers: { Accept: "application/json" } });
+      const response = await fetch(url, { headers: buildVercelProtectionHeaders() });
       if (response.ok) return;
       lastError = new Error(`${url.pathname}${url.search} returned HTTP ${response.status}`);
     } catch (error) {
