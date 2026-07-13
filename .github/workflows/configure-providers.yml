@@ -1,4 +1,5 @@
-name: Configure Providers
+# Break-glass provider-only diagnostics and repair. Normal setup uses Bootstrap & Deploy.
+name: Configure Providers (recovery)
 
 on:
   workflow_dispatch:
