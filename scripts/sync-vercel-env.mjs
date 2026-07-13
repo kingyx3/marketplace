@@ -27,11 +27,15 @@ async function main() {
   const args = process.argv.slice(2);
   const { dotenvPath } = parseArguments(args);
   const preserveUnsetOptional = args.includes("--preserve-unset-optional");
+  const rotateProvisioned = args.includes("--rotate-provisioned");
   const checkOnly = args.includes("--check-only");
   const targetEnv = process.env.TARGET_ENV;
 
   if (!targetEnv || !/^(development|staging|production)$/.test(targetEnv)) {
     fail("TARGET_ENV must be development, staging, or production");
+  }
+  if (checkOnly && rotateProvisioned) {
+    fail("--rotate-provisioned cannot be combined with --check-only");
   }
 
   const vercelEnv = targetEnv === "development" ? "preview" : "production";
@@ -61,6 +65,9 @@ async function main() {
 
     if (value === undefined || value === "") {
       if (entry.provisioned && currentExists) {
+        if (rotateProvisioned) {
+          fail(`Cannot rotate provisioned Vercel environment variable without a desired value: ${entry.key}`);
+        }
         expectedStates.set(entry.key, currentFingerprint === undefined
           ? { mode: "exists" }
           : { mode: "value", fingerprint: currentFingerprint });
@@ -87,6 +94,21 @@ async function main() {
       continue;
     }
 
+    if (currentExists && currentUnreadable) {
+      expectedStates.set(entry.key, { mode: "exists" });
+      if (checkOnly) {
+        verifiedByPresence += 1;
+        continue;
+      }
+      if (entry.provisioned && !rotateProvisioned) {
+        preserved += 1;
+        continue;
+      }
+      updated += 1;
+      await updateVercelEnvironmentRecord({ ...context, record, value, target: vercelEnv });
+      continue;
+    }
+
     const desiredFingerprint = fingerprint(value, fingerprintKey);
     expectedStates.set(entry.key, { mode: "value", fingerprint: desiredFingerprint });
     if (currentFingerprint === desiredFingerprint) {
@@ -94,10 +116,6 @@ async function main() {
       continue;
     }
     if (currentExists) {
-      if (checkOnly && currentUnreadable) {
-        verifiedByPresence += 1;
-        continue;
-      }
       updated += 1;
       if (!checkOnly) {
         await updateVercelEnvironmentRecord({ ...context, record, value, target: vercelEnv });
@@ -142,7 +160,11 @@ function parseArguments(values) {
   let sawDotenvPath = false;
   for (let index = 0; index < values.length; index += 1) {
     const value = values[index];
-    if (value === "--preserve-unset-optional" || value === "--check-only") continue;
+    if (
+      value === "--preserve-unset-optional" ||
+      value === "--rotate-provisioned" ||
+      value === "--check-only"
+    ) continue;
     if (value.startsWith("--")) fail(`Unknown option: ${value}`);
     if (sawDotenvPath) fail(`Unexpected positional argument: ${value}`);
     dotenvPath = value;
@@ -173,11 +195,11 @@ async function readCurrentState(context, vercelEnv, runtimeEntries, key) {
 
 async function verifyPersistedState(context, vercelEnv, runtimeEntries, key, expected) {
   let drift = [];
-  for (let attempt = 1; attempt <= 5; attempt += 1) {
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
     const current = await readCurrentState(context, vercelEnv, runtimeEntries, key);
     drift = describeDrift(expected, current.records, current.fingerprints);
     if (drift.length === 0) return;
-    if (attempt < 5) await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** (attempt - 1)));
+    if (attempt < 6) await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** (attempt - 1)));
   }
   fail(`Vercel runtime environment did not persist the reconciled state: ${drift.join(", ")}`);
 }
