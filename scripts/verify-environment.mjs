@@ -9,6 +9,7 @@ import {
   isUnreadableVercelEnvironmentRecord,
   resolveVercelProjectContext,
 } from "./lib/vercel-environment.mjs";
+import { pinnedNpxPackage } from "./tool-versions.mjs";
 
 const targetEnv = process.env.TARGET_ENV;
 const skipHealth = process.argv.includes("--skip-health");
@@ -99,14 +100,44 @@ async function main() {
 }
 
 async function checkHealth(url) {
+  const requestPath = `${url.pathname}${url.search}`;
   let lastError;
   for (let attempt = 1; attempt <= 5; attempt += 1) {
-    try {
-      const response = await fetch(url, { headers: { Accept: "application/json" } });
-      if (response.ok) return;
-      lastError = new Error(`${url.pathname}${url.search} returned HTTP ${response.status}`);
-    } catch (error) {
-      lastError = error;
+    const result = spawnSync(
+      "npx",
+      [
+        "--yes",
+        pinnedNpxPackage("vercel"),
+        "curl",
+        requestPath,
+        "--deployment",
+        url.origin,
+        "--yes",
+        "--token",
+        process.env.VERCEL_TOKEN,
+        "--",
+        "--fail-with-body",
+        "--silent",
+        "--show-error",
+        "--header",
+        "Accept: application/json",
+      ],
+      { encoding: "utf8", env: process.env }
+    );
+    if (!result.error && result.status === 0) return;
+
+    if (result.error) {
+      lastError = new Error(`${requestPath} health check failed to start: ${result.error.message}`);
+    } else {
+      const output = [result.stderr, result.stdout]
+        .map((value) => value?.trim())
+        .filter(Boolean)
+        .join("\n");
+      lastError = new Error(
+        output
+          ? `${requestPath} failed through vercel curl:\n${output}`
+          : `${requestPath} failed through vercel curl with exit code ${result.status}`
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
   }
