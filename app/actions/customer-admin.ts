@@ -41,7 +41,7 @@ export async function setCustomerAccountDeleted(formData: FormData) {
   if (!customer.auth_user_id) {
     throw new Error("This customer has no linked sign-in identity and cannot be restored automatically");
   }
-  if (customer.auth_user_id === actor.id) {
+  if (deleted && customer.auth_user_id === actor.id) {
     throw new Error("You cannot disable your own account");
   }
 
@@ -52,7 +52,7 @@ export async function setCustomerAccountDeleted(formData: FormData) {
     .eq("active", true)
     .maybeSingle();
   if (staffError) throw new Error(`Staff safety check failed: ${staffError.message}`);
-  if (activeStaff) {
+  if (deleted && activeStaff) {
     throw new Error("Active staff accounts must be managed from Administrators");
   }
 
