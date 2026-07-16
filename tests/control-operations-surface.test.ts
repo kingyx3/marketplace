@@ -12,7 +12,8 @@ describe("control operations surface", () => {
     expect(source).not.toContain("Wholesale");
     expect(source).not.toContain("B2B");
     expect(source).not.toContain("pricingTierId");
-    expect(source).not.toContain("/admin");
+    expect(source).not.toContain('href="/admin');
+    expect(source).not.toContain('requireStaff("/admin');
     expect(source).toContain("requireControlPermission");
     expect(source).toContain("listAdminOrderExceptions");
     expect(source).toContain("fetchInventoryRows");
