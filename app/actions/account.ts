@@ -5,17 +5,6 @@ import { redirect } from "next/navigation";
 import { requireCustomer } from "@/lib/auth";
 import { createServiceClient, createUserClient } from "@/lib/supabase";
 
-interface CustomerDeletionSnapshot {
-  auth_user_id: string | null;
-  email: string;
-  name: string | null;
-  phone: string | null;
-  marketing_opt_in: boolean;
-  stripe_customer_id: string | null;
-  billing_state: string;
-  deleted_at: string | null;
-}
-
 export async function deleteAccount(formData: FormData) {
   if (formData.get("confirmDeletion") !== "yes") {
     redirect("/account?error=confirm-delete");
@@ -23,35 +12,17 @@ export async function deleteAccount(formData: FormData) {
 
   const { user, customer } = await requireCustomer("/account");
   const supabase = createServiceClient();
-  const { data, error: lookupError } = await supabase
-    .from("customers")
-    .select(
-      "auth_user_id, email, name, phone, marketing_opt_in, stripe_customer_id, billing_state, deleted_at"
-    )
-    .eq("id", customer.id)
-    .eq("auth_user_id", user.id)
-    .is("deleted_at", null)
-    .single();
-
-  if (lookupError || !data) {
-    console.error("account deletion lookup failed:", lookupError?.message ?? "customer not found");
-    redirect("/account?error=delete-failed");
-  }
-
-  const snapshot = data as CustomerDeletionSnapshot;
   const deletedAt = new Date().toISOString();
-  const redactedEmail = `deleted+${customer.id}@deleted.invalid`;
+  const deletionActor = `customer:${user.id}`;
+
   const { error: customerError } = await supabase
     .from("customers")
     .update({
-      auth_user_id: null,
-      email: redactedEmail,
-      name: null,
-      phone: null,
-      marketing_opt_in: false,
-      stripe_customer_id: null,
-      billing_state: "cancelled",
       deleted_at: deletedAt,
+      deletion_actor: deletionActor,
+      restored_at: null,
+      restoration_actor: null,
+      marketing_opt_in: false,
     })
     .eq("id", customer.id)
     .eq("auth_user_id", user.id)
@@ -62,16 +33,26 @@ export async function deleteAccount(formData: FormData) {
     redirect("/account?error=delete-failed");
   }
 
-  const { error: authError } = await supabase.auth.admin.deleteUser(user.id, true);
+  const { error: authError } = await supabase.auth.admin.updateUserById(user.id, {
+    ban_duration: "876000h",
+    app_metadata: {
+      ...(user.app_metadata ?? {}),
+      marketplace_account_deleted_at: deletedAt,
+    },
+  });
+
   if (authError) {
     const { error: rollbackError } = await supabase
       .from("customers")
-      .update(snapshot)
+      .update({
+        deleted_at: null,
+        deletion_actor: null,
+      })
       .eq("id", customer.id)
-      .is("auth_user_id", null)
+      .eq("auth_user_id", user.id)
       .eq("deleted_at", deletedAt);
 
-    console.error("account auth soft deletion failed:", authError.message);
+    console.error("account auth disable failed:", authError.message);
     if (rollbackError) {
       console.error("account deletion rollback failed:", rollbackError.message);
     }
@@ -80,7 +61,7 @@ export async function deleteAccount(formData: FormData) {
 
   try {
     const userClient = await createUserClient();
-    await userClient.auth.signOut();
+    await userClient.auth.signOut({ scope: "global" });
   } catch (error) {
     console.error("deleted account sign out failed:", safeError(error));
   }
