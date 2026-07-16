@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import {
   controlAccessGrantFromForm,
@@ -55,7 +56,19 @@ export async function setControlSupplierActive(formData: FormData) {
 export async function upsertControlCategory(formData: FormData) {
   const { user } = await requireControlPermission("manage_catalog", "/control/categories");
   const input = controlCategoryFromForm(formData);
-  const { error } = await createServiceClient().rpc("admin_upsert_category", {
+  const supabase = createServiceClient();
+  let duplicateQuery = supabase
+    .from("tcg_categories")
+    .select("id, name, slug")
+    .eq("slug", input.slug);
+  if (input.categoryId) duplicateQuery = duplicateQuery.neq("id", input.categoryId);
+  const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
+  if (duplicateError) throw new Error(`Category duplicate check failed: ${duplicateError.message}`);
+  if (duplicate) {
+    await redirectToCategoryConflict(input.slug, duplicate.name, supabase);
+  }
+
+  const { error } = await supabase.rpc("admin_upsert_category", {
     p_category_id: input.categoryId,
     p_parent_id: input.parentId,
     p_slug: input.slug,
@@ -67,8 +80,17 @@ export async function upsertControlCategory(formData: FormData) {
     p_actor_auth_user_id: user.id,
   });
 
+  if (error?.code === "23505") {
+    await redirectToCategoryConflict(input.slug, "another category", supabase);
+  }
   if (error) throw new Error(`Category save failed: ${error.message}`);
-  revalidateControlPaths("/control/categories", "/control/sets", "/control/operations", "/catalog");
+  revalidateControlPaths(
+    "/control/categories",
+    "/control/catalog",
+    "/control/sets",
+    "/control/operations",
+    "/catalog"
+  );
 }
 
 export async function setControlCategoryActive(formData: FormData) {
@@ -81,7 +103,13 @@ export async function setControlCategoryActive(formData: FormData) {
   });
 
   if (error) throw new Error(`Category status update failed: ${error.message}`);
-  revalidateControlPaths("/control/categories", "/control/sets", "/control/operations", "/catalog");
+  revalidateControlPaths(
+    "/control/categories",
+    "/control/catalog",
+    "/control/sets",
+    "/control/operations",
+    "/catalog"
+  );
 }
 
 export async function upsertControlSet(formData: FormData) {
@@ -103,7 +131,7 @@ export async function upsertControlSet(formData: FormData) {
   });
 
   if (error) throw new Error(`Set save failed: ${error.message}`);
-  revalidateControlPaths("/control/sets", "/control/operations", "/catalog", "/preorders");
+  revalidateControlPaths("/control/sets", "/control/catalog", "/control/operations", "/catalog", "/preorders");
 }
 
 export async function setControlSetActive(formData: FormData) {
@@ -116,7 +144,7 @@ export async function setControlSetActive(formData: FormData) {
   });
 
   if (error) throw new Error(`Set status update failed: ${error.message}`);
-  revalidateControlPaths("/control/sets", "/control/operations", "/catalog", "/preorders");
+  revalidateControlPaths("/control/sets", "/control/catalog", "/control/operations", "/catalog", "/preorders");
 }
 
 export async function upsertControlAccessGrant(formData: FormData) {
@@ -132,6 +160,28 @@ export async function upsertControlAccessGrant(formData: FormData) {
 
   if (error) throw new Error(`Administrator access update failed: ${error.message}`);
   revalidateControlPaths("/control/administrators", "/control/audit");
+}
+
+async function redirectToCategoryConflict(
+  slug: string,
+  existingName: string,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<never> {
+  const { data } = await supabase
+    .from("tcg_categories")
+    .select("slug")
+    .like("slug", `${slug}%`)
+    .limit(100);
+  const used = new Set((data ?? []).map((row) => String(row.slug)));
+  let suffix = 2;
+  while (used.has(`${slug}-${suffix}`)) suffix += 1;
+  const search = new URLSearchParams({
+    error: "duplicate-category",
+    slug,
+    existing: existingName,
+    suggested: `${slug}-${suffix}`,
+  });
+  redirect(`/control/categories?${search.toString()}`);
 }
 
 function revalidateControlPaths(...paths: string[]) {
