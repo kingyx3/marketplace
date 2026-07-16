@@ -1,11 +1,10 @@
 import Link from "next/link";
+
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { requireCustomer } from "@/lib/auth";
 import { getAppName } from "@/lib/app-config";
-import { createServiceClient } from "@/lib/supabase";
-import { listCustomerOrders, listCustomerPreorders } from "@/lib/orders";
+import { requireCustomer } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import {
   formatDate,
@@ -15,6 +14,8 @@ import {
   type LiveOrder,
   type LivePreorder,
 } from "@/lib/order-display";
+import { listCustomerOrders, listCustomerPreorders } from "@/lib/orders";
+import { createServiceClient } from "@/lib/supabase";
 import { listCustomerWaitlist, type CustomerWaitlistEntry } from "@/lib/waitlist";
 
 export const dynamic = "force-dynamic";
@@ -31,26 +32,18 @@ export default async function AccountPage({
   let recentOrders: LiveOrder[] = [];
   let recentPreorders: LivePreorder[] = [];
   let recentWaitlist: CustomerWaitlistEntry[] = [];
-  let b2bAccount: B2bAccount | null = null;
   let dataError = false;
 
   try {
-    const [orders, preorders, waitlist, b2b] = await Promise.all([
+    const [orders, preorders, waitlist] = await Promise.all([
       listCustomerOrders(supabase, customer, 5),
       listCustomerPreorders(supabase, customer, 5),
       listCustomerWaitlist(supabase, customer.id, 5),
-      supabase
-        .from("b2b_accounts")
-        .select("id, company_name, approved, approved_at, payment_terms, review_status")
-        .eq("customer_id", customer.id)
-        .maybeSingle(),
     ]);
 
     recentOrders = orders as LiveOrder[];
     recentPreorders = preorders as LivePreorder[];
     recentWaitlist = waitlist;
-    if (b2b.error) throw new Error(b2b.error.message);
-    b2bAccount = (b2b.data as B2bAccount | null) ?? null;
   } catch (error) {
     dataError = true;
     console.error("account dashboard query failed:", safeError(error));
@@ -63,13 +56,7 @@ export default async function AccountPage({
     .filter((order) => isCurrentMonth(order.placed_at ?? order.created_at))
     .filter((order) => !["cancelled", "refunded"].includes(order.status))
     .reduce((sum, order) => sum + order.total_cents, 0);
-  const b2bStatus = b2bAccount
-    ? b2bAccount.review_status === "approved" || b2bAccount.approved
-      ? "Approved"
-      : b2bAccount.review_status === "rejected"
-        ? "Rejected"
-        : "Pending review"
-    : "Not applied";
+  const activeAlerts = recentWaitlist.filter((entry) => entry.status === "active").length;
 
   return (
     <div className="space-y-8">
@@ -79,9 +66,8 @@ export default async function AccountPage({
             {formatStatus(customer.provisioning_state)}
           </StatusBadge>
         }
-        description="Google-authenticated customers see live billing state, preorder exposure, orders, and wholesale application status in one place."
         eyebrow="Account"
-        title="Customer dashboard"
+        title="Your account"
       />
 
       {dataError ? (
@@ -91,29 +77,29 @@ export default async function AccountPage({
       ) : null}
       {params.welcome === "1" ? (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          Welcome to {appName}. Your Google account is connected, and your dashboard is ready.
+          Welcome to {appName}. Your account is ready.
         </div>
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
         <MetricCard
           detail="Remaining balances across active preorders"
-          label="Open preorder exposure"
+          label="Preorder balance"
           value={formatMoney(preorderExposureCents)}
         />
         <MetricCard
-          detail="Paid and active orders in the current month"
+          detail="Paid and active orders this month"
           label="Monthly spend"
           value={formatMoney(monthlySpendCents)}
         />
         <MetricCard
-          detail={b2bAccount?.company_name ?? "Wholesale account status"}
-          label="B2B status"
-          value={b2bStatus}
+          detail="Products you asked to be notified about"
+          label="Active alerts"
+          value={String(activeAlerts)}
         />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_24rem]">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -127,7 +113,7 @@ export default async function AccountPage({
                 {formatStatus(customer.billing_state)}
               </StatusBadge>
             </div>
-            <dl className="mt-6 grid gap-4 sm:grid-cols-3">
+            <dl className="mt-6 grid gap-4 sm:grid-cols-2">
               <div>
                 <dt className="text-sm text-zinc-500">Payment</dt>
                 <dd className="mt-1 font-semibold text-zinc-950">
@@ -135,19 +121,15 @@ export default async function AccountPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-zinc-500">Provisioning</dt>
+                <dt className="text-sm text-zinc-500">Account</dt>
                 <dd className="mt-1 font-semibold text-zinc-950">
                   {formatStatus(customer.provisioning_state)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-sm text-zinc-500">Wholesale</dt>
-                <dd className="mt-1 font-semibold text-zinc-950">{b2bStatus}</dd>
-              </div>
             </dl>
             {customer.provisioning_error ? (
               <p className="mt-5 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
-                Account setup needs operator review.
+                Account setup needs support review.
               </p>
             ) : null}
           </section>
@@ -179,8 +161,7 @@ export default async function AccountPage({
                       </StatusBadge>
                     </div>
                     <p className="mt-2 text-sm text-zinc-500">
-                      {formatDate(order.placed_at ?? order.created_at)} / {orderItemCount(order)}{" "}
-                      item(s)
+                      {formatDate(order.placed_at ?? order.created_at)} · {orderItemCount(order)} item(s)
                     </p>
                     <p className="mt-2 font-semibold text-zinc-950">
                       {formatMoney(order.total_cents, order.currency)}
@@ -194,7 +175,7 @@ export default async function AccountPage({
 
         <aside className="space-y-5">
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-950">Preorder balances</h2>
+            <h2 className="text-lg font-semibold text-zinc-950">Preorders</h2>
             <div className="mt-4 grid gap-3">
               {recentPreorders.length === 0 ? (
                 <EmptyState href="/preorders" label="View preorders" text="No active preorders." />
@@ -239,9 +220,7 @@ export default async function AccountPage({
                         {formatStatus(entry.status)}
                       </StatusBadge>
                     </div>
-                    <p className="mt-2 text-sm text-zinc-500">
-                      {entry.sku} / {formatStatus(entry.channel)}
-                    </p>
+                    <p className="mt-2 text-sm text-zinc-500">{entry.sku}</p>
                   </Link>
                 ))
               )}
@@ -302,12 +281,3 @@ function provisioningTone(status: string) {
 function safeError(error: unknown): string {
   return error instanceof Error ? error.message : "unknown";
 }
-
-type B2bAccount = {
-  id: string;
-  company_name: string;
-  approved: boolean;
-  approved_at: string | null;
-  payment_terms: string;
-  review_status: "pending" | "approved" | "rejected";
-};

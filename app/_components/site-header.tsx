@@ -22,12 +22,6 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
           <Link href="/catalog" className="hover:text-zinc-950">
             Catalog
           </Link>
-          <Link href="/deals" className="hover:text-zinc-950">
-            Deals
-          </Link>
-          <Link href="/wholesale" className="hover:text-zinc-950">
-            Wholesale
-          </Link>
           {signedIn ? (
             <>
               <Link href="/preorders" className="hover:text-zinc-950">

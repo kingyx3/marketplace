@@ -1,32 +1,15 @@
-/**
- * Pre-order allocation engine (pure logic, unit-tested).
- *
- * When incoming stock for a SKU is confirmed, allocation rules decide
- * which pre-orders get filled first. Rules are ordered by `priority`
- * (lower number = allocated first) and may reserve quantity for a
- * channel (e.g. keep 20% of a hot box for B2C even if B2B demand
- * exceeds supply) and cap quantity per customer.
- *
- * Mirrors the `allocation_rules` table; see docs/data-model.md.
- */
-
 export interface AllocationRule {
-  /** Lower runs first. */
   priority: number;
-  /** Which sales channel this rule allocates to. */
-  channel: "b2c" | "b2b";
-  /** Units reserved for this rule's channel (0 = no reserve, take what's left). */
+  channel: "b2c";
   reserveQuantity: number;
-  /** Per-customer cap within this rule (null = uncapped). */
   maxPerCustomer: number | null;
 }
 
 export interface PendingPreorder {
   preorderId: string;
   customerId: string;
-  channel: "b2c" | "b2b";
+  channel: "b2c";
   quantity: number;
-  /** Earlier pre-orders are filled first within a rule (FIFO). */
   position: number;
 }
 
@@ -35,11 +18,6 @@ export interface AllocationResult {
   allocated: number;
 }
 
-/**
- * Allocate `available` units across pending pre-orders according to rules.
- * Deterministic: rules by priority, then pre-orders FIFO by position.
- * Never over-allocates; partial fills are allowed.
- */
 export function allocate(
   available: number,
   rules: AllocationRule[],
@@ -47,37 +25,40 @@ export function allocate(
 ): AllocationResult[] {
   const results = new Map<string, number>();
   let remaining = available;
-
   const orderedRules = [...rules].sort((a, b) => a.priority - b.priority);
-  const remainingByPreorder = new Map(preorders.map((p) => [p.preorderId, p.quantity]));
+  const remainingByPreorder = new Map(preorders.map((preorder) => [preorder.preorderId, preorder.quantity]));
 
   for (const rule of orderedRules) {
     if (remaining <= 0) break;
-    // A reserve carves out budget for this rule; 0 means "whatever is left".
     let budget = rule.reserveQuantity > 0 ? Math.min(rule.reserveQuantity, remaining) : remaining;
-
     const perCustomer = new Map<string, number>();
     const queue = preorders
-      .filter((p) => p.channel === rule.channel)
+      .filter((preorder) => preorder.channel === rule.channel)
       .sort((a, b) => a.position - b.position);
 
-    for (const p of queue) {
+    for (const preorder of queue) {
       if (budget <= 0 || remaining <= 0) break;
-      const outstanding = remainingByPreorder.get(p.preorderId) ?? 0;
+      const outstanding = remainingByPreorder.get(preorder.preorderId) ?? 0;
       if (outstanding <= 0) continue;
 
-      let cap = Math.min(outstanding, budget, remaining);
+      let allocation = Math.min(outstanding, budget, remaining);
       if (rule.maxPerCustomer !== null) {
-        const already = perCustomer.get(p.customerId) ?? 0;
-        cap = Math.min(cap, Math.max(0, rule.maxPerCustomer - already));
+        const alreadyAllocated = perCustomer.get(preorder.customerId) ?? 0;
+        allocation = Math.min(
+          allocation,
+          Math.max(0, rule.maxPerCustomer - alreadyAllocated)
+        );
       }
-      if (cap <= 0) continue;
+      if (allocation <= 0) continue;
 
-      results.set(p.preorderId, (results.get(p.preorderId) ?? 0) + cap);
-      remainingByPreorder.set(p.preorderId, outstanding - cap);
-      perCustomer.set(p.customerId, (perCustomer.get(p.customerId) ?? 0) + cap);
-      budget -= cap;
-      remaining -= cap;
+      results.set(preorder.preorderId, (results.get(preorder.preorderId) ?? 0) + allocation);
+      remainingByPreorder.set(preorder.preorderId, outstanding - allocation);
+      perCustomer.set(
+        preorder.customerId,
+        (perCustomer.get(preorder.customerId) ?? 0) + allocation
+      );
+      budget -= allocation;
+      remaining -= allocation;
     }
   }
 

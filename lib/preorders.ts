@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
 import { allocate, type AllocationRule, type PendingPreorder } from "@/lib/allocation";
 import { badRequest } from "@/lib/api/errors";
 
@@ -23,7 +24,7 @@ interface InventoryCapacityRow {
 
 interface AllocationRuleRow {
   priority: number;
-  channel: "b2c" | "b2b";
+  channel: "b2c";
   reserve_quantity: number;
   max_per_customer: number | null;
 }
@@ -31,7 +32,7 @@ interface AllocationRuleRow {
 interface PreorderAllocationRow {
   id: string;
   customer_id: string;
-  channel: "b2c" | "b2b";
+  channel: "b2c";
   quantity: number;
   allocated_qty: number;
   created_at: string;
@@ -53,24 +54,20 @@ export async function runPreorderAllocationForSku(
     0,
     inventory.on_hand + inventory.incoming - inventory.allocated - inventory.safety_stock
   );
-  if (available <= 0 || preorders.length === 0) {
-    return [];
-  }
+  if (available <= 0 || preorders.length === 0) return [];
 
   const pending: PendingPreorder[] = preorders
     .map((preorder, index) => ({
       preorderId: preorder.id,
       customerId: preorder.customer_id,
-      channel: preorder.channel,
+      channel: "b2c" as const,
       quantity: Math.max(0, preorder.quantity - preorder.allocated_qty),
       position: index,
     }))
     .filter((preorder) => preorder.quantity > 0);
 
   const allocations = allocate(available, rules, pending);
-  if (allocations.length === 0) {
-    return [];
-  }
+  if (allocations.length === 0) return [];
 
   const { data, error } = await supabase.rpc("apply_preorder_allocations", {
     p_sku_id: input.skuId,
@@ -81,10 +78,7 @@ export async function runPreorderAllocationForSku(
     p_actor: actor,
   });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  if (error) throw new Error(error.message);
   return (data ?? []) as AppliedPreorderAllocation[];
 }
 
@@ -99,12 +93,8 @@ async function loadInventoryCapacity(
     .eq("location", "main")
     .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (!data) {
-    throw badRequest("Inventory is not available for allocation");
-  }
+  if (error) throw new Error(error.message);
+  if (!data) throw badRequest("Inventory is not available for allocation");
   return data as InventoryCapacityRow;
 }
 
@@ -116,24 +106,20 @@ async function loadAllocationRules(
     .from("allocation_rules")
     .select("priority, channel, reserve_quantity, max_per_customer")
     .eq("sku_id", skuId)
+    .eq("channel", "b2c")
     .eq("active", true)
     .order("priority", { ascending: true });
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   const rows = (data ?? []) as AllocationRuleRow[];
   if (rows.length === 0) {
-    return [
-      { priority: 10, channel: "b2c", reserveQuantity: 0, maxPerCustomer: null },
-      { priority: 20, channel: "b2b", reserveQuantity: 0, maxPerCustomer: null },
-    ];
+    return [{ priority: 10, channel: "b2c", reserveQuantity: 0, maxPerCustomer: null }];
   }
 
   return rows.map((row) => ({
     priority: row.priority,
-    channel: row.channel,
+    channel: "b2c",
     reserveQuantity: row.reserve_quantity,
     maxPerCustomer: row.max_per_customer,
   }));
@@ -147,12 +133,10 @@ async function loadPendingPreorders(
     .from("preorders")
     .select("id, customer_id, channel, quantity, allocated_qty, created_at")
     .eq("sku_id", skuId)
+    .eq("channel", "b2c")
     .in("status", ["deposited", "allocated", "balance_due"])
     .order("created_at", { ascending: true });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  if (error) throw new Error(error.message);
   return (data ?? []) as PreorderAllocationRow[];
 }

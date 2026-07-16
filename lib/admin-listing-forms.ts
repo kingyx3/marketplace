@@ -39,7 +39,6 @@ export interface AdminLimitedTimeDealInput {
 const CONFIG_KEY_PATTERN = /^[a-z0-9]+(?:[_:-][a-z0-9]+)*$/;
 const DEAL_CODE_PATTERN = /^[a-z0-9]+(?:[_-][a-z0-9]+)*$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CHANNELS: SalesChannel[] = ["b2c", "b2b"];
 
 export function adminLimitedTimeDealFromForm(formData: FormData): AdminLimitedTimeDealInput {
   const dealId = optionalString(formData, "dealId") ?? null;
@@ -92,14 +91,12 @@ export function adminLimitedTimeDealStatusFromForm(formData: FormData) {
 }
 
 export function adminListingItemFromForm(formData: FormData): AdminListingItemInput {
-  const channels = channelsFromForm(formData);
-
   return {
     productId: requiredString(formData, "productId"),
     titleOverride: optionalString(formData, "titleOverride") ?? null,
     badgeLabel: optionalString(formData, "badgeLabel") ?? null,
     tags: tagsFromForm(formData),
-    channels,
+    channels: ["b2c"],
     maxPerCustomer: optionalPositiveInteger(formData, "maxPerCustomer"),
     preorderReserve: optionalNonNegativeInteger(formData, "preorderReserve") ?? 0,
     sortPriority: optionalInteger(formData, "sortPriority") ?? 0,
@@ -137,26 +134,15 @@ export function adminStorefrontConfigurationFromForm(
   };
 }
 
-function channelsFromForm(formData: FormData): SalesChannel[] {
-  const rawChannels = formData.getAll("channels").filter((value): value is SalesChannel => {
-    return typeof value === "string" && CHANNELS.includes(value as SalesChannel);
-  });
-
-  return [...new Set(rawChannels)].length > 0 ? [...new Set(rawChannels)] : ["b2c"];
-}
-
 function tagsFromForm(formData: FormData): string[] {
   const raw = optionalString(formData, "tags");
   if (!raw) return [];
-
   return [...new Set(raw.split(/[\n,]/).map((tag) => tag.trim()).filter(Boolean))].slice(0, 12);
 }
 
 function requiredString(formData: FormData, key: string): string {
   const value = optionalString(formData, key);
-  if (!value) {
-    throw badRequest(`${key} is required`);
-  }
+  if (!value) throw badRequest(`${key} is required`);
   return value;
 }
 
@@ -170,18 +156,14 @@ function optionalString(formData: FormData, key: string): string | undefined {
 function optionalPositiveInteger(formData: FormData, key: string): number | null {
   const value = optionalInteger(formData, key);
   if (value === null) return null;
-  if (value <= 0) {
-    throw badRequest(`${key} must be positive`);
-  }
+  if (value <= 0) throw badRequest(`${key} must be positive`);
   return value;
 }
 
 function optionalNonNegativeInteger(formData: FormData, key: string): number | null {
   const value = optionalInteger(formData, key);
   if (value === null) return null;
-  if (value < 0) {
-    throw badRequest(`${key} must be non-negative`);
-  }
+  if (value < 0) throw badRequest(`${key} must be non-negative`);
   return value;
 }
 
@@ -195,9 +177,7 @@ function optionalInteger(formData: FormData, key: string): number | null {
   const raw = optionalString(formData, key);
   if (!raw) return null;
   const value = Number(raw);
-  if (!Number.isInteger(value)) {
-    throw badRequest(`${key} must be an integer`);
-  }
+  if (!Number.isInteger(value)) throw badRequest(`${key} must be an integer`);
   return value;
 }
 

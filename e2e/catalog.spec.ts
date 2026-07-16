@@ -5,13 +5,12 @@ const CATALOG_RESULTS = { name: "Catalog results" } as const;
 test.describe("catalog", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/catalog");
-    await expect(page.getByRole("heading", { name: "Sealed product inventory" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
   });
 
   test("loads preview inventory and opens a product", async ({ page }) => {
     const results = page.getByRole("region", CATALOG_RESULTS);
 
-    await expect(page.getByText("preview data", { exact: true })).toBeVisible();
     await expect(page.getByText("Showing 4 of 4 products")).toBeVisible();
     await expect(results.getByRole("article")).toHaveCount(4);
 
@@ -24,8 +23,8 @@ test.describe("catalog", () => {
     await expect(
       page.getByRole("heading", { name: "Sample Standard Play Booster Box" })
     ).toBeVisible();
-    await expect(page.getByText("Current price")).toBeVisible();
-    await expect(page.getByText("Allocation policy")).toBeVisible();
+    await expect(page.getByText("Price", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Availability" })).toBeVisible();
   });
 
   test("applies query, game, and status filters", async ({ page }) => {

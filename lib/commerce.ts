@@ -1,12 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { badRequest, forbidden, notFound } from "@/lib/api/errors";
+
+import { badRequest, notFound } from "@/lib/api/errors";
 import type { CustomerRecord } from "@/lib/api/auth";
-import {
-  bestDiscountBpsForSubtotal,
-  minimumOrderCents,
-  type B2bPricingTier,
-} from "@/lib/b2b";
 import { calculateDealSavings, getActiveDealDiscounts } from "@/lib/deals";
 import { quoteShipping, shippingAddressSchema } from "@/lib/shipping";
 
@@ -16,7 +12,7 @@ export const MAX_CHECKOUT_TOTAL_QUANTITY = 24;
 export const DEFAULT_PREORDER_DEPOSIT_BPS = 2000;
 
 export type CheckoutMode = "order" | "preorder";
-export type SalesChannel = "b2c" | "b2b";
+export type SalesChannel = "b2c";
 
 export const cartItemSchema = z.object({
   skuId: z.string().uuid(),
@@ -25,7 +21,7 @@ export const cartItemSchema = z.object({
 
 export const checkoutRequestSchema = z.object({
   mode: z.enum(["order", "preorder"]).default("order"),
-  channel: z.enum(["b2c", "b2b"]).default("b2c"),
+  channel: z.literal("b2c").default("b2c"),
   items: z.array(cartItemSchema).min(1).max(MAX_CHECKOUT_LINES),
   shippingAddress: shippingAddressSchema.optional(),
   successUrl: z.string().url().optional(),
@@ -143,7 +139,6 @@ export async function quoteCheckout(
     throw badRequest("Pre-order checkout currently supports one SKU per payment");
   }
 
-  const channel = await resolveSalesChannel(supabase, customer.id, request.channel);
   const lines: CheckoutLine[] = [];
   let currency: string | null = null;
   let subtotalCents = 0;
@@ -159,25 +154,18 @@ export async function quoteCheckout(
   }
 
   const resolvedCurrency = currency ?? customer.default_currency;
-  const pricing = await findB2bPricing(supabase, customer.id, subtotalCents, channel);
   const dealDiscounts =
-    channel === "b2c" && request.mode === "order"
+    request.mode === "order"
       ? await getActiveDealDiscounts(
           supabase,
           lines.map((line) => line.skuId)
         )
       : new Map<string, number>();
-  const dealDiscountCents = lines.reduce((total, line) => {
+  const discountCents = lines.reduce((total, line) => {
     return total + calculateDealSavings(line.lineTotalCents, dealDiscounts.get(line.skuId) ?? 0);
   }, 0);
-  const tierDiscountCents = calculateDiscountCents(subtotalCents, pricing.discountBps);
-  const discountCents = channel === "b2b" ? tierDiscountCents : dealDiscountCents;
   const discountBps =
-    channel === "b2b"
-      ? pricing.discountBps
-      : subtotalCents > 0
-        ? Math.floor((discountCents * 10000) / subtotalCents)
-        : 0;
+    subtotalCents > 0 ? Math.floor((discountCents * 10000) / subtotalCents) : 0;
   const merchandiseTotalCents = subtotalCents - discountCents;
   const shipping =
     request.mode === "order"
@@ -195,7 +183,7 @@ export async function quoteCheckout(
 
   return {
     mode: request.mode,
-    channel,
+    channel: "b2c",
     currency: resolvedCurrency,
     lines,
     subtotalCents,
@@ -209,29 +197,6 @@ export async function quoteCheckout(
     depositCents,
     balanceCents: Math.max(0, totalCents - depositCents),
   };
-}
-
-async function resolveSalesChannel(
-  supabase: SupabaseClient,
-  customerId: string,
-  requested: SalesChannel
-): Promise<SalesChannel> {
-  if (requested === "b2c") return "b2c";
-
-  const { data, error } = await supabase
-    .from("b2b_accounts")
-    .select("approved")
-    .eq("customer_id", customerId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (!data?.approved) {
-    throw forbidden("Approved B2B account required");
-  }
-
-  return "b2b";
 }
 
 async function quoteLine(
@@ -326,68 +291,4 @@ function availableQuantity(inventory: InventoryRecord, mode: CheckoutMode): numb
   }
 
   return Math.max(0, physicalAvailable - stockBuffer);
-}
-
-async function findB2bPricing(
-  supabase: SupabaseClient,
-  customerId: string,
-  subtotalCents: number,
-  channel: SalesChannel
-): Promise<{ discountBps: number; minimumOrderCents: number }> {
-  if (channel !== "b2b") return { discountBps: 0, minimumOrderCents: 0 };
-
-  const assigned = await supabase
-    .from("customer_pricing_tiers")
-    .select("pricing_tier_id")
-    .eq("customer_id", customerId);
-  if (assigned.error) {
-    throw new Error(assigned.error.message);
-  }
-
-  const tierIds = (assigned.data ?? [])
-    .map((row: { pricing_tier_id?: string }) => row.pricing_tier_id)
-    .filter((id): id is string => Boolean(id));
-  if (tierIds.length === 0) {
-    throw forbidden("B2B pricing tier assignment required");
-  }
-
-  const tiers = await supabase
-    .from("pricing_tiers")
-    .select("id, code, name, discount_bps, min_order_cents")
-    .in("id", tierIds);
-  if (tiers.error) {
-    throw new Error(tiers.error.message);
-  }
-
-  const tierRows = ((tiers.data ?? []) as PricingTierRow[]).map(mapPricingTier);
-  if (tierRows.length === 0) {
-    throw forbidden("B2B pricing tier assignment required");
-  }
-
-  const minimumOrder = minimumOrderCents(tierRows);
-  if (subtotalCents < minimumOrder) {
-    throw badRequest(`B2B minimum order is ${minimumOrder} cents`);
-  }
-
-  const discountBps = bestDiscountBpsForSubtotal(tierRows, subtotalCents);
-
-  return { discountBps, minimumOrderCents: minimumOrder };
-}
-
-function mapPricingTier(row: PricingTierRow): B2bPricingTier {
-  return {
-    id: row.id,
-    code: row.code,
-    name: row.name,
-    discountBps: Number(row.discount_bps ?? 0),
-    minOrderCents: Number(row.min_order_cents ?? 0),
-  };
-}
-
-interface PricingTierRow {
-  id: string;
-  code: string;
-  name: string;
-  discount_bps: number;
-  min_order_cents: number;
 }

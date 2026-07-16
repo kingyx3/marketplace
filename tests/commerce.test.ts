@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { checkoutOrderRpcParams } from "@/lib/order-checkout";
 import {
   calculateDepositCents,
@@ -16,23 +17,28 @@ const shippingAddress = {
   countryCode: "SG",
 };
 
+const skuId = "11111111-1111-4111-8111-111111111111";
+
 describe("commerce helpers", () => {
   it("merges duplicate cart lines without changing first-seen ordering", () => {
-    const items = normalizeCartItems([
-      { skuId: "sku-a", quantity: 1 },
-      { skuId: "sku-b", quantity: 2 },
-      { skuId: "sku-a", quantity: 3 },
-    ]);
-
-    expect(items).toEqual([
+    expect(
+      normalizeCartItems([
+        { skuId: "sku-a", quantity: 1 },
+        { skuId: "sku-b", quantity: 2 },
+        { skuId: "sku-a", quantity: 3 },
+      ])
+    ).toEqual([
       { skuId: "sku-a", quantity: 4, position: 0 },
       { skuId: "sku-b", quantity: 2, position: 1 },
     ]);
   });
 
-  it("calculates integer-cent discounts", () => {
+  it("calculates integer-cent discounts and bounded preorder deposits", () => {
     expect(calculateDiscountCents(19900, 800)).toBe(1592);
     expect(calculateDiscountCents(19900, 0)).toBe(0);
+    expect(calculateDepositCents(19900)).toBe(3980);
+    expect(calculateDepositCents(1)).toBe(100);
+    expect(calculateDepositCents(0)).toBe(0);
   });
 
   it("rejects carts over the database checkout quantity limit", () => {
@@ -44,20 +50,14 @@ describe("commerce helpers", () => {
     ).toThrow("Cart quantity exceeds 24");
   });
 
-  it("uses a bounded non-zero preorder deposit", () => {
-    expect(calculateDepositCents(19900)).toBe(3980);
-    expect(calculateDepositCents(1)).toBe(100);
-    expect(calculateDepositCents(0)).toBe(0);
-  });
-
-  it("passes server-derived pricing and address into the checkout order RPC", () => {
+  it("passes retail pricing and shipping into the checkout order RPC", () => {
     const quote: CheckoutQuote = {
       mode: "order",
-      channel: "b2b",
+      channel: "b2c",
       currency: "SGD",
       lines: [
         {
-          skuId: "11111111-1111-4111-8111-111111111111",
+          skuId,
           sku: "BOX-1",
           productName: "Booster Box",
           quantity: 2,
@@ -68,106 +68,35 @@ describe("commerce helpers", () => {
         },
       ],
       subtotalCents: 39800,
-      discountBps: 800,
-      discountCents: 3184,
+      discountBps: 500,
+      discountCents: 1990,
       shippingCents: 800,
       shippingService: "Tracked delivery",
       shippingPolicyKey: "shipping_policy",
-      taxCents: 3089,
-      totalCents: 37416,
-      depositCents: 37416,
+      taxCents: 3188,
+      totalCents: 38610,
+      depositCents: 38610,
       balanceCents: 0,
     };
 
     expect(checkoutOrderRpcParams("user-123", quote, shippingAddress)).toEqual({
       p_auth_user_id: "user-123",
-      p_items: [{ sku_id: "11111111-1111-4111-8111-111111111111", quantity: 2 }],
-      p_channel: "b2b",
+      p_items: [{ sku_id: skuId, quantity: 2 }],
+      p_channel: "b2c",
       p_shipping_address: shippingAddress,
       p_expected_subtotal_cents: 39800,
-      p_discount_cents: 3184,
-      p_discount_bps: 800,
-      p_expected_total_cents: 37416,
+      p_discount_cents: 1990,
+      p_discount_bps: 500,
+      p_expected_total_cents: 38610,
     });
   });
 
-  it("rejects approved B2B checkout below the assigned tier minimum", async () => {
+  it("applies the best active deal to retail checkout", async () => {
     const supabase = fakeQuoteSupabase({
-      b2bApproved: true,
-      tiers: [{ discount_bps: 800, min_order_cents: 50000 }],
-    });
-
-    await expect(
-      quoteCheckout(
-        supabase as never,
-        {
-          mode: "order",
-          channel: "b2b",
-          shippingAddress,
-          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
-        },
-        customerRecord()
-      )
-    ).rejects.toThrow("B2B minimum order is 50000 cents");
-  });
-
-  it("applies assigned B2B pricing and shipping after the minimum is met", async () => {
-    const supabase = fakeQuoteSupabase({
-      b2bApproved: true,
-      tiers: [{ discount_bps: 800, min_order_cents: 30000 }],
-    });
-
-    await expect(
-      quoteCheckout(
-        supabase as never,
-        {
-          mode: "order",
-          channel: "b2b",
-          shippingAddress,
-          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 2 }],
-        },
-        customerRecord()
-      )
-    ).resolves.toMatchObject({
-      channel: "b2b",
-      subtotalCents: 39800,
-      discountBps: 800,
-      discountCents: 3184,
-      shippingCents: 800,
-      shippingService: "Tracked delivery",
-      totalCents: 37416,
-    });
-  });
-
-  it("fails closed when shipping policy is inactive", async () => {
-    const supabase = fakeQuoteSupabase({
-      b2bApproved: false,
-      shippingActive: false,
-      tiers: [],
-    });
-
-    await expect(
-      quoteCheckout(
-        supabase as never,
-        {
-          mode: "order",
-          channel: "b2c",
-          shippingAddress,
-          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
-        },
-        customerRecord()
-      )
-    ).rejects.toThrow("Shipping checkout is not configured");
-  });
-
-  it("applies the best active limited-time deal to retail checkout", async () => {
-    const supabase = fakeQuoteSupabase({
-      b2bApproved: false,
       deals: [
-        { sku_id: "11111111-1111-4111-8111-111111111111", discount_bps: 500 },
-        { sku_id: "11111111-1111-4111-8111-111111111111", discount_bps: 1000 },
+        { sku_id: skuId, discount_bps: 500 },
+        { sku_id: skuId, discount_bps: 1000 },
       ],
-      tiers: [],
     });
 
     await expect(
@@ -177,7 +106,7 @@ describe("commerce helpers", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+          items: [{ skuId, quantity: 1 }],
         },
         customerRecord()
       )
@@ -191,12 +120,8 @@ describe("commerce helpers", () => {
     });
   });
 
-  it("rejects inactive SKUs before creating payment state", async () => {
-    const supabase = fakeQuoteSupabase({
-      b2bApproved: false,
-      skuActive: false,
-      tiers: [],
-    });
+  it("fails closed when shipping is inactive", async () => {
+    const supabase = fakeQuoteSupabase({ shippingActive: false });
 
     await expect(
       quoteCheckout(
@@ -205,7 +130,24 @@ describe("commerce helpers", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+          items: [{ skuId, quantity: 1 }],
+        },
+        customerRecord()
+      )
+    ).rejects.toThrow("Shipping checkout is not configured");
+  });
+
+  it("rejects inactive SKUs before creating payment state", async () => {
+    const supabase = fakeQuoteSupabase({ skuActive: false });
+
+    await expect(
+      quoteCheckout(
+        supabase as never,
+        {
+          mode: "order",
+          channel: "b2c",
+          shippingAddress,
+          items: [{ skuId, quantity: 1 }],
         },
         customerRecord()
       )
@@ -220,18 +162,16 @@ function customerRecord() {
     email: "buyer@example.test",
     name: "Buyer",
     phone: null,
-    segment: "reseller",
+    segment: "collector",
     default_currency: "SGD",
     marketing_opt_in: false,
   };
 }
 
 function fakeQuoteSupabase(options: {
-  b2bApproved: boolean;
   deals?: Array<{ sku_id: string; discount_bps: number }>;
   skuActive?: boolean;
   shippingActive?: boolean;
-  tiers: Array<{ discount_bps: number; min_order_cents: number }>;
 }) {
   return {
     from(table: string) {
@@ -243,44 +183,23 @@ function fakeQuoteSupabase(options: {
 function tableBuilder(
   table: string,
   options: {
-    b2bApproved: boolean;
     deals?: Array<{ sku_id: string; discount_bps: number }>;
     skuActive?: boolean;
     shippingActive?: boolean;
-    tiers: Array<{ discount_bps: number; min_order_cents: number }>;
   }
 ) {
   const builder = {
     select: () => builder,
-    eq: () => {
-      if (table === "customer_pricing_tiers") {
-        return Promise.resolve({
-          data: [{ pricing_tier_id: "tier-123" }],
-          error: null,
-        });
-      }
-      return builder;
-    },
+    eq: () => builder,
+    lte: () => builder,
+    gt: () => builder,
+    limit: () => builder,
+    in: () => builder,
     order: () =>
       table === "limited_time_deals"
         ? Promise.resolve({ data: options.deals ?? [], error: null })
         : builder,
-    lte: () => builder,
-    gt: () => builder,
-    limit: () => builder,
-    in: () => {
-      if (table === "limited_time_deals") {
-        return builder;
-      }
-      if (table === "pricing_tiers") {
-        return Promise.resolve({ data: options.tiers, error: null });
-      }
-      return Promise.resolve({ data: [], error: null });
-    },
     maybeSingle: async () => {
-      if (table === "b2b_accounts") {
-        return { data: { approved: options.b2bApproved }, error: null };
-      }
       if (table === "inventory") {
         return {
           data: { on_hand: 10, allocated: 0, incoming: 0, safety_stock: 0, available: 10 },
@@ -309,7 +228,7 @@ function tableBuilder(
       if (table === "booster_box_skus") {
         return {
           data: {
-            id: "11111111-1111-4111-8111-111111111111",
+            id: skuId,
             sku: "BOX-1",
             active: options.skuActive ?? true,
             price_cents: 19900,

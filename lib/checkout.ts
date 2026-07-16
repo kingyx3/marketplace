@@ -1,10 +1,10 @@
-import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type Stripe from "stripe";
 import { z } from "zod";
-import { badRequest, conflict, internalError, notFound } from "@/lib/api/errors";
+
 import type { ApiCustomerContext } from "@/lib/api/auth";
+import { badRequest, conflict, internalError, notFound } from "@/lib/api/errors";
 import {
-  cartItemSchema,
   checkoutRequestSchema,
   quoteCheckout,
   type CheckoutQuote,
@@ -24,23 +24,8 @@ export interface CheckoutResult {
   quote: CheckoutQuote;
 }
 
-export interface InvoiceCheckoutResult {
-  orderId: string;
-  paymentId: string;
-  provider: "manual_invoice";
-  providerPaymentId: string;
-  amountCents: number;
-  currency: string;
-  status: "pending_payment";
-}
-
 const cancelCheckoutSchema = z.object({
   paymentIntentId: z.string().trim().min(3).max(200).startsWith("pi_"),
-});
-
-export const invoiceCheckoutRequestSchema = z.object({
-  items: z.array(cartItemSchema).min(1).max(10),
-  purchaseOrderReference: z.string().trim().max(120).optional(),
 });
 
 export function checkoutResponseBody(result: CheckoutResult) {
@@ -54,18 +39,6 @@ export function checkoutResponseBody(result: CheckoutResult) {
     amountCents: result.amountCents,
     currency: result.publishableCurrency,
     quote: result.quote,
-  };
-}
-
-export function invoiceCheckoutResponseBody(result: InvoiceCheckoutResult) {
-  return {
-    orderId: result.orderId,
-    paymentId: result.paymentId,
-    provider: result.provider,
-    providerPaymentId: result.providerPaymentId,
-    amountCents: result.amountCents,
-    currency: result.currency,
-    status: result.status,
   };
 }
 
@@ -84,65 +57,6 @@ export async function createCheckoutPayment(
   return quote.mode === "preorder"
     ? createPreorderPayment(auth, quote, stripe)
     : createOrderPayment(auth, quote, stripe);
-}
-
-export async function createInvoiceCheckout(
-  auth: ApiCustomerContext,
-  body: unknown
-): Promise<InvoiceCheckoutResult> {
-  const input = invoiceCheckoutRequestSchema.parse(body);
-  const quote = await quoteCheckout(
-    auth.supabase,
-    { mode: "order", channel: "b2b", items: input.items },
-    auth.customer
-  );
-
-  if (quote.totalCents <= 0) {
-    throw badRequest("Invoice checkout total must be greater than zero");
-  }
-
-  let orderId: string | null = null;
-
-  try {
-    const order = await auth.supabase
-      .rpc("create_checkout_order_from_cart", checkoutOrderRpcParams(auth.user.id, quote))
-      .single();
-    if (order.error || !order.data) {
-      throw new Error(order.error?.message ?? "invoice order creation failed");
-    }
-    orderId = (order.data as { order_id: string }).order_id;
-
-    const providerPaymentId = `invoice:${orderId}`;
-    const payment = await insertManualInvoicePayment(auth.supabase, {
-      orderId,
-      providerPaymentId,
-      amountCents: quote.totalCents,
-      currency: quote.currency,
-    });
-
-    await recordInvoiceRequestAudit(auth.supabase, {
-      orderId,
-      customerId: auth.customer.id,
-      amountCents: quote.totalCents,
-      currency: quote.currency,
-      purchaseOrderReference: input.purchaseOrderReference,
-    });
-
-    return {
-      orderId,
-      paymentId: payment.id,
-      provider: "manual_invoice",
-      providerPaymentId,
-      amountCents: quote.totalCents,
-      currency: quote.currency,
-      status: "pending_payment",
-    };
-  } catch (error) {
-    if (orderId) {
-      await rollbackAllocatedOrder(auth.supabase, orderId);
-    }
-    throw error instanceof Error ? error : internalError();
-  }
 }
 
 export async function createPreorderBalancePayment(
@@ -204,7 +118,7 @@ export function checkoutOrderRpcParams(authUserId: string, quote: CheckoutQuote)
       sku_id: line.skuId,
       quantity: line.quantity,
     })),
-    p_channel: quote.channel,
+    p_channel: "b2c",
     p_expected_subtotal_cents: quote.subtotalCents,
     p_discount_cents: quote.discountCents,
     p_discount_bps: quote.discountBps,
@@ -243,7 +157,7 @@ async function createOrderPayment(
     paymentIntentId = intent.id;
 
     const payment = await insertPayment(auth.supabase, {
-      orderId: orderId ?? undefined,
+      orderId,
       providerPaymentId: intent.id,
       kind: "full",
       amountCents: quote.totalCents,
@@ -253,7 +167,7 @@ async function createOrderPayment(
 
     return checkoutResultFromIntent({
       mode: "order",
-      orderId: orderId ?? undefined,
+      orderId,
       paymentId: payment.id,
       intent,
       quote,
@@ -271,17 +185,13 @@ export async function cancelPendingCheckoutPayment(
 ): Promise<{ cancelled: true; orderId?: string; preorderId?: string }> {
   const input = cancelCheckoutSchema.parse(body);
   const payment = await paymentByIntent(auth.supabase, input.paymentIntentId);
-  if (!payment) {
-    throw notFound("Payment not found");
-  }
+  if (!payment) throw notFound("Payment not found");
 
   if (!["pending", "requires_capture", "authorized"].includes(payment.status)) {
     throw conflict("Payment can no longer be cancelled");
   }
 
-  if (payment.order_id) {
-    await assertCustomerOrderIsCancellable(auth, payment.order_id);
-  }
+  if (payment.order_id) await assertCustomerOrderIsCancellable(auth, payment.order_id);
   if (payment.preorder_id) {
     await assertCustomerPreorderIsCancellable(auth, payment.preorder_id, payment.kind);
   }
@@ -297,25 +207,20 @@ export async function cancelPendingCheckoutPayment(
     .update({ status: "cancelled" })
     .eq("id", payment.id)
     .in("status", ["pending", "requires_capture", "authorized"]);
-  if (paymentUpdate.error) {
-    throw new Error(paymentUpdate.error.message);
-  }
+  if (paymentUpdate.error) throw new Error(paymentUpdate.error.message);
 
   if (payment.order_id) {
     const release = await auth.supabase.rpc("release_order_allocation", {
       p_order_id: payment.order_id,
     });
-    if (release.error) {
-      throw new Error(release.error.message);
-    }
+    if (release.error) throw new Error(release.error.message);
+
     const orderUpdate = await auth.supabase
       .from("orders")
       .update({ status: "cancelled" })
       .eq("id", payment.order_id)
       .in("status", ["draft", "pending_payment"]);
-    if (orderUpdate.error) {
-      throw new Error(orderUpdate.error.message);
-    }
+    if (orderUpdate.error) throw new Error(orderUpdate.error.message);
   }
 
   if (payment.preorder_id && payment.kind !== "balance") {
@@ -324,9 +229,7 @@ export async function cancelPendingCheckoutPayment(
       .update({ status: "cancelled" })
       .eq("id", payment.preorder_id)
       .in("status", ["pending_deposit", "deposited"]);
-    if (preorderUpdate.error) {
-      throw new Error(preorderUpdate.error.message);
-    }
+    if (preorderUpdate.error) throw new Error(preorderUpdate.error.message);
   }
 
   return {
@@ -342,9 +245,7 @@ async function createPreorderPayment(
   stripe: Stripe
 ): Promise<CheckoutResult> {
   const line = quote.lines[0];
-  if (!line) {
-    throw badRequest("Pre-order checkout requires one line");
-  }
+  if (!line) throw badRequest("Pre-order checkout requires one line");
 
   let preorderId: string | null = null;
   let paymentIntentId: string | null = null;
@@ -355,7 +256,7 @@ async function createPreorderPayment(
       .insert({
         customer_id: auth.customer.id,
         sku_id: line.skuId,
-        channel: quote.channel,
+        channel: "b2c",
         quantity: line.quantity,
         unit_price_cents: line.unitPriceCents,
         deposit_cents: quote.depositCents,
@@ -368,7 +269,8 @@ async function createPreorderPayment(
     if (preorder.error || !preorder.data) {
       throw new Error(preorder.error?.message ?? "preorder insert failed");
     }
-    preorderId = preorder.data.id;
+    const createdPreorderId = String(preorder.data.id);
+    preorderId = createdPreorderId;
 
     const intent = await stripe.paymentIntents.create({
       amount: quote.depositCents,
@@ -379,14 +281,14 @@ async function createPreorderPayment(
       receipt_email: auth.customer.email,
       metadata: {
         kind: "deposit",
-        preorder_id: preorderId,
+        preorder_id: createdPreorderId,
         customer_id: auth.customer.id,
       },
     });
     paymentIntentId = intent.id;
 
     const payment = await insertPayment(auth.supabase, {
-      preorderId: preorderId ?? undefined,
+      preorderId: createdPreorderId,
       providerPaymentId: intent.id,
       kind: "deposit",
       amountCents: quote.depositCents,
@@ -396,7 +298,7 @@ async function createPreorderPayment(
 
     return checkoutResultFromIntent({
       mode: "preorder",
-      preorderId: preorderId ?? undefined,
+      preorderId: createdPreorderId,
       paymentId: payment.id,
       intent,
       quote,
@@ -433,70 +335,8 @@ async function insertPayment(
     .select("id")
     .single();
 
-  if (error || !data) {
-    throw new Error(error?.message ?? "payment insert failed");
-  }
-
+  if (error || !data) throw new Error(error?.message ?? "payment insert failed");
   return { id: data.id };
-}
-
-async function insertManualInvoicePayment(
-  supabase: SupabaseClient,
-  input: {
-    orderId: string;
-    providerPaymentId: string;
-    amountCents: number;
-    currency: string;
-  }
-): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from("payments")
-    .insert({
-      order_id: input.orderId,
-      provider: "manual_invoice",
-      provider_payment_id: input.providerPaymentId,
-      kind: "invoice",
-      amount_cents: input.amountCents,
-      currency: input.currency,
-      status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "invoice payment insert failed");
-  }
-
-  return { id: data.id };
-}
-
-async function recordInvoiceRequestAudit(
-  supabase: SupabaseClient,
-  input: {
-    orderId: string;
-    customerId: string;
-    amountCents: number;
-    currency: string;
-    purchaseOrderReference?: string;
-  }
-) {
-  const { error } = await supabase.from("audit_logs").insert({
-    actor: `customer:${input.customerId}`,
-    table_name: "orders",
-    record_id: input.orderId,
-    action: "B2B_INVOICE_REQUEST",
-    new_data: {
-      order_id: input.orderId,
-      customer_id: input.customerId,
-      amount_cents: input.amountCents,
-      currency: input.currency,
-      purchase_order_reference: input.purchaseOrderReference?.trim() || null,
-    },
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
 }
 
 async function paymentByIntent(supabase: SupabaseClient, paymentIntentId: string) {
@@ -506,10 +346,7 @@ async function paymentByIntent(supabase: SupabaseClient, paymentIntentId: string
     .eq("provider", "stripe")
     .eq("provider_payment_id", paymentIntentId)
     .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   return data as {
     id: string;
@@ -530,13 +367,8 @@ async function assertCustomerOrderIsCancellable(
     .eq("id", orderId)
     .eq("customer_id", auth.customer.id)
     .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (!data) {
-    throw notFound("Order not found");
-  }
+  if (error) throw new Error(error.message);
+  if (!data) throw notFound("Order not found");
   if (!["draft", "pending_payment"].includes(String(data.status))) {
     throw conflict("Order can no longer be cancelled");
   }
@@ -553,13 +385,9 @@ async function assertCustomerPreorderIsCancellable(
     .eq("id", preorderId)
     .eq("customer_id", auth.customer.id)
     .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw notFound("Pre-order not found");
 
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (!data) {
-    throw notFound("Pre-order not found");
-  }
   const cancellableStatuses =
     paymentKind === "balance" ? ["balance_due"] : ["pending_deposit", "deposited"];
   if (!cancellableStatuses.includes(String(data.status))) {
@@ -579,21 +407,13 @@ async function payablePreorderBalance(
     .eq("id", preorderId)
     .eq("customer_id", auth.customer.id)
     .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (!data) {
-    throw notFound("Pre-order not found");
-  }
+  if (error) throw new Error(error.message);
+  if (!data) throw notFound("Pre-order not found");
 
   const preorder = data as PayablePreorder;
-  if (preorder.status !== "balance_due") {
-    throw conflict("Pre-order balance is not due");
-  }
-  if (preorder.allocated_qty <= 0) {
-    throw conflict("Pre-order has not been allocated");
-  }
+  if (preorder.status !== "balance_due") throw conflict("Pre-order balance is not due");
+  if (preorder.allocated_qty <= 0) throw conflict("Pre-order has not been allocated");
+
   const remaining = Math.max(
     0,
     preorder.allocated_qty * preorder.unit_price_cents - preorder.deposit_cents
@@ -613,10 +433,7 @@ async function assertNoOpenBalancePayment(supabase: SupabaseClient, preorderId: 
     .eq("kind", "balance")
     .in("status", ["pending", "authorized", "captured"])
     .limit(1);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   const existing = data?.[0];
   if (!existing) return;
@@ -635,7 +452,7 @@ function balanceQuoteFromPreorder(preorder: PayablePreorder): CheckoutQuote {
 
   return {
     mode: "preorder",
-    channel: preorder.channel,
+    channel: "b2c",
     currency: preorder.currency,
     lines: [
       {
@@ -699,10 +516,7 @@ async function rollbackFailedCheckout(
       console.error("Stripe payment intent cancellation failed:", safeErrorMessage(error));
     }
   }
-
-  if (input.orderId) {
-    await rollbackAllocatedOrder(supabase, input.orderId);
-  }
+  if (input.orderId) await rollbackAllocatedOrder(supabase, input.orderId);
   if (input.preorderId) {
     await supabase.from("preorders").update({ status: "cancelled" }).eq("id", input.preorderId);
   }
@@ -728,7 +542,7 @@ interface PayablePreorder {
   id: string;
   customer_id: string;
   sku_id: string;
-  channel: "b2c" | "b2b";
+  channel: "b2c";
   quantity: number;
   unit_price_cents: number;
   deposit_cents: number;

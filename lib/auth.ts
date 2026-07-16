@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { isAdminEmailAllowed } from "@/lib/admin-email-allowlist";
+import {
+  resolveAllowlistedAdminStaff,
+  type StaffProfile,
+} from "@/lib/admin-staff";
 import { findOrCreateCustomer } from "@/lib/api/auth";
 import { createServiceClient, createUserClient } from "@/lib/supabase";
 
@@ -21,12 +25,6 @@ export class AuthorizationError extends Error {
 }
 
 export type AuthUser = User;
-
-export interface StaffProfile {
-  id: string;
-  role: "staff" | "admin" | "owner";
-  active: boolean;
-}
 
 export interface CurrentViewer {
   user: AuthUser | null;
@@ -79,7 +77,7 @@ export const getCurrentViewer = cache(async (): Promise<CurrentViewer> => {
   try {
     return {
       user,
-      staff: await getActiveStaff(user.id),
+      staff: await resolveAllowlistedAdminStaff(createServiceClient(), user.id),
       staffLookup: "resolved",
     };
   } catch (error) {
@@ -143,22 +141,6 @@ export async function requireStaff(next = "/admin") {
   }
 
   return { user: viewer.user, staff: viewer.staff };
-}
-
-async function getActiveStaff(authUserId: string): Promise<StaffProfile | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("staff_users")
-    .select("id, role, active")
-    .eq("auth_user_id", authUserId)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Staff lookup failed: ${error.message}`);
-  }
-
-  return data ? (data as StaffProfile) : null;
 }
 
 function safeErrorMessage(error: unknown): string {

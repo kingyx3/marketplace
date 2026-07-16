@@ -64,15 +64,13 @@ function revalidateDealPaths() {
   revalidatePath("/");
   revalidatePath("/admin/deals");
   revalidatePath("/catalog");
-  revalidatePath("/deals");
 }
 
 export async function upsertListingItem(formData: FormData) {
   const { user } = await requireStaff("/admin/listings");
   const input = adminListingItemFromForm(formData);
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_upsert_listing_item", {
+  const { error } = await createServiceClient().rpc("admin_upsert_listing_item", {
     p_product_id: input.productId,
     p_title_override: input.titleOverride,
     p_badge_label: input.badgeLabel,
@@ -86,9 +84,7 @@ export async function upsertListingItem(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`Listing item save failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Listing item save failed: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath("/admin/listings");
@@ -99,8 +95,7 @@ export async function upsertStorefrontConfiguration(formData: FormData) {
   const { user } = await requireStaff("/admin/listings");
   const input = adminStorefrontConfigurationFromForm(formData);
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_upsert_storefront_configuration", {
+  const { error } = await createServiceClient().rpc("admin_upsert_storefront_configuration", {
     p_key: input.key,
     p_label: input.label,
     p_description: input.description,
@@ -109,9 +104,7 @@ export async function upsertStorefrontConfiguration(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`Storefront configuration save failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Storefront configuration save failed: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath("/admin/listings");
@@ -122,8 +115,7 @@ export async function updateInventory(formData: FormData) {
   const { user } = await requireStaff("/admin/inventory");
   const input = adminInventoryAdjustmentFromForm(formData);
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_adjust_inventory", {
+  const { error } = await createServiceClient().rpc("admin_adjust_inventory", {
     p_sku_id: input.skuId,
     p_on_hand: input.onHand,
     p_incoming: input.incoming,
@@ -133,9 +125,7 @@ export async function updateInventory(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`Inventory adjustment failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Inventory adjustment failed: ${error.message}`);
 
   revalidatePath("/admin/inventory");
   revalidatePath("/admin");
@@ -146,8 +136,7 @@ export async function upsertCatalogProduct(formData: FormData) {
   const { user } = await requireStaff("/admin/catalog");
   const input = adminCatalogProductFromForm(formData);
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_upsert_catalog_product", {
+  const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
     p_product_id: input.productId,
     p_category_id: input.categoryId,
     p_set_id: input.setId,
@@ -161,9 +150,7 @@ export async function upsertCatalogProduct(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`Product save failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Product save failed: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath("/catalog");
@@ -174,16 +161,13 @@ export async function setCatalogProductActive(formData: FormData) {
   const productId = String(formData.get("productId") ?? "");
   const active = String(formData.get("active") ?? "false") === "true";
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_set_product_active", {
+  const { error } = await createServiceClient().rpc("admin_set_product_active", {
     p_product_id: productId,
     p_active: active,
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`Product ${active ? "restore" : "archive"} failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Product ${active ? "restore" : "archive"} failed: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath("/catalog");
@@ -194,12 +178,8 @@ export async function uploadCatalogProductImage(formData: FormData) {
   const productId = String(formData.get("productId") ?? "");
   const image = formData.get("image");
 
-  if (!(image instanceof File) || image.size === 0) {
-    throw new Error("Product image file is required");
-  }
-  if (!image.type.startsWith("image/")) {
-    throw new Error("Product image must be an image file");
-  }
+  if (!(image instanceof File) || image.size === 0) throw new Error("Product image file is required");
+  if (!image.type.startsWith("image/")) throw new Error("Product image must be an image file");
 
   const supabase = createServiceClient();
   const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
@@ -211,9 +191,7 @@ export async function uploadCatalogProductImage(formData: FormData) {
       upsert: false,
     });
 
-  if (uploadError) {
-    throw new Error(`Product image upload failed: ${uploadError.message}`);
-  }
+  if (uploadError) throw new Error(`Product image upload failed: ${uploadError.message}`);
 
   const { data } = supabase.storage.from("product-images").getPublicUrl(path);
   const { error } = await supabase.rpc("admin_set_product_image", {
@@ -222,9 +200,7 @@ export async function uploadCatalogProductImage(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`Product image assignment failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Product image assignment failed: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath("/catalog");
@@ -234,8 +210,7 @@ export async function upsertCatalogSku(formData: FormData) {
   const { user } = await requireStaff("/admin/catalog");
   const input = adminCatalogSkuFromForm(formData);
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_upsert_booster_box_sku", {
+  const { error } = await createServiceClient().rpc("admin_upsert_booster_box_sku", {
     p_sku_id: input.skuId,
     p_product_id: input.productId,
     p_sku: input.sku,
@@ -250,9 +225,7 @@ export async function upsertCatalogSku(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`SKU save failed: ${error.message}`);
-  }
+  if (error) throw new Error(`SKU save failed: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath("/catalog");
@@ -263,16 +236,13 @@ export async function setCatalogSkuActive(formData: FormData) {
   const skuId = String(formData.get("skuId") ?? "");
   const active = String(formData.get("active") ?? "false") === "true";
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_set_booster_box_sku_active", {
+  const { error } = await createServiceClient().rpc("admin_set_booster_box_sku_active", {
     p_sku_id: skuId,
     p_active: active,
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`SKU ${active ? "restore" : "archive"} failed: ${error.message}`);
-  }
+  if (error) throw new Error(`SKU ${active ? "restore" : "archive"} failed: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath("/catalog");
@@ -284,17 +254,14 @@ export async function shipOrder(formData: FormData) {
   const carrier = String(formData.get("carrier") ?? "");
   const trackingNumber = String(formData.get("trackingNumber") ?? "");
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_ship_order", {
+  const { error } = await createServiceClient().rpc("admin_ship_order", {
     p_order_id: orderId,
     p_carrier: carrier,
     p_tracking_number: trackingNumber,
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`Order shipment failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Order shipment failed: ${error.message}`);
 
   revalidatePath("/admin/orders");
   revalidatePath(`/account/orders/${orderId}`);
@@ -315,8 +282,7 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
   const { user } = await requireStaff("/admin/purchase-orders");
   const input = adminPurchaseOrderFromForm(formData);
 
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_create_supplier_purchase_order", {
+  const { error } = await createServiceClient().rpc("admin_create_supplier_purchase_order", {
     p_supplier_id: input.supplierId,
     p_sku_id: input.skuId,
     p_quantity: input.quantity,
@@ -327,89 +293,18 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) {
-    throw new Error(`Supplier purchase order intake failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Supplier purchase order intake failed: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath("/catalog");
   revalidatePath("/preorders");
 }
 
-export async function approveWholesale(formData: FormData) {
-  const { user } = await requireStaff("/admin/wholesale");
-  const accountId = String(formData.get("accountId") ?? "");
-  const pricingTierId = String(formData.get("pricingTierId") ?? "");
-
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_review_b2b_account", {
-    p_account_id: accountId,
-    p_decision: "approved",
-    p_pricing_tier_id: pricingTierId,
-    p_actor: `staff:${user.id}`,
-  });
-
-  if (error) {
-    throw new Error(`Wholesale approval failed: ${error.message}`);
-  }
-
-  revalidatePath("/admin/wholesale");
-  revalidatePath("/admin");
-  revalidatePath("/wholesale");
-  revalidatePath("/catalog");
-}
-
-export async function rejectWholesale(formData: FormData) {
-  const { user } = await requireStaff("/admin/wholesale");
-  const accountId = String(formData.get("accountId") ?? "");
-  const reviewNote = String(formData.get("reviewNote") ?? "");
-
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_review_b2b_account", {
-    p_account_id: accountId,
-    p_decision: "rejected",
-    p_review_note: reviewNote,
-    p_actor: `staff:${user.id}`,
-  });
-
-  if (error) {
-    throw new Error(`Wholesale rejection failed: ${error.message}`);
-  }
-
-  revalidatePath("/admin/wholesale");
-  revalidatePath("/admin");
-  revalidatePath("/wholesale");
-  revalidatePath("/catalog");
-}
-
-export async function removeWholesalePricingTier(formData: FormData) {
-  const { user } = await requireStaff("/admin/wholesale");
-  const customerId = String(formData.get("customerId") ?? "");
-  const pricingTierId = String(formData.get("pricingTierId") ?? "");
-
-  const supabase = createServiceClient();
-  const { error } = await supabase.rpc("admin_remove_b2b_pricing_tier", {
-    p_customer_id: customerId,
-    p_pricing_tier_id: pricingTierId,
-    p_actor: `staff:${user.id}`,
-  });
-
-  if (error) {
-    throw new Error(`Wholesale pricing tier removal failed: ${error.message}`);
-  }
-
-  revalidatePath("/admin/wholesale");
-  revalidatePath("/admin");
-  revalidatePath("/wholesale");
-  revalidatePath("/catalog");
-}
-
 export async function runPreorderAllocation(formData: FormData) {
   const { user } = await requireStaff("/admin/preorders");
   const skuId = String(formData.get("skuId") ?? "");
 
-  const supabase = createServiceClient();
-  await runPreorderAllocationForSku(supabase, skuId, `staff:${user.id}`);
+  await runPreorderAllocationForSku(createServiceClient(), skuId, `staff:${user.id}`);
 
   revalidatePath("/admin");
   revalidatePath("/preorders");

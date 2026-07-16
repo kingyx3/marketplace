@@ -1,10 +1,9 @@
-import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { z } from "zod";
-import { badRequest, internalError } from "@/lib/api/errors";
+import type Stripe from "stripe";
+
 import type { ApiCustomerContext } from "@/lib/api/auth";
+import { badRequest, internalError } from "@/lib/api/errors";
 import {
-  cartItemSchema,
   checkoutRequestSchema,
   quoteCheckout,
   type CheckoutQuote,
@@ -14,26 +13,8 @@ import {
   createCheckoutPayment as createLegacyCheckoutPayment,
   type CheckoutResult,
 } from "@/lib/checkout";
-import { createStripeClient } from "@/lib/stripe";
 import { shippingAddressSchema, type ShippingAddress } from "@/lib/shipping";
-
-export interface InvoiceCheckoutResult {
-  orderId: string;
-  paymentId: string;
-  provider: "manual_invoice";
-  providerPaymentId: string;
-  amountCents: number;
-  currency: string;
-  status: "pending_payment";
-  paymentDueAt: string;
-  allocationExpiresAt: string;
-}
-
-export const invoiceCheckoutRequestSchema = z.object({
-  items: z.array(cartItemSchema).min(1).max(10),
-  shippingAddress: shippingAddressSchema,
-  purchaseOrderReference: z.string().trim().min(1).max(120),
-});
+import { createStripeClient } from "@/lib/stripe";
 
 export function checkoutResponseBody(result: CheckoutResult) {
   return {
@@ -46,20 +27,6 @@ export function checkoutResponseBody(result: CheckoutResult) {
     amountCents: result.amountCents,
     currency: result.publishableCurrency,
     quote: result.quote,
-  };
-}
-
-export function invoiceCheckoutResponseBody(result: InvoiceCheckoutResult) {
-  return {
-    orderId: result.orderId,
-    paymentId: result.paymentId,
-    provider: result.provider,
-    providerPaymentId: result.providerPaymentId,
-    amountCents: result.amountCents,
-    currency: result.currency,
-    status: result.status,
-    paymentDueAt: result.paymentDueAt,
-    allocationExpiresAt: result.allocationExpiresAt,
   };
 }
 
@@ -135,82 +102,6 @@ export async function createCheckoutPayment(
   }
 }
 
-export async function createInvoiceCheckout(
-  auth: ApiCustomerContext,
-  body: unknown
-): Promise<InvoiceCheckoutResult> {
-  const input = invoiceCheckoutRequestSchema.parse(body);
-  const quote = await quoteCheckout(
-    auth.supabase,
-    {
-      mode: "order",
-      channel: "b2b",
-      items: input.items,
-      shippingAddress: input.shippingAddress,
-    },
-    auth.customer
-  );
-
-  if (quote.totalCents <= 0) {
-    throw badRequest("Invoice checkout total must be greater than zero");
-  }
-
-  let orderId: string | null = null;
-
-  try {
-    const order = await auth.supabase
-      .rpc("create_b2b_invoice_order_from_cart", {
-        p_auth_user_id: auth.user.id,
-        p_items: quote.lines.map((line) => ({
-          sku_id: line.skuId,
-          quantity: line.quantity,
-        })),
-        p_shipping_address: input.shippingAddress,
-        p_invoice_reference: input.purchaseOrderReference,
-        p_expected_subtotal_cents: quote.subtotalCents,
-        p_discount_cents: quote.discountCents,
-        p_discount_bps: quote.discountBps,
-        p_expected_total_cents: quote.totalCents,
-      })
-      .single();
-    if (order.error || !order.data) {
-      throw new Error(order.error?.message ?? "invoice order creation failed");
-    }
-
-    const orderData = order.data as {
-      order_id: string;
-      payment_due_at: string;
-      allocation_expires_at: string;
-    };
-    orderId = orderData.order_id;
-
-    const providerPaymentId = `invoice:${orderId}`;
-    const payment = await insertManualInvoicePayment(auth.supabase, {
-      orderId,
-      providerPaymentId,
-      amountCents: quote.totalCents,
-      currency: quote.currency,
-    });
-
-    return {
-      orderId,
-      paymentId: payment.id,
-      provider: "manual_invoice",
-      providerPaymentId,
-      amountCents: quote.totalCents,
-      currency: quote.currency,
-      status: "pending_payment",
-      paymentDueAt: orderData.payment_due_at,
-      allocationExpiresAt: orderData.allocation_expires_at,
-    };
-  } catch (error) {
-    if (orderId) {
-      await rollbackAllocatedOrder(auth.supabase, orderId);
-    }
-    throw error instanceof Error ? error : internalError();
-  }
-}
-
 export function checkoutOrderRpcParams(
   authUserId: string,
   quote: CheckoutQuote,
@@ -222,7 +113,7 @@ export function checkoutOrderRpcParams(
       sku_id: line.skuId,
       quantity: line.quantity,
     })),
-    p_channel: quote.channel,
+    p_channel: "b2c",
     p_shipping_address: shippingAddress,
     p_expected_subtotal_cents: quote.subtotalCents,
     p_discount_cents: quote.discountCents,
@@ -272,36 +163,6 @@ async function insertPayment(
 
   if (error || !data) {
     throw new Error(error?.message ?? "payment insert failed");
-  }
-
-  return { id: data.id };
-}
-
-async function insertManualInvoicePayment(
-  supabase: SupabaseClient,
-  input: {
-    orderId: string;
-    providerPaymentId: string;
-    amountCents: number;
-    currency: string;
-  }
-): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from("payments")
-    .insert({
-      order_id: input.orderId,
-      provider: "manual_invoice",
-      provider_payment_id: input.providerPaymentId,
-      kind: "invoice",
-      amount_cents: input.amountCents,
-      currency: input.currency,
-      status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "invoice payment insert failed");
   }
 
   return { id: data.id };

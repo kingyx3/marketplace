@@ -1,94 +1,49 @@
 # Testing
 
-## The suite
+## Suite
 
-| Check                          | Command                                                       | CI job                  |
-| ------------------------------ | ------------------------------------------------------------- | ----------------------- |
-| Lint (ESLint 9 + next config)  | `npm run lint`                                                | `lint`                  |
-| Types (`tsc --noEmit`, strict) | `npm run typecheck`                                           | `typecheck`             |
-| Unit tests (Vitest)            | `npm test`                                                    | `test`                  |
-| Production build               | `npm run build`                                               | `build`                 |
-| Browser smoke (Playwright)     | `npm run build && npm run test:e2e`                           | `e2e-smoke`             |
-| Migrations apply cleanly       | `npx supabase db reset` (local)                               | `migrations`            |
-| Env contract                   | `npm run env:check`                                           | `validate-env` (deploy) |
-| Platform config contract       | `npm run config:check`                                        | `config-contract`       |
-| Deploy config contract         | `npm test -- tests/env.test.ts tests/deploy-workflow.test.ts` | `config-contract`       |
+| Check | Command | CI job |
+| --- | --- | --- |
+| Lint | `npm run lint` | `lint` |
+| Strict TypeScript | `npm run typecheck` | `typecheck` |
+| Unit and contract tests | `npm test` | `test` |
+| Production build | `npm run build` | `build` |
+| Browser smoke | `npm run build && npm run test:e2e` | `e2e-smoke` |
+| Migrations and SQL contracts | `npx supabase db reset` locally | `migrations` |
+| Environment contract | `npm run env:check` | deploy validation |
+| Platform configuration | `npm run config:check` | `config-contract` |
 
-CI runs these **in parallel** on every PR with no secrets. The
-`migrations` CI job applies every migration + seed to a vanilla
-`postgres:15` container using `.github/ci/auth-shim.sql` to emulate the
-Supabase-managed `auth` schema. Env/deploy config changes also run
-workflow YAML parsing and focused contract tests.
+Pull-request CI runs independent checks in parallel without production secrets. The migrations job applies every migration and the seed to a clean Postgres instance, runs SQL contracts, and verifies logical backup and restore. Environment and deployment changes also run focused workflow and configuration contracts.
 
-## What's unit-tested now
+## Current coverage
 
-- `tests/env.test.ts` — the environment contract: accepts a valid env,
-  fails fast on missing keys, never leaks values in errors, never writes
-  deploy-only keys to `.env`, safely renders `APP_NAME`, and stays in
-  sync with `.env.example`.
-- `tests/deploy-workflow.test.ts` — deploy workflow guardrails:
-  app/migration checks before mutable jobs and expected caller-to-
-  environment mapping, including staging/production deep readiness.
-- `tests/config-contract.test.ts` — checked-in Vercel security/cache
-  headers, Supabase product-image storage migration markers, and CI
-  config verifier wiring.
-- `tests/health.test.ts` — shallow health without dependencies, app-name
-  propagation, and deep readiness success/failure responses without
-  secret values.
-- `tests/allocation.test.ts` — the allocation engine: rule priority,
-  channel reserves, per-customer caps, FIFO partial fills, no oversell.
-- `tests/commerce.test.ts` — cart normalization, integer-cent discounts,
-  bounded deposits, checkout quantity limits, B2B tier/minimum-order
-  enforcement, the PaymentIntent response shape, rollback/cancel
-  behavior, and the RPC pricing contract passed to order creation.
-- `tests/invoice-checkout.test.ts` - B2B invoice checkout order/payment
-  placeholder creation, server-derived tier pricing, audit recording, and
-  client-safe response shape.
-- `tests/b2b.test.ts` - wholesale access activation, tier minimums,
-  best-discount selection, and integer-cent display pricing.
-- `tests/admin-orders.test.ts` - explicit admin order action contract,
-  manual reconciliation RPC dispatch, unpaid cancellation dispatch, and
-  derived payment exception queue behavior, including admin form payload
-  validation for manual reconciliation.
-- `tests/admin-catalog.test.ts` - product/SKU form parsing, reason-coded
-  inventory adjustment parsing, and service-role-only catalog migration
-  markers.
-- `tests/purchase-orders.test.ts` - admin supplier PO form parsing and
-  service-role-only stock-intake migration markers.
-- `tests/admin-surface.test.ts` - protected admin page guard against
-  fixture-backed work queues, plus B2B tiered approval/rejection and
-  tier assignment/removal, reconciliation-console, and supplier PO intake
-  wiring.
-- `tests/notifications.test.ts` - Resend order-confirmation delivery,
-  disabled-provider skip behavior, dedupe, provider failure recording,
-  Telegram/WhatsApp provider payloads, and configured-channel detection.
-- `tests/waitlist.test.ts` - waitlist contact normalization, server-side
-  SKU/customer binding, notification claiming, provider dispatch, and
-  notified-state persistence for drop alerts.
-- `tests/preorder-flow.test.ts` - live preorder allocation dispatch,
-  duplicate-safe allocation, balance PaymentIntent creation, over-balance
-  rejection, Stripe balance conversion, and SQL state-machine guards.
-- `tests/live-customer-pages.test.ts` - customer order/preorder display
-  helpers and a guard that authenticated account/order/preorder pages do
-  not import fixture data.
-- `e2e/public-smoke.spec.ts` - Playwright smoke coverage for the built
-  storefront, preview catalog fallback, product detail route, empty cart,
-  and shallow `/api/health` response without requiring runtime secrets.
+- `tests/env.test.ts` — environment validation, safe errors, generated files, and `.env.example` alignment.
+- `tests/deploy-workflow.test.ts` — deployment ordering, target mapping, and readiness guardrails.
+- `tests/config-contract.test.ts` — checked-in Vercel, Supabase, and CI configuration markers.
+- `tests/health.test.ts` — shallow health and deep readiness behavior without leaking secrets.
+- `tests/allocation.test.ts` — retail FIFO allocation, per-customer caps, partial fills, and no oversell.
+- `tests/commerce.test.ts` — cart normalization, integer-cent deals, deposits, shipping, checkout limits, current-price quoting, and the order RPC contract.
+- `tests/admin-orders.test.ts` — explicit order actions, payment reconciliation, cancellation, and exception behavior.
+- `tests/admin-catalog.test.ts` — product and SKU forms, inventory adjustment parsing, and catalog migration markers.
+- `tests/purchase-orders.test.ts` — supplier purchase-order intake and inventory integration markers.
+- `tests/admin-surface.test.ts` — protected catalog, SKU, inventory, purchasing, allocation, and payment-exception controls.
+- `tests/notifications.test.ts` — order confirmation and configured drop-alert providers, deduplication, failures, and disabled-provider behavior.
+- `tests/waitlist.test.ts` — SKU/customer binding, contact normalization, claims, dispatch, and notified state.
+- `tests/preorder-flow.test.ts` — retail allocation queries, Stripe deposit/balance behavior, and removal of invoice checkout.
+- `tests/live-customer-pages.test.ts` — live customer page data and guards against fixture-backed authenticated flows.
+- `tests/frontend-access.test.tsx` — anonymous, customer, and staff navigation visibility.
+- `e2e/navigation.spec.ts` — primary navigation, Catalog Deals subsection, legacy Deals redirect, removed Wholesale route, protected pages, and 404 behavior.
+- `e2e/public-smoke.spec.ts` — built storefront, catalog fallback, product detail, empty cart, and shallow health smoke coverage.
+- `supabase/tests/*.sql` — RLS, checkout, deals, admin, waitlist, preorder, and schema-decommission contracts.
 
 ## Writing tests
 
-Put `*.test.ts` under `tests/`; `@/` resolves to the repo root. Business
-logic should be pure functions in `lib/` (like `lib/allocation.ts`) so
-it's testable without mocking Supabase or Stripe.
+Place `*.test.ts` or `*.test.tsx` under `tests/`; `@/` resolves to the repository root. Keep business logic in focused `lib/` modules so it can be tested without browser or provider dependencies.
 
-Recommended before pushing:
+Run before pushing:
 
 ```bash
 npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e
 ```
 
-## Not yet in place (see docs/build-plan.md)
-
-Integration tests against a local Supabase (RLS policy assertions),
-Stripe flow tests with `stripe-mock`, and authenticated browser flows
-are planned alongside the features that need them.
+Authenticated provider flows and hosted restore drills are covered by deployment verification rather than anonymous pull-request jobs.

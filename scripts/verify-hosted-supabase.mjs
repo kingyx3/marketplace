@@ -273,7 +273,6 @@ async function cleanup() {
   }
   if (fixtures.customers.length > 0) {
     await service.from("notifications").delete().in("customer_id", fixtures.customers);
-    await service.from("b2b_accounts").delete().in("customer_id", fixtures.customers);
     await service.from("customers").delete().in("id", fixtures.customers);
   }
   for (const userId of fixtures.users.reverse()) {

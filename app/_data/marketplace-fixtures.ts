@@ -1,4 +1,4 @@
-export type Channel = "b2c" | "b2b";
+export type Channel = "b2c";
 
 export type SetStatus =
   | "announced"
@@ -119,10 +119,9 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     preorderReserve: 8,
     maxPerCustomer: 2,
     image: heroImage,
-    description:
-      "A sealed play booster display for release-week drafting, collecting, and store allocation.",
-    tags: ["Preorder", "B2C reserve", "Deposit eligible"],
-    channels: ["b2c", "b2b"],
+    description: "A sealed play booster display for release-week drafting and collecting.",
+    tags: ["Preorder", "Limit 2", "Deposit eligible"],
+    channels: ["b2c"],
   },
   {
     slug: "prism-collector-booster-box",
@@ -148,8 +147,7 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     preorderReserve: 4,
     maxPerCustomer: 1,
     image: heroImage,
-    description:
-      "High-demand sealed collector configuration with one-box customer caps until allocation clears.",
+    description: "A limited collector configuration with one-box customer caps.",
     tags: ["Coming soon", "Limit 1", "Collector"],
     channels: ["b2c"],
   },
@@ -175,12 +173,11 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     allocated: 1,
     safetyStock: 0,
     preorderReserve: 0,
-    maxPerCustomer: null,
+    maxPerCustomer: 1,
     image: heroImage,
-    description:
-      "Factory-sealed case for approved wholesale accounts and high-volume local buyers.",
-    tags: ["Wholesale", "In stock", "Case"],
-    channels: ["b2b"],
+    description: "A factory-sealed case available in limited quantities.",
+    tags: ["In stock", "Case", "Limit 1"],
+    channels: ["b2c"],
   },
   {
     slug: "aurora-booster-box",
@@ -206,9 +203,8 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     preorderReserve: 6,
     maxPerCustomer: 2,
     image: heroImage,
-    description:
-      "Family-friendly sealed booster display with transparent preorder allocation and balance reminders.",
-    tags: ["Preorder", "Family", "Balance later"],
+    description: "A sealed booster display available for preorder.",
+    tags: ["Preorder", "Limit 2", "Balance later"],
     channels: ["b2c"],
   },
 ];
@@ -222,42 +218,42 @@ export const accessStates: AccessState[] = [
   {
     key: "unauthenticated",
     label: "Signed out",
-    detail: "Google sign-in is required before checkout, orders, or preorder deposits.",
+    detail: "Sign in before checkout or paying a preorder deposit.",
     action: "Continue with Google",
     tone: "neutral",
   },
   {
     key: "authenticated_unpaid",
     label: "Signed in",
-    detail: "Catalog and account are available; paid flows wait for checkout completion.",
+    detail: "Your catalog, cart, and account are ready.",
     action: "Start checkout",
     tone: "warning",
   },
   {
     key: "payment_pending",
     label: "Payment pending",
-    detail: "Stripe confirmation is in progress and inventory is not allocated yet.",
+    detail: "Payment confirmation is still in progress.",
     action: "Refresh payment",
     tone: "info",
   },
   {
     key: "provisioning",
-    label: "Provisioning",
-    detail: "Customer row, pricing tier, and notification preferences are being prepared.",
+    label: "Setting up",
+    detail: "Your customer profile and preferences are being prepared.",
     action: "View account",
     tone: "info",
   },
   {
     key: "active",
     label: "Active",
-    detail: "Dashboard, orders, preorder balances, and B2B application status are available.",
+    detail: "Orders, preorders, balances, and alerts are available.",
     action: "Open dashboard",
     tone: "success",
   },
   {
     key: "error",
     label: "Needs help",
-    detail: "A billing, provisioning, or profile issue needs operator review.",
+    detail: "An account or payment issue needs review.",
     action: "Contact support",
     tone: "danger",
   },
@@ -268,8 +264,6 @@ export const accountSnapshot = {
   email: "avery@example.test",
   segment: "collector",
   defaultCurrency: "SGD",
-  b2bStatus: "Application pending",
-  pricingTier: "Retail",
   monthlySpendCents: 41300,
   preorderExposureCents: 82600,
   savedPaymentState: "Stripe customer ready",
@@ -359,30 +353,30 @@ export const preorders: PreorderSummary[] = [
 
 export const adminMetrics = [
   { label: "Open preorder value", value: "SGD 82.6k", detail: "Deposit-backed demand" },
-  { label: "Incoming boxes", value: "54", detail: "Across 4 active releases" },
+  { label: "Incoming boxes", value: "54", detail: "Across active releases" },
   { label: "Allocation risk", value: "12", detail: "Boxes over confirmed reserve" },
-  { label: "B2B applications", value: "3", detail: "Awaiting review" },
+  { label: "Payment exceptions", value: "2", detail: "Awaiting operator review" },
 ];
 
 export const adminWorkQueue = [
   {
     title: "Capture balances",
-    detail: "7 allocated preorders have balances due within 48 hours.",
+    detail: "Seven allocated preorders have balances due within 48 hours.",
     status: "Needs action",
   },
   {
-    title: "Review B2B accounts",
-    detail: "Three wholesale applications need UEN and payment-term checks.",
+    title: "Review payment exceptions",
+    detail: "Two payment attempts require reconciliation.",
     status: "Review",
   },
   {
     title: "Receive purchase order",
-    detail: "PO-774 has 24 incoming SMP boxes ready for warehouse intake.",
+    detail: "PO-774 has 24 incoming boxes ready for warehouse intake.",
     status: "Today",
   },
   {
     title: "Run allocation",
-    detail: "Aurora Skies supplier confirmation is expected after receiving.",
+    detail: "Aurora Skies allocation can run after receiving.",
     status: "Blocked",
   },
 ];

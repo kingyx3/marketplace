@@ -7,37 +7,32 @@ import { formatMoney } from "@/lib/money";
 
 export function DealCard({ deal }: { deal: LimitedTimeDeal }) {
   return (
-    <article className="grid overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm">
-      <Link href={`/catalog/${deal.productSlug}`} className="group block">
+    <article className="group grid overflow-hidden rounded-xl border border-emerald-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <Link href={`/catalog/${deal.productSlug}`} className="block">
         <div className="relative aspect-[16/9] overflow-hidden bg-zinc-100">
           <Image
             alt={`${deal.productName} sealed product`}
-            className="object-cover transition duration-300 group-hover:scale-105"
+            className="object-cover transition duration-300 group-hover:scale-[1.03]"
             fill
             sizes="(min-width: 1024px) 32vw, (min-width: 640px) 50vw, 100vw"
             src={deal.productImageUrl ?? "/images/sealed-tcg-hero.png"}
           />
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
             <StatusBadge tone="success">Save {formatDealDiscount(deal.discountBps)}</StatusBadge>
-            {deal.visibility === "members" ? (
-              <StatusBadge tone="dark">Member deal</StatusBadge>
-            ) : (
-              <StatusBadge tone="neutral">Public preview</StatusBadge>
-            )}
+            {deal.visibility === "members" ? <StatusBadge tone="dark">Members</StatusBadge> : null}
           </div>
         </div>
       </Link>
       <div className="grid gap-4 p-5">
         <div>
-          <p className="text-xs font-semibold uppercase text-emerald-700">{deal.title}</p>
-          <h2 className="mt-2 text-lg font-semibold text-zinc-950">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            {deal.title}
+          </p>
+          <h3 className="mt-2 text-lg font-semibold text-zinc-950">
             <Link href={`/catalog/${deal.productSlug}`} className="hover:text-emerald-700">
               {deal.productName}
             </Link>
-          </h2>
-          {deal.description ? (
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-600">{deal.description}</p>
-          ) : null}
+          </h3>
         </div>
         <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
           <p className="text-2xl font-bold text-zinc-950">
@@ -47,10 +42,7 @@ export function DealCard({ deal }: { deal: LimitedTimeDeal }) {
             {formatMoney(deal.regularPriceCents, deal.currency)}
           </p>
         </div>
-        <p className="text-xs text-zinc-500">
-          Ends {formatDealExpiry(deal.endsAt)}. Eligibility and final savings are revalidated at
-          checkout.
-        </p>
+        <p className="text-xs text-zinc-500">Ends {formatDealExpiry(deal.endsAt)}</p>
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
           href={`/catalog/${deal.productSlug}`}

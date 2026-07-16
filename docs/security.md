@@ -54,14 +54,18 @@ server action.
 
 ## Admin boundary
 
-Admin routes require both a case-insensitive match in the comma-separated
+Admin routes require a case-insensitive match in the comma-separated
 `ADMIN_EMAIL_ALLOWLIST` repository variable and a server-verified active record
-in `staff_users`. A missing or malformed allowlist fails closed. App metadata
-roles may be read for diagnostics, but they do not authorize an admin API
-operation. Order/payment mutations are explicit actions, not generic status
-writes. Product/SKU, listing/configuration, inventory, wholesale, supplier PO,
-and payment reconciliation changes must follow `docs/admin-operations.md` and
-require trusted operator access.
+in `staff_users`. When an allowlisted user has no staff record, the trusted
+server provisions an active `admin` record on the first authenticated page or
+API request so the Admin navigation tab and protected pages are immediately
+available. Existing inactive records are never reactivated automatically, which
+preserves explicit staff revocation. A missing or malformed allowlist fails
+closed. App metadata roles may be read for diagnostics, but they do not authorize
+an admin API operation. Order/payment mutations are explicit actions, not generic
+status writes. Product/SKU, listing/configuration, inventory, supplier PO, and
+payment reconciliation changes must follow `docs/admin-operations.md` and require
+trusted operator access.
 
 ## Webhooks and payments
 
