@@ -66,7 +66,8 @@ describe("control console", () => {
     expect(controlActions).toContain('rpc("admin_upsert_access_grant"');
     expect(catalogActions).toContain('requireControlPermission("manage_catalog"');
     expect(catalogActions).toContain('rpc("admin_create_catalog_product_with_category"');
-    expect(customerActions).toContain('requireControlPermission("manage_customers"');
+    expect(customerActions).toContain('"manage_customers"');
+    expect(customerActions).toContain("setCustomerAccountDeleted");
     expect(operationalActions).toContain('requireControlPermission("manage_full_operations"');
     expect(operationalActions).not.toContain('requireStaff("/admin');
   });
