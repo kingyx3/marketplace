@@ -1,6 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+
 import { isAdminEmailAllowed } from "@/lib/admin-email-allowlist";
-import { resolveAllowlistedAdminStaff } from "@/lib/admin-staff";
+import { resolveAdminStaff } from "@/lib/admin-staff";
 import { conflict, forbidden, unauthorized } from "@/lib/api/errors";
 import { setTelemetryUser } from "@/lib/observability";
 import { createServiceClient } from "@/lib/supabase";
@@ -89,16 +90,17 @@ export async function requireApiAdmin(
   supabase: SupabaseClient = createServiceClient()
 ): Promise<ApiAuthContext> {
   const auth = await authenticateApiRequest(request, supabase);
-  if (!isAdminEmailAllowed(auth.user.email)) {
-    throw forbidden("Active staff access required");
-  }
+  const staff = await resolveAdminStaff(supabase, {
+    authUserId: auth.user.id,
+    email: auth.user.email,
+    environmentAllowlisted: isAdminEmailAllowed(auth.user.email),
+  });
 
-  const staff = await resolveAllowlistedAdminStaff(supabase, auth.user.id);
   if (!staff) {
     throw forbidden("Active staff access required");
   }
 
-  return auth;
+  return { ...auth, isAdmin: true, roles: [...new Set([...auth.roles, staff.role])] };
 }
 
 export async function requireApiCustomer(
