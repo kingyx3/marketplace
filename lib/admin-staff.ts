@@ -38,9 +38,8 @@ const STAFF_COLUMNS =
  * Resolve the active operations profile for a signed-in user.
  *
  * Environment allowlisted emails are authoritative owners. Database-managed
- * grants are matched by normalized email and provision a staff row on first
- * sign-in. Existing explicit revocations remain denied for non-environment
- * users.
+ * staff are revalidated against an active normalized-email grant on every
+ * request so grant revocation and role changes cannot leave stale access.
  */
 export async function resolveAdminStaff(
   supabase: SupabaseClient,
@@ -50,9 +49,9 @@ export async function resolveAdminStaff(
   const existing = await readStaffProfile(supabase, input.authUserId);
 
   if (input.environmentAllowlisted) {
-    const environmentProfile = existing
-      ? await updateEnvironmentOwner(supabase, existing.id, email)
-      : await insertStaffProfile(supabase, {
+    return existing
+      ? updateEnvironmentOwner(supabase, existing.id, email)
+      : insertStaffProfile(supabase, {
           auth_user_id: input.authUserId,
           email,
           role: "owner",
@@ -60,30 +59,16 @@ export async function resolveAdminStaff(
           source: "environment",
           last_seen_at: new Date().toISOString(),
         });
-
-    return environmentProfile;
-  }
-
-  if (existing) {
-    if (!existing.active) return null;
-    return touchStaffProfile(supabase, existing, email);
   }
 
   if (!email) return null;
-
-  const grantResult = await supabase
-    .from("admin_access_grants")
-    .select("id, role, active, created_by_staff_id")
-    .eq("email", email)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (grantResult.error) {
-    throw new Error(`Administrator grant lookup failed: ${grantResult.error.message}`);
-  }
-
-  const grant = grantResult.data as AccessGrant | null;
+  const grant = await readAccessGrant(supabase, email);
   if (!grant?.active) return null;
+
+  if (existing) {
+    if (!existing.active || existing.source === "environment") return null;
+    return synchronizeDelegatedStaff(supabase, existing.id, email, grant);
+  }
 
   const profile = await insertStaffProfile(supabase, {
     auth_user_id: input.authUserId,
@@ -125,6 +110,24 @@ export function normalizeAdminEmail(value: string | null | undefined): string | 
   return normalized || null;
 }
 
+async function readAccessGrant(
+  supabase: SupabaseClient,
+  email: string
+): Promise<AccessGrant | null> {
+  const result = await supabase
+    .from("admin_access_grants")
+    .select("id, role, active, created_by_staff_id")
+    .eq("email", email)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (result.error) {
+    throw new Error(`Administrator grant lookup failed: ${result.error.message}`);
+  }
+
+  return result.data as AccessGrant | null;
+}
+
 async function updateEnvironmentOwner(
   supabase: SupabaseClient,
   staffId: string,
@@ -150,20 +153,27 @@ async function updateEnvironmentOwner(
   return result.data as StaffProfile;
 }
 
-async function touchStaffProfile(
+async function synchronizeDelegatedStaff(
   supabase: SupabaseClient,
-  existing: StaffProfile,
-  email: string | null
+  staffId: string,
+  email: string,
+  grant: AccessGrant
 ): Promise<StaffProfile> {
   const result = await supabase
     .from("staff_users")
-    .update({ email: email ?? existing.email ?? null, last_seen_at: new Date().toISOString() })
-    .eq("id", existing.id)
+    .update({
+      email,
+      role: grant.role,
+      source: "database",
+      created_by_staff_id: grant.created_by_staff_id,
+      last_seen_at: new Date().toISOString(),
+    })
+    .eq("id", staffId)
     .select(STAFF_COLUMNS)
     .single();
 
   if (result.error || !result.data) {
-    throw new Error(`Staff activity update failed: ${result.error?.message ?? "row missing"}`);
+    throw new Error(`Delegated staff synchronization failed: ${result.error?.message ?? "row missing"}`);
   }
 
   return result.data as StaffProfile;
