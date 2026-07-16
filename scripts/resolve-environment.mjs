@@ -56,6 +56,9 @@ export async function resolveEnvironment(env = process.env, options = {}) {
   if (options.strict && missing.length > 0) {
     throw new Error(`Could not resolve required environment value(s): ${missing.join(", ")}`);
   }
+  if (options.verifySupabaseKeys) {
+    await verifySupabaseProjectKeys(env);
+  }
   return {
     targetEnv,
     publicValues: pickValues(env, PUBLIC_ENV_KEYS),
@@ -245,6 +248,31 @@ function reconcileSupabaseProjectKey(env, key, candidates, preferred, projectRef
   }
 }
 
+async function verifySupabaseProjectKeys(env) {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const projectRef = env.SUPABASE_PROJECT_REF || projectRefFromSupabaseUrl(url);
+  const checks = [
+    ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY],
+    ["SUPABASE_SECRET_KEY", env.SUPABASE_SECRET_KEY],
+  ];
+  for (const [name, key] of checks) {
+    if (!hasValue(url) || !hasValue(key)) continue;
+    const endpoint = new URL("/rest/v1/customers?select=id&limit=0", url);
+    const response = await fetch(endpoint, {
+      headers: {
+        Accept: "application/json",
+        apikey: key,
+      },
+    });
+    if (response.ok) continue;
+    const detail = redact(await response.text());
+    throw new Error(
+      `${name} is not valid for Supabase project ${projectRef || "selected environment"} ` +
+      `(${response.status}${detail ? `: ${detail}` : ""}). Re-run Bootstrap & Deploy so project-scoped keys are reconciled.`
+    );
+  }
+}
+
 async function loadTerraformOutputs(path, env) {
   const raw = path ? await readFile(path, "utf8") : env.TF_OUTPUT_JSON || "";
   if (!raw.trim()) return {};
@@ -310,6 +338,7 @@ function parseArgs(argv) {
     else if (arg === "--tf-output-json") args.tfOutputJson = argv[++index];
     else if (arg === "--strict") args.strict = true;
     else if (arg === "--require-db-password") args.requireDbPassword = true;
+    else if (arg === "--verify-supabase-keys") args.verifySupabaseKeys = true;
     else if (arg === "--print") args.print = true;
     else if (!arg.startsWith("--") && !args.environment) args.environment = arg;
     else throw new Error(`unknown argument: ${arg}`);
@@ -337,6 +366,7 @@ function formatGithubLine(key, value) {
 function redact(value) {
   return String(value)
     .replaceAll(/sbp_[A-Za-z0-9_\-]+/g, "[redacted-supabase-token]")
+    .replaceAll(/sb_publishable_[A-Za-z0-9_\-]+/g, "[redacted-supabase-publishable-key]")
     .replaceAll(/sb_secret_[A-Za-z0-9_\-]+/g, "[redacted-supabase-secret-key]")
     .replaceAll(/sk_(test|live)_[A-Za-z0-9_\-]+/g, "[redacted-stripe-secret-key]")
     .replaceAll(/whsec_[A-Za-z0-9_\-]+/g, "[redacted-stripe-webhook-secret]")
