@@ -145,18 +145,26 @@ export default async function ControlAdministratorsPage() {
 }
 
 function GrantForm({ grant }: { grant?: GrantRow }) {
+  const accepted = Boolean(grant?.auth_user_id);
+
   return (
     <form action={upsertControlAccessGrant} className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_auto] md:items-end">
       {grant ? <input name="grantId" type="hidden" value={grant.id} /> : null}
       <label className="grid gap-1 text-sm font-medium text-zinc-700">
         Email
         <input
-          className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
+          className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm read-only:bg-zinc-100 read-only:text-zinc-600"
           defaultValue={grant?.email}
           name="email"
+          readOnly={accepted}
           required
           type="email"
         />
+        {accepted ? (
+          <span className="text-xs font-normal text-zinc-500">
+            Accepted identities are immutable. Revoke this grant and add a new email instead.
+          </span>
+        ) : null}
       </label>
       <label className="grid gap-1 text-sm font-medium text-zinc-700">
         Role
