@@ -15,7 +15,7 @@ export default function ContactPage() {
   return (
     <PolicyPage
       title="Contact"
-      summary="Contact support about orders, preorders, wholesale access, privacy, accessibility, or another marketplace issue."
+      summary="Contact support about orders, preorders, deals, privacy, accessibility, or another marketplace issue."
     >
       <PolicySection title="Support channel">
         {supportEmail ? (
@@ -45,10 +45,10 @@ export default function ContactPage() {
 
       <PolicySection title="What to include">
         <p>
-          Describe the issue, the page or product involved, the outcome you need, and any relevant
-          order reference. For delivery damage, keep the packaging and attach clear photos. For a
-          privacy request, identify the account email and the type of request without sending more
-          personal data than necessary.
+          Describe the issue, page or product involved, desired outcome, and any relevant order
+          reference. For delivery damage, keep the packaging and attach clear photos. For a privacy
+          request, identify the account email and request type without sending more personal data than
+          necessary.
         </p>
       </PolicySection>
     </PolicyPage>
