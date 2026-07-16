@@ -135,6 +135,7 @@ export async function setCustomerAccountDeleted(formData: FormData) {
 }
 
 function withoutDeletionMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
-  const { marketplace_account_deleted_at: _deletedAt, ...rest } = metadata;
-  return rest;
+  const next = { ...metadata };
+  delete next.marketplace_account_deleted_at;
+  return next;
 }
