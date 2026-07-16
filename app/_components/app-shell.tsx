@@ -20,13 +20,15 @@ export function AppShell({
   const isControl = pathname === "/control" || pathname.startsWith("/control/");
 
   if (isControl) {
-    return <main className="min-h-screen bg-zinc-100 text-zinc-950">{children}</main>;
+    return <main className="min-h-screen min-w-0 bg-zinc-100 text-zinc-950">{children}</main>;
   }
 
   return (
     <>
       <SiteHeader appName={appName} viewer={viewer} />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10">{children}</main>
+      <main className="mx-auto w-full min-w-0 max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:py-10">
+        {children}
+      </main>
       <SiteFooter appName={appName} />
     </>
   );
