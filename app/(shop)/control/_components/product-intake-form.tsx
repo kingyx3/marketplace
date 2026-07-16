@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import {
@@ -28,33 +28,20 @@ export function ProductIntakeForm({
   categories: CatalogCategoryOption[];
   sets: CatalogSetOption[];
 }) {
-  const defaultMode = categories.length === 0 ? "new" : "existing";
-  const formRef = useRef<HTMLFormElement>(null);
   const [state, action] = useActionState(createCatalogProduct, initialCatalogProductActionState);
-  const [categoryMode, setCategoryMode] = useState<"existing" | "new">(defaultMode);
+  const [categoryMode, setCategoryMode] = useState<"existing" | "new">(
+    categories.length === 0 ? "new" : "existing"
+  );
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [setId, setSetId] = useState("");
   const [productName, setProductName] = useState("");
   const [productSlug, setProductSlug] = useState("");
   const [categoryName, setCategoryName] = useState("");
   const [categorySlug, setCategorySlug] = useState("");
-
   const visibleSets = sets.filter((set) => set.categoryId === categoryId);
 
-  useEffect(() => {
-    if (state.status !== "success") return;
-    formRef.current?.reset();
-    setCategoryMode(defaultMode);
-    setCategoryId(categories[0]?.id ?? "");
-    setSetId("");
-    setProductName("");
-    setProductSlug("");
-    setCategoryName("");
-    setCategorySlug("");
-  }, [categories, defaultMode, state.status]);
-
   return (
-    <form action={action} className="grid gap-5" ref={formRef}>
+    <form action={action} className="grid gap-5">
       {state.status !== "idle" ? (
         <div
           className={
