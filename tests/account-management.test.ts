@@ -18,7 +18,7 @@ describe("customer account management", () => {
     );
   });
 
-  it("uses a reversible application soft delete and blocks deleted-account RLS", async () => {
+  it("uses a reversible application soft delete and blocks deleted-account access", async () => {
     const [action, pageAuth, apiAuth, migration] = await Promise.all([
       readFile(new URL("../app/actions/account.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
@@ -39,7 +39,8 @@ describe("customer account management", () => {
     expect(action).not.toContain("deleteUser(");
     expect(action).not.toContain("auth_user_id: null");
     expect(pageAuth).toContain('.is("deleted_at", null)');
-    expect((apiAuth.match(/\.is\("deleted_at", null\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(apiAuth).toContain("assertCustomerActive");
+    expect(apiAuth).toContain('forbidden("Customer account is disabled")');
     expect(migration).toContain("deletion_actor text");
     expect(migration).toContain("c.deleted_at is null");
   });
