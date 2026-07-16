@@ -18,7 +18,7 @@ describe("customer account management", () => {
     );
   });
 
-  it("soft deletes auth and anonymizes the retained customer record", async () => {
+  it("uses a reversible application soft delete and blocks deleted-account RLS", async () => {
     const [action, pageAuth, apiAuth, migration] = await Promise.all([
       readFile(new URL("../app/actions/account.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
@@ -32,13 +32,35 @@ describe("customer account management", () => {
       ),
     ]);
 
-    expect(action).toContain("auth.admin.deleteUser(user.id, true)");
+    expect(action).toContain('ban_duration: "876000h"');
+    expect(action).toContain("marketplace_account_deleted_at");
     expect(action).toContain("deleted_at: deletedAt");
-    expect(action).toContain("auth_user_id: null");
     expect(action).toContain("marketing_opt_in: false");
-    expect(action).not.toContain('.from("customers").delete()');
+    expect(action).not.toContain("deleteUser(");
+    expect(action).not.toContain("auth_user_id: null");
     expect(pageAuth).toContain('.is("deleted_at", null)');
     expect((apiAuth.match(/\.is\("deleted_at", null\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
-    expect(migration).toContain("add column if not exists deleted_at timestamptz");
+    expect(migration).toContain("deletion_actor text");
+    expect(migration).toContain("c.deleted_at is null");
+  });
+
+  it("allows only administrators to disable and restore customer accounts", async () => {
+    const [permissions, shell, page, action] = await Promise.all([
+      readFile(new URL("../lib/control-permissions.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(new URL("../app/(shop)/control/customers/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/actions/customer-admin.ts", import.meta.url), "utf8"),
+    ]);
+
+    expect(permissions).toContain('"manage_customers"');
+    expect(shell).toContain('href: "/control/customers"');
+    expect(page).toContain('requireControlPermission("manage_customers"');
+    expect(page).toContain("Restore account");
+    expect(action).toContain('ban_duration: deleted ? LONG_BAN_DURATION : "none"');
+    expect(action).toContain("CONTROL_CUSTOMER_RESTORE");
+    expect(action).toContain("Active staff accounts must be managed from Administrators");
   });
 });
