@@ -151,27 +151,24 @@ export async function findOrCreateCustomer(
     .from("customers")
     .select("*")
     .eq("auth_user_id", user.id)
-    .is("deleted_at", null)
     .maybeSingle();
   if (byUser.error) {
     throw new Error(byUser.error.message);
   }
   if (byUser.data) {
-    return byUser.data as CustomerRecord;
+    const existing = byUser.data as CustomerRecord;
+    assertCustomerActive(existing);
+    return existing;
   }
 
-  const byEmail = await supabase
-    .from("customers")
-    .select("*")
-    .eq("email", email)
-    .is("deleted_at", null)
-    .maybeSingle();
+  const byEmail = await supabase.from("customers").select("*").eq("email", email).maybeSingle();
   if (byEmail.error) {
     throw new Error(byEmail.error.message);
   }
 
   if (byEmail.data) {
     const existing = byEmail.data as CustomerRecord;
+    assertCustomerActive(existing);
     if (existing.auth_user_id && existing.auth_user_id !== user.id) {
       throw conflict("Email is already linked to another account");
     }
@@ -207,6 +204,12 @@ export async function findOrCreateCustomer(
   }
 
   return inserted.data as CustomerRecord;
+}
+
+function assertCustomerActive(customer: CustomerRecord): void {
+  if (customer.deleted_at) {
+    throw forbidden("Customer account is disabled");
+  }
 }
 
 function displayNameFromUser(user: User): string | null {
