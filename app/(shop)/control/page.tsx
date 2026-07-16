@@ -8,20 +8,32 @@ export const dynamic = "force-dynamic";
 export default async function ControlOverviewPage() {
   const { staff } = await requireControlPermission("view_control", "/control");
   const supabase = createServiceClient();
-  const [products, suppliers, categories, sets, administrators, audit] = await Promise.all([
-    countRows(supabase.from("products").select("*", { count: "exact", head: true }).eq("active", true), "products"),
-    countRows(supabase.from("suppliers").select("*", { count: "exact", head: true }).eq("active", true), "suppliers"),
-    countRows(supabase.from("tcg_categories").select("*", { count: "exact", head: true }).eq("active", true), "categories"),
-    countRows(supabase.from("sets_releases").select("*", { count: "exact", head: true }).eq("active", true), "sets"),
-    countRows(supabase.from("staff_users").select("*", { count: "exact", head: true }).eq("active", true), "administrators"),
-    countRows(supabase.from("audit_logs").select("*", { count: "exact", head: true }), "audit records"),
-  ]);
+  const [products, suppliers, categories, sets, customers, deletedCustomers, administrators, audit] =
+    await Promise.all([
+      countRows(supabase.from("products").select("*", { count: "exact", head: true }).eq("active", true), "products"),
+      countRows(supabase.from("suppliers").select("*", { count: "exact", head: true }).eq("active", true), "suppliers"),
+      countRows(supabase.from("tcg_categories").select("*", { count: "exact", head: true }).eq("active", true), "categories"),
+      countRows(supabase.from("sets_releases").select("*", { count: "exact", head: true }).eq("active", true), "sets"),
+      countRows(supabase.from("customers").select("*", { count: "exact", head: true }), "customers"),
+      countRows(
+        supabase.from("customers").select("*", { count: "exact", head: true }).not("deleted_at", "is", null),
+        "deleted customers"
+      ),
+      countRows(supabase.from("staff_users").select("*", { count: "exact", head: true }).eq("active", true), "administrators"),
+      countRows(supabase.from("audit_logs").select("*", { count: "exact", head: true }), "audit records"),
+    ]);
 
   const destinations = [
     {
+      href: "/control/catalog",
+      label: "Catalog",
+      detail: "Create products, add categories and sets, and review publication state.",
+      visible: hasControlPermission(staff, "manage_catalog"),
+    },
+    {
       href: "/control/operations",
       label: "Operations",
-      detail: "Inventory, purchasing, catalog products, SKUs, and order exceptions.",
+      detail: "Manage inventory, purchasing, SKUs, allocation, and order exceptions.",
       visible: hasControlPermission(staff, "manage_full_operations"),
     },
     {
@@ -31,16 +43,10 @@ export default async function ControlOverviewPage() {
       visible: hasControlPermission(staff, "manage_suppliers"),
     },
     {
-      href: "/control/categories",
-      label: "Categories",
-      detail: "Maintain parent-child catalog hierarchy and publication state.",
-      visible: hasControlPermission(staff, "manage_catalog"),
-    },
-    {
-      href: "/control/sets",
-      label: "Sets",
-      detail: "Manage releases, preorder windows, status, and category relationships.",
-      visible: hasControlPermission(staff, "manage_catalog"),
+      href: "/control/customers",
+      label: "Customers",
+      detail: "Review account status and restore deleted customer access.",
+      visible: hasControlPermission(staff, "manage_customers"),
     },
     {
       href: "/control/administrators",
@@ -71,11 +77,11 @@ export default async function ControlOverviewPage() {
         </span>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Active products" value={products} />
+        <Metric label="Catalog structure" value={categories + sets} detail={`${categories} categories · ${sets} sets`} />
+        <Metric label="Customers" value={customers} detail={`${deletedCustomers} deleted`} />
         <Metric label="Active suppliers" value={suppliers} />
-        <Metric label="Active categories" value={categories} />
-        <Metric label="Active sets" value={sets} />
         <Metric label="Active staff" value={administrators} />
         <Metric label="Audit records" value={audit} />
       </section>
@@ -99,11 +105,12 @@ export default async function ControlOverviewPage() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value, detail }: { label: string; value: number; detail?: string }) {
   return (
     <article className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
       <p className="text-sm font-medium text-zinc-500">{label}</p>
       <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">{value}</p>
+      {detail ? <p className="mt-1 text-xs text-zinc-500">{detail}</p> : null}
     </article>
   );
 }
