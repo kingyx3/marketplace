@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { hasControlPermission } from "@/lib/control-access";
+import { controlSupplierFromForm } from "@/lib/control-forms";
 import type { StaffProfile } from "@/lib/admin-staff";
 
 describe("control console", () => {
@@ -16,6 +17,17 @@ describe("control console", () => {
     expect(hasControlPermission(staff("admin"), "manage_admins")).toBe(true);
     expect(hasControlPermission(staff("owner"), "manage_admins")).toBe(true);
     expect(hasControlPermission({ ...staff("owner"), active: false }, "view_control")).toBe(false);
+  });
+
+  it("prefers the checked value over a hidden checkbox fallback", () => {
+    const formData = new FormData();
+    formData.append("name", "Supplier One");
+    formData.append("supplierType", "distributor");
+    formData.append("currency", "SGD");
+    formData.append("active", "false");
+    formData.append("active", "true");
+
+    expect(controlSupplierFromForm(formData).active).toBe(true);
   });
 
   it("ships dedicated supplier, category, set, administrator, and audit screens", async () => {
