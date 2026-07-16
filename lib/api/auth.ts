@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isAdminEmailAllowed } from "@/lib/admin-email-allowlist";
+import { resolveAllowlistedAdminStaff } from "@/lib/admin-staff";
 import { conflict, forbidden, unauthorized } from "@/lib/api/errors";
 import { setTelemetryUser } from "@/lib/observability";
 import { createServiceClient } from "@/lib/supabase";
@@ -92,20 +93,11 @@ export async function requireApiAdmin(
     throw forbidden("Active staff access required");
   }
 
-  const staff = await supabase
-    .from("staff_users")
-    .select("id")
-    .eq("auth_user_id", auth.user.id)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (staff.error) {
-    throw new Error(staff.error.message);
-  }
-
-  if (!staff.data) {
+  const staff = await resolveAllowlistedAdminStaff(supabase, auth.user.id);
+  if (!staff) {
     throw forbidden("Active staff access required");
   }
+
   return auth;
 }
 
