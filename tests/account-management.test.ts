@@ -38,7 +38,7 @@ describe("customer account management", () => {
     expect(action).toContain("marketing_opt_in: false");
     expect(action).not.toContain('.from("customers").delete()');
     expect(pageAuth).toContain('.is("deleted_at", null)');
-    expect(apiAuth.match(/\.is\("deleted_at", null\)/g)?.length).toBeGreaterThanOrEqual(3);
+    expect((apiAuth.match(/\.is\("deleted_at", null\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
     expect(migration).toContain("add column if not exists deleted_at timestamptz");
   });
 });
