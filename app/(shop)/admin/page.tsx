@@ -152,6 +152,15 @@ export default async function AdminPage() {
         action={<StatusBadge tone="success">Staff verified: {staff.role}</StatusBadge>}
       />
 
+      <nav aria-label="Admin sections" className="flex flex-wrap gap-3">
+        <Link className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700" href="/admin/listings">
+          Storefront listings
+        </Link>
+        <Link className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700" href="/admin/deals">
+          Limited-time deals
+        </Link>
+      </nav>
+
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} />

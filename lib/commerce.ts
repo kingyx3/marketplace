@@ -7,6 +7,7 @@ import {
   minimumOrderCents,
   type B2bPricingTier,
 } from "@/lib/b2b";
+import { calculateDealSavings, getActiveDealDiscounts } from "@/lib/deals";
 import { quoteShipping, shippingAddressSchema } from "@/lib/shipping";
 
 export const MAX_CHECKOUT_LINES = 10;
@@ -159,8 +160,24 @@ export async function quoteCheckout(
 
   const resolvedCurrency = currency ?? customer.default_currency;
   const pricing = await findB2bPricing(supabase, customer.id, subtotalCents, channel);
-  const discountBps = pricing.discountBps;
-  const discountCents = calculateDiscountCents(subtotalCents, discountBps);
+  const dealDiscounts =
+    channel === "b2c" && request.mode === "order"
+      ? await getActiveDealDiscounts(
+          supabase,
+          lines.map((line) => line.skuId)
+        )
+      : new Map<string, number>();
+  const dealDiscountCents = lines.reduce((total, line) => {
+    return total + calculateDealSavings(line.lineTotalCents, dealDiscounts.get(line.skuId) ?? 0);
+  }, 0);
+  const tierDiscountCents = calculateDiscountCents(subtotalCents, pricing.discountBps);
+  const discountCents = channel === "b2b" ? tierDiscountCents : dealDiscountCents;
+  const discountBps =
+    channel === "b2b"
+      ? pricing.discountBps
+      : subtotalCents > 0
+        ? Math.floor((discountCents * 10000) / subtotalCents)
+        : 0;
   const merchandiseTotalCents = subtotalCents - discountCents;
   const shipping =
     request.mode === "order"

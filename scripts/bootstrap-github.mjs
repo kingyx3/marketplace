@@ -144,7 +144,8 @@ for (const name of environmentSecrets) {
 console.log(`GitHub ${target} environment, policies, variables, and supplied secrets are converged.`);
 
 function variableIsRequired(name) {
-  if (["SUPABASE_ADVISOR_ALLOWLIST", "GOOGLE_OAUTH_CLIENT_ID", "SUPPORT_EMAIL"].includes(name)) {
+  if (name === "SUPPORT_EMAIL") return target === "production";
+  if (["SUPABASE_ADVISOR_ALLOWLIST", "GOOGLE_OAUTH_CLIENT_ID"].includes(name)) {
     return false;
   }
   return true;

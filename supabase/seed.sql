@@ -45,3 +45,39 @@ insert into public.allocation_rules (sku_id, channel, priority, reserve_quantity
 select id, 'b2c'::public.sales_channel, 10, 8, 2, true from public.booster_box_skus where sku = 'MTG-SMP-PBB-EN';
 insert into public.allocation_rules (sku_id, channel, priority, reserve_quantity, max_per_customer, active)
 select id, 'b2b'::public.sales_channel, 20, 0, null, true from public.booster_box_skus where sku = 'MTG-SMP-PBB-EN';
+
+insert into public.limited_time_deals (
+  code,
+  sku_id,
+  title,
+  description,
+  discount_bps,
+  visibility,
+  starts_at,
+  ends_at,
+  sort_priority,
+  active
+)
+select
+  'sample_launch_preview',
+  id,
+  'Sample launch offer',
+  'A public preview of a time-bounded launch promotion.',
+  500,
+  'public',
+  now() - interval '1 day',
+  now() + interval '30 days',
+  10,
+  true
+from public.booster_box_skus
+where sku = 'MTG-SMP-PBB-EN'
+on conflict (code) do update
+set sku_id = excluded.sku_id,
+    title = excluded.title,
+    description = excluded.description,
+    discount_bps = excluded.discount_bps,
+    visibility = excluded.visibility,
+    starts_at = excluded.starts_at,
+    ends_at = excluded.ends_at,
+    sort_priority = excluded.sort_priority,
+    active = excluded.active;

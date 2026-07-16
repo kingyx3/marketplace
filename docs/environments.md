@@ -48,7 +48,7 @@ Common variables:
 - `GOOGLE_AUTH_ENABLED` (`true` by default)
 - `GOOGLE_OAUTH_CLIENT_ID` when Google Auth is enabled
 - `RESEND_FROM_EMAIL`
-- `SUPPORT_EMAIL` (optional)
+- `SUPPORT_EMAIL` (optional outside production; required in production for support and data-protection requests)
 
 Common secrets:
 

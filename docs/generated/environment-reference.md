@@ -45,7 +45,7 @@ This file is generated from `config/environment-contract.json`. Update the contr
 | `VERCEL_PROJECT_ID` | Deploy | No | No | Vercel project id |
 | `RESEND_API_KEY` | Runtime | No | Yes | Email provider key |
 | `RESEND_FROM_EMAIL` | Runtime | No | No | Verified sender email |
-| `SUPPORT_EMAIL` | Runtime | No | No | Support email |
+| `SUPPORT_EMAIL` | Runtime | When `TARGET_ENV=production` | No | Public support and data-protection contact email |
 | `TWILIO_ACCOUNT_SID` | Runtime | No | No | Twilio account id |
 | `TWILIO_AUTH_TOKEN` | Runtime | No | Yes | Twilio authentication token |
 | `TELEGRAM_BOT_TOKEN` | Runtime | No | Yes | Telegram bot token |

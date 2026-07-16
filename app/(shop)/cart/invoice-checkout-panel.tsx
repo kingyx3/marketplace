@@ -62,7 +62,7 @@ export function InvoiceCheckoutPanel({
 
     const { data, error } = await supabase.auth.getSession();
     if (error || !data.session?.access_token) {
-      router.push(`/auth/sign-in?next=${encodeURIComponent("/cart?channel=b2b")}`);
+      router.push(`/sign-in?next=${encodeURIComponent("/cart?channel=b2b")}`);
       throw new Error("Sign in is required before invoice checkout");
     }
     return data.session.access_token;
@@ -82,7 +82,7 @@ export function InvoiceCheckoutPanel({
     const payload = (await response.json().catch(() => ({}))) as ApiErrorResponse;
 
     if (response.status === 401) {
-      router.push(`/auth/sign-in?next=${encodeURIComponent("/cart?channel=b2b")}`);
+      router.push(`/sign-in?next=${encodeURIComponent("/cart?channel=b2b")}`);
     }
     if (!response.ok) {
       throw new Error(payload.error?.message ?? "Invoice request failed");
@@ -157,6 +157,21 @@ export function InvoiceCheckoutPanel({
         Invoice checkout is available only when staff has approved account terms, a positive credit
         limit, and the active B2B invoice policy. Stock is released automatically if the displayed
         reservation deadline passes before reconciliation.
+      </p>
+      <p className="text-xs leading-5 text-zinc-500">
+        By requesting an invoice, you agree to the{" "}
+        <Link className="font-semibold underline" href="/terms">
+          Terms
+        </Link>
+        ,{" "}
+        <Link className="font-semibold underline" href="/shipping">
+          Shipping Policy
+        </Link>
+        , and{" "}
+        <Link className="font-semibold underline" href="/returns">
+          Returns and Refunds Policy
+        </Link>
+        .
       </p>
       <button
         className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700 disabled:cursor-not-allowed disabled:text-zinc-400"

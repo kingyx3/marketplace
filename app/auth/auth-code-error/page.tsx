@@ -12,7 +12,7 @@ export default function AuthCodeErrorPage() {
         for this environment.
       </p>
       <Link
-        href="/auth/sign-in"
+        href="/sign-in"
         className="inline-flex rounded-md bg-red-950 px-4 py-2 text-sm font-medium text-white"
       >
         Try again

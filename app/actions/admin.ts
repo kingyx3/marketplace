@@ -9,6 +9,8 @@ import {
   adminInventoryAdjustmentFromForm,
 } from "@/lib/admin-catalog-forms";
 import {
+  adminLimitedTimeDealFromForm,
+  adminLimitedTimeDealStatusFromForm,
   adminListingItemFromForm,
   adminStorefrontConfigurationFromForm,
 } from "@/lib/admin-listing-forms";
@@ -18,6 +20,52 @@ import { requireStaff } from "@/lib/auth";
 import { performAdminOrderAction } from "@/lib/orders";
 import { runPreorderAllocationForSku } from "@/lib/preorders";
 import { createServiceClient } from "@/lib/supabase";
+
+export async function upsertLimitedTimeDeal(formData: FormData) {
+  const { user } = await requireStaff("/admin/deals");
+  const input = adminLimitedTimeDealFromForm(formData);
+
+  const { error } = await createServiceClient().rpc("admin_upsert_limited_time_deal", {
+    p_deal_id: input.dealId,
+    p_code: input.code,
+    p_sku_id: input.skuId,
+    p_title: input.title,
+    p_description: input.description,
+    p_discount_bps: input.discountBps,
+    p_visibility: input.visibility,
+    p_starts_at: input.startsAt,
+    p_ends_at: input.endsAt,
+    p_sort_priority: input.sortPriority,
+    p_active: input.active,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Limited-time deal save failed: ${error.message}`);
+
+  revalidateDealPaths();
+}
+
+export async function setLimitedTimeDealActive(formData: FormData) {
+  const { user } = await requireStaff("/admin/deals");
+  const input = adminLimitedTimeDealStatusFromForm(formData);
+
+  const { error } = await createServiceClient().rpc("admin_set_limited_time_deal_active", {
+    p_deal_id: input.dealId,
+    p_active: input.active,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Limited-time deal status update failed: ${error.message}`);
+
+  revalidateDealPaths();
+}
+
+function revalidateDealPaths() {
+  revalidatePath("/");
+  revalidatePath("/admin/deals");
+  revalidatePath("/catalog");
+  revalidatePath("/deals");
+}
 
 export async function upsertListingItem(formData: FormData) {
   const { user } = await requireStaff("/admin/listings");

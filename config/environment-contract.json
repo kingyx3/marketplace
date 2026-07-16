@@ -486,8 +486,12 @@
     "key": "SUPPORT_EMAIL",
     "section": "Optional notifications",
     "required": false,
+    "requiredWhen": {
+      "key": "TARGET_ENV",
+      "equals": "production"
+    },
     "secret": false,
-    "hint": "Support email",
+    "hint": "Public support and data-protection contact email",
     "validator": {
       "type": "email"
     }

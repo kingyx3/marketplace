@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { findOrCreateCustomer } from "@/lib/api/auth";
 import { createServiceClient, createUserClient } from "@/lib/supabase";
@@ -19,6 +20,18 @@ export class AuthorizationError extends Error {
 }
 
 export type AuthUser = User;
+
+export interface StaffProfile {
+  id: string;
+  role: "staff" | "admin" | "owner";
+  active: boolean;
+}
+
+export interface CurrentViewer {
+  user: AuthUser | null;
+  staff: StaffProfile | null;
+  staffLookup: "not_applicable" | "resolved" | "unavailable";
+}
 
 export interface CustomerProfile {
   id: string;
@@ -52,10 +65,28 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   return user;
 }
 
+export const getCurrentViewer = cache(async (): Promise<CurrentViewer> => {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { user: null, staff: null, staffLookup: "not_applicable" };
+  }
+
+  try {
+    return {
+      user,
+      staff: await getActiveStaff(user.id),
+      staffLookup: "resolved",
+    };
+  } catch (error) {
+    console.error("navigation staff lookup failed:", safeErrorMessage(error));
+    return { user, staff: null, staffLookup: "unavailable" };
+  }
+});
+
 export async function requireUser(next = "/account"): Promise<AuthUser> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect(`/auth/sign-in?next=${encodeURIComponent(next)}`);
+    redirect(`/sign-in?next=${encodeURIComponent(next)}`);
   }
   return user;
 }
@@ -93,12 +124,28 @@ export async function requireCustomer(next = "/account") {
 }
 
 export async function requireStaff(next = "/admin") {
-  const user = await requireUser(next);
+  const viewer = await getCurrentViewer();
+  if (!viewer.user) {
+    redirect(`/sign-in?next=${encodeURIComponent(next)}`);
+  }
+
+  if (viewer.staffLookup === "unavailable") {
+    throw new Error("Staff authorization is temporarily unavailable");
+  }
+
+  if (!viewer.staff) {
+    redirect("/access-denied");
+  }
+
+  return { user: viewer.user, staff: viewer.staff };
+}
+
+async function getActiveStaff(authUserId: string): Promise<StaffProfile | null> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("staff_users")
     .select("id, role, active")
-    .eq("auth_user_id", user.id)
+    .eq("auth_user_id", authUserId)
     .eq("active", true)
     .maybeSingle();
 
@@ -106,9 +153,9 @@ export async function requireStaff(next = "/admin") {
     throw new Error(`Staff lookup failed: ${error.message}`);
   }
 
-  if (!data) {
-    throw new AuthorizationError();
-  }
+  return data ? (data as StaffProfile) : null;
+}
 
-  return { user, staff: data as { id: string; role: "staff" | "admin" | "owner"; active: boolean } };
+function safeErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown";
 }

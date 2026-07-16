@@ -70,7 +70,7 @@ Common values:
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Environment secret | Required when Google Auth is enabled |
 | `STRIPE_SECRET_KEY` | Environment secret | Required |
 | `RESEND_FROM_EMAIL` | Environment variable | Required |
-| `SUPPORT_EMAIL` | Environment variable | Optional |
+| `SUPPORT_EMAIL` | Environment variable | Required for production |
 | `SUPABASE_SECRET_KEY` | Environment secret | Optional fallback |
 | `STRIPE_WEBHOOK_SECRET` | Environment secret | Optional recovery override |
 | `CRON_SECRET` | Environment secret | Required for staging/production |
