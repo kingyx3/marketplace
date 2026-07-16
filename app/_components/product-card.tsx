@@ -1,18 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+
+import { StatusBadge } from "@/app/_components/status-badge";
 import {
   formatMoney,
   formatStatus,
   getAvailable,
   type MarketplaceProduct,
 } from "@/app/_data/marketplace-fixtures";
-import { StatusBadge } from "@/app/_components/status-badge";
-import {
-  discountedPriceCents,
-  formatDiscountBps,
-  maxDiscountBps,
-  type WholesaleAccess,
-} from "@/lib/b2b";
 
 function getStatusTone(status: MarketplaceProduct["setStatus"]) {
   if (status === "preorder_open") return "success";
@@ -22,43 +17,33 @@ function getStatusTone(status: MarketplaceProduct["setStatus"]) {
   return "neutral";
 }
 
-export function ProductCard({
-  product,
-  sourceLabel,
-  wholesaleAccess,
-}: {
-  product: MarketplaceProduct;
-  sourceLabel?: string;
-  wholesaleAccess?: WholesaleAccess | null;
-}) {
+export function ProductCard({ product }: { product: MarketplaceProduct }) {
   const available = getAvailable(product);
-  const wholesaleDiscountBps = maxDiscountBps(wholesaleAccess?.tiers ?? []);
-  const wholesalePriceCents =
-    wholesaleDiscountBps > 0
-      ? discountedPriceCents(product.priceCents, wholesaleDiscountBps)
-      : product.priceCents;
 
   return (
-    <article className="grid overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-      <Link href={`/catalog/${product.slug}`} className="group block">
+    <article className="group grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <Link href={`/catalog/${product.slug}`} className="block">
         <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
           <Image
             src={product.image}
             alt={`${product.name} sealed product display`}
             fill
-            className="object-cover transition duration-300 group-hover:scale-105"
+            className="object-cover transition duration-300 group-hover:scale-[1.03]"
             sizes="(min-width: 1024px) 32vw, (min-width: 640px) 50vw, 100vw"
           />
-          <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-            <StatusBadge tone={getStatusTone(product.setStatus)}>{formatStatus(product.setStatus)}</StatusBadge>
-            {sourceLabel ? <StatusBadge tone="neutral">{sourceLabel}</StatusBadge> : null}
+          <div className="absolute left-3 top-3">
+            <StatusBadge tone={getStatusTone(product.setStatus)}>
+              {formatStatus(product.setStatus)}
+            </StatusBadge>
           </div>
         </div>
       </Link>
 
-      <div className="grid gap-4 p-4">
+      <div className="grid gap-4 p-5">
         <div>
-          <p className="text-xs font-semibold uppercase text-zinc-500">{product.game} / {product.setCode}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            {product.game} · {product.setCode}
+          </p>
           <h2 className="mt-2 text-lg font-semibold leading-tight text-zinc-950">
             <Link href={`/catalog/${product.slug}`} className="hover:text-emerald-700">
               {product.name}
@@ -66,56 +51,33 @@ export function ProductCard({
           </h2>
         </div>
 
-        <p className="line-clamp-2 text-sm leading-6 text-zinc-600">{product.description}</p>
-
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-md bg-zinc-50 p-3">
-            <p className="font-semibold text-zinc-950">{formatMoney(product.priceCents, product.currency)}</p>
-            <p className="mt-1 text-xs text-zinc-500">List price</p>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xl font-bold text-zinc-950">
+              {formatMoney(product.priceCents, product.currency)}
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">GST included where applicable</p>
           </div>
-          <div className="rounded-md bg-zinc-50 p-3">
-            <p className="font-semibold text-zinc-950">{available}</p>
-            <p className="mt-1 text-xs text-zinc-500">Available</p>
-          </div>
-          <div className="rounded-md bg-zinc-50 p-3">
-            <p className="font-semibold text-zinc-950">{product.maxPerCustomer ?? "None"}</p>
-            <p className="mt-1 text-xs text-zinc-500">Limit</p>
-          </div>
+          <p className="text-right text-sm text-zinc-600">
+            <span className="block font-semibold text-zinc-950">{available}</span>
+            available
+          </p>
         </div>
 
-        {wholesaleDiscountBps > 0 ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-            <p className="font-semibold">
-              Wholesale {formatMoney(wholesalePriceCents, product.currency)}
-            </p>
-            <p className="mt-1 text-xs">
-              Your approved tier: {formatDiscountBps(wholesaleDiscountBps)} off list.
-            </p>
-          </div>
-        ) : null}
-
         <div className="flex flex-wrap gap-2">
-          {product.tags.map((tag) => (
+          {product.tags.slice(0, 3).map((tag) => (
             <span key={tag} className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600">
               {tag}
             </span>
           ))}
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Link
-            href={`/catalog/${product.slug}`}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
-          >
-            View product
-          </Link>
-          <Link
-            href={`/catalog/${product.slug}`}
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
-          >
-            Choose options
-          </Link>
-        </div>
+        <Link
+          href={`/catalog/${product.slug}`}
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
+        >
+          View product
+        </Link>
       </div>
     </article>
   );
