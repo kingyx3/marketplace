@@ -47,7 +47,7 @@ describe("audience-aware frontend access", () => {
     expect(html).not.toContain("/control");
   });
 
-  it("protects the control console, redirects legacy admin paths, and publishes policies", async () => {
+  it("protects the control console, omits legacy admin routing, and publishes policies", async () => {
     const [controlLayout, pageAuth, apiAuth, proxy, siteHeader] = await Promise.all([
       readFile(new URL("../app/(shop)/control/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
@@ -59,8 +59,8 @@ describe("audience-aware frontend access", () => {
     expect(controlLayout).toContain('requireControlPermission("view_control", "/control")');
     expect(pageAuth).toContain("resolveAdminStaff");
     expect(apiAuth).toContain("resolveAdminStaff");
-    expect(proxy).toContain('replace(/^\\/admin/, "/control")');
-    expect(proxy).toContain("308");
+    expect(proxy).not.toContain('request.nextUrl.pathname === "/admin"');
+    expect(proxy).not.toContain('replace(/^\\/admin/, "/control")');
     expect(siteHeader).not.toContain('href="/admin"');
     expect(siteHeader).not.toContain('href="/control"');
 
