@@ -44,6 +44,8 @@ Staging is optional. Enable the extended release topology before targeting it:
 ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap -- --apply --target=staging
 ```
 
+When the extended topology is disabled, staging fails closed instead of falling back to development or production infrastructure.
+
 Without `--apply`, bootstrap is plan-only. Granular Terraform, provider, environment, and deployment workflows remain available for diagnostics and recovery.
 
 ## Checks
