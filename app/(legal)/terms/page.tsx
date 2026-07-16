@@ -14,29 +14,27 @@ export default function TermsPage() {
   return (
     <PolicyPage
       title="Terms of Service"
-      summary={`These terms govern use of ${operator}, including catalog browsing, accounts, orders, preorders, and wholesale applications.`}
+      summary={`These terms govern use of ${operator}, including catalog browsing, accounts, orders, preorders, and deals.`}
     >
       <PolicySection title="Accounts and acceptable use">
         <p>
-          You must provide accurate information, keep account access secure, and be legally capable
-          of entering the transaction or act with a parent or guardian. Do not misuse the service,
-          interfere with security, automate abusive purchases, evade customer limits, impersonate
-          another person, or access administrative functions without permission.
+          Provide accurate information, keep account access secure, and be legally capable of entering
+          the transaction or act with a parent or guardian. Do not misuse the service, interfere with
+          security, automate abusive purchases, evade customer limits, impersonate another person, or
+          access administrative functions without permission.
         </p>
       </PolicySection>
 
       <PolicySection title="Catalog, prices, and availability">
         <p>
-          Regular product prices are public. Eligible limited-time or wholesale pricing is shown
-          only to the audience entitled to it and is revalidated on the server at checkout. Prices
-          are displayed in the stated currency and include GST where applicable; delivery charges
-          are shown before payment. Obvious display errors may be corrected before an order is
-          accepted.
+          Product prices are public. Member-eligible deals are shown to the audience entitled to them
+          and revalidated on the server at checkout. Prices are displayed in the stated currency and
+          include GST where applicable; delivery charges are shown before payment. Obvious display
+          errors may be corrected before an order is accepted.
         </p>
         <p>
-          Stock and incoming allocations can change. Adding an item to a cart does not reserve it.
-          An order is accepted only after the required payment or approved invoice process succeeds
-          and inventory is allocated.
+          Stock and incoming allocations can change. Adding an item to a cart does not reserve it. An
+          order is accepted only after payment succeeds and inventory is allocated.
         </p>
       </PolicySection>
 
@@ -51,10 +49,9 @@ export default function TermsPage() {
 
       <PolicySection title="Payments, delivery, and returns">
         <p>
-          Payments are processed through the method presented at checkout. Approved business
-          accounts may receive separate invoice terms. Delivery risk, unsuccessful delivery,
-          cancellation, return, and refund handling are described in the Shipping Policy and Returns
-          and Refunds Policy, which form part of these terms.
+          Payments are processed through the method presented at checkout. Delivery risk,
+          unsuccessful delivery, cancellation, return, and refund handling are described in the
+          Shipping Policy and Returns and Refunds Policy, which form part of these terms.
         </p>
       </PolicySection>
 
