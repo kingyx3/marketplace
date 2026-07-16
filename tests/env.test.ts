@@ -172,6 +172,71 @@ describe("environment contract", () => {
     expect(resolved.requests.every((url) => url.endsWith("/api-keys?reveal=true"))).toBe(true);
   });
 
+  it("reconciles stale Supabase keys from the selected project, including legacy service_role keys", () => {
+    const env = {
+      TARGET_ENV: "development",
+      GOOGLE_AUTH_ENABLED: "false",
+      APP_NAME: "Marketplace",
+      NEXT_PUBLIC_SITE_URL: "https://dev.example.com",
+      NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopq.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "stale-publishable-key",
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
+      SUPABASE_SECRET_KEY: "stale-secret-key",
+      SUPABASE_PROJECT_REF: "abcdefghijklmnopq",
+      SUPABASE_ACCESS_TOKEN: "sbp_test_token",
+      VERCEL_ORG_ID: "team_test_123",
+      VERCEL_PROJECT_ID: "prj_test_123",
+    };
+    const resolved = runResolveEnvironment<Record<string, string>>([
+      "globalThis.fetch = async (input) => {",
+      "  if (!String(input).includes('/api-keys')) throw new Error(`unexpected fetch: ${input}`);",
+      "  return new Response(JSON.stringify([",
+      "    { name: 'anon', api_key: 'legacy-anon-key' },",
+      "    { name: 'service_role', api_key: 'legacy-service-role-key' },",
+      "  ]), { status: 200, headers: { 'content-type': 'application/json' } });",
+      "};",
+      `const env = ${literal(env)};`,
+      "await resolveEnvironment(env, { environment: 'development', strict: true, loadDotenv: false });",
+      "console.log(JSON.stringify(env));",
+    ].join("\n"));
+    expect(resolved.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).toBe("legacy-anon-key");
+    expect(resolved.SUPABASE_SECRET_KEY).toBe("legacy-service-role-key");
+  });
+
+  it("rejects a Supabase key that does not authenticate against the selected project", () => {
+    const env = {
+      TARGET_ENV: "development",
+      GOOGLE_AUTH_ENABLED: "false",
+      APP_NAME: "Marketplace",
+      NEXT_PUBLIC_SITE_URL: "https://dev.example.com",
+      NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopq.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "valid-publishable-key",
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
+      SUPABASE_SECRET_KEY: "wrong-project-secret-key",
+      SUPABASE_PROJECT_REF: "abcdefghijklmnopq",
+      VERCEL_ORG_ID: "team_test_123",
+      VERCEL_PROJECT_ID: "prj_test_123",
+    };
+    const result = runResolveEnvironment<{ ok: boolean; message: string }>([
+      "globalThis.fetch = async (_input, init) => {",
+      "  const key = init?.headers?.apikey;",
+      "  return key === 'valid-publishable-key'",
+      "    ? new Response('[]', { status: 200 })",
+      "    : new Response(JSON.stringify({ message: 'Invalid API key' }), { status: 401 });",
+      "};",
+      `const env = ${literal(env)};`,
+      "try {",
+      "  await resolveEnvironment(env, { environment: 'development', strict: true, verifySupabaseKeys: true, loadDotenv: false });",
+      "  console.log(JSON.stringify({ ok: true, message: '' }));",
+      "} catch (error) {",
+      "  console.log(JSON.stringify({ ok: false, message: error.message }));",
+      "}",
+    ].join("\n"));
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("SUPABASE_SECRET_KEY is not valid for Supabase project abcdefghijklmnopq");
+    expect(result.message).toContain("Re-run Bootstrap & Deploy");
+  });
+
   it("keeps generated artifacts in sync with every contract key", async () => {
     const example = await readFile(new URL("../.env.example", import.meta.url), "utf8");
     const keys = runGenerateEnv<string[]>("console.log(JSON.stringify(ENV_CONTRACT.map((entry) => entry.key)));");
