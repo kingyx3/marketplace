@@ -8,6 +8,7 @@ export type ControlPermission =
   | "manage_catalog"
   | "manage_suppliers"
   | "manage_orders"
+  | "manage_full_operations"
   | "manage_admins"
   | "view_audit";
 
@@ -26,6 +27,7 @@ const ROLE_PERMISSIONS: Record<StaffRole, ReadonlySet<ControlPermission>> = {
     "manage_catalog",
     "manage_suppliers",
     "manage_orders",
+    "manage_full_operations",
     "manage_admins",
     "view_audit",
   ]),
@@ -34,6 +36,7 @@ const ROLE_PERMISSIONS: Record<StaffRole, ReadonlySet<ControlPermission>> = {
     "manage_catalog",
     "manage_suppliers",
     "manage_orders",
+    "manage_full_operations",
     "manage_admins",
     "view_audit",
   ]),
