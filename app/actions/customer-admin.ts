@@ -22,6 +22,9 @@ export async function setCustomerAccountDeleted(formData: FormData) {
   const deleted = String(formData.get("deleted") ?? "false") === "true";
 
   if (!customerId) throw new Error("Customer is required");
+  if (deleted && formData.get("confirmDisable") !== "yes") {
+    throw new Error("Confirm account disable before continuing");
+  }
 
   const supabase = createServiceClient();
   const { data, error: lookupError } = await supabase
