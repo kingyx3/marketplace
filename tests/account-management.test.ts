@@ -60,7 +60,10 @@ describe("customer account management", () => {
     expect(shell).toContain('href: "/control/customers"');
     expect(page).toContain('requireControlPermission("manage_customers"');
     expect(page).toContain("Restore account");
+    expect(page).toContain('name="confirmDisable"');
+    expect(page).toContain("Audit record only");
     expect(action).toContain('ban_duration: deleted ? LONG_BAN_DURATION : "none"');
+    expect(action).toContain('formData.get("confirmDisable") !== "yes"');
     expect(action).toContain("CONTROL_CUSTOMER_RESTORE");
     expect(action).toContain("Active staff accounts must be managed from Administrators");
   });
