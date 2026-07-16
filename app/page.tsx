@@ -11,7 +11,12 @@ import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ account?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
   const viewer = await getCurrentViewer();
   const signedIn = Boolean(viewer.user);
   const [catalog, deals] = await Promise.all([
@@ -22,6 +27,12 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-10 sm:space-y-14">
+      {params.account === "deleted" ? (
+        <div className="rounded-md border border-zinc-200 bg-white p-4 text-sm text-zinc-700 shadow-sm" role="status">
+          Account deleted.
+        </div>
+      ) : null}
+
       <section className="relative isolate overflow-hidden rounded-xl bg-zinc-950 px-5 py-8 text-white shadow-sm sm:px-8 sm:py-10 lg:min-h-[520px] lg:px-12 lg:py-16">
         <Image
           src="/images/sealed-tcg-hero.png"
