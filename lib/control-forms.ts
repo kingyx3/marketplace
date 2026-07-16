@@ -111,7 +111,7 @@ export function controlSupplierFromForm(formData: FormData) {
     minOrderCents: String(formData.get("minOrderCents") ?? ""),
     currency: String(formData.get("currency") ?? "SGD"),
     notes: String(formData.get("notes") ?? ""),
-    active: String(formData.get("active") ?? "false"),
+    active: checkboxValue(formData, "active"),
   });
 }
 
@@ -124,7 +124,7 @@ export function controlCategoryFromForm(formData: FormData) {
     publisher: String(formData.get("publisher") ?? ""),
     description: String(formData.get("description") ?? ""),
     sortOrder: String(formData.get("sortOrder") ?? "0"),
-    active: String(formData.get("active") ?? "false"),
+    active: checkboxValue(formData, "active"),
   });
 }
 
@@ -140,7 +140,7 @@ export function controlSetFromForm(formData: FormData) {
     preorderCloseAt: String(formData.get("preorderCloseAt") ?? ""),
     status: String(formData.get("status") ?? "announced"),
     sortOrder: String(formData.get("sortOrder") ?? "0"),
-    active: String(formData.get("active") ?? "false"),
+    active: checkboxValue(formData, "active"),
   });
 }
 
@@ -149,13 +149,17 @@ export function controlAccessGrantFromForm(formData: FormData) {
     grantId: String(formData.get("grantId") ?? ""),
     email: String(formData.get("email") ?? ""),
     role: String(formData.get("role") ?? "viewer"),
-    active: String(formData.get("active") ?? "false"),
+    active: checkboxValue(formData, "active"),
   });
 }
 
 export function controlStatusFromForm(formData: FormData) {
   return statusSchema.parse({
     id: String(formData.get("id") ?? ""),
-    active: String(formData.get("active") ?? "false"),
+    active: checkboxValue(formData, "active"),
   });
+}
+
+function checkboxValue(formData: FormData, name: string): "true" | "false" {
+  return formData.getAll(name).some((value) => String(value) === "true") ? "true" : "false";
 }
