@@ -12,6 +12,7 @@ describe("audience-aware frontend access", () => {
     expect(html).toContain("Catalog");
     expect(html).toContain("Cart");
     expect(html).toContain("Sign in");
+    expect(html).not.toContain(">Home<");
     expect(html).not.toContain("Deals");
     expect(html).not.toContain("Wholesale");
     expect(html).not.toContain("Account");
@@ -29,7 +30,8 @@ describe("audience-aware frontend access", () => {
 
     expect(html).toContain("Account");
     expect(html).toContain("Orders");
-    expect(html).toContain("Sign out");
+    expect(html).not.toContain(">Home<");
+    expect(html).not.toContain("Sign out");
     expect(html).not.toContain("Admin");
     expect(html).not.toContain("Control");
   });
