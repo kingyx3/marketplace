@@ -3,10 +3,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { isAdminEmailAllowed } from "@/lib/admin-email-allowlist";
-import {
-  resolveAllowlistedAdminStaff,
-  type StaffProfile,
-} from "@/lib/admin-staff";
+import { resolveAdminStaff, type StaffProfile } from "@/lib/admin-staff";
 import { findOrCreateCustomer } from "@/lib/api/auth";
 import { createServiceClient, createUserClient } from "@/lib/supabase";
 
@@ -70,14 +67,14 @@ export const getCurrentViewer = cache(async (): Promise<CurrentViewer> => {
     return { user: null, staff: null, staffLookup: "not_applicable" };
   }
 
-  if (!isAdminEmailAllowed(user.email)) {
-    return { user, staff: null, staffLookup: "resolved" };
-  }
-
   try {
     return {
       user,
-      staff: await resolveAllowlistedAdminStaff(createServiceClient(), user.id),
+      staff: await resolveAdminStaff(createServiceClient(), {
+        authUserId: user.id,
+        email: user.email,
+        environmentAllowlisted: isAdminEmailAllowed(user.email),
+      }),
       staffLookup: "resolved",
     };
   } catch (error) {
@@ -126,7 +123,7 @@ export async function requireCustomer(next = "/account") {
   };
 }
 
-export async function requireStaff(next = "/admin") {
+export async function requireStaff(next = "/control") {
   const viewer = await getCurrentViewer();
   if (!viewer.user) {
     redirect(`/sign-in?next=${encodeURIComponent(next)}`);

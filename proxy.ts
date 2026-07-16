@@ -10,6 +10,14 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
 
+  if (request.nextUrl.pathname === "/admin" || request.nextUrl.pathname.startsWith("/admin/")) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = request.nextUrl.pathname.replace(/^\/admin/, "/control");
+    const redirect = NextResponse.redirect(destination, 308);
+    redirect.headers.set("x-request-id", requestId);
+    return redirect;
+  }
+
   const createResponse = () => {
     const next = NextResponse.next({
       request: { headers: requestHeaders },

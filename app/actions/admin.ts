@@ -16,13 +16,13 @@ import {
 } from "@/lib/admin-listing-forms";
 import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
 import { adminPurchaseOrderFromForm } from "@/lib/admin-purchase-order-forms";
-import { requireStaff } from "@/lib/auth";
+import { requireControlPermission } from "@/lib/control-access";
 import { performAdminOrderAction } from "@/lib/orders";
 import { runPreorderAllocationForSku } from "@/lib/preorders";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function upsertLimitedTimeDeal(formData: FormData) {
-  const { user } = await requireStaff("/admin/deals");
+  const { user } = await requireControlPermission("manage_catalog", "/control/deals");
   const input = adminLimitedTimeDealFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_upsert_limited_time_deal", {
@@ -46,7 +46,7 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
 }
 
 export async function setLimitedTimeDealActive(formData: FormData) {
-  const { user } = await requireStaff("/admin/deals");
+  const { user } = await requireControlPermission("manage_catalog", "/control/deals");
   const input = adminLimitedTimeDealStatusFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_set_limited_time_deal_active", {
@@ -62,12 +62,12 @@ export async function setLimitedTimeDealActive(formData: FormData) {
 
 function revalidateDealPaths() {
   revalidatePath("/");
-  revalidatePath("/admin/deals");
+  revalidatePath("/control/deals");
   revalidatePath("/catalog");
 }
 
 export async function upsertListingItem(formData: FormData) {
-  const { user } = await requireStaff("/admin/listings");
+  const { user } = await requireControlPermission("manage_catalog", "/control/listings");
   const input = adminListingItemFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_upsert_listing_item", {
@@ -86,13 +86,14 @@ export async function upsertListingItem(formData: FormData) {
 
   if (error) throw new Error(`Listing item save failed: ${error.message}`);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/listings");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
+  revalidatePath("/control/listings");
   revalidatePath("/catalog");
 }
 
 export async function upsertStorefrontConfiguration(formData: FormData) {
-  const { user } = await requireStaff("/admin/listings");
+  const { user } = await requireControlPermission("manage_catalog", "/control/listings");
   const input = adminStorefrontConfigurationFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_upsert_storefront_configuration", {
@@ -106,13 +107,13 @@ export async function upsertStorefrontConfiguration(formData: FormData) {
 
   if (error) throw new Error(`Storefront configuration save failed: ${error.message}`);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/listings");
+  revalidatePath("/control");
+  revalidatePath("/control/listings");
   revalidatePath("/catalog");
 }
 
 export async function updateInventory(formData: FormData) {
-  const { user } = await requireStaff("/admin/inventory");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const input = adminInventoryAdjustmentFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_adjust_inventory", {
@@ -127,13 +128,13 @@ export async function updateInventory(formData: FormData) {
 
   if (error) throw new Error(`Inventory adjustment failed: ${error.message}`);
 
-  revalidatePath("/admin/inventory");
-  revalidatePath("/admin");
+  revalidatePath("/control/operations");
+  revalidatePath("/control");
   revalidatePath("/catalog");
 }
 
 export async function upsertCatalogProduct(formData: FormData) {
-  const { user } = await requireStaff("/admin/catalog");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const input = adminCatalogProductFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
@@ -152,12 +153,13 @@ export async function upsertCatalogProduct(formData: FormData) {
 
   if (error) throw new Error(`Product save failed: ${error.message}`);
 
-  revalidatePath("/admin");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
   revalidatePath("/catalog");
 }
 
 export async function setCatalogProductActive(formData: FormData) {
-  const { user } = await requireStaff("/admin/catalog");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const productId = String(formData.get("productId") ?? "");
   const active = String(formData.get("active") ?? "false") === "true";
 
@@ -169,12 +171,13 @@ export async function setCatalogProductActive(formData: FormData) {
 
   if (error) throw new Error(`Product ${active ? "restore" : "archive"} failed: ${error.message}`);
 
-  revalidatePath("/admin");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
   revalidatePath("/catalog");
 }
 
 export async function uploadCatalogProductImage(formData: FormData) {
-  const { user } = await requireStaff("/admin/catalog");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const productId = String(formData.get("productId") ?? "");
   const image = formData.get("image");
 
@@ -202,12 +205,13 @@ export async function uploadCatalogProductImage(formData: FormData) {
 
   if (error) throw new Error(`Product image assignment failed: ${error.message}`);
 
-  revalidatePath("/admin");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
   revalidatePath("/catalog");
 }
 
 export async function upsertCatalogSku(formData: FormData) {
-  const { user } = await requireStaff("/admin/catalog");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const input = adminCatalogSkuFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_upsert_booster_box_sku", {
@@ -227,12 +231,13 @@ export async function upsertCatalogSku(formData: FormData) {
 
   if (error) throw new Error(`SKU save failed: ${error.message}`);
 
-  revalidatePath("/admin");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
   revalidatePath("/catalog");
 }
 
 export async function setCatalogSkuActive(formData: FormData) {
-  const { user } = await requireStaff("/admin/catalog");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const skuId = String(formData.get("skuId") ?? "");
   const active = String(formData.get("active") ?? "false") === "true";
 
@@ -244,12 +249,13 @@ export async function setCatalogSkuActive(formData: FormData) {
 
   if (error) throw new Error(`SKU ${active ? "restore" : "archive"} failed: ${error.message}`);
 
-  revalidatePath("/admin");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
   revalidatePath("/catalog");
 }
 
 export async function shipOrder(formData: FormData) {
-  const { user } = await requireStaff("/admin/orders");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const orderId = String(formData.get("orderId") ?? "");
   const carrier = String(formData.get("carrier") ?? "");
   const trackingNumber = String(formData.get("trackingNumber") ?? "");
@@ -263,23 +269,23 @@ export async function shipOrder(formData: FormData) {
 
   if (error) throw new Error(`Order shipment failed: ${error.message}`);
 
-  revalidatePath("/admin/orders");
+  revalidatePath("/control/operations");
   revalidatePath(`/account/orders/${orderId}`);
 }
 
 export async function runAdminOrderAction(formData: FormData) {
-  const { user } = await requireStaff("/admin/orders");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const { orderId, body } = adminOrderActionFromForm(formData);
 
   await performAdminOrderAction(createServiceClient(), orderId, body, `staff:${user.id}`);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/orders");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
   revalidatePath(`/orders/${orderId}`);
 }
 
 export async function recordSupplierPurchaseOrder(formData: FormData) {
-  const { user } = await requireStaff("/admin/purchase-orders");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const input = adminPurchaseOrderFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_create_supplier_purchase_order", {
@@ -295,18 +301,20 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
 
   if (error) throw new Error(`Supplier purchase order intake failed: ${error.message}`);
 
-  revalidatePath("/admin");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
   revalidatePath("/catalog");
   revalidatePath("/preorders");
 }
 
 export async function runPreorderAllocation(formData: FormData) {
-  const { user } = await requireStaff("/admin/preorders");
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const skuId = String(formData.get("skuId") ?? "");
 
   await runPreorderAllocationForSku(createServiceClient(), skuId, `staff:${user.id}`);
 
-  revalidatePath("/admin");
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
   revalidatePath("/preorders");
   revalidatePath("/catalog");
 }

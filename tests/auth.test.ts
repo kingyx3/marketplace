@@ -8,6 +8,7 @@ import {
   extractBearerToken,
   isAdminRole,
   requireApiAdmin,
+  requireApiPermission,
   rolesFromUser,
 } from "@/lib/api/auth";
 import { getRequestOrigin } from "@/lib/request-origin";
@@ -45,60 +46,103 @@ describe("auth helpers", () => {
     expect(isAdminRole(["customer"])).toBe(false);
   });
 
-  it("does not let stale app metadata bypass staff deactivation", async () => {
-    const request = new Request("https://example.test/api/admin/orders", {
-      headers: { authorization: "Bearer token-123" },
-    });
+  it("provisions an environment allowlisted API user as a protected owner", async () => {
+    const request = adminRequest();
+    const state = fakeAdminSupabase();
 
-    await expect(
-      requireApiAdmin(
-        request,
-        fakeAdminSupabase({ id: "staff-1", role: "admin", active: false }) as never
-      )
-    ).rejects.toThrow("Active staff access required");
-  });
-
-  it("allows an authenticated active staff record", async () => {
-    const request = new Request("https://example.test/api/admin/orders", {
-      headers: { authorization: "Bearer token-123" },
-    });
-
-    await expect(
-      requireApiAdmin(
-        request,
-        fakeAdminSupabase({ id: "staff-1", role: "admin", active: true }) as never
-      )
-    ).resolves.toMatchObject({ user: { id: "user-1" } });
-  });
-
-  it("provisions an allowlisted authenticated user with no staff row", async () => {
-    const request = new Request("https://example.test/api/admin/orders", {
-      headers: { authorization: "Bearer token-123" },
-    });
-
-    await expect(requireApiAdmin(request, fakeAdminSupabase(null) as never)).resolves.toMatchObject({
+    await expect(requireApiAdmin(request, state.client as never)).resolves.toMatchObject({
       user: { id: "user-1" },
+      isAdmin: true,
+      roles: expect.arrayContaining(["owner"]),
+    });
+    expect(state.staff).toMatchObject({ role: "owner", active: true, source: "environment" });
+  });
+
+  it("revalidates an active database-managed administrator outside the environment whitelist", async () => {
+    process.env.ADMIN_EMAIL_ALLOWLIST = "owner@example.test";
+    const request = adminRequest();
+    const state = fakeAdminSupabase({
+      staff: {
+        id: "staff-1",
+        role: "viewer",
+        active: true,
+        email: "admin@example.test",
+        source: "database",
+      },
+      grant: {
+        id: "grant-1",
+        role: "operations",
+        active: true,
+        created_by_staff_id: "owner-staff",
+      },
+    });
+
+    await expect(requireApiAdmin(request, state.client as never)).resolves.toMatchObject({
+      user: { id: "user-1" },
+      roles: expect.arrayContaining(["operations"]),
+      staff: { role: "operations" },
+      isAdmin: true,
     });
   });
 
-  it("requires active staff emails to be in the normalized server allowlist", async () => {
+  it("enforces role permissions after administrator authentication", async () => {
+    process.env.ADMIN_EMAIL_ALLOWLIST = "owner@example.test";
+    const state = fakeAdminSupabase({
+      staff: {
+        id: "staff-1",
+        role: "operations",
+        active: true,
+        email: "admin@example.test",
+        source: "database",
+      },
+      grant: {
+        id: "grant-1",
+        role: "operations",
+        active: true,
+        created_by_staff_id: "owner-staff",
+      },
+    });
+
+    await expect(
+      requireApiPermission(adminRequest(), "manage_orders", state.client as never)
+    ).resolves.toMatchObject({ staff: { role: "operations" } });
+    await expect(
+      requireApiPermission(adminRequest(), "manage_admins", state.client as never)
+    ).rejects.toThrow("Insufficient administrator permission");
+  });
+
+  it("rejects an authenticated user without an allowlist entry, staff row, or grant", async () => {
+    process.env.ADMIN_EMAIL_ALLOWLIST = "owner@example.test";
+    const request = adminRequest();
+
+    await expect(requireApiAdmin(request, fakeAdminSupabase().client as never)).rejects.toThrow(
+      "Active staff access required"
+    );
+  });
+
+  it("rejects stale database staff when the delegated grant is absent", async () => {
+    process.env.ADMIN_EMAIL_ALLOWLIST = "owner@example.test";
+    const state = fakeAdminSupabase({
+      staff: {
+        id: "staff-1",
+        role: "admin",
+        active: true,
+        email: "admin@example.test",
+        source: "database",
+      },
+    });
+
+    await expect(requireApiAdmin(adminRequest(), state.client as never)).rejects.toThrow(
+      "Active staff access required"
+    );
+  });
+
+  it("normalizes the server allowlist and fails closed on malformed values", () => {
     expect([
       ...parseAdminEmailAllowlist(" Owner@Example.test,ops@example.test,owner@example.test "),
     ]).toEqual(["owner@example.test", "ops@example.test"]);
     expect(isAdminEmailAllowed("OWNER@example.test", "owner@example.test")).toBe(true);
     expect(parseAdminEmailAllowlist("owner@example.test,not-an-email").size).toBe(0);
-
-    process.env.ADMIN_EMAIL_ALLOWLIST = "someone-else@example.test";
-    const request = new Request("https://example.test/api/admin/orders", {
-      headers: { authorization: "Bearer token-123" },
-    });
-
-    await expect(
-      requireApiAdmin(
-        request,
-        fakeAdminSupabase({ id: "staff-1", role: "admin", active: true }) as never
-      )
-    ).rejects.toThrow("Active staff access required");
   });
 
   it("detects fresh OAuth signups without treating old users as new", () => {
@@ -118,7 +162,6 @@ describe("auth helpers", () => {
     const request = new Request("http://localhost:3100/auth/sign-in", {
       headers: { host: "127.0.0.1:3100" },
     });
-
     expect(getRequestOrigin(request, "http://localhost:3000")).toBe("http://127.0.0.1:3100");
   });
 
@@ -228,32 +271,99 @@ describe("auth helpers", () => {
   });
 });
 
-function fakeAdminSupabase(initialStaff: StaffProfile | null) {
-  let staff = initialStaff;
-  const builder = {
-    select: vi.fn(() => builder),
-    eq: vi.fn(() => builder),
-    maybeSingle: vi.fn(async () => ({ data: staff, error: null })),
-    insert: vi.fn((input: { role: StaffProfile["role"]; active: boolean }) => {
-      staff = { id: "provisioned-staff", role: input.role, active: input.active };
-      return builder;
-    }),
-    single: vi.fn(async () => ({ data: staff, error: null })),
+interface FakeGrant {
+  id: string;
+  role: StaffProfile["role"];
+  active: boolean;
+  created_by_staff_id: string | null;
+}
+
+function adminRequest() {
+  return new Request("https://example.test/api/admin/orders", {
+    headers: { authorization: "Bearer token-123" },
+  });
+}
+
+function fakeAdminSupabase(initial?: { staff?: StaffProfile; grant?: FakeGrant }) {
+  const state: {
+    staff: (StaffProfile & { auth_user_id?: string }) | null;
+    grant: FakeGrant | null;
+    client: {
+      auth: { getUser: ReturnType<typeof vi.fn> };
+      from: ReturnType<typeof vi.fn>;
+    };
+  } = {
+    staff: initial?.staff ?? null,
+    grant: initial?.grant ?? null,
+    client: null as never,
   };
 
-  return {
+  state.client = {
     auth: {
       getUser: vi.fn(async () => ({
         data: {
           user: {
             id: "user-1",
             email: "admin@example.test",
-            app_metadata: { role: "admin" },
+            app_metadata: { role: "customer" },
           },
         },
         error: null,
       })),
     },
-    from: vi.fn(() => builder),
+    from: vi.fn((table: string) => {
+      if (table === "staff_users") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn(async () => ({ data: state.staff, error: null })),
+            })),
+          })),
+          update: vi.fn((input: Record<string, unknown>) => ({
+            eq: vi.fn(() => ({
+              select: vi.fn(() => ({
+                single: vi.fn(async () => {
+                  state.staff = {
+                    ...(state.staff ?? { id: "staff-1" }),
+                    ...input,
+                  } as StaffProfile;
+                  return { data: state.staff, error: null };
+                }),
+              })),
+            })),
+          })),
+          insert: vi.fn((input: Record<string, unknown>) => ({
+            select: vi.fn(() => ({
+              single: vi.fn(async () => {
+                state.staff = {
+                  id: "provisioned-staff",
+                  ...input,
+                } as StaffProfile & { auth_user_id?: string };
+                return { data: state.staff, error: null };
+              }),
+            })),
+          })),
+        };
+      }
+
+      if (table === "admin_access_grants") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({ data: state.grant, error: null })),
+              })),
+            })),
+          })),
+          update: vi.fn(() => ({
+            eq: vi.fn(async () => ({ error: null })),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    }),
   };
+
+  return state;
 }

@@ -17,9 +17,10 @@ describe("audience-aware frontend access", () => {
     expect(html).not.toContain("Account");
     expect(html).not.toContain("Orders");
     expect(html).not.toContain("Admin");
+    expect(html).not.toContain("Control");
   });
 
-  it("keeps admin navigation hidden from regular authenticated customers", () => {
+  it("keeps control navigation hidden from regular authenticated customers", () => {
     const html = renderHeader({
       user: { id: "customer-user" } as CurrentViewer["user"],
       staff: null,
@@ -30,27 +31,38 @@ describe("audience-aware frontend access", () => {
     expect(html).toContain("Orders");
     expect(html).toContain("Sign out");
     expect(html).not.toContain("Admin");
+    expect(html).not.toContain("Control");
   });
 
-  it("shows admin navigation only after an active staff lookup", () => {
+  it("does not advertise the control console even to active staff", () => {
     const html = renderHeader({
       user: { id: "staff-user" } as CurrentViewer["user"],
       staff: { id: "staff-row", role: "admin", active: true },
       staffLookup: "resolved",
     });
 
-    expect(html).toContain("Admin");
+    expect(html).toContain("Account");
+    expect(html).not.toContain("Admin");
+    expect(html).not.toContain("Control");
+    expect(html).not.toContain("/control");
   });
 
-  it("protects every admin page through a shared layout and publishes required policies", async () => {
-    const [adminLayout, pageAuth, apiAuth] = await Promise.all([
-      readFile(new URL("../app/(shop)/admin/layout.tsx", import.meta.url), "utf8"),
+  it("protects the control console, redirects legacy admin paths, and publishes policies", async () => {
+    const [controlLayout, pageAuth, apiAuth, proxy, siteHeader] = await Promise.all([
+      readFile(new URL("../app/(shop)/control/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/api/auth.ts", import.meta.url), "utf8"),
+      readFile(new URL("../proxy.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/_components/site-header.tsx", import.meta.url), "utf8"),
     ]);
-    expect(adminLayout).toContain('requireStaff("/admin")');
-    expect(pageAuth).toContain("isAdminEmailAllowed(user.email)");
-    expect(apiAuth).toContain("isAdminEmailAllowed(auth.user.email)");
+
+    expect(controlLayout).toContain('requireControlPermission("view_control", "/control")');
+    expect(pageAuth).toContain("resolveAdminStaff");
+    expect(apiAuth).toContain("resolveAdminStaff");
+    expect(proxy).toContain('replace(/^\\/admin/, "/control")');
+    expect(proxy).toContain("308");
+    expect(siteHeader).not.toContain('href="/admin"');
+    expect(siteHeader).not.toContain('href="/control"');
 
     for (const policy of [
       "privacy",

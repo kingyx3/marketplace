@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireApiAdmin } from "@/lib/api/auth";
+
+import { requireApiPermission } from "@/lib/api/auth";
 import { toErrorResponse } from "@/lib/api/errors";
 import { readJsonBody } from "@/lib/api/request";
 import { notifyDropForSku } from "@/lib/waitlist";
@@ -13,7 +14,7 @@ const notifyRequestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireApiAdmin(request);
+    const auth = await requireApiPermission(request, "manage_full_operations");
     const input = notifyRequestSchema.parse(await readJsonBody(request));
     const results = await notifyDropForSku(auth.supabase, input.skuId);
     return NextResponse.json({

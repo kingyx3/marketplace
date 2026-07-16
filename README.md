@@ -8,7 +8,9 @@ A retail marketplace for sealed trading-card products, limited-time deals, preor
 - `/catalog?view=deals` — current public and member-eligible deals
 - `/cart` — retail checkout with server-verified totals and shipping
 - `/account`, `/orders`, `/preorders` — authenticated customer activity
-- `/admin` — catalog, listings, inventory, purchasing, deals, and order exceptions
+- `/control` — unlinked, role-scoped operations console for authorized administrators
+
+Legacy `/admin` paths permanently redirect to the equivalent `/control` path. The storefront does not advertise or link to the console.
 
 ## Local quickstart
 
@@ -69,6 +71,6 @@ Pull-request CI also applies every database migration in order, loads seed data,
 - [`docs/deployment.md`](docs/deployment.md) — deployment and release behavior
 - [`docs/provisioning.md`](docs/provisioning.md) — Terraform and provider ownership
 - [`docs/local-dev.md`](docs/local-dev.md) — local development
-- [`docs/security.md`](docs/security.md) — RLS, secrets, and webhooks
+- [`docs/security.md`](docs/security.md) — RLS, secrets, and administrator access
 - [`docs/data-model.md`](docs/data-model.md) — active application data model
-- [`docs/admin-operations.md`](docs/admin-operations.md) — operator workflows
+- [`docs/admin-operations.md`](docs/admin-operations.md) — control-console workflows

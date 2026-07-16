@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { SiteFooter } from "@/app/_components/site-footer";
-import { SiteHeader } from "@/app/_components/site-header";
+import { AppShell } from "@/app/_components/app-shell";
 import { getAppName } from "@/lib/app-config";
 import { getCurrentViewer } from "@/lib/auth";
 
@@ -27,9 +26,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-zinc-50 text-zinc-900 antialiased">
-        <SiteHeader appName={appName} viewer={viewer} />
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10">{children}</main>
-        <SiteFooter appName={appName} />
+        <AppShell appName={appName} viewer={viewer}>
+          {children}
+        </AppShell>
       </body>
     </html>
   );

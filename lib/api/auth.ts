@@ -1,7 +1,12 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+
 import { isAdminEmailAllowed } from "@/lib/admin-email-allowlist";
-import { resolveAllowlistedAdminStaff } from "@/lib/admin-staff";
+import { resolveAdminStaff, type StaffProfile } from "@/lib/admin-staff";
 import { conflict, forbidden, unauthorized } from "@/lib/api/errors";
+import {
+  hasControlPermission,
+  type ControlPermission,
+} from "@/lib/control-permissions";
 import { setTelemetryUser } from "@/lib/observability";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -26,6 +31,10 @@ export interface ApiAuthContext {
   user: User;
   roles: string[];
   isAdmin: boolean;
+}
+
+export interface ApiAdminContext extends ApiAuthContext {
+  staff: StaffProfile;
 }
 
 export interface ApiCustomerContext extends ApiAuthContext {
@@ -87,17 +96,35 @@ export async function authenticateApiRequest(
 export async function requireApiAdmin(
   request: Request,
   supabase: SupabaseClient = createServiceClient()
-): Promise<ApiAuthContext> {
+): Promise<ApiAdminContext> {
   const auth = await authenticateApiRequest(request, supabase);
-  if (!isAdminEmailAllowed(auth.user.email)) {
-    throw forbidden("Active staff access required");
-  }
+  const staff = await resolveAdminStaff(supabase, {
+    authUserId: auth.user.id,
+    email: auth.user.email,
+    environmentAllowlisted: isAdminEmailAllowed(auth.user.email),
+  });
 
-  const staff = await resolveAllowlistedAdminStaff(supabase, auth.user.id);
   if (!staff) {
     throw forbidden("Active staff access required");
   }
 
+  return {
+    ...auth,
+    staff,
+    isAdmin: true,
+    roles: [...new Set([...auth.roles, staff.role])],
+  };
+}
+
+export async function requireApiPermission(
+  request: Request,
+  permission: ControlPermission,
+  supabase: SupabaseClient = createServiceClient()
+): Promise<ApiAdminContext> {
+  const auth = await requireApiAdmin(request, supabase);
+  if (!hasControlPermission(auth.staff, permission)) {
+    throw forbidden("Insufficient administrator permission");
+  }
   return auth;
 }
 

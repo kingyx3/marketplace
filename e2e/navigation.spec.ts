@@ -26,6 +26,7 @@ test.describe("storefront navigation", () => {
     await expect(navigation.getByRole("link", { name: "Preorders" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Orders" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Admin" })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: "Control" })).toHaveCount(0);
 
     await page.getByRole("link", { name: "Browse catalog" }).first().click();
     await expect(page).toHaveURL(/\/catalog$/);
@@ -58,12 +59,18 @@ test.describe("storefront navigation", () => {
     expect(response.status()).toBe(404);
   });
 
-  test("redirects protected pages through the sign-in flow without server errors", async ({ page }) => {
-    for (const path of ["/account", "/orders", "/preorders", "/admin"]) {
+  test("redirects protected pages through sign-in without server errors", async ({ page }) => {
+    for (const path of ["/account", "/orders", "/preorders", "/control", "/admin"]) {
       const response = await page.goto(path);
       expect(response?.status(), `${path} initial response`).toBeLessThan(500);
       await expect(page).toHaveURL(/\/(sign-in|auth\/auth-code-error)/);
     }
+  });
+
+  test("permanently redirects legacy admin subpaths to control", async ({ request }) => {
+    const response = await request.get("/admin/deals", { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(response.headers().location).toContain("/control/deals");
   });
 
   test("returns a real 404 for an unknown product", async ({ request }) => {
