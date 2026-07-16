@@ -15,12 +15,11 @@ export default async function SignInPage({
   const next = safeNextPath(params.next);
 
   return (
-    <section className="mx-auto max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
+    <section className="mx-auto max-w-md rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
       <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Account</p>
-      <h1 className="mt-3 text-3xl font-bold text-zinc-950">Sign in securely</h1>
-      <p className="mt-4 text-sm leading-6 text-zinc-600">
-        Continue with Google to access orders, preorders, complete eligible deals, and approved
-        wholesale pricing.
+      <h1 className="mt-3 text-3xl font-bold text-zinc-950">Sign in</h1>
+      <p className="mt-3 text-sm leading-6 text-zinc-600">
+        Access your orders, preorders, saved cart, and eligible deals.
       </p>
       <a
         className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
