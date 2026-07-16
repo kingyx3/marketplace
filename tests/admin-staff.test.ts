@@ -98,13 +98,15 @@ interface FakeGrant {
   created_by_staff_id: string | null;
 }
 
-function createStaffClient(initial?: { staff?: StaffProfile; grant?: FakeGrant }) {
-  const state: {
-    staff: (StaffProfile & { auth_user_id?: string }) | null;
-    grant: FakeGrant | null;
-    grantAcceptedFor: string | null;
-    client: SupabaseClient;
-  } = {
+interface FakeState {
+  staff: (StaffProfile & { auth_user_id?: string }) | null;
+  grant: FakeGrant | null;
+  grantAcceptedFor: string | null;
+  client: SupabaseClient;
+}
+
+function createStaffClient(initial?: { staff?: StaffProfile; grant?: FakeGrant }): FakeState {
+  const state: FakeState = {
     staff: initial?.staff ?? null,
     grant: initial?.grant ?? null,
     grantAcceptedFor: null,
@@ -122,7 +124,7 @@ function createStaffClient(initial?: { staff?: StaffProfile; grant?: FakeGrant }
   return state;
 }
 
-function staffTable(state: ReturnType<typeof createStaffClient>) {
+function staffTable(state: FakeState) {
   return {
     select() {
       return {
@@ -145,7 +147,10 @@ function staffTable(state: ReturnType<typeof createStaffClient>) {
             select() {
               return {
                 async single() {
-                  state.staff = { ...(state.staff ?? { id: "staff-1" }), ...input } as StaffProfile;
+                  state.staff = {
+                    ...(state.staff ?? { id: "staff-1" }),
+                    ...input,
+                  } as StaffProfile;
                   return { data: state.staff, error: null };
                 },
               };
@@ -171,7 +176,7 @@ function staffTable(state: ReturnType<typeof createStaffClient>) {
   };
 }
 
-function grantTable(state: ReturnType<typeof createStaffClient>) {
+function grantTable(state: FakeState) {
   return {
     select() {
       return {
