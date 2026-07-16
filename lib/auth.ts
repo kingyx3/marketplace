@@ -97,6 +97,7 @@ export async function getCustomerProfile(authUserId: string): Promise<CustomerPr
     .from("customers")
     .select("id, email, name, billing_state, provisioning_state, provisioning_error")
     .eq("auth_user_id", authUserId)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (error) {
