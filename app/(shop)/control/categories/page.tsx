@@ -18,8 +18,18 @@ interface CategoryRow {
 
 export const dynamic = "force-dynamic";
 
-export default async function ControlCategoriesPage() {
+export default async function ControlCategoriesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    error?: string;
+    slug?: string;
+    existing?: string;
+    suggested?: string;
+  }>;
+}) {
   await requireControlPermission("manage_catalog", "/control/categories");
+  const params = (await searchParams) ?? {};
   const supabase = createServiceClient();
   const [categoryResult, productResult, setResult] = await Promise.all([
     supabase
@@ -42,14 +52,20 @@ export default async function ControlCategoriesPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeading
-        title="Categories"
-        description="Maintain the catalog hierarchy, ordering, publisher metadata, and archive state. Circular relationships are rejected by the database."
-      />
+      <PageHeading title="Categories" description="Manage catalog hierarchy and archive state." />
+
+      {params.error === "duplicate-category" ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">The slug “{params.slug}” is already used by {params.existing}.</p>
+          <p className="mt-1">
+            Edit the existing category or use a unique slug such as <code>{params.suggested}</code>.
+          </p>
+        </div>
+      ) : null}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-zinc-950">Add category</h2>
-        <CategoryForm categories={categories} />
+        <CategoryForm categories={categories} suggestedSlug={params.suggested} />
       </section>
 
       <section className="space-y-4">
@@ -80,8 +96,8 @@ export default async function ControlCategoriesPage() {
                     <button
                       className={
                         category.active
-                          ? "rounded-md border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"
-                          : "rounded-md border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                          ? "min-h-11 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                          : "min-h-11 rounded-md border border-emerald-200 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
                       }
                     >
                       {category.active ? "Archive" : "Restore"}
@@ -111,16 +127,18 @@ export default async function ControlCategoriesPage() {
 function CategoryForm({
   categories,
   category,
+  suggestedSlug,
 }: {
   categories: CategoryRow[];
   category?: CategoryRow;
+  suggestedSlug?: string;
 }) {
   return (
     <form action={upsertControlCategory} className="mt-4 grid gap-4">
       {category ? <input name="categoryId" type="hidden" value={category.id} /> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Field label="Name" name="name" required value={category?.name} />
-        <Field label="Slug" name="slug" required value={category?.slug} />
+        <Field label="Slug" name="slug" required value={category?.slug ?? suggestedSlug} />
         <Field label="Publisher" name="publisher" value={category?.publisher ?? ""} />
         <Field
           label="Sort order"
@@ -134,7 +152,7 @@ function CategoryForm({
       <label className="grid gap-1 text-sm font-medium text-zinc-700">
         Parent category
         <select
-          className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
+          className="min-h-11 rounded-md border border-zinc-300 px-3 text-base sm:text-sm"
           defaultValue={category?.parent_id ?? ""}
           name="parentId"
         >
@@ -143,7 +161,8 @@ function CategoryForm({
             .filter((candidate) => candidate.id !== category?.id)
             .map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
-                {candidate.name}{candidate.active ? "" : " (archived)"}
+                {candidate.name}
+                {candidate.active ? "" : " (archived)"}
               </option>
             ))}
         </select>
@@ -151,7 +170,7 @@ function CategoryForm({
       <label className="grid gap-1 text-sm font-medium text-zinc-700">
         Description
         <textarea
-          className="min-h-24 rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          className="min-h-24 rounded-md border border-zinc-300 px-3 py-2 text-base sm:text-sm"
           defaultValue={category?.description ?? ""}
           maxLength={2000}
           name="description"
@@ -163,7 +182,7 @@ function CategoryForm({
           <input defaultChecked={category?.active ?? true} name="active" type="checkbox" value="true" />
           Active
         </label>
-        <button className="rounded-md bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+        <button className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
           {category ? "Save category" : "Create category"}
         </button>
       </div>
@@ -214,7 +233,7 @@ function Field({
     <label className="grid gap-1 text-sm font-medium text-zinc-700">
       {label}
       <input
-        className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
+        className="min-h-11 rounded-md border border-zinc-300 px-3 text-base sm:text-sm"
         defaultValue={value}
         min={min}
         name={name}
