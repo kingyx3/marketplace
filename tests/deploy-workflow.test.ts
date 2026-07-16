@@ -117,19 +117,25 @@ describe("deployment workflow contract", () => {
   it("routes code changes and releases through one deployment orchestrator", async () => {
     const workflow = await read(".github/workflows/deploy-app.yml");
     expect(workflow).toContain("name: Deploy App");
-    expect(workflow).toContain("branches: [develop, main]");
+    expect(workflow).toContain("branches: ['**']");
+    expect(workflow).toContain("github.ref != 'refs/heads/main'");
     expect(workflow).toContain("tags: ['v*']");
     expect(workflow).toContain("types: [published]");
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("environment: development");
     expect(workflow).toContain("environment: staging");
     expect(workflow).toContain("environment: production");
+    expect(workflow).toContain("report-staging-disabled:");
+    expect(workflow).toContain("reject-disabled-staging-dispatch:");
+    expect(workflow).toContain("vars.ENABLE_RELEASE_TOPOLOGY == 'true'");
     expect(workflow).toContain("deploy-release-staging:");
     expect(workflow).toContain("hosted-release-gates:");
     expect(workflow).toContain("needs: deploy-release-staging");
     expect(workflow).toContain("staging_app_url: ${{ needs.deploy-release-staging.outputs.deployment_url }}");
-    expect(workflow).toContain("deploy-production:");
+    expect(workflow).toContain("deploy-production-gated:");
     expect(workflow).toContain("needs: hosted-release-gates");
+    expect(workflow).toContain("deploy-production-direct:");
+    expect(workflow).toContain("vars.ENABLE_RELEASE_TOPOLOGY != 'true'");
   });
 
   it("keeps infrastructure helpers convergent and reusable-only", async () => {
