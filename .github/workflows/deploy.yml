@@ -70,7 +70,7 @@ jobs:
       - run: node scripts/resolve-terraform-inputs.mjs platform
       - run: terraform -chdir=infra/terraform/platform init -input=false -lockfile=readonly -backend-config="bucket=$TF_STATE_BUCKET_NAME" -backend-config="prefix=$TF_STATE_PREFIX"
       - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
-      - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
+      - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password --verify-supabase-keys
       - run: node scripts/generate-env.mjs --check --allow-missing-provisioned
       - name: Enforce hosted infrastructure and provider readiness
         if: ${{ inputs.environment != 'development' }}

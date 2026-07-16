@@ -56,6 +56,9 @@ export async function resolveEnvironment(env = process.env, options = {}) {
   if (options.strict && missing.length > 0) {
     throw new Error(`Could not resolve required environment value(s): ${missing.join(", ")}`);
   }
+  if (options.verifySupabaseKeys) {
+    await verifySupabaseProjectKeys(env);
+  }
   return {
     targetEnv,
     publicValues: pickValues(env, PUBLIC_ENV_KEYS),
@@ -108,12 +111,17 @@ async function resolveSupabaseValues(env) {
   if (!hasValue(env.NEXT_PUBLIC_SUPABASE_URL) && hasValue(env.SUPABASE_PROJECT_REF)) {
     env.NEXT_PUBLIC_SUPABASE_URL = `https://${env.SUPABASE_PROJECT_REF}.supabase.co`;
   }
-  if (hasValue(env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) && hasValue(env.SUPABASE_SECRET_KEY)) return;
   if (!hasValue(env.SUPABASE_ACCESS_TOKEN) || !hasValue(env.SUPABASE_PROJECT_REF)) return;
 
   const keys = await fetchSupabaseProjectApiKeys(env.SUPABASE_ACCESS_TOKEN, env.SUPABASE_PROJECT_REF);
-  setIfMissing(env, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", selectSupabasePublishableKey(keys));
-  setIfMissing(env, "SUPABASE_SECRET_KEY", selectSupabaseSecretKey(keys));
+  const publishableKey = selectSupabasePublishableKey(keys);
+  const secretKey = selectSupabaseSecretKey(keys);
+
+  // The Management API response is authoritative for the selected project.
+  // Replace stale environment-scoped values instead of carrying a key from a
+  // different Supabase project into Vercel.
+  if (hasValue(publishableKey)) env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishableKey;
+  if (hasValue(secretKey)) env.SUPABASE_SECRET_KEY = secretKey;
 }
 
 async function resolveStripeValues(env) {
@@ -189,18 +197,46 @@ async function fetchJson(url, { headers, service }) {
 function normalizedSupabaseKeys(keys) {
   return keys.map((entry) => ({
     value: entry?.api_key || entry?.key || entry?.value || "",
-    role: String(entry?.role || entry?.type || entry?.name || "").toLowerCase(),
+    labels: [entry?.role, entry?.type, entry?.name]
+      .filter((value) => typeof value === "string" && value.trim())
+      .join(" ")
+      .toLowerCase(),
   })).filter((entry) => entry.value);
 }
-function selectSupabasePublishableKey(keys) {
+export function selectSupabasePublishableKey(keys) {
   const candidates = normalizedSupabaseKeys(keys);
   return candidates.find((entry) => entry.value.startsWith("sb_publishable_"))?.value ||
-    candidates.find((entry) => entry.role.includes("publishable") || entry.role === "anon")?.value || "";
+    candidates.find((entry) => entry.labels.includes("publishable") || entry.labels.includes("anon"))?.value || "";
 }
-function selectSupabaseSecretKey(keys) {
+export function selectSupabaseSecretKey(keys) {
   const candidates = normalizedSupabaseKeys(keys);
   return candidates.find((entry) => entry.value.startsWith("sb_secret_"))?.value ||
-    candidates.find((entry) => entry.role.includes("secret"))?.value || "";
+    candidates.find((entry) => entry.labels.includes("secret") || entry.labels.includes("service_role"))?.value || "";
+}
+
+async function verifySupabaseProjectKeys(env) {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const projectRef = env.SUPABASE_PROJECT_REF || projectRefFromSupabaseUrl(url);
+  const checks = [
+    ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY],
+    ["SUPABASE_SECRET_KEY", env.SUPABASE_SECRET_KEY],
+  ];
+  for (const [name, key] of checks) {
+    if (!hasValue(url) || !hasValue(key)) continue;
+    const endpoint = new URL("/rest/v1/customers?select=id&limit=0", url);
+    const response = await fetch(endpoint, {
+      headers: {
+        Accept: "application/json",
+        apikey: key,
+      },
+    });
+    if (response.ok) continue;
+    const detail = redact(await response.text());
+    throw new Error(
+      `${name} is not valid for Supabase project ${projectRef || "selected environment"} ` +
+      `(${response.status}${detail ? `: ${detail}` : ""}). Re-run Bootstrap & Deploy so project-scoped keys are reconciled.`
+    );
+  }
 }
 
 async function loadTerraformOutputs(path, env) {
@@ -268,6 +304,7 @@ function parseArgs(argv) {
     else if (arg === "--tf-output-json") args.tfOutputJson = argv[++index];
     else if (arg === "--strict") args.strict = true;
     else if (arg === "--require-db-password") args.requireDbPassword = true;
+    else if (arg === "--verify-supabase-keys") args.verifySupabaseKeys = true;
     else if (arg === "--print") args.print = true;
     else if (!arg.startsWith("--") && !args.environment) args.environment = arg;
     else throw new Error(`unknown argument: ${arg}`);
@@ -295,6 +332,7 @@ function formatGithubLine(key, value) {
 function redact(value) {
   return String(value)
     .replaceAll(/sbp_[A-Za-z0-9_\-]+/g, "[redacted-supabase-token]")
+    .replaceAll(/sb_publishable_[A-Za-z0-9_\-]+/g, "[redacted-supabase-publishable-key]")
     .replaceAll(/sb_secret_[A-Za-z0-9_\-]+/g, "[redacted-supabase-secret-key]")
     .replaceAll(/sk_(test|live)_[A-Za-z0-9_\-]+/g, "[redacted-stripe-secret-key]")
     .replaceAll(/whsec_[A-Za-z0-9_\-]+/g, "[redacted-stripe-webhook-secret]")

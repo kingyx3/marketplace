@@ -331,14 +331,16 @@ function configString(config: Record<string, unknown>, key: string, fallback: st
 async function currentWholesaleAccess(): Promise<WholesaleAccess | null> {
   const user = await getCurrentUser();
   if (!user) return null;
-  const customer = await getCustomerProfile(user.id);
-  if (!customer) return null;
 
   try {
+    const customer = await getCustomerProfile(user.id);
+    if (!customer) return null;
     const access = await getWholesaleAccess(createServiceClient(), customer.id);
     return wholesaleIsActive(access) ? access : null;
   } catch (error) {
-    console.error("wholesale pricing lookup failed:", safeError(error));
+    // Wholesale pricing is an optional catalog enhancement. A backend
+    // credential or B2B lookup failure must not make the public catalog fail.
+    console.error("wholesale customer/access lookup failed:", safeError(error));
     return null;
   }
 }
