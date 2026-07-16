@@ -6,6 +6,7 @@ const appUrl = requiredUrl("STAGING_APP_URL");
 const supabaseUrl = requiredUrl("NEXT_PUBLIC_SUPABASE_URL");
 const publishableKey = required("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
 const secretKey = required("SUPABASE_SECRET_KEY");
+required("ADMIN_EMAIL_ALLOWLIST");
 const runId = randomUUID();
 const password = `Hosted-${runId}-Aa1!`;
 const prefix = `release-gate-${runId}`;
@@ -77,11 +78,11 @@ try {
   await verifyAnonymousAccess();
   await verifyCustomerIsolation(customerA, customerARow, customerBRow, orderRows);
   await verifyCustomerIsolation(customerB, customerBRow, customerARow, orderRows);
-  await verifyStaffRevocation(activeStaff, inactiveStaff);
+  await verifyAdminAuthorizationDenials(activeStaff, inactiveStaff);
   await verifyStorageRoundTrip();
 
   console.log(
-    "Hosted Supabase Auth, RLS, object isolation, staff revocation, and Storage recovery checks passed."
+    "Hosted Supabase Auth, RLS, admin allowlist, staff revocation, and Storage recovery checks passed."
   );
 } finally {
   await cleanup();
@@ -192,14 +193,17 @@ async function verifyCustomerIsolation(identity, ownCustomer, otherCustomer, ord
   );
 }
 
-async function verifyStaffRevocation(activeStaff, inactiveStaff) {
+async function verifyAdminAuthorizationDenials(activeStaff, inactiveStaff) {
   const activeToken = await accessToken(activeStaff);
   const inactiveToken = await accessToken(inactiveStaff);
 
   const activeResponse = await fetch(new URL("/api/admin/orders?limit=1", appUrl), {
     headers: { Authorization: `Bearer ${activeToken}`, Accept: "application/json" },
   });
-  assert(activeResponse.status === 200, `active staff admin API returned ${activeResponse.status}`);
+  assert(
+    activeResponse.status === 403,
+    `non-allowlisted active staff admin API returned ${activeResponse.status}, expected 403`
+  );
 
   const inactiveResponse = await fetch(new URL("/api/admin/orders?limit=1", appUrl), {
     headers: { Authorization: `Bearer ${inactiveToken}`, Accept: "application/json" },

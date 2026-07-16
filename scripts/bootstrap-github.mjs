@@ -16,6 +16,7 @@ run("gh", ["auth", "status"]);
 const sharedSecrets = ["GCP_TERRAFORM_CREDENTIALS_JSON", "VERCEL_TOKEN", "SUPABASE_ACCESS_TOKEN"];
 const sharedSentryVariables = ["NEXT_PUBLIC_SENTRY_DSN", "SENTRY_ORG", "SENTRY_PROJECT"];
 const sharedSentrySecrets = ["SENTRY_AUTH_TOKEN"];
+const sharedRuntimeVariables = ["ADMIN_EMAIL_ALLOWLIST"];
 const sharedVariableValues = {
   ENABLE_RELEASE_TOPOLOGY: booleanValue("ENABLE_RELEASE_TOPOLOGY", false),
 };
@@ -88,6 +89,9 @@ for (const name of sharedSentryVariables) {
 for (const name of sharedSentrySecrets) {
   reportInput(name, process.env[name], target !== "development");
 }
+for (const name of sharedRuntimeVariables) {
+  reportInput(name, process.env[name], target === "production");
+}
 console.log(`\n${target}:`);
 for (const name of environmentVariables) {
   reportInput(`${environmentPrefix(target)}_${name}`, environmentValue(target, name), variableIsRequired(name));
@@ -117,6 +121,11 @@ for (const name of sharedSentrySecrets) {
   if (value) setSecret(name, value);
   else if (target !== "development") fail(`${name} is required for hosted Sentry source maps`);
 }
+for (const name of sharedRuntimeVariables) {
+  const value = process.env[name] || "";
+  if (value) setRepositoryVariable(name, value);
+  else if (target === "production") fail(`${name} is required for production admin authorization`);
+}
 ensureEnvironment(target);
 for (const environment of deploymentEnvironments) {
   for (const name of redundantEnvironmentSentryVariables) {
@@ -144,7 +153,8 @@ for (const name of environmentSecrets) {
 console.log(`GitHub ${target} environment, policies, variables, and supplied secrets are converged.`);
 
 function variableIsRequired(name) {
-  if (["SUPABASE_ADVISOR_ALLOWLIST", "GOOGLE_OAUTH_CLIENT_ID", "SUPPORT_EMAIL"].includes(name)) {
+  if (name === "SUPPORT_EMAIL") return target === "production";
+  if (["SUPABASE_ADVISOR_ALLOWLIST", "GOOGLE_OAUTH_CLIENT_ID"].includes(name)) {
     return false;
   }
   return true;

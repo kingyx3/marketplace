@@ -6,31 +6,31 @@ test.describe("storefront navigation", () => {
 
     await expect(
       page.getByRole("heading", {
-        name: /sealed booster boxes with allocation people can see/i,
+        name: /sealed booster boxes with prices and availability up front/i,
       })
     ).toBeVisible();
 
-    const navigation = page.getByRole("navigation");
+    const navigation = page.getByRole("navigation", { name: "Primary navigation" });
     await expect(navigation.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
     await expect(navigation.getByRole("link", { name: "Catalog" })).toHaveAttribute(
       "href",
       "/catalog"
     );
-    await expect(navigation.getByRole("link", { name: "Preorders" })).toHaveAttribute(
-      "href",
-      "/preorders"
-    );
+    await expect(navigation.getByRole("link", { name: "Deals" })).toHaveAttribute("href", "/deals");
     await expect(navigation.getByRole("link", { name: "Wholesale" })).toHaveAttribute(
       "href",
       "/wholesale"
     );
-    await expect(navigation.getByRole("link", { name: "Admin" })).toHaveAttribute(
-      "href",
-      "/admin"
-    );
     await expect(navigation.getByRole("link", { name: "Cart" })).toHaveAttribute("href", "/cart");
+    await expect(navigation.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/sign-in"
+    );
+    await expect(navigation.getByRole("link", { name: "Preorders" })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: "Orders" })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: "Admin" })).toHaveCount(0);
 
-    await page.getByRole("link", { name: "Browse catalog" }).first().click();
+    await page.getByRole("link", { name: "Browse regular prices" }).first().click();
     await expect(page).toHaveURL(/\/catalog$/);
     await expect(page.getByRole("heading", { name: "Sealed product inventory" })).toBeVisible();
   });
@@ -51,7 +51,7 @@ test.describe("storefront navigation", () => {
     for (const path of ["/account", "/orders", "/preorders", "/admin"]) {
       const response = await page.goto(path);
       expect(response?.status(), `${path} initial response`).toBeLessThan(500);
-      await expect(page).toHaveURL(/\/auth\/(sign-in|auth-code-error)/);
+      await expect(page).toHaveURL(/\/(sign-in|auth\/auth-code-error)/);
     }
   });
 

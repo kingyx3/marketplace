@@ -22,6 +22,7 @@ const PUBLIC_ENV_KEYS = Object.freeze([
 ]);
 
 const SENSITIVE_ENV_KEYS = Object.freeze([
+  "ADMIN_EMAIL_ALLOWLIST",
   "SUPABASE_DB_PASSWORD",
   "SUPABASE_SECRET_KEY",
 ]);
@@ -296,6 +297,9 @@ function pickValues(env, keys) {
 }
 function missingRequired(env, requireDbPassword) {
   const missing = STRICT_KEYS.filter((key) => !hasValue(env[key]));
+  if (env.TARGET_ENV === "production" && !hasValue(env.ADMIN_EMAIL_ALLOWLIST)) {
+    missing.push("ADMIN_EMAIL_ALLOWLIST");
+  }
   if (String(env.GOOGLE_AUTH_ENABLED || "true") === "true") {
     for (const key of ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"]) {
       if (!hasValue(env[key])) missing.push(key);

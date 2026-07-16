@@ -26,7 +26,7 @@ Browser ──▶ Vercel (Next.js 16, App Router)
 - **Catalog/storefront**: catalog products/SKUs are the sellable source of truth; `listing_items` and `storefront_configurations` layer on merchandising state, published visibility, channel metadata, featured/sort order, and catalog copy.
 - **Search**: Postgres full-text (GIN index on products). Upgrade path: Typesense or Algolia when the catalog outgrows FTS relevance.
 - **Notifications**: provider-agnostic interface (`lib/notifications.ts`). Resend order-confirmation email and email/Telegram/WhatsApp drop alerts are implemented; SMS remains feature-gated by provider configuration.
-- **Product media**: Supabase Storage `product-images` bucket is created by migration. Product images are publicly readable; writes require trusted server code or an authenticated active staff user.
+- **Product media**: Supabase Storage `product-images` bucket is created by migration. Product images are publicly readable; writes are service-role-only behind the server admin gate.
 - **Admin operations**: a protected admin surface exists for inventory/catalog/listing operations, B2B review, supplier PO intake, preorder allocation, payment exceptions, and manual reconciliation. It is intentionally still runbook-heavy; see `docs/admin-operations.md`.
 
 ## Why this stack

@@ -17,11 +17,7 @@ export const dynamic = "force-dynamic";
 
 export default async function WholesalePage() {
   const user = await getCurrentUser();
-  const customer = user ? await getCustomerProfile(user.id) : null;
-  const supabase = customer ? createServiceClient() : null;
-  const account = supabase && customer ? await getB2bAccount(supabase, customer.id) : null;
-  const wholesaleAccess =
-    supabase && customer ? await getWholesaleAccess(supabase, customer.id) : null;
+  const { account, wholesaleAccess } = await currentWholesaleContext(user?.id);
   const status = accountStatus(account);
   const assignedDiscount = maxDiscountBps(wholesaleAccess?.tiers ?? []);
   const assignedMinimum = minimumOrderCents(wholesaleAccess?.tiers ?? []);
@@ -55,7 +51,7 @@ export default async function WholesalePage() {
 
           {!user ? (
             <Link
-              href="/auth/sign-in?next=/wholesale"
+              href="/sign-in?next=/wholesale"
               className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
             >
               Sign in with Google
@@ -142,6 +138,24 @@ export default async function WholesalePage() {
   );
 }
 
+async function currentWholesaleContext(authUserId?: string) {
+  if (!authUserId) return { account: null, wholesaleAccess: null };
+
+  try {
+    const customer = await getCustomerProfile(authUserId);
+    if (!customer) return { account: null, wholesaleAccess: null };
+    const supabase = createServiceClient();
+    const [account, wholesaleAccess] = await Promise.all([
+      getB2bAccount(supabase, customer.id),
+      getWholesaleAccess(supabase, customer.id),
+    ]);
+    return { account, wholesaleAccess };
+  } catch (error) {
+    console.error("wholesale account lookup failed:", safeError(error));
+    return { account: null, wholesaleAccess: null };
+  }
+}
+
 async function getB2bAccount(supabase: ReturnType<typeof createServiceClient>, customerId: string) {
   const { data, error } = await supabase
     .from("b2b_accounts")
@@ -177,4 +191,8 @@ function statusTone(status: ReturnType<typeof accountStatus>) {
   if (status === "rejected") return "danger" as const;
   if (status === "pending") return "warning" as const;
   return "neutral" as const;
+}
+
+function safeError(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown";
 }

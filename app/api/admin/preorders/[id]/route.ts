@@ -11,10 +11,7 @@ export const dynamic = "force-dynamic";
  * go through their dedicated guarded workflows so inventory and payment rows
  * cannot drift from the preorder record.
  */
-export async function PATCH(
-  request: Request,
-  _context: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request) {
   try {
     await requireApiAdmin(request);
     return NextResponse.json(

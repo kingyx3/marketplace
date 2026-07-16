@@ -43,7 +43,7 @@ export function WaitlistSignupPanel({
 
     const { data, error } = await supabase.auth.getSession();
     if (error || !data.session?.access_token) {
-      router.push(`/auth/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
+      router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
       throw new Error("Sign in is required before joining drop alerts");
     }
     return data.session.access_token;
@@ -71,7 +71,7 @@ export function WaitlistSignupPanel({
       });
       const payload = (await response.json().catch(() => ({}))) as ApiErrorResponse;
       if (response.status === 401) {
-        router.push(`/auth/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
+        router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
       }
       if (!response.ok) {
         throw new Error(payload.error?.message ?? "Drop alert could not be saved");

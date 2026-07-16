@@ -75,6 +75,26 @@ begin
   ) then
     raise exception 'service-only table exposes a public or authenticated policy';
   end if;
+
+  if has_table_privilege('authenticated', 'storage.objects', 'INSERT')
+     or has_table_privilege('authenticated', 'storage.objects', 'UPDATE')
+     or has_table_privilege('authenticated', 'storage.objects', 'DELETE') then
+    raise exception 'authenticated users can bypass the server admin gate for product images';
+  end if;
+
+  if exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname in (
+        'staff can upload product images',
+        'staff can update product images',
+        'staff can delete product images'
+      )
+  ) then
+    raise exception 'legacy direct staff product-image policies are still present';
+  end if;
 end;
 $$;
 

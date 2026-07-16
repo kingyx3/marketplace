@@ -18,8 +18,9 @@ import {
 import { readCart } from "@/lib/cart";
 import { getSkuQuote } from "@/lib/catalog";
 import { calculateDiscountCents, type SalesChannel } from "@/lib/commerce";
+import { calculateDealSavings, discountedDealPrice, formatDealDiscount, getActiveDealDiscounts } from "@/lib/deals";
 import { formatMoney } from "@/lib/money";
-import { createServiceClient } from "@/lib/supabase";
+import { createAnonClient, createServiceClient, createUserClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,8 @@ export default async function CartPage({
 }) {
   const params = (await searchParams) ?? {};
   const cartItems = await readCart();
-  const wholesaleAccess = await currentWholesaleAccess();
+  const user = await getCurrentUser();
+  const wholesaleAccess = await currentWholesaleAccess(user?.id);
   const hasWholesaleAccess = wholesaleIsActive(wholesaleAccess);
   const requestedChannel = params.channel === "b2b" ? "b2b" : "b2c";
   const selectedChannel: SalesChannel =
@@ -53,10 +55,24 @@ export default async function CartPage({
       : 0;
   const belowWholesaleMinimum =
     selectedChannel === "b2b" && wholesaleMinimum > 0 && quote.subtotalCents < wholesaleMinimum;
+  const dealDiscounts =
+    selectedChannel === "b2c"
+      ? await currentDealDiscounts(
+          Boolean(user),
+          quote.lines.map((line) => line.skuId)
+        )
+      : new Map<string, number>();
+  const dealDiscountCents = quote.lines.reduce(
+    (total, line) =>
+      total + calculateDealSavings(line.lineTotalCents, dealDiscounts.get(line.skuId) ?? 0),
+    0
+  );
   const discountCents =
     selectedChannel === "b2b" && !belowWholesaleMinimum
       ? calculateDiscountCents(quote.subtotalCents, discountBps)
-      : 0;
+      : selectedChannel === "b2c"
+        ? dealDiscountCents
+        : 0;
   const merchandiseTotalCents = quote.subtotalCents - discountCents;
   const gst = Math.round((merchandiseTotalCents * 9) / 109);
 
@@ -152,7 +168,9 @@ export default async function CartPage({
       ) : (
         <section className="grid gap-6 lg:grid-cols-[1fr_24rem]">
           <div className="space-y-4">
-            {quote.lines.map((line) => (
+            {quote.lines.map((line) => {
+              const lineDealDiscountBps = dealDiscounts.get(line.skuId) ?? 0;
+              return (
               <article
                 key={line.skuId}
                 className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_auto] sm:items-center"
@@ -204,9 +222,16 @@ export default async function CartPage({
                       each after {formatDiscountBps(discountBps)} tier
                     </p>
                   ) : null}
+                  {selectedChannel === "b2c" && lineDealDiscountBps > 0 ? (
+                    <p className="mt-2 text-sm font-semibold text-emerald-700">
+                      Deal {formatMoney(discountedDealPrice(line.unitPriceCents, lineDealDiscountBps), line.currency)}{" "}
+                      each ({formatDealDiscount(lineDealDiscountBps)} off)
+                    </p>
+                  ) : null}
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
 
           <aside className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
@@ -240,6 +265,14 @@ export default async function CartPage({
                   </div>
                 </>
               ) : null}
+              {selectedChannel === "b2c" && discountCents > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">Limited-time savings</dt>
+                  <dd className="font-semibold text-emerald-700">
+                    -{formatMoney(discountCents, quote.currency)}
+                  </dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4">
                 <dt className="text-zinc-500">GST included in items estimate</dt>
                 <dd className="font-semibold text-zinc-950">{formatMoney(gst, quote.currency)}</dd>
@@ -266,14 +299,14 @@ export default async function CartPage({
               items={cartItems}
               publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
               startLabel={selectedChannel === "b2b" ? "Pay wholesale order" : "Pay securely"}
-              supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+              supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
               supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
             />
             {selectedChannel === "b2b" ? (
               <InvoiceCheckoutPanel
                 disabled={Boolean(quoteError) || belowWholesaleMinimum}
                 items={cartItems}
-                supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+                supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
                 supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
               />
             ) : null}
@@ -284,17 +317,29 @@ export default async function CartPage({
   );
 }
 
-async function currentWholesaleAccess(): Promise<WholesaleAccess | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
-  const customer = await getCustomerProfile(user.id);
-  if (!customer) return null;
-
+async function currentWholesaleAccess(userId?: string): Promise<WholesaleAccess | null> {
+  if (!userId) return null;
   try {
+    const customer = await getCustomerProfile(userId);
+    if (!customer) return null;
     return await getWholesaleAccess(createServiceClient(), customer.id);
   } catch (error) {
     console.error("cart wholesale pricing lookup failed:", safeError(error));
     return null;
+  }
+}
+
+async function currentDealDiscounts(
+  signedIn: boolean,
+  skuIds: string[]
+): Promise<Map<string, number>> {
+  if (skuIds.length === 0) return new Map();
+  try {
+    const supabase = signedIn ? await createUserClient() : createAnonClient();
+    return await getActiveDealDiscounts(supabase, skuIds);
+  } catch (error) {
+    console.error("cart deal lookup failed:", safeError(error));
+    return new Map();
   }
 }
 

@@ -14,6 +14,7 @@ This file is generated from `config/environment-contract.json`. Update the contr
 | `STRIPE_WEBHOOK_SECRET` | Runtime | Yes | Yes | Stripe webhook signing key |
 | `NEXT_PUBLIC_SITE_URL` | Runtime | Yes | No | Canonical public URL |
 | `APP_NAME` | Runtime | Yes | No | Display name |
+| `ADMIN_EMAIL_ALLOWLIST` | Runtime | When `TARGET_ENV=production` | No | Comma-separated admin email allowlist; admin access also requires an active staff record |
 | `MARKETPLACE_PREVIEW_FIXTURES` | Runtime | No | No | Development and E2E-only fixture catalog flag; ignored in production |
 | `CRON_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | Bearer secret used by Vercel Cron to authenticate scheduled maintenance routes |
 | `SYNTHETIC_MONITOR_SECRET` | Runtime | When `TARGET_ENV=production` | Yes | Bearer secret for authenticated synthetic operational probes |
@@ -45,7 +46,7 @@ This file is generated from `config/environment-contract.json`. Update the contr
 | `VERCEL_PROJECT_ID` | Deploy | No | No | Vercel project id |
 | `RESEND_API_KEY` | Runtime | No | Yes | Email provider key |
 | `RESEND_FROM_EMAIL` | Runtime | No | No | Verified sender email |
-| `SUPPORT_EMAIL` | Runtime | No | No | Support email |
+| `SUPPORT_EMAIL` | Runtime | When `TARGET_ENV=production` | No | Public support and data-protection contact email |
 | `TWILIO_ACCOUNT_SID` | Runtime | No | No | Twilio account id |
 | `TWILIO_AUTH_TOKEN` | Runtime | No | Yes | Twilio authentication token |
 | `TELEGRAM_BOT_TOKEN` | Runtime | No | Yes | Telegram bot token |

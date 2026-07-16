@@ -160,6 +160,37 @@ describe("commerce helpers", () => {
     ).rejects.toThrow("Shipping checkout is not configured");
   });
 
+  it("applies the best active limited-time deal to retail checkout", async () => {
+    const supabase = fakeQuoteSupabase({
+      b2bApproved: false,
+      deals: [
+        { sku_id: "11111111-1111-4111-8111-111111111111", discount_bps: 500 },
+        { sku_id: "11111111-1111-4111-8111-111111111111", discount_bps: 1000 },
+      ],
+      tiers: [],
+    });
+
+    await expect(
+      quoteCheckout(
+        supabase as never,
+        {
+          mode: "order",
+          channel: "b2c",
+          shippingAddress,
+          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+        },
+        customerRecord()
+      )
+    ).resolves.toMatchObject({
+      channel: "b2c",
+      subtotalCents: 19900,
+      discountBps: 1000,
+      discountCents: 1990,
+      shippingCents: 800,
+      totalCents: 18710,
+    });
+  });
+
   it("rejects inactive SKUs before creating payment state", async () => {
     const supabase = fakeQuoteSupabase({
       b2bApproved: false,
@@ -197,6 +228,7 @@ function customerRecord() {
 
 function fakeQuoteSupabase(options: {
   b2bApproved: boolean;
+  deals?: Array<{ sku_id: string; discount_bps: number }>;
   skuActive?: boolean;
   shippingActive?: boolean;
   tiers: Array<{ discount_bps: number; min_order_cents: number }>;
@@ -212,6 +244,7 @@ function tableBuilder(
   table: string,
   options: {
     b2bApproved: boolean;
+    deals?: Array<{ sku_id: string; discount_bps: number }>;
     skuActive?: boolean;
     shippingActive?: boolean;
     tiers: Array<{ discount_bps: number; min_order_cents: number }>;
@@ -228,9 +261,17 @@ function tableBuilder(
       }
       return builder;
     },
-    order: () => builder,
+    order: () =>
+      table === "limited_time_deals"
+        ? Promise.resolve({ data: options.deals ?? [], error: null })
+        : builder,
+    lte: () => builder,
+    gt: () => builder,
     limit: () => builder,
     in: () => {
+      if (table === "limited_time_deals") {
+        return builder;
+      }
       if (table === "pricing_tiers") {
         return Promise.resolve({ data: options.tiers, error: null });
       }

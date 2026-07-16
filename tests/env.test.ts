@@ -34,6 +34,24 @@ describe("environment contract", () => {
     expect(result.errors.join("\n")).toContain("GOOGLE_OAUTH_CLIENT_SECRET");
   });
 
+  it("requires a valid admin email allowlist for production", () => {
+    const missing = runGenerateEnv<{ ok: boolean; errors: string[] }>(
+      `console.log(JSON.stringify(validateEnv(${literal({ ...validEnv, TARGET_ENV: "production" })})));`
+    );
+    expect(missing.ok).toBe(false);
+    expect(missing.errors.join("\n")).toContain("ADMIN_EMAIL_ALLOWLIST");
+
+    const malformed = runGenerateEnv<{ ok: boolean; errors: string[] }>(
+      `console.log(JSON.stringify(validateEnv(${literal({
+        ...validEnv,
+        TARGET_ENV: "production",
+        ADMIN_EMAIL_ALLOWLIST: "admin@example.test,not-an-email",
+      })})));`
+    );
+    expect(malformed.ok).toBe(false);
+    expect(malformed.errors.join("\n")).toContain("malformed: ADMIN_EMAIL_ALLOWLIST");
+  });
+
   it("allows the generated Stripe signing secret to be absent only during pre-provision checks", () => {
     const withoutWebhook = { ...validEnv };
     delete withoutWebhook.STRIPE_WEBHOOK_SECRET;

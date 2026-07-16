@@ -5,7 +5,7 @@ import { hasSupabasePublicEnv } from "@/lib/env";
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const requestId = validRequestId(request.headers.get("x-request-id")) ?? crypto.randomUUID();
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
@@ -35,17 +35,20 @@ export async function middleware(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, headers) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = createResponse();
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });
+        Object.entries(headers).forEach(([name, value]) => {
+          response.headers.set(name, value);
+        });
       },
     },
   });
 
-  await supabase.auth.getUser();
+  await supabase.auth.getClaims();
   return response;
 }
 

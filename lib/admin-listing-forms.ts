@@ -22,8 +22,74 @@ export interface AdminStorefrontConfigurationInput {
   active: boolean;
 }
 
+export interface AdminLimitedTimeDealInput {
+  dealId: string | null;
+  code: string;
+  skuId: string;
+  title: string;
+  description: string | null;
+  discountBps: number;
+  visibility: "public" | "members";
+  startsAt: string;
+  endsAt: string;
+  sortPriority: number;
+  active: boolean;
+}
+
 const CONFIG_KEY_PATTERN = /^[a-z0-9]+(?:[_:-][a-z0-9]+)*$/;
+const DEAL_CODE_PATTERN = /^[a-z0-9]+(?:[_-][a-z0-9]+)*$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CHANNELS: SalesChannel[] = ["b2c", "b2b"];
+
+export function adminLimitedTimeDealFromForm(formData: FormData): AdminLimitedTimeDealInput {
+  const dealId = optionalString(formData, "dealId") ?? null;
+  const skuId = requiredString(formData, "skuId");
+  const code = requiredString(formData, "code").toLowerCase();
+  const title = requiredString(formData, "title");
+  const discountBps = requiredInteger(formData, "discountBps");
+  const visibility = requiredString(formData, "visibility");
+  const startsAt = singaporeDateTimeFromForm(formData, "startsAt");
+  const endsAt = singaporeDateTimeFromForm(formData, "endsAt");
+
+  if (dealId && !UUID_PATTERN.test(dealId)) throw badRequest("dealId must be a valid UUID");
+  if (!UUID_PATTERN.test(skuId)) throw badRequest("skuId must be a valid UUID");
+  if (!DEAL_CODE_PATTERN.test(code)) {
+    throw badRequest("deal code must use lowercase words separated by _ or -");
+  }
+  if (title.length > 160) throw badRequest("deal title must be at most 160 characters");
+  if (discountBps < 1 || discountBps > 9000) {
+    throw badRequest("discountBps must be between 1 and 9000");
+  }
+  if (visibility !== "public" && visibility !== "members") {
+    throw badRequest("visibility must be public or members");
+  }
+  if (new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+    throw badRequest("deal end must be after its start");
+  }
+
+  return {
+    dealId,
+    code,
+    skuId,
+    title,
+    description: optionalString(formData, "description") ?? null,
+    discountBps,
+    visibility,
+    startsAt,
+    endsAt,
+    sortPriority: optionalInteger(formData, "sortPriority") ?? 0,
+    active: booleanField(formData, "active", true),
+  };
+}
+
+export function adminLimitedTimeDealStatusFromForm(formData: FormData) {
+  const dealId = requiredString(formData, "dealId");
+  if (!UUID_PATTERN.test(dealId)) throw badRequest("dealId must be a valid UUID");
+  return {
+    dealId,
+    active: requiredString(formData, "active") === "true",
+  };
+}
 
 export function adminListingItemFromForm(formData: FormData): AdminListingItemInput {
   const channels = channelsFromForm(formData);
@@ -119,6 +185,12 @@ function optionalNonNegativeInteger(formData: FormData, key: string): number | n
   return value;
 }
 
+function requiredInteger(formData: FormData, key: string): number {
+  const value = optionalInteger(formData, key);
+  if (value === null) throw badRequest(`${key} is required`);
+  return value;
+}
+
 function optionalInteger(formData: FormData, key: string): number | null {
   const raw = optionalString(formData, key);
   if (!raw) return null;
@@ -133,4 +205,14 @@ function booleanField(formData: FormData, key: string, defaultValue: boolean): b
   const values = formData.getAll(key);
   if (values.length === 0) return defaultValue;
   return values.some((value) => value === "true" || value === "on");
+}
+
+function singaporeDateTimeFromForm(formData: FormData, key: string): string {
+  const value = requiredString(formData, key);
+  const localDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value)
+    ? `${value}+08:00`
+    : value;
+  const parsed = new Date(localDateTime);
+  if (Number.isNaN(parsed.getTime())) throw badRequest(`${key} must be a valid date and time`);
+  return parsed.toISOString();
 }

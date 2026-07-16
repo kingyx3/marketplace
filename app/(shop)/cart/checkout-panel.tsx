@@ -39,6 +39,7 @@ interface CheckoutResponse {
   amountCents: number;
   currency: string;
   quote?: {
+    discountCents: number;
     shippingCents: number;
     shippingService: string | null;
     taxCents: number;
@@ -111,7 +112,7 @@ export function CartCheckoutPanel({
 
     const { data, error } = await supabase.auth.getSession();
     if (error || !data.session?.access_token) {
-      router.push(`/auth/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
+      router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
       throw new Error("Sign in is required before checkout");
     }
     return data.session.access_token;
@@ -131,7 +132,7 @@ export function CartCheckoutPanel({
     const payload = (await response.json().catch(() => ({}))) as ApiErrorResponse;
 
     if (response.status === 401) {
-      router.push(`/auth/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
+      router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
     }
     if (!response.ok) {
       throw new Error(payload.error?.message ?? "Checkout request failed");
@@ -243,6 +244,24 @@ export function CartCheckoutPanel({
       ) : null}
 
       {!checkout ? (
+        <p className="text-xs leading-5 text-zinc-500">
+          By continuing to payment, you agree to the{" "}
+          <Link className="font-semibold underline" href="/terms">
+            Terms
+          </Link>
+          ,{" "}
+          <Link className="font-semibold underline" href="/shipping">
+            Shipping Policy
+          </Link>
+          , and{" "}
+          <Link className="font-semibold underline" href="/returns">
+            Returns and Refunds Policy
+          </Link>
+          .
+        </p>
+      ) : null}
+
+      {!checkout ? (
         <button
           className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
           disabled={!canCreate}
@@ -255,6 +274,12 @@ export function CartCheckoutPanel({
 
       {checkout?.quote ? (
         <dl className="grid gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
+          {checkout.quote.discountCents > 0 ? (
+            <div className="flex justify-between gap-4 text-emerald-800">
+              <dt>Eligible savings</dt>
+              <dd className="font-semibold">Applied in final total</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between gap-4">
             <dt className="text-zinc-600">Shipping</dt>
             <dd className="font-semibold text-zinc-950">

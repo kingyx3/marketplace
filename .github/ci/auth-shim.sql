@@ -37,9 +37,24 @@ create table if not exists storage.objects (
 
 alter table storage.objects enable row level security;
 
+create or replace function auth.jwt()
+returns jsonb language sql stable as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+    jsonb_strip_nulls(jsonb_build_object(
+      'sub', nullif(current_setting('request.jwt.claim.sub', true), ''),
+      'role', nullif(current_setting('request.jwt.claim.role', true), ''),
+      'email', nullif(current_setting('request.jwt.claim.email', true), '')
+    ))
+  )
+$$;
+
 create or replace function auth.uid()
 returns uuid language sql stable as $$
-  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    auth.jwt()->>'sub'
+  )::uuid
 $$;
 
 -- Roles referenced by RLS policies / grants in Supabase projects.

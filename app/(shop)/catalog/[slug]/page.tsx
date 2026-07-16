@@ -7,8 +7,7 @@ import { Timeline } from "@/app/_components/timeline";
 import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
 import { WaitlistSignupPanel } from "@/app/(shop)/catalog/[slug]/waitlist-signup-panel";
 import { addToCart } from "@/app/actions/cart";
-import { getAppName } from "@/lib/app-config";
-import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
+import { getCurrentViewer, getCustomerProfile } from "@/lib/auth";
 import {
   discountedPriceCents,
   formatDiscountBps,
@@ -18,6 +17,7 @@ import {
   type WholesaleAccess,
 } from "@/lib/b2b";
 import { formatMoney as formatSharedMoney } from "@/lib/money";
+import { formatDealDiscount, getStorefrontDealForSku } from "@/lib/deals";
 import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 import {
   formatMoney,
@@ -37,11 +37,13 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = previewFixturesEnabled() ? getProduct(slug) : undefined;
-  const appName = getAppName();
+  const liveProduct = await getCatalogProduct(slug);
+  const productName =
+    liveProduct?.name ?? (previewFixturesEnabled() ? getProduct(slug)?.name : undefined);
 
   return {
-    title: product ? `${product.name} | ${appName}` : `Product | ${appName}`,
+    title: productName ?? "Product",
+    description: liveProduct?.description ?? "Sealed trading card product details and availability.",
   };
 }
 
@@ -54,7 +56,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
   );
   if (!product) notFound();
 
-  const wholesaleAccess = await currentWholesaleAccess();
+  const viewer = await getCurrentViewer();
+  const skuId = liveProduct?.skus[0]?.id ?? null;
+  const [wholesaleAccess, activeDeal] = await Promise.all([
+    currentWholesaleAccess(viewer.user?.id),
+    skuId
+      ? getStorefrontDealForSku({ signedIn: Boolean(viewer.user), skuId })
+      : Promise.resolve(null),
+  ]);
   const wholesaleDiscountBps = maxDiscountBps(wholesaleAccess?.tiers ?? []);
   const wholesaleMinimumCents = minimumOrderCents(wholesaleAccess?.tiers ?? []);
   const wholesalePriceCents =
@@ -62,7 +71,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
       ? discountedPriceCents(product.priceCents, wholesaleDiscountBps)
       : product.priceCents;
   const available = getAvailable(product);
-  const skuId = liveProduct?.skus[0]?.id ?? null;
   const preorderTimeline = [
     { label: "Deposit", date: "Today", state: "current" as const },
     { label: "Allocation", date: "After supplier confirmation", state: "upcoming" as const },
@@ -144,6 +152,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <p className="mt-2 text-4xl font-bold text-zinc-950">
               {formatMoney(product.priceCents, product.currency)}
             </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Regular price · GST included where applicable
+            </p>
             {product.msrpCents ? (
               <p className="mt-2 text-sm text-zinc-500">
                 MSRP {formatMoney(product.msrpCents, product.currency)}
@@ -157,6 +168,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <p className="mt-1 text-xs">
                   {formatDiscountBps(wholesaleDiscountBps)} off list after the{" "}
                   {formatSharedMoney(wholesaleMinimumCents, product.currency)} wholesale minimum.
+                </p>
+              </div>
+            ) : null}
+            {activeDeal ? (
+              <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                <p className="font-semibold">
+                  Limited-time price {formatMoney(activeDeal.dealPriceCents, activeDeal.currency)}
+                </p>
+                <p className="mt-1 text-xs">
+                  Save {formatDealDiscount(activeDeal.discountBps)}. Eligibility and expiry are
+                  revalidated during signed-in checkout.
                 </p>
               </div>
             ) : null}
@@ -287,13 +309,11 @@ function mergeProduct(
   };
 }
 
-async function currentWholesaleAccess(): Promise<WholesaleAccess | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
-  const customer = await getCustomerProfile(user.id);
-  if (!customer) return null;
-
+async function currentWholesaleAccess(authUserId?: string): Promise<WholesaleAccess | null> {
+  if (!authUserId) return null;
   try {
+    const customer = await getCustomerProfile(authUserId);
+    if (!customer) return null;
     const access = await getWholesaleAccess(createServiceClient(), customer.id);
     return access.status === "approved" && access.tiers.length > 0 ? access : null;
   } catch (error) {
