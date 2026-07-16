@@ -25,6 +25,7 @@ describe("platform config contract", () => {
     for (const marker of [
       "insert into storage.buckets",
       "'product-images'",
+      "revoke insert, update, delete on table storage.objects from authenticated",
       "alter table public.waitlist_entries enable row level security",
       "create table if not exists public.listing_items",
       "create table if not exists public.storefront_configurations",

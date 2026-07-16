@@ -34,10 +34,11 @@ Repository secrets:
 
 Repository variables:
 
+- `ADMIN_EMAIL_ALLOWLIST`, a comma-separated, case-insensitive list of admin emails (required for production)
 - `NEXT_PUBLIC_SENTRY_DSN` for all Sentry runtime ingestion
 - `SENTRY_ORG` and `SENTRY_PROJECT` for staging/production source-map uploads
 
-The Sentry DSN, organization/project slugs, and auth token are shared settings. They are intentionally not duplicated across GitHub Environments. The bootstrap removes environment-scoped Sentry overrides from development, staging, and production so they cannot shadow the repository values.
+The admin allowlist and Sentry settings are shared repository settings. They are intentionally not duplicated across GitHub Environments. The bootstrap removes environment-scoped Sentry overrides from development, staging, and production so they cannot shadow the repository values.
 
 ## Per-environment operator inputs
 
@@ -95,7 +96,7 @@ npm run bootstrap:github:apply -- --target=production
 ENABLE_RELEASE_TOPOLOGY=true npm run bootstrap:github:apply -- --target=staging
 ```
 
-Environment-specific shell values use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefix. Shared Sentry values use the unprefixed names `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN`. Values are never printed. The normal end-to-end entry point is `npm run bootstrap -- --apply`, which invokes governance and target-aware GitHub intake automatically before dispatching **Bootstrap & Deploy** from `main`.
+Environment-specific shell values use the matching `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_` prefix. Shared values use the unprefixed names `ADMIN_EMAIL_ALLOWLIST`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN`. Values are never printed. The normal end-to-end entry point is `npm run bootstrap -- --apply`, which invokes governance and target-aware GitHub intake automatically before dispatching **Bootstrap & Deploy** from `main`.
 
 ## Optional Terraform overrides
 

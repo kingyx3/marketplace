@@ -1,4 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  isAdminEmailAllowed,
+  parseAdminEmailAllowlist,
+} from "@/lib/admin-email-allowlist";
 import {
   extractBearerToken,
   isAdminRole,
@@ -8,7 +12,18 @@ import {
 import { getRequestOrigin } from "@/lib/request-origin";
 import { appendWelcomeParam, isFreshSignup } from "@/lib/signup-welcome";
 
+const originalAdminEmailAllowlist = process.env.ADMIN_EMAIL_ALLOWLIST;
+
 describe("auth helpers", () => {
+  beforeEach(() => {
+    process.env.ADMIN_EMAIL_ALLOWLIST = "admin@example.test";
+  });
+
+  afterEach(() => {
+    if (originalAdminEmailAllowlist === undefined) delete process.env.ADMIN_EMAIL_ALLOWLIST;
+    else process.env.ADMIN_EMAIL_ALLOWLIST = originalAdminEmailAllowlist;
+  });
+
   it("extracts bearer tokens case-insensitively", () => {
     const request = new Request("https://example.test", {
       headers: { authorization: "bearer token-123" },
@@ -47,6 +62,23 @@ describe("auth helpers", () => {
     await expect(
       requireApiAdmin(request, fakeAdminSupabase({ id: "staff-1" }) as never)
     ).resolves.toMatchObject({ user: { id: "user-1" } });
+  });
+
+  it("requires active staff emails to be in the normalized server allowlist", async () => {
+    expect([
+      ...parseAdminEmailAllowlist(" Owner@Example.test,ops@example.test,owner@example.test "),
+    ]).toEqual(["owner@example.test", "ops@example.test"]);
+    expect(isAdminEmailAllowed("OWNER@example.test", "owner@example.test")).toBe(true);
+    expect(parseAdminEmailAllowlist("owner@example.test,not-an-email").size).toBe(0);
+
+    process.env.ADMIN_EMAIL_ALLOWLIST = "someone-else@example.test";
+    const request = new Request("https://example.test/api/admin/orders", {
+      headers: { authorization: "Bearer token-123" },
+    });
+
+    await expect(
+      requireApiAdmin(request, fakeAdminSupabase({ id: "staff-1" }) as never)
+    ).rejects.toThrow("Active staff access required");
   });
 
   it("detects fresh OAuth signups without treating old users as new", () => {
@@ -189,6 +221,7 @@ function fakeAdminSupabase(staff: { id: string } | null) {
         data: {
           user: {
             id: "user-1",
+            email: "admin@example.test",
             app_metadata: { role: "admin" },
           },
         },

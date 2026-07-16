@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
+import { isAdminEmailAllowed } from "@/lib/admin-email-allowlist";
 import { findOrCreateCustomer } from "@/lib/api/auth";
 import { createServiceClient, createUserClient } from "@/lib/supabase";
 
@@ -69,6 +70,10 @@ export const getCurrentViewer = cache(async (): Promise<CurrentViewer> => {
   const user = await getCurrentUser();
   if (!user) {
     return { user: null, staff: null, staffLookup: "not_applicable" };
+  }
+
+  if (!isAdminEmailAllowed(user.email)) {
+    return { user, staff: null, staffLookup: "resolved" };
   }
 
   try {

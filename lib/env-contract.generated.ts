@@ -12,6 +12,7 @@ export const serverEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
   NEXT_PUBLIC_SITE_URL: z.string().url(),
   APP_NAME: z.string().min(1),
+  ADMIN_EMAIL_ALLOWLIST: z.string().regex(new RegExp("^[^,\\s@]+@[^,\\s@]+\\.[^,\\s@]+(?:\\s*,\\s*[^,\\s@]+@[^,\\s@]+\\.[^,\\s@]+)*$")).optional(),
   MARKETPLACE_PREVIEW_FIXTURES: z.enum(["true", "false"]).optional(),
   CRON_SECRET: z.string().min(1).optional(),
   SYNTHETIC_MONITOR_SECRET: z.string().min(1).optional(),

@@ -10,7 +10,7 @@ export default function AccessDeniedPage() {
   return (
     <section className="mx-auto max-w-xl rounded-lg border border-amber-200 bg-amber-50 p-8 text-center shadow-sm">
       <p className="text-sm font-semibold uppercase tracking-wide text-amber-800">Access denied</p>
-      <h1 className="mt-3 text-3xl font-bold text-zinc-950">This area is for active staff</h1>
+      <h1 className="mt-3 text-3xl font-bold text-zinc-950">This area is for approved admins</h1>
       <p className="mt-4 text-sm leading-6 text-zinc-700">
         Your account is signed in, but it does not have permission to open this page.
       </p>

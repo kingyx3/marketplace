@@ -44,6 +44,14 @@ describe("hosted production release gates", () => {
     expect(workflow).toContain("environment: production");
     expect(workflow).toContain("RESTORE_DRILL_ALLOW_DESTRUCTIVE: I_UNDERSTAND");
     expect(workflow).toContain("SUPABASE_REQUIRED_BACKUP_MODE: pitr");
+    expect(workflow).toContain("ADMIN_EMAIL_ALLOWLIST: ${{ vars.ADMIN_EMAIL_ALLOWLIST }}");
+
+    const supabaseGate = await readFile(
+      new URL("../scripts/verify-hosted-supabase.mjs", import.meta.url),
+      "utf8",
+    );
+    expect(supabaseGate).toContain('required("ADMIN_EMAIL_ALLOWLIST")');
+    expect(supabaseGate).toContain("non-allowlisted active staff admin API returned");
   });
 
   it("keeps isolated staging and recovery infrastructure available as an opt-in topology", async () => {

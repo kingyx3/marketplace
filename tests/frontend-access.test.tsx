@@ -42,11 +42,14 @@ describe("audience-aware frontend access", () => {
   });
 
   it("protects every admin page through a shared layout and publishes required policies", async () => {
-    const adminLayout = await readFile(
-      new URL("../app/(shop)/admin/layout.tsx", import.meta.url),
-      "utf8"
-    );
+    const [adminLayout, pageAuth, apiAuth] = await Promise.all([
+      readFile(new URL("../app/(shop)/admin/layout.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/api/auth.ts", import.meta.url), "utf8"),
+    ]);
     expect(adminLayout).toContain('requireStaff("/admin")');
+    expect(pageAuth).toContain("isAdminEmailAllowed(user.email)");
+    expect(apiAuth).toContain("isAdminEmailAllowed(auth.user.email)");
 
     for (const policy of [
       "privacy",

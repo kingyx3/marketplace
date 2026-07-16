@@ -47,17 +47,23 @@ describe("limited-time deals", () => {
   });
 
   it("protects member metadata with RLS and keeps mutations service-role-only", async () => {
-    const migration = await readFile(
-      new URL("../supabase/migrations/20260716121653_limited_time_deals.sql", import.meta.url),
-      "utf8"
-    );
+    const [migration, authShim] = await Promise.all([
+      readFile(
+        new URL("../supabase/migrations/20260716121653_limited_time_deals.sql", import.meta.url),
+        "utf8"
+      ),
+      readFile(new URL("../.github/ci/auth-shim.sql", import.meta.url), "utf8"),
+    ]);
 
     expect(migration).toContain("alter table public.limited_time_deals enable row level security");
     expect(migration).toContain("visibility = 'public'");
     expect(migration).toContain("to authenticated");
+    expect(migration).toContain("auth.jwt()->>'is_anonymous'");
     expect(migration).toContain("admin_upsert_limited_time_deal");
     expect(migration).toContain("from public, anon, authenticated");
     expect(migration).toContain("to service_role");
+    expect(authShim).toContain("create or replace function auth.jwt()");
+    expect(authShim).toContain("current_setting('request.jwt.claims', true)");
   });
 });
 

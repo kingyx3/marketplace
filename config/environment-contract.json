@@ -114,6 +114,21 @@
     "default": "Marketplace"
   },
   {
+    "key": "ADMIN_EMAIL_ALLOWLIST",
+    "section": "Application",
+    "required": false,
+    "requiredWhen": {
+      "key": "TARGET_ENV",
+      "equals": "production"
+    },
+    "secret": false,
+    "hint": "Comma-separated admin email allowlist; admin access also requires an active staff record",
+    "validator": {
+      "type": "pattern",
+      "value": "^[^,\\s@]+@[^,\\s@]+\\.[^,\\s@]+(?:\\s*,\\s*[^,\\s@]+@[^,\\s@]+\\.[^,\\s@]+)*$"
+    }
+  },
+  {
     "key": "MARKETPLACE_PREVIEW_FIXTURES",
     "section": "Application",
     "required": false,

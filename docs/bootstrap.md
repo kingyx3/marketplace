@@ -42,12 +42,13 @@ Bootstrap reads values from the current shell and writes them to repository or E
 | `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret | Required |
 | `VERCEL_TOKEN` | Repository secret | Required |
 | `SUPABASE_ACCESS_TOKEN` | Repository secret | Required |
+| `ADMIN_EMAIL_ALLOWLIST` | Repository variable | Required for production; comma-separated emails |
 | `NEXT_PUBLIC_SENTRY_DSN` | Repository variable | Required for staging/production runtime capture |
 | `SENTRY_ORG` | Repository variable | Required for staging/production source maps |
 | `SENTRY_PROJECT` | Repository variable | Required for staging/production source maps |
 | `SENTRY_AUTH_TOKEN` | Repository secret | Required for staging/production source maps |
 
-`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are shared Sentry settings, not per-environment application configuration. The DSN and organization/project slugs are non-secret identifiers. The auth token must be scoped only to the release/source-map permissions required by the build.
+`ADMIN_EMAIL_ALLOWLIST` is a shared, server-only authorization input. The Sentry values are shared observability settings, not per-environment application configuration. The DSN and organization/project slugs are non-secret identifiers. The auth token must be scoped only to the release/source-map permissions required by the build.
 
 One DSN is used for development, staging, and production. The deployment target is supplied separately as the Sentry environment tag, so events remain distinguishable inside the shared project. Bootstrap removes any environment-scoped Sentry overrides from all deployment environments so repository-level values cannot be shadowed.
 
