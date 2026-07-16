@@ -1,7 +1,7 @@
 import { hasSupabasePublicEnv } from "@/lib/env";
 import { createAnonClient, createServiceClient } from "@/lib/supabase";
 
-export type CatalogChannel = "b2c" | "b2b";
+export type CatalogChannel = "b2c";
 
 export interface CatalogSku {
   id: string;
@@ -42,7 +42,7 @@ export interface CatalogProduct {
 interface ListingItemRow {
   title_override: string | null;
   tags: string[] | null;
-  channels: CatalogChannel[] | null;
+  channels: string[] | null;
   max_per_customer: number | null;
   preorder_reserve: number | null;
   sort_priority: number | null;
@@ -154,9 +154,7 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
 export async function getSkuQuote(items: Array<{ skuId: string; quantity: number }>) {
   const supabase = createServiceClient();
   const skuIds = items.map((item) => item.skuId);
-  if (skuIds.length === 0) {
-    return { lines: [], subtotalCents: 0, currency: "SGD" };
-  }
+  if (skuIds.length === 0) return { lines: [], subtotalCents: 0, currency: "SGD" };
 
   const { data, error } = await supabase
     .from("booster_box_skus")
@@ -165,9 +163,7 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
     )
     .in("id", skuIds);
 
-  if (error) {
-    throw new Error(`Cart quote failed: ${error.message}`);
-  }
+  if (error) throw new Error(`Cart quote failed: ${error.message}`);
 
   const rows = (data ?? []) as unknown as Array<{
     id: string;
@@ -180,23 +176,21 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
     } | null;
     inventory: Array<{ available: number; incoming: number }>;
   }>;
-
   const bySku = new Map(rows.map((row) => [row.id, row]));
   const lines = items.map((item) => {
     const row = bySku.get(item.skuId);
     if (!row || !row.active || !row.product_variants?.products?.active) {
       throw new Error("A cart item is no longer available");
     }
-    const product = row.product_variants?.products;
-    const available = row.inventory.reduce((sum, inv) => sum + inv.available + inv.incoming, 0);
+    const product = row.product_variants.products;
     return {
       skuId: row.id,
       sku: row.sku,
-      name: product?.name ?? row.sku,
-      slug: product?.slug ?? "",
-      imageUrl: product?.image_url ?? null,
+      name: product.name,
+      slug: product.slug,
+      imageUrl: product.image_url,
       quantity: item.quantity,
-      available,
+      available: row.inventory.reduce((sum, inventory) => sum + inventory.available + inventory.incoming, 0),
       unitPriceCents: row.price_cents,
       lineTotalCents: row.price_cents * item.quantity,
       currency: row.currency,
@@ -231,11 +225,11 @@ function mapProduct(row: ProductRow): CatalogProduct {
           currency: sku.currency,
           packsPerBox: sku.packs_per_box,
           cardsPerPack: sku.cards_per_pack,
-          onHand: inventory.reduce((sum, inv) => sum + inv.on_hand, 0),
-          allocated: inventory.reduce((sum, inv) => sum + inv.allocated, 0),
-          safetyStock: inventory.reduce((sum, inv) => sum + inv.safety_stock, 0),
-          available: inventory.reduce((sum, inv) => sum + inv.available, 0),
-          incoming: inventory.reduce((sum, inv) => sum + inv.incoming, 0),
+          onHand: inventory.reduce((sum, item) => sum + item.on_hand, 0),
+          allocated: inventory.reduce((sum, item) => sum + item.allocated, 0),
+          safetyStock: inventory.reduce((sum, item) => sum + item.safety_stock, 0),
+          available: inventory.reduce((sum, item) => sum + item.available, 0),
+          incoming: inventory.reduce((sum, item) => sum + item.incoming, 0),
         };
       })
   );
@@ -256,7 +250,7 @@ function mapProduct(row: ProductRow): CatalogProduct {
     preorderReserve: listing?.preorder_reserve ?? 0,
     maxPerCustomer: listing?.max_per_customer ?? null,
     tags: listing?.tags?.filter(Boolean) ?? [],
-    channels: listingChannels(listing),
+    channels: ["b2c"],
     skus,
   };
 }
@@ -269,11 +263,4 @@ function compareRows(a: ProductRow, b: ProductRow): number {
   const priority = (listingA?.sort_priority ?? 0) - (listingB?.sort_priority ?? 0);
   if (priority !== 0) return priority;
   return a.name.localeCompare(b.name);
-}
-
-function listingChannels(listing: ListingItemRow | null): CatalogChannel[] {
-  const channels = listing?.channels?.filter((channel): channel is CatalogChannel => {
-    return channel === "b2c" || channel === "b2b";
-  });
-  return channels && channels.length > 0 ? channels : ["b2c"];
 }
