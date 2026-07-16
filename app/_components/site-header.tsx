@@ -4,7 +4,6 @@ import type { CurrentViewer } from "@/lib/auth";
 
 export function SiteHeader({ appName, viewer }: { appName: string; viewer: CurrentViewer }) {
   const signedIn = Boolean(viewer.user);
-  const isStaff = Boolean(viewer.staff);
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
@@ -31,11 +30,6 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
                 Orders
               </Link>
             </>
-          ) : null}
-          {isStaff ? (
-            <Link href="/admin" className="hover:text-zinc-950">
-              Admin
-            </Link>
           ) : null}
           <Link
             href="/cart"
