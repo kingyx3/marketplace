@@ -64,7 +64,7 @@ See `docs/bootstrap.md`, `docs/environments.md`, and `docs/provisioning.md` for 
 
 ## Environment topology
 
-The compact topology has two deployable targets:
+The default compact topology has two deployable targets:
 
 - `development` maps to the primary Vercel project and development Supabase project.
 - `production` maps to the primary Vercel production target and production Supabase project.
