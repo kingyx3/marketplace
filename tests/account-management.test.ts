@@ -46,22 +46,31 @@ describe("customer account management", () => {
   });
 
   it("allows only administrators to disable and restore customer accounts", async () => {
-    const [permissions, shell, page, action] = await Promise.all([
+    const [permissions, shell, page, control, action] = await Promise.all([
       readFile(new URL("../lib/control-permissions.ts", import.meta.url), "utf8"),
       readFile(
         new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
         "utf8"
       ),
       readFile(new URL("../app/(shop)/control/customers/page.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL(
+          "../app/(shop)/control/_components/customer-lifecycle-control.tsx",
+          import.meta.url
+        ),
+        "utf8"
+      ),
       readFile(new URL("../app/actions/customer-admin.ts", import.meta.url), "utf8"),
     ]);
 
     expect(permissions).toContain('"manage_customers"');
     expect(shell).toContain('href: "/control/customers"');
     expect(page).toContain('requireControlPermission("manage_customers"');
-    expect(page).toContain("Restore account");
-    expect(page).toContain('name="confirmDisable"');
+    expect(page).toContain("CustomerLifecycleControl");
     expect(page).toContain("Audit record only");
+    expect(control).toContain("useActionState");
+    expect(control).toContain("Restore account");
+    expect(control).toContain('name="confirmDisable"');
     expect(action).toContain('ban_duration: deleted ? LONG_BAN_DURATION : "none"');
     expect(action).toContain('formData.get("confirmDisable") !== "yes"');
     expect(action).toContain("CONTROL_CUSTOMER_RESTORE");
