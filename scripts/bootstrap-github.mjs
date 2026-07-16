@@ -167,7 +167,7 @@ function secretIsRequired(name) {
   return true;
 }
 function deploymentPolicies(environment) {
-  if (environment === "development") return ["develop", "main"];
+  if (environment === "development") return ["**"];
   return ["main", "v*"];
 }
 function ensureEnvironment(environment) {
