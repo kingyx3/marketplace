@@ -45,19 +45,21 @@ Repeated runs converge existing resources, adopt safe pre-existing provider reso
 
 **Deploy App** is the single application-release entry point:
 
-- Pushes to `develop` deploy `development`, except documentation-only changes.
-- Pushes to `main` deploy `staging`; staging resolution fails closed unless `ENABLE_RELEASE_TOPOLOGY=true`.
-- A published GitHub release or `v*` tag runs the gated staging-to-production path.
-- Manual dispatch can explicitly select `development`, `staging`, or `production`.
+- Pushes to any non-`main` branch deploy `development`, except documentation-only changes.
+- Pushes to `main` deploy `staging` only when `ENABLE_RELEASE_TOPOLOGY=true`; while staging is not provisioned, the workflow records a deliberate no-deploy result instead of resolving another environment.
+- A published GitHub release or `v*` tag deploys with the `production` GitHub Environment. With the extended release topology enabled, it first runs the gated staging path; otherwise it deploys directly to production.
+- Manual dispatch can select `development` or `production` at any time. Selecting `staging` fails closed until the extended topology is enabled and bootstrapped.
 
 Development deployment skips a superseded branch revision. Missing hosted credentials fail closed in the shared deployment helper. All target deployments are serialized and use the same reusable environment deployment pipeline.
 
-A production release:
+A production release always resolves runtime values and secrets from the `production` GitHub Environment. When the extended release topology is enabled, it:
 
 1. Deploys the exact release revision to staging.
 2. Runs hosted identity, payment, notification, recovery, SLO, and provider-readiness evidence against that immutable staging deployment.
 3. Requests production Environment approval when configured.
 4. Deploys the same revision to production only after the gates succeed.
+
+Until staging exists, the release instead runs the complete shared deployment checks directly against the protected production target. It never substitutes development or a missing staging environment for production credentials.
 
 The app deployment helper validates environment and Terraform outputs, checks migrations transactionally, pushes hosted migrations, reconciles provider/runtime state, deploys or reuses the identical Vercel revision, and performs health checks. Staging and production fail closed on infrastructure or provider drift.
 
