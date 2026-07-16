@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+
+import { requireApiPermission } from "@/lib/api/auth";
 import { toErrorResponse } from "@/lib/api/errors";
-import { requireApiAdmin } from "@/lib/api/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export async function PATCH(request: Request) {
   try {
-    await requireApiAdmin(request);
+    await requireApiPermission(request, "manage_orders");
     return NextResponse.json(
       {
         error: {
