@@ -108,12 +108,23 @@ async function resolveSupabaseValues(env) {
   if (!hasValue(env.NEXT_PUBLIC_SUPABASE_URL) && hasValue(env.SUPABASE_PROJECT_REF)) {
     env.NEXT_PUBLIC_SUPABASE_URL = `https://${env.SUPABASE_PROJECT_REF}.supabase.co`;
   }
-  if (hasValue(env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) && hasValue(env.SUPABASE_SECRET_KEY)) return;
   if (!hasValue(env.SUPABASE_ACCESS_TOKEN) || !hasValue(env.SUPABASE_PROJECT_REF)) return;
 
   const keys = await fetchSupabaseProjectApiKeys(env.SUPABASE_ACCESS_TOKEN, env.SUPABASE_PROJECT_REF);
-  setIfMissing(env, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", selectSupabasePublishableKey(keys));
-  setIfMissing(env, "SUPABASE_SECRET_KEY", selectSupabaseSecretKey(keys));
+  reconcileSupabaseProjectKey(
+    env,
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    normalizedSupabaseKeys(keys).filter(isSupabasePublishableKey),
+    selectSupabasePublishableKey(keys),
+    env.SUPABASE_PROJECT_REF
+  );
+  reconcileSupabaseProjectKey(
+    env,
+    "SUPABASE_SECRET_KEY",
+    normalizedSupabaseKeys(keys).filter(isSupabaseSecretKey),
+    selectSupabaseSecretKey(keys),
+    env.SUPABASE_PROJECT_REF
+  );
 }
 
 async function resolveStripeValues(env) {
@@ -152,7 +163,9 @@ async function fetchVercelUserId(token) {
 }
 
 async function fetchSupabaseProjectApiKeys(accessToken, projectRef) {
-  const keys = await fetchJson(`https://api.supabase.com/v1/projects/${encodeURIComponent(projectRef)}/api-keys`, {
+  const url = new URL(`https://api.supabase.com/v1/projects/${encodeURIComponent(projectRef)}/api-keys`);
+  url.searchParams.set("reveal", "true");
+  const keys = await fetchJson(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
     service: "Supabase API keys",
   });
@@ -187,20 +200,49 @@ async function fetchJson(url, { headers, service }) {
 }
 
 function normalizedSupabaseKeys(keys) {
-  return keys.map((entry) => ({
-    value: entry?.api_key || entry?.key || entry?.value || "",
-    role: String(entry?.role || entry?.type || entry?.name || "").toLowerCase(),
-  })).filter((entry) => entry.value);
+  return keys
+    .map((entry) => ({
+      value: String(entry?.api_key || entry?.key || entry?.value || "").trim(),
+      role: String(entry?.role || entry?.type || entry?.name || "").toLowerCase(),
+      disabled: entry?.disabled === true,
+    }))
+    .filter((entry) => entry.value && !entry.disabled);
+}
+function isSupabasePublishableKey(entry) {
+  return (
+    entry.value.startsWith("sb_publishable_") ||
+    entry.role.includes("publishable") ||
+    entry.role === "anon"
+  );
+}
+function isSupabaseSecretKey(entry) {
+  return (
+    entry.value.startsWith("sb_secret_") ||
+    entry.role.includes("secret") ||
+    entry.role === "service_role"
+  );
 }
 function selectSupabasePublishableKey(keys) {
-  const candidates = normalizedSupabaseKeys(keys);
+  const candidates = normalizedSupabaseKeys(keys).filter(isSupabasePublishableKey);
   return candidates.find((entry) => entry.value.startsWith("sb_publishable_"))?.value ||
-    candidates.find((entry) => entry.role.includes("publishable") || entry.role === "anon")?.value || "";
+    candidates[0]?.value || "";
 }
 function selectSupabaseSecretKey(keys) {
-  const candidates = normalizedSupabaseKeys(keys);
+  const candidates = normalizedSupabaseKeys(keys).filter(isSupabaseSecretKey);
   return candidates.find((entry) => entry.value.startsWith("sb_secret_"))?.value ||
-    candidates.find((entry) => entry.role.includes("secret"))?.value || "";
+    candidates[0]?.value || "";
+}
+function reconcileSupabaseProjectKey(env, key, candidates, preferred, projectRef) {
+  const current = String(env[key] || "").trim();
+  if (current && candidates.some((entry) => entry.value === current)) {
+    console.error(`${key} matches an active key for Supabase project ${projectRef}.`);
+    return;
+  }
+  if (preferred) {
+    env[key] = preferred;
+    const action = current ? "did not match; using an active project key" : "resolved";
+    console.error(`${key} ${action} for Supabase project ${projectRef}.`);
+  }
 }
 
 async function loadTerraformOutputs(path, env) {

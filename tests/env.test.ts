@@ -97,6 +97,81 @@ describe("environment contract", () => {
     expect(resolved.SUPABASE_DB_PASSWORD).toBe("database-password");
   });
 
+  it("reconciles Supabase keys against the Terraform-selected project for every target", () => {
+    const resolved = runResolveEnvironment<{
+      environments: Record<string, Record<string, string>>;
+      requests: string[];
+    }>(`
+      const refs = {
+        development: 'aaaaaaaaaaaaaaa',
+        staging: 'bbbbbbbbbbbbbbb',
+        production: 'ccccccccccccccc',
+      };
+      const requests = [];
+      globalThis.fetch = async (input) => {
+        const url = new URL(String(input));
+        requests.push(url.toString());
+        const segments = url.pathname.split('/');
+        const ref = segments[segments.indexOf('projects') + 1];
+        return {
+          ok: true,
+          json: async () => [
+            { type: 'publishable', api_key: \`sb_publishable_\${ref}\` },
+            { type: 'secret', name: 'default', api_key: \`sb_secret_\${ref}_default\` },
+            { type: 'secret', name: 'secondary', api_key: \`sb_secret_\${ref}_secondary\` },
+            { type: 'secret', name: 'disabled', api_key: \`sb_secret_\${ref}_disabled\`, disabled: true },
+          ],
+        };
+      };
+
+      const environments = {};
+      for (const target of Object.keys(refs)) {
+        const env = {
+          TARGET_ENV: target,
+          GOOGLE_AUTH_ENABLED: 'false',
+          SUPABASE_ACCESS_TOKEN: 'sbp_test_access_token',
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_wrong_project',
+          SUPABASE_SECRET_KEY:
+            target === 'staging' ? \`sb_secret_\${refs[target]}_secondary\` : 'sb_secret_wrong_project',
+          TF_OUTPUT_JSON: JSON.stringify({
+            supabase_project_refs: { value: refs },
+            supabase_project_urls: {
+              value: Object.fromEntries(
+                Object.entries(refs).map(([name, ref]) => [name, \`https://\${ref}.supabase.co\`])
+              ),
+            },
+          }),
+        };
+        await resolveEnvironment(env, { environment: target, loadDotenv: false });
+        environments[target] = {
+          projectRef: env.SUPABASE_PROJECT_REF,
+          url: env.NEXT_PUBLIC_SUPABASE_URL,
+          publishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+          secretKey: env.SUPABASE_SECRET_KEY,
+        };
+      }
+      console.log(JSON.stringify({ environments, requests }));
+    `);
+
+    for (const [target, ref] of Object.entries({
+      development: "aaaaaaaaaaaaaaa",
+      staging: "bbbbbbbbbbbbbbb",
+      production: "ccccccccccccccc",
+    })) {
+      expect(resolved.environments[target]).toEqual({
+        projectRef: ref,
+        url: `https://${ref}.supabase.co`,
+        publishableKey: `sb_publishable_${ref}`,
+        secretKey:
+          target === "staging"
+            ? `sb_secret_${ref}_secondary`
+            : `sb_secret_${ref}_default`,
+      });
+    }
+    expect(resolved.requests).toHaveLength(3);
+    expect(resolved.requests.every((url) => url.endsWith("/api-keys?reveal=true"))).toBe(true);
+  });
+
   it("keeps generated artifacts in sync with every contract key", async () => {
     const example = await readFile(new URL("../.env.example", import.meta.url), "utf8");
     const keys = runGenerateEnv<string[]>("console.log(JSON.stringify(ENV_CONTRACT.map((entry) => entry.key)));");

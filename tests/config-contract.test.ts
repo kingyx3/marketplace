@@ -92,7 +92,7 @@ describe("platform config contract", () => {
     expect(runtime).toContain("provision-stripe-webhook.mjs");
     expect(runtime).toContain("sync-vercel-env.mjs");
     expect(github).toContain('|| "development"');
-    expect(github).toContain('if (environment === "development") return ["develop", "main"]');
+    expect(github).toContain('if (environment === "development") return ["**"]');
     expect(github).toContain('staging: ["STAGING_DATABASE_URL", "RECOVERY_DATABASE_URL"]');
     expect(github).toContain("PRODUCTION_REVIEWERS");
     expect(governance).toContain("required_approving_review_count: 1");

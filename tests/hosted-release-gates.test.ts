@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("hosted production release gates", () => {
-  it("deploys the exact release commit to staging before production", async () => {
+  it("gates production through staging when available and deploys production directly otherwise", async () => {
     const workflow = await readFile(
       new URL("../.github/workflows/deploy-app.yml", import.meta.url),
       "utf8",
@@ -15,8 +15,11 @@ describe("hosted production release gates", () => {
     expect(workflow).toContain(
       "staging_app_url: ${{ needs.deploy-release-staging.outputs.deployment_url }}",
     );
-    expect(workflow).toContain("deploy-production:");
+    expect(workflow).toContain("deploy-production-gated:");
     expect(workflow).toContain("needs: hosted-release-gates");
+    expect(workflow).toContain("deploy-production-direct:");
+    expect(workflow).toContain("vars.ENABLE_RELEASE_TOPOLOGY == 'true'");
+    expect(workflow).toContain("vars.ENABLE_RELEASE_TOPOLOGY != 'true'");
   });
 
   it("requires real hosted identity, Stripe, restore, alert, and provider evidence", async () => {
