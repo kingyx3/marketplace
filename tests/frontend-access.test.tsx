@@ -10,9 +10,10 @@ describe("audience-aware frontend access", () => {
     const html = renderHeader({ user: null, staff: null, staffLookup: "not_applicable" });
 
     expect(html).toContain("Catalog");
-    expect(html).toContain("Deals");
-    expect(html).toContain("Wholesale");
+    expect(html).toContain("Cart");
     expect(html).toContain("Sign in");
+    expect(html).not.toContain("Deals");
+    expect(html).not.toContain("Wholesale");
     expect(html).not.toContain("Account");
     expect(html).not.toContain("Orders");
     expect(html).not.toContain("Admin");
