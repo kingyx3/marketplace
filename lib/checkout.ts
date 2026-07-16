@@ -269,7 +269,8 @@ async function createPreorderPayment(
     if (preorder.error || !preorder.data) {
       throw new Error(preorder.error?.message ?? "preorder insert failed");
     }
-    preorderId = preorder.data.id;
+    const createdPreorderId = String(preorder.data.id);
+    preorderId = createdPreorderId;
 
     const intent = await stripe.paymentIntents.create({
       amount: quote.depositCents,
@@ -280,14 +281,14 @@ async function createPreorderPayment(
       receipt_email: auth.customer.email,
       metadata: {
         kind: "deposit",
-        preorder_id: preorderId,
+        preorder_id: createdPreorderId,
         customer_id: auth.customer.id,
       },
     });
     paymentIntentId = intent.id;
 
     const payment = await insertPayment(auth.supabase, {
-      preorderId,
+      preorderId: createdPreorderId,
       providerPaymentId: intent.id,
       kind: "deposit",
       amountCents: quote.depositCents,
@@ -297,7 +298,7 @@ async function createPreorderPayment(
 
     return checkoutResultFromIntent({
       mode: "preorder",
-      preorderId,
+      preorderId: createdPreorderId,
       paymentId: payment.id,
       intent,
       quote,
