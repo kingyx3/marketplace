@@ -45,16 +45,16 @@ export function CatalogBrowser({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <form
         aria-label="Filter catalog"
-        className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_12rem_12rem_auto]"
+        className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:grid-cols-[minmax(0,1fr)_11rem_11rem_auto]"
         onSubmit={applyFilters}
       >
-        <label className="grid gap-2 text-sm font-medium text-zinc-700">
+        <label className="grid min-w-0 gap-2 text-sm font-medium text-zinc-700">
           Search
           <input
-            className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600"
+            className="min-h-11 w-full min-w-0 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             onChange={(event) =>
               setDraftFilters((current) => ({ ...current, query: event.target.value }))
             }
@@ -63,10 +63,10 @@ export function CatalogBrowser({
             value={draftFilters.query}
           />
         </label>
-        <label className="grid gap-2 text-sm font-medium text-zinc-700">
+        <label className="grid min-w-0 gap-2 text-sm font-medium text-zinc-700">
           Game
           <select
-            className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600"
+            className="min-h-11 w-full min-w-0 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             onChange={(event) =>
               setDraftFilters((current) => ({ ...current, game: event.target.value }))
             }
@@ -80,10 +80,10 @@ export function CatalogBrowser({
             ))}
           </select>
         </label>
-        <label className="grid gap-2 text-sm font-medium text-zinc-700">
+        <label className="grid min-w-0 gap-2 text-sm font-medium text-zinc-700">
           Status
           <select
-            className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600"
+            className="min-h-11 w-full min-w-0 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             onChange={(event) =>
               setDraftFilters((current) => ({
                 ...current,
@@ -100,17 +100,17 @@ export function CatalogBrowser({
             ))}
           </select>
         </label>
-        <div className="flex content-end items-end gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end lg:grid lg:grid-cols-1">
           <button
             aria-controls="catalog-results"
-            className="min-h-11 flex-1 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             type="submit"
           >
             Apply
           </button>
           <button
             aria-controls="catalog-results"
-            className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             disabled={!canClear}
             onClick={clearFilters}
             type="button"
@@ -127,7 +127,7 @@ export function CatalogBrowser({
       {filteredProducts.length === 0 ? (
         <section
           aria-label="Catalog results"
-          className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm"
+          className="rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm sm:p-8"
           id="catalog-results"
         >
           <h2 className="text-xl font-semibold text-zinc-950">No products match these filters</h2>
@@ -136,7 +136,7 @@ export function CatalogBrowser({
           </p>
           <button
             aria-controls="catalog-results"
-            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 sm:w-auto"
             onClick={clearFilters}
             type="button"
           >
@@ -146,7 +146,7 @@ export function CatalogBrowser({
       ) : (
         <section
           aria-label="Catalog results"
-          className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+          className="grid gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3"
           id="catalog-results"
         >
           {products.map((product, index) => (visibleSlugs.has(product.slug) ? cards[index] : null))}
