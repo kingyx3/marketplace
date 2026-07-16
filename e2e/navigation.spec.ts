@@ -6,7 +6,7 @@ test.describe("storefront navigation", () => {
 
     await expect(
       page.getByRole("heading", {
-        name: /sealed booster boxes with prices and availability up front/i,
+        name: /sealed products, clear prices, no guesswork/i,
       })
     ).toBeVisible();
 
@@ -16,11 +16,8 @@ test.describe("storefront navigation", () => {
       "href",
       "/catalog"
     );
-    await expect(navigation.getByRole("link", { name: "Deals" })).toHaveAttribute("href", "/deals");
-    await expect(navigation.getByRole("link", { name: "Wholesale" })).toHaveAttribute(
-      "href",
-      "/wholesale"
-    );
+    await expect(navigation.getByRole("link", { name: "Deals" })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: "Wholesale" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Cart" })).toHaveAttribute("href", "/cart");
     await expect(navigation.getByRole("link", { name: "Sign in" })).toHaveAttribute(
       "href",
@@ -30,9 +27,13 @@ test.describe("storefront navigation", () => {
     await expect(navigation.getByRole("link", { name: "Orders" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Admin" })).toHaveCount(0);
 
-    await page.getByRole("link", { name: "Browse regular prices" }).first().click();
+    await page.getByRole("link", { name: "Browse catalog" }).first().click();
     await expect(page).toHaveURL(/\/catalog$/);
-    await expect(page.getByRole("heading", { name: "Sealed product inventory" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Deals" })).toHaveAttribute(
+      "href",
+      "/catalog?view=deals"
+    );
   });
 
   test("opens the empty cart from a product page", async ({ page }) => {
@@ -43,8 +44,18 @@ test.describe("storefront navigation", () => {
     await page.getByRole("link", { name: "Cart", exact: true }).click();
 
     await expect(page).toHaveURL(/\/cart$/);
-    await expect(page.getByRole("heading", { name: "Review sealed product order" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review your order" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Your cart is empty" })).toBeVisible();
+  });
+
+  test("redirects the legacy deals route into catalog", async ({ page }) => {
+    await page.goto("/deals");
+    await expect(page).toHaveURL(/\/catalog\?view=deals$/);
+  });
+
+  test("returns 404 for the removed wholesale route", async ({ request }) => {
+    const response = await request.get("/wholesale");
+    expect(response.status()).toBe(404);
   });
 
   test("redirects protected pages through the sign-in flow without server errors", async ({ page }) => {
@@ -57,7 +68,6 @@ test.describe("storefront navigation", () => {
 
   test("returns a real 404 for an unknown product", async ({ request }) => {
     const response = await request.get("/catalog/not-a-real-product");
-
     expect(response.status()).toBe(404);
   });
 });
