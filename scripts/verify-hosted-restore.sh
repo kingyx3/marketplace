@@ -90,18 +90,15 @@ begin
      or to_regclass('public.payments') is null
      or to_regclass('public.inventory') is null
      or to_regclass('public.staff_users') is null
-     or to_regclass('public.storefront_configurations') is null then
+     or to_regclass('public.storefront_configurations') is null
+     or to_regclass('public.limited_time_deals') is null then
     raise exception 'recovery database is missing critical commerce tables';
   end if;
 
-  if not exists (
-    select 1
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname = 'create_b2b_invoice_order_from_cart'
-  ) then
-    raise exception 'recovery database is missing invoice checkout function';
+  if to_regclass('public.b2b_accounts') is not null
+     or to_regclass('public.pricing_tiers') is not null
+     or to_regclass('public.customer_pricing_tiers') is not null then
+    raise exception 'recovery database restored retired wholesale tables';
   end if;
 
   if not exists (
@@ -116,11 +113,18 @@ begin
   if not exists (
     select 1
     from public.storefront_configurations
-    where "key" in ('shipping_policy', 'b2b_invoice_policy')
-    group by true
-    having count(*) = 2
+    where "key" = 'shipping_policy'
+      and active
   ) then
-    raise exception 'recovery database is missing checkout policy rows';
+    raise exception 'recovery database is missing active shipping policy';
+  end if;
+
+  if exists (
+    select 1
+    from public.storefront_configurations
+    where "key" = 'b2b_invoice_policy'
+  ) then
+    raise exception 'recovery database restored retired invoice policy';
   end if;
 
   if exists (
@@ -148,7 +152,7 @@ cat > "${GITHUB_STEP_SUMMARY:-/dev/null}" <<EOF
 - Disposable recovery project: \`$RECOVERY_PROJECT_REF\`
 - Public schema dump and clean restore: passed
 - Recovery marker: passed
-- Critical tables/functions/policies: passed
+- Critical retail tables, policies, and wholesale decommission: passed
 - Duration: ${duration_seconds}s
 - Required RTO: ${rto_seconds}s
 EOF
