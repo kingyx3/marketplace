@@ -22,6 +22,7 @@ export interface CustomerRecord {
   billing_state?: string;
   provisioning_state?: string;
   provisioning_error?: string | null;
+  deleted_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -150,6 +151,7 @@ export async function findOrCreateCustomer(
     .from("customers")
     .select("*")
     .eq("auth_user_id", user.id)
+    .is("deleted_at", null)
     .maybeSingle();
   if (byUser.error) {
     throw new Error(byUser.error.message);
@@ -158,7 +160,12 @@ export async function findOrCreateCustomer(
     return byUser.data as CustomerRecord;
   }
 
-  const byEmail = await supabase.from("customers").select("*").eq("email", email).maybeSingle();
+  const byEmail = await supabase
+    .from("customers")
+    .select("*")
+    .eq("email", email)
+    .is("deleted_at", null)
+    .maybeSingle();
   if (byEmail.error) {
     throw new Error(byEmail.error.message);
   }
@@ -173,6 +180,7 @@ export async function findOrCreateCustomer(
       .from("customers")
       .update({ auth_user_id: user.id })
       .eq("id", existing.id)
+      .is("deleted_at", null)
       .select("*")
       .single();
     if (updated.error) {
