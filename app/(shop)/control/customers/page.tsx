@@ -32,7 +32,8 @@ export default async function ControlCustomersPage({
   const { staff } = await requireControlPermission("manage_customers", "/control/customers");
   const params = (await searchParams) ?? {};
   const query = params.q?.trim().toLowerCase() ?? "";
-  const status = params.status === "deleted" ? "deleted" : params.status === "active" ? "active" : "all";
+  const status =
+    params.status === "deleted" ? "deleted" : params.status === "active" ? "active" : "all";
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("customers")
@@ -46,7 +47,8 @@ export default async function ControlCustomersPage({
 
   const customers = ((data ?? []) as unknown as CustomerRow[]).filter((customer) => {
     const matchesStatus =
-      status === "all" || (status === "deleted" ? Boolean(customer.deleted_at) : !customer.deleted_at);
+      status === "all" ||
+      (status === "deleted" ? Boolean(customer.deleted_at) : !customer.deleted_at);
     const matchesQuery =
       !query ||
       customer.email.toLowerCase().includes(query) ||
@@ -56,6 +58,9 @@ export default async function ControlCustomersPage({
   });
   const allCustomers = (data ?? []) as unknown as CustomerRow[];
   const deletedCount = allCustomers.filter((customer) => customer.deleted_at).length;
+  const recoverableCount = allCustomers.filter(
+    (customer) => customer.deleted_at && customer.auth_user_id
+  ).length;
 
   return (
     <div className="space-y-8">
@@ -66,10 +71,11 @@ export default async function ControlCustomersPage({
         description="Review account status and restore customer access when required."
       />
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Customers" value={String(allCustomers.length)} detail="Loaded customer records" />
         <MetricCard label="Active" value={String(allCustomers.length - deletedCount)} detail="Available to sign in" />
-        <MetricCard label="Deleted" value={String(deletedCount)} detail="Retained for restore and audit" />
+        <MetricCard label="Deleted" value={String(deletedCount)} detail="Retained for audit" />
+        <MetricCard label="Recoverable" value={String(recoverableCount)} detail="Linked identities available" />
       </section>
 
       <form className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
@@ -111,54 +117,77 @@ export default async function ControlCustomersPage({
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
-            {customers.map((customer) => (
-              <article key={customer.id} className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h3 className="truncate font-semibold text-zinc-950">{customer.name || "Customer"}</h3>
-                    <p className="mt-1 break-all text-sm text-zinc-600">{customer.email}</p>
-                    <p className="mt-1 break-all text-xs text-zinc-400">{customer.id}</p>
-                  </div>
-                  <StatusBadge tone={customer.deleted_at ? "danger" : "success"}>
-                    {customer.deleted_at ? "Deleted" : "Active"}
-                  </StatusBadge>
-                </div>
+            {customers.map((customer) => {
+              const deleted = Boolean(customer.deleted_at);
+              const recoverable = Boolean(customer.auth_user_id);
 
-                <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-                  <Data label="Orders" value={String(customer.orders?.length ?? 0)} />
-                  <Data label="Preorders" value={String(customer.preorders?.length ?? 0)} />
-                  <Data label="Billing" value={formatLabel(customer.billing_state)} />
-                  <Data label="Provisioning" value={formatLabel(customer.provisioning_state)} />
-                  <Data label="Created" value={formatDate(customer.created_at)} />
-                  <Data label="Updated" value={formatDate(customer.updated_at)} />
-                </dl>
-
-                {customer.deleted_at ? (
-                  <div className="mt-5 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-800">
-                    <p>Deleted {formatDateTime(customer.deleted_at)}</p>
-                    {customer.deletion_actor ? <p className="mt-1">By {customer.deletion_actor}</p> : null}
+              return (
+                <article key={customer.id} className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold text-zinc-950">{customer.name || "Customer"}</h3>
+                      <p className="mt-1 break-all text-sm text-zinc-600">{customer.email}</p>
+                      <p className="mt-1 break-all text-xs text-zinc-400">{customer.id}</p>
+                    </div>
+                    <StatusBadge tone={deleted ? "danger" : "success"}>
+                      {deleted ? "Deleted" : "Active"}
+                    </StatusBadge>
                   </div>
-                ) : customer.restored_at ? (
-                  <div className="mt-5 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs text-emerald-800">
-                    Restored {formatDateTime(customer.restored_at)}
-                  </div>
-                ) : null}
 
-                <form action={setCustomerAccountDeleted} className="mt-5 flex justify-end">
-                  <input name="customerId" type="hidden" value={customer.id} />
-                  <input name="deleted" type="hidden" value={customer.deleted_at ? "false" : "true"} />
-                  <button
-                    className={
-                      customer.deleted_at
-                        ? "min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800"
-                        : "min-h-11 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50"
-                    }
-                  >
-                    {customer.deleted_at ? "Restore account" : "Disable account"}
-                  </button>
-                </form>
-              </article>
-            ))}
+                  <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+                    <Data label="Orders" value={String(customer.orders?.length ?? 0)} />
+                    <Data label="Preorders" value={String(customer.preorders?.length ?? 0)} />
+                    <Data label="Billing" value={formatLabel(customer.billing_state)} />
+                    <Data label="Provisioning" value={formatLabel(customer.provisioning_state)} />
+                    <Data label="Created" value={formatDate(customer.created_at)} />
+                    <Data label="Updated" value={formatDate(customer.updated_at)} />
+                  </dl>
+
+                  {customer.deleted_at ? (
+                    <div className="mt-5 rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs text-rose-800">
+                      <p>Deleted {formatDateTime(customer.deleted_at)}</p>
+                      {customer.deletion_actor ? <p className="mt-1">By {customer.deletion_actor}</p> : null}
+                      {!recoverable ? (
+                        <p className="mt-2 font-semibold">No linked Auth identity is available. Audit record only.</p>
+                      ) : null}
+                    </div>
+                  ) : customer.restored_at ? (
+                    <div className="mt-5 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs text-emerald-800">
+                      Restored {formatDateTime(customer.restored_at)}
+                    </div>
+                  ) : null}
+
+                  {deleted ? (
+                    recoverable ? (
+                      <form action={setCustomerAccountDeleted} className="mt-5 flex justify-end">
+                        <input name="customerId" type="hidden" value={customer.id} />
+                        <input name="deleted" type="hidden" value="false" />
+                        <button className="min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800">
+                          Restore account
+                        </button>
+                      </form>
+                    ) : null
+                  ) : (
+                    <details className="mt-5 border-t border-zinc-100 pt-4">
+                      <summary className="cursor-pointer text-right text-sm font-semibold text-rose-700">
+                        Disable account
+                      </summary>
+                      <form action={setCustomerAccountDeleted} className="mt-3 grid justify-items-end gap-3">
+                        <input name="customerId" type="hidden" value={customer.id} />
+                        <input name="deleted" type="hidden" value="true" />
+                        <label className="flex min-h-11 items-center gap-2 text-sm text-zinc-700">
+                          <input name="confirmDisable" required type="checkbox" value="yes" />
+                          Confirm account disable
+                        </label>
+                        <button className="min-h-11 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50">
+                          Disable account
+                        </button>
+                      </form>
+                    </details>
+                  )}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
