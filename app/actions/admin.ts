@@ -75,7 +75,6 @@ export async function upsertListingItem(formData: FormData) {
     p_title_override: input.titleOverride,
     p_badge_label: input.badgeLabel,
     p_tags: input.tags,
-    p_channels: input.channels,
     p_max_per_customer: input.maxPerCustomer,
     p_preorder_reserve: input.preorderReserve,
     p_sort_priority: input.sortPriority,
