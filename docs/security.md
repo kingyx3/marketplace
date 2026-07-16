@@ -56,8 +56,7 @@ server action.
 
 The administrative surface is rooted at `/control`, excluded from search indexing,
 and intentionally absent from the storefront header, footer, and public navigation.
-Legacy `/admin` paths return a permanent redirect to the matching `/control` path;
-hiding or redirecting routes is not treated as authorization.
+Route obscurity is not treated as authorization.
 
 Every control page, server action, and API mutation performs server-side staff
 resolution. Authorization sources are:

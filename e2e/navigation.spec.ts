@@ -49,28 +49,17 @@ test.describe("storefront navigation", () => {
     await expect(page.getByRole("heading", { name: "Your cart is empty" })).toBeVisible();
   });
 
-  test("redirects the legacy deals route into catalog", async ({ page }) => {
-    await page.goto("/deals");
-    await expect(page).toHaveURL(/\/catalog\?view=deals$/);
-  });
-
   test("returns 404 for the removed wholesale route", async ({ request }) => {
     const response = await request.get("/wholesale");
     expect(response.status()).toBe(404);
   });
 
   test("redirects protected pages through sign-in without server errors", async ({ page }) => {
-    for (const path of ["/account", "/orders", "/preorders", "/control", "/admin"]) {
+    for (const path of ["/account", "/orders", "/preorders", "/control"]) {
       const response = await page.goto(path);
       expect(response?.status(), `${path} initial response`).toBeLessThan(500);
       await expect(page).toHaveURL(/\/(sign-in|auth\/auth-code-error)/);
     }
-  });
-
-  test("permanently redirects legacy admin subpaths to control", async ({ request }) => {
-    const response = await request.get("/admin/deals", { maxRedirects: 0 });
-    expect(response.status()).toBe(308);
-    expect(response.headers().location).toContain("/control/deals");
   });
 
   test("returns a real 404 for an unknown product", async ({ request }) => {

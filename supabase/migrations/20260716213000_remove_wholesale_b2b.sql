@@ -1,4 +1,4 @@
--- Retire wholesale/B2B runtime capabilities while preserving retail order flows.
+-- Retire wholesale/B2B runtime capabilities and leave a retail-only commerce contract.
 
 begin;
 
@@ -44,13 +44,16 @@ alter table public.listing_items
   add constraint listing_items_channels_valid
   check (channels = array['b2c']::text[]);
 
--- Keep the existing RPC signature for deployed clients, but ignore channel input.
+-- Replace the legacy multi-channel listing RPC with a retail-only signature.
+drop function if exists public.admin_upsert_listing_item(
+  uuid, text, text, text[], text[], integer, integer, integer, boolean, boolean, text
+);
+
 create or replace function public.admin_upsert_listing_item(
   p_product_id uuid,
   p_title_override text,
   p_badge_label text,
   p_tags text[],
-  p_channels text[],
   p_max_per_customer integer,
   p_preorder_reserve integer,
   p_sort_priority integer,

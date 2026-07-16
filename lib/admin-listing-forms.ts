@@ -1,12 +1,10 @@
 import { badRequest } from "@/lib/api/errors";
-import type { SalesChannel } from "@/lib/commerce";
 
 export interface AdminListingItemInput {
   productId: string;
   titleOverride: string | null;
   badgeLabel: string | null;
   tags: string[];
-  channels: SalesChannel[];
   maxPerCustomer: number | null;
   preorderReserve: number;
   sortPriority: number;
@@ -96,7 +94,6 @@ export function adminListingItemFromForm(formData: FormData): AdminListingItemIn
     titleOverride: optionalString(formData, "titleOverride") ?? null,
     badgeLabel: optionalString(formData, "badgeLabel") ?? null,
     tags: tagsFromForm(formData),
-    channels: ["b2c"],
     maxPerCustomer: optionalPositiveInteger(formData, "maxPerCustomer"),
     preorderReserve: optionalNonNegativeInteger(formData, "preorderReserve") ?? 0,
     sortPriority: optionalInteger(formData, "sortPriority") ?? 0,

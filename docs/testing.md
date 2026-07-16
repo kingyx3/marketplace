@@ -26,15 +26,15 @@ Pull-request CI runs independent checks in parallel without production secrets. 
 - `tests/admin-orders.test.ts` — explicit order actions, payment reconciliation, cancellation, and exception behavior.
 - `tests/admin-catalog.test.ts` — product and SKU forms, inventory adjustment parsing, and catalog migration markers.
 - `tests/purchase-orders.test.ts` — supplier purchase-order intake and inventory integration markers.
-- `tests/admin-surface.test.ts` — protected catalog, SKU, inventory, purchasing, allocation, and payment-exception controls.
+- `tests/control-operations-surface.test.ts` — protected catalog, SKU, inventory, purchasing, allocation, and payment-exception controls.
 - `tests/notifications.test.ts` — order confirmation and configured drop-alert providers, deduplication, failures, and disabled-provider behavior.
 - `tests/waitlist.test.ts` — SKU/customer binding, contact normalization, claims, dispatch, and notified state.
 - `tests/preorder-flow.test.ts` — retail allocation queries, Stripe deposit/balance behavior, and removal of invoice checkout.
 - `tests/live-customer-pages.test.ts` — live customer page data and guards against fixture-backed authenticated flows.
 - `tests/frontend-access.test.tsx` — anonymous, customer, and staff navigation visibility.
-- `e2e/navigation.spec.ts` — primary navigation, Catalog Deals subsection, legacy Deals redirect, removed Wholesale route, protected pages, and 404 behavior.
+- `e2e/navigation.spec.ts` — primary navigation, Catalog Deals subsection, removed Wholesale route, protected pages, and 404 behavior.
 - `e2e/public-smoke.spec.ts` — built storefront, catalog fallback, product detail, empty cart, and shallow health smoke coverage.
-- `supabase/tests/*.sql` — RLS, checkout, deals, admin, waitlist, preorder, and schema-decommission contracts.
+- `supabase/tests/*.sql` — RLS, checkout, deals, admin, waitlist, preorder, and schema contracts.
 
 ## Writing tests
 

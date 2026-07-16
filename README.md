@@ -10,7 +10,7 @@ A retail marketplace for sealed trading-card products, limited-time deals, preor
 - `/account`, `/orders`, `/preorders` — authenticated customer activity
 - `/control` — unlinked, role-scoped operations console for authorized administrators
 
-Legacy `/admin` paths permanently redirect to the equivalent `/control` path. The storefront does not advertise or link to the console.
+The storefront does not advertise or link to the console.
 
 ## Local quickstart
 

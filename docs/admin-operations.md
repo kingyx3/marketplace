@@ -10,7 +10,6 @@ The protected `/control` console supports catalog, category, set, listing, deal,
 - Revoked database-managed staff remain denied. Environment owners cannot be revoked or demoted through the console.
 - The final active owner cannot remove or demote themself.
 - Roles follow least privilege: `viewer`, `support`, `catalog`, `operations`, `admin`, and `owner`.
-- Legacy `/admin` URLs permanently redirect to the equivalent `/control` URL.
 
 ## Operating model
 
@@ -20,7 +19,6 @@ The protected `/control` console supports catalog, category, set, listing, deal,
 - Admin reconciliation requires provider, payment reference, amount, currency, reason, and actor.
 - Product, SKU, category, set, listing, deal, inventory, supplier, purchasing, allocation, refund, payment, administrator, and customer-communication changes require review in production.
 - Significant control changes write explicit records to `audit_logs`; core table triggers retain before-and-after row images.
-- Wholesale approval, pricing tiers, credit controls, and manual-invoice checkout are no longer supported.
 
 ## Categories and sets
 
