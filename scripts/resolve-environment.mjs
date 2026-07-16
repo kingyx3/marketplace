@@ -115,13 +115,15 @@ async function resolveSupabaseValues(env) {
     env,
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     normalizedSupabaseKeys(keys).filter(isSupabasePublishableKey),
-    selectSupabasePublishableKey(keys)
+    selectSupabasePublishableKey(keys),
+    env.SUPABASE_PROJECT_REF
   );
   reconcileSupabaseProjectKey(
     env,
     "SUPABASE_SECRET_KEY",
     normalizedSupabaseKeys(keys).filter(isSupabaseSecretKey),
-    selectSupabaseSecretKey(keys)
+    selectSupabaseSecretKey(keys),
+    env.SUPABASE_PROJECT_REF
   );
 }
 
@@ -230,10 +232,17 @@ function selectSupabaseSecretKey(keys) {
   return candidates.find((entry) => entry.value.startsWith("sb_secret_"))?.value ||
     candidates[0]?.value || "";
 }
-function reconcileSupabaseProjectKey(env, key, candidates, preferred) {
+function reconcileSupabaseProjectKey(env, key, candidates, preferred, projectRef) {
   const current = String(env[key] || "").trim();
-  if (current && candidates.some((entry) => entry.value === current)) return;
-  if (preferred) env[key] = preferred;
+  if (current && candidates.some((entry) => entry.value === current)) {
+    console.error(`${key} matches an active key for Supabase project ${projectRef}.`);
+    return;
+  }
+  if (preferred) {
+    env[key] = preferred;
+    const action = current ? "did not match; using an active project key" : "resolved";
+    console.error(`${key} ${action} for Supabase project ${projectRef}.`);
+  }
 }
 
 async function loadTerraformOutputs(path, env) {
