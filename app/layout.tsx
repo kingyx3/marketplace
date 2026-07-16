@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 
 import { SiteFooter } from "@/app/_components/site-footer";
 import { SiteHeader } from "@/app/_components/site-header";
@@ -15,12 +16,11 @@ export const metadata: Metadata = {
     default: `${appName} | TCG Booster Boxes`,
     template: `%s | ${appName}`,
   },
-  description:
-    "Sealed TCG booster boxes for players, collectors, and retailers. B2C, wholesale, and pre-orders.",
+  description: "Sealed TCG products, preorders, limited-time deals, and retail checkout.",
   metadataBase: siteUrl,
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
   const viewer = await getCurrentViewer();
   const appName = getAppName();
 
