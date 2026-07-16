@@ -8,6 +8,7 @@ import {
   extractBearerToken,
   isAdminRole,
   requireApiAdmin,
+  requireApiPermission,
   rolesFromUser,
 } from "@/lib/api/auth";
 import { getRequestOrigin } from "@/lib/request-origin";
@@ -57,9 +58,35 @@ describe("auth helpers", () => {
     expect(state.staff).toMatchObject({ role: "owner", active: true, source: "environment" });
   });
 
-  it("allows an active database-managed administrator outside the environment whitelist", async () => {
+  it("revalidates an active database-managed administrator outside the environment whitelist", async () => {
     process.env.ADMIN_EMAIL_ALLOWLIST = "owner@example.test";
     const request = adminRequest();
+    const state = fakeAdminSupabase({
+      staff: {
+        id: "staff-1",
+        role: "viewer",
+        active: true,
+        email: "admin@example.test",
+        source: "database",
+      },
+      grant: {
+        id: "grant-1",
+        role: "operations",
+        active: true,
+        created_by_staff_id: "owner-staff",
+      },
+    });
+
+    await expect(requireApiAdmin(request, state.client as never)).resolves.toMatchObject({
+      user: { id: "user-1" },
+      roles: expect.arrayContaining(["operations"]),
+      staff: { role: "operations" },
+      isAdmin: true,
+    });
+  });
+
+  it("enforces role permissions after administrator authentication", async () => {
+    process.env.ADMIN_EMAIL_ALLOWLIST = "owner@example.test";
     const state = fakeAdminSupabase({
       staff: {
         id: "staff-1",
@@ -68,13 +95,20 @@ describe("auth helpers", () => {
         email: "admin@example.test",
         source: "database",
       },
+      grant: {
+        id: "grant-1",
+        role: "operations",
+        active: true,
+        created_by_staff_id: "owner-staff",
+      },
     });
 
-    await expect(requireApiAdmin(request, state.client as never)).resolves.toMatchObject({
-      user: { id: "user-1" },
-      roles: expect.arrayContaining(["operations"]),
-      isAdmin: true,
-    });
+    await expect(
+      requireApiPermission(adminRequest(), "manage_orders", state.client as never)
+    ).resolves.toMatchObject({ staff: { role: "operations" } });
+    await expect(
+      requireApiPermission(adminRequest(), "manage_admins", state.client as never)
+    ).rejects.toThrow("Insufficient administrator permission");
   });
 
   it("rejects an authenticated user without an allowlist entry, staff row, or grant", async () => {
@@ -82,6 +116,23 @@ describe("auth helpers", () => {
     const request = adminRequest();
 
     await expect(requireApiAdmin(request, fakeAdminSupabase().client as never)).rejects.toThrow(
+      "Active staff access required"
+    );
+  });
+
+  it("rejects stale database staff when the delegated grant is absent", async () => {
+    process.env.ADMIN_EMAIL_ALLOWLIST = "owner@example.test";
+    const state = fakeAdminSupabase({
+      staff: {
+        id: "staff-1",
+        role: "admin",
+        active: true,
+        email: "admin@example.test",
+        source: "database",
+      },
+    });
+
+    await expect(requireApiAdmin(adminRequest(), state.client as never)).rejects.toThrow(
       "Active staff access required"
     );
   });
@@ -220,21 +271,30 @@ describe("auth helpers", () => {
   });
 });
 
+interface FakeGrant {
+  id: string;
+  role: StaffProfile["role"];
+  active: boolean;
+  created_by_staff_id: string | null;
+}
+
 function adminRequest() {
   return new Request("https://example.test/api/admin/orders", {
     headers: { authorization: "Bearer token-123" },
   });
 }
 
-function fakeAdminSupabase(initial?: { staff?: StaffProfile }) {
+function fakeAdminSupabase(initial?: { staff?: StaffProfile; grant?: FakeGrant }) {
   const state: {
     staff: (StaffProfile & { auth_user_id?: string }) | null;
+    grant: FakeGrant | null;
     client: {
       auth: { getUser: ReturnType<typeof vi.fn> };
       from: ReturnType<typeof vi.fn>;
     };
   } = {
     staff: initial?.staff ?? null,
+    grant: initial?.grant ?? null,
     client: null as never,
   };
 
@@ -291,9 +351,12 @@ function fakeAdminSupabase(initial?: { staff?: StaffProfile }) {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               eq: vi.fn(() => ({
-                maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+                maybeSingle: vi.fn(async () => ({ data: state.grant, error: null })),
               })),
             })),
+          })),
+          update: vi.fn(() => ({
+            eq: vi.fn(async () => ({ error: null })),
           })),
         };
       }
