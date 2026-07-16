@@ -14,7 +14,6 @@ begin
     'order_items',
     'payments',
     'shipments',
-    'b2b_accounts',
     'notifications'
   ] loop
     if not exists (
@@ -49,6 +48,10 @@ begin
       raise exception 'public.% ownership policy is still granted to public', v_table;
     end if;
   end loop;
+
+  if to_regclass('public.b2b_accounts') is not null then
+    raise exception 'wholesale account table still exists';
+  end if;
 
   select * into v_policy
   from pg_policies
