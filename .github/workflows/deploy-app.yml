@@ -3,7 +3,7 @@ name: Deploy App
 
 on:
   push:
-    branches: [develop, main]
+    branches: ['**']
     tags: ['v*']
     paths-ignore:
       - 'docs/**'
@@ -29,7 +29,9 @@ permissions:
 jobs:
   development-ready:
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'push' &&
+       startsWith(github.ref, 'refs/heads/') &&
+       github.ref != 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && inputs.target == 'development')
     runs-on: ubuntu-latest
     outputs:
@@ -58,10 +60,31 @@ jobs:
       environment: development
     secrets: inherit
 
+  report-staging-disabled:
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.ENABLE_RELEASE_TOPOLOGY != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Staging is not provisioned; the main revision was not deployed."
+
+  reject-disabled-staging-dispatch:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.target == 'staging' &&
+      vars.ENABLE_RELEASE_TOPOLOGY != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Staging is disabled. Set ENABLE_RELEASE_TOPOLOGY=true and bootstrap staging first." >&2
+          exit 1
+
   deploy-staging:
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+      vars.ENABLE_RELEASE_TOPOLOGY == 'true' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_dispatch' && inputs.target == 'staging'))
     uses: ./.github/workflows/deploy.yml
     with:
       environment: staging
@@ -69,9 +92,10 @@ jobs:
 
   deploy-release-staging:
     if: >-
-      github.event_name == 'release' ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.target == 'production')
+      vars.ENABLE_RELEASE_TOPOLOGY == 'true' &&
+      (github.event_name == 'release' ||
+       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+       (github.event_name == 'workflow_dispatch' && inputs.target == 'production'))
     uses: ./.github/workflows/deploy.yml
     with:
       environment: staging
@@ -85,11 +109,22 @@ jobs:
       staging_app_url: ${{ needs.deploy-release-staging.outputs.deployment_url }}
     secrets: inherit
 
-  deploy-production:
+  deploy-production-gated:
     needs: hosted-release-gates
     if: needs.hosted-release-gates.result == 'success'
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production
       skip_app_checks: true
+    secrets: inherit
+
+  deploy-production-direct:
+    if: >-
+      vars.ENABLE_RELEASE_TOPOLOGY != 'true' &&
+      (github.event_name == 'release' ||
+       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+       (github.event_name == 'workflow_dispatch' && inputs.target == 'production'))
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
     secrets: inherit
