@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { deleteAccount } from "@/app/actions/account";
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
@@ -23,7 +24,7 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ welcome?: string }>;
+  searchParams?: Promise<{ welcome?: string; error?: string }>;
 }) {
   const params = (await searchParams) ?? {};
   const appName = getAppName();
@@ -57,6 +58,7 @@ export default async function AccountPage({
     .filter((order) => !["cancelled", "refunded"].includes(order.status))
     .reduce((sum, order) => sum + order.total_cents, 0);
   const activeAlerts = recentWaitlist.filter((entry) => entry.status === "active").length;
+  const accountName = customer.name ?? "Your account";
 
   return (
     <div className="space-y-8">
@@ -67,183 +69,220 @@ export default async function AccountPage({
           </StatusBadge>
         }
         eyebrow="Account"
-        title="Your account"
+        title={accountName}
       />
 
       {dataError ? (
-        <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-          Account activity could not be loaded right now.
-        </div>
+        <Notice tone="danger">Account activity could not be loaded right now.</Notice>
       ) : null}
       {params.welcome === "1" ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          Welcome to {appName}. Your account is ready.
-        </div>
+        <Notice tone="success">Welcome to {appName}. Your account is ready.</Notice>
+      ) : null}
+      {params.error === "confirm-delete" ? (
+        <Notice tone="danger">Confirm account deletion before continuing.</Notice>
+      ) : null}
+      {params.error === "delete-failed" ? (
+        <Notice tone="danger">Account deletion could not be completed.</Notice>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <MetricCard
-          detail="Remaining balances across active preorders"
-          label="Preorder balance"
-          value={formatMoney(preorderExposureCents)}
-        />
-        <MetricCard
-          detail="Paid and active orders this month"
-          label="Monthly spend"
-          value={formatMoney(monthlySpendCents)}
-        />
-        <MetricCard
-          detail="Products you asked to be notified about"
-          label="Active alerts"
-          value={String(activeAlerts)}
-        />
+      <section className="grid gap-4 sm:grid-cols-3">
+        <MetricCard detail="Active preorder balances" label="Preorder balance" value={formatMoney(preorderExposureCents)} />
+        <MetricCard detail="Orders placed this month" label="Monthly spend" value={formatMoney(monthlySpendCents)} />
+        <MetricCard detail="Active product notifications" label="Drop alerts" value={String(activeAlerts)} />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="space-y-6">
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-zinc-950">
-                  {customer.name ?? `${appName} customer`}
-                </h2>
-                <p className="mt-1 text-sm text-zinc-500">{customer.email}</p>
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4">
+            <h2 className="text-lg font-semibold text-zinc-950">Recent orders</h2>
+            <Link className="text-sm font-semibold text-emerald-700 hover:text-emerald-900" href="/orders">
+              View all
+            </Link>
+          </div>
+          <div className="grid gap-3 p-4 sm:p-5">
+            {recentOrders.length === 0 ? (
+              <EmptyState href="/catalog" label="Browse catalog" text="No orders yet." />
+            ) : (
+              recentOrders.slice(0, 4).map((order) => (
+                <Link
+                  className="grid gap-3 rounded-lg border border-zinc-200 p-4 transition hover:border-emerald-500 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                  href={`/orders/${order.id}`}
+                  key={order.id}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate font-semibold text-zinc-950">{order.id}</span>
+                      <StatusBadge tone={orderTone(order.status)}>{formatStatus(order.status)}</StatusBadge>
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-500">
+                      {formatDate(order.placed_at ?? order.created_at)} · {orderItemCount(order)} item(s)
+                    </p>
+                  </div>
+                  <p className="font-semibold text-zinc-950 sm:text-right">
+                    {formatMoney(order.total_cents, order.currency)}
+                  </p>
+                </Link>
+              ))
+            )}
+          </div>
+        </section>
+
+        <aside className="space-y-5">
+          <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-zinc-500">Profile</p>
+                <p className="mt-1 truncate font-semibold text-zinc-950">{customer.email}</p>
               </div>
               <StatusBadge tone={customer.billing_state === "active" ? "success" : "warning"}>
                 {formatStatus(customer.billing_state)}
               </StatusBadge>
             </div>
-            <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm text-zinc-500">Payment</dt>
-                <dd className="mt-1 font-semibold text-zinc-950">
-                  {formatStatus(customer.billing_state)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm text-zinc-500">Account</dt>
-                <dd className="mt-1 font-semibold text-zinc-950">
-                  {formatStatus(customer.provisioning_state)}
-                </dd>
-              </div>
+            <dl className="mt-5 divide-y divide-zinc-100 text-sm">
+              <AccountRow label="Account" value={formatStatus(customer.provisioning_state)} />
+              <AccountRow label="Billing" value={formatStatus(customer.billing_state)} />
             </dl>
             {customer.provisioning_error ? (
-              <p className="mt-5 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+              <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
                 Account setup needs support review.
               </p>
             ) : null}
           </section>
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold text-zinc-950">Recent orders</h2>
-              <Link
-                className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                href="/orders"
-              >
-                View all
-              </Link>
-            </div>
-            <div className="grid gap-3">
-              {recentOrders.length === 0 ? (
-                <EmptyState href="/catalog" label="Browse catalog" text="No orders yet." />
-              ) : (
-                recentOrders.slice(0, 3).map((order) => (
-                  <Link
-                    className="rounded-md border border-zinc-200 p-4 hover:border-emerald-500"
-                    href={`/orders/${order.id}`}
-                    key={order.id}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span className="font-semibold text-zinc-950">{order.id}</span>
-                      <StatusBadge tone={orderTone(order.status)}>
-                        {formatStatus(order.status)}
-                      </StatusBadge>
-                    </div>
-                    <p className="mt-2 text-sm text-zinc-500">
-                      {formatDate(order.placed_at ?? order.created_at)} · {orderItemCount(order)} item(s)
-                    </p>
-                    <p className="mt-2 font-semibold text-zinc-950">
-                      {formatMoney(order.total_cents, order.currency)}
-                    </p>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-        </div>
+          <ActivityCard title="Preorders" href="/preorders" linkLabel="View all">
+            {recentPreorders.length === 0 ? (
+              <p className="text-sm text-zinc-500">No active preorders.</p>
+            ) : (
+              recentPreorders.slice(0, 3).map((preorder) => (
+                <Link
+                  className="block rounded-md border border-zinc-200 p-3 hover:border-emerald-500"
+                  href="/preorders"
+                  key={preorder.id}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate text-sm font-semibold text-zinc-950">
+                      {productNameForItem(preorder)}
+                    </span>
+                    <StatusBadge tone={preorderTone(preorder.status)}>
+                      {formatStatus(preorder.status)}
+                    </StatusBadge>
+                  </div>
+                  <p className="mt-2 text-sm text-zinc-500">
+                    Balance {formatMoney(preorder.balance_cents, preorder.currency)}
+                  </p>
+                </Link>
+              ))
+            )}
+          </ActivityCard>
 
-        <aside className="space-y-5">
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-950">Preorders</h2>
-            <div className="mt-4 grid gap-3">
-              {recentPreorders.length === 0 ? (
-                <EmptyState href="/preorders" label="View preorders" text="No active preorders." />
-              ) : (
-                recentPreorders.slice(0, 3).map((preorder) => (
-                  <Link
-                    className="rounded-md border border-zinc-200 p-4 hover:border-emerald-500"
-                    href="/preorders"
-                    key={preorder.id}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-zinc-950">{preorder.id}</span>
-                      <StatusBadge tone={preorderTone(preorder.status)}>
-                        {formatStatus(preorder.status)}
-                      </StatusBadge>
-                    </div>
-                    <p className="mt-2 text-sm text-zinc-500">{productNameForItem(preorder)}</p>
-                    <p className="mt-2 font-semibold text-zinc-950">
-                      Balance {formatMoney(preorder.balance_cents, preorder.currency)}
-                    </p>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-950">Drop alerts</h2>
-            <div className="mt-4 grid gap-3">
-              {recentWaitlist.length === 0 ? (
-                <EmptyState href="/catalog" label="Browse catalog" text="No drop alerts yet." />
-              ) : (
-                recentWaitlist.slice(0, 3).map((entry) => (
-                  <Link
-                    className="rounded-md border border-zinc-200 p-4 hover:border-emerald-500"
-                    href={entry.productSlug ? `/catalog/${entry.productSlug}` : "/catalog"}
-                    key={entry.id}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-zinc-950">{entry.productName}</span>
-                      <StatusBadge tone={waitlistTone(entry.status)}>
-                        {formatStatus(entry.status)}
-                      </StatusBadge>
-                    </div>
-                    <p className="mt-2 text-sm text-zinc-500">{entry.sku}</p>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
+          <ActivityCard title="Drop alerts" href="/catalog" linkLabel="Browse">
+            {recentWaitlist.length === 0 ? (
+              <p className="text-sm text-zinc-500">No drop alerts.</p>
+            ) : (
+              recentWaitlist.slice(0, 3).map((entry) => (
+                <Link
+                  className="block rounded-md border border-zinc-200 p-3 hover:border-emerald-500"
+                  href={entry.productSlug ? `/catalog/${entry.productSlug}` : "/catalog"}
+                  key={entry.id}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate text-sm font-semibold text-zinc-950">{entry.productName}</span>
+                    <StatusBadge tone={waitlistTone(entry.status)}>{formatStatus(entry.status)}</StatusBadge>
+                  </div>
+                </Link>
+              ))
+            )}
+          </ActivityCard>
         </aside>
+      </section>
+
+      <section className="border-t border-zinc-200 pt-8">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-950">Account access</h2>
+            <p className="mt-1 text-sm text-zinc-500">Manage this account and session.</p>
+          </div>
+          <div className="grid w-full gap-3 sm:w-auto sm:min-w-64">
+            <form action="/auth/sign-out" method="post">
+              <button className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500 hover:bg-white">
+                Sign out
+              </button>
+            </form>
+            <details className="rounded-md border border-rose-200 bg-white p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-rose-700">Delete account</summary>
+              <form action={deleteAccount} className="mt-4 grid gap-3">
+                <label className="flex items-start gap-2 text-sm text-zinc-600">
+                  <input
+                    className="mt-0.5 size-4"
+                    name="confirmDeletion"
+                    required
+                    type="checkbox"
+                    value="yes"
+                  />
+                  Confirm account deletion
+                </label>
+                <button className="inline-flex min-h-11 items-center justify-center rounded-md bg-rose-700 px-4 text-sm font-semibold text-white hover:bg-rose-800">
+                  Delete account
+                </button>
+              </form>
+            </details>
+          </div>
+        </div>
       </section>
     </div>
   );
 }
 
+function AccountRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+      <dt className="text-zinc-500">{label}</dt>
+      <dd className="font-medium text-zinc-950">{value}</dd>
+    </div>
+  );
+}
+
+function ActivityCard({
+  title,
+  href,
+  linkLabel,
+  children,
+}: {
+  title: string;
+  href: string;
+  linkLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
+        <Link className="text-sm font-semibold text-emerald-700 hover:text-emerald-900" href={href}>
+          {linkLabel}
+        </Link>
+      </div>
+      <div className="grid gap-3">{children}</div>
+    </section>
+  );
+}
+
 function EmptyState({ href, label, text }: { href: string; label: string; text: string }) {
   return (
-    <div className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
+    <div className="rounded-lg border border-dashed border-zinc-300 p-5 text-sm text-zinc-600">
       <p>{text}</p>
-      <Link
-        className="mt-3 inline-flex font-semibold text-emerald-700 hover:text-emerald-800"
-        href={href}
-      >
+      <Link className="mt-3 inline-flex font-semibold text-emerald-700 hover:text-emerald-900" href={href}>
         {label}
       </Link>
     </div>
   );
+}
+
+function Notice({ children, tone }: { children: React.ReactNode; tone: "success" | "danger" }) {
+  const className =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+      : "border-rose-200 bg-rose-50 text-rose-800";
+  return <div className={`rounded-md border p-4 text-sm ${className}`}>{children}</div>;
 }
 
 function isCurrentMonth(value?: string | null): boolean {
