@@ -1,24 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
+import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
+import { WaitlistSignupPanel } from "@/app/(shop)/catalog/[slug]/waitlist-signup-panel";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
-import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
-import { WaitlistSignupPanel } from "@/app/(shop)/catalog/[slug]/waitlist-signup-panel";
 import { addToCart } from "@/app/actions/cart";
-import { getCurrentViewer, getCustomerProfile } from "@/lib/auth";
-import {
-  discountedPriceCents,
-  formatDiscountBps,
-  getWholesaleAccess,
-  maxDiscountBps,
-  minimumOrderCents,
-  type WholesaleAccess,
-} from "@/lib/b2b";
-import { formatMoney as formatSharedMoney } from "@/lib/money";
-import { formatDealDiscount, getStorefrontDealForSku } from "@/lib/deals";
-import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 import {
   formatMoney,
   formatStatus,
@@ -26,8 +15,10 @@ import {
   getProduct,
   type MarketplaceProduct,
 } from "@/app/_data/marketplace-fixtures";
+import { getCurrentViewer } from "@/lib/auth";
 import { getCatalogProduct, type CatalogProduct } from "@/lib/catalog";
-import { createServiceClient } from "@/lib/supabase";
+import { formatDealDiscount, getStorefrontDealForSku } from "@/lib/deals";
+import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
@@ -58,18 +49,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const viewer = await getCurrentViewer();
   const skuId = liveProduct?.skus[0]?.id ?? null;
-  const [wholesaleAccess, activeDeal] = await Promise.all([
-    currentWholesaleAccess(viewer.user?.id),
-    skuId
-      ? getStorefrontDealForSku({ signedIn: Boolean(viewer.user), skuId })
-      : Promise.resolve(null),
-  ]);
-  const wholesaleDiscountBps = maxDiscountBps(wholesaleAccess?.tiers ?? []);
-  const wholesaleMinimumCents = minimumOrderCents(wholesaleAccess?.tiers ?? []);
-  const wholesalePriceCents =
-    wholesaleDiscountBps > 0
-      ? discountedPriceCents(product.priceCents, wholesaleDiscountBps)
-      : product.priceCents;
+  const activeDeal = skuId
+    ? await getStorefrontDealForSku({ signedIn: Boolean(viewer.user), skuId })
+    : null;
   const available = getAvailable(product);
   const preorderTimeline = [
     { label: "Deposit", date: "Today", state: "current" as const },
@@ -81,7 +63,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow={`${product.game} / ${product.setCode}`}
+        eyebrow={`${product.game} · ${product.setCode}`}
         title={product.name}
         description={product.description}
         action={
@@ -93,7 +75,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
-          <div className="relative aspect-[16/10] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 shadow-sm">
+          <div className="relative aspect-[16/10] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-sm">
             <Image
               src={product.image}
               alt={`${product.name} sealed product display`}
@@ -104,82 +86,41 @@ export default async function ProductPage({ params }: ProductPageProps) {
             />
           </div>
 
-          <section className="grid gap-4 md:grid-cols-4">
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-              <p className="text-sm text-zinc-500">SKU</p>
-              <p className="mt-2 font-semibold text-zinc-950">{product.sku}</p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-              <p className="text-sm text-zinc-500">Release</p>
-              <p className="mt-2 font-semibold text-zinc-950">{product.releaseDate}</p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-              <p className="text-sm text-zinc-500">Pack layout</p>
-              <p className="mt-2 font-semibold text-zinc-950">
-                {product.packsPerBox} x {product.cardsPerPack}
-              </p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-              <p className="text-sm text-zinc-500">Language</p>
-              <p className="mt-2 font-semibold text-zinc-950">{product.language}</p>
-            </div>
+          <section className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+            <ProductFact label="SKU" value={product.sku} />
+            <ProductFact label="Release" value={product.releaseDate} />
+            <ProductFact label="Pack layout" value={`${product.packsPerBox} × ${product.cardsPerPack}`} />
+            <ProductFact label="Language" value={product.language} />
           </section>
 
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-semibold text-zinc-950">Allocation policy</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
-              <div>
-                <p className="text-3xl font-bold text-zinc-950">{product.preorderReserve}</p>
-                <p className="mt-1 text-sm text-zinc-600">B2C reserve boxes</p>
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-zinc-950">
-                  {product.maxPerCustomer ?? "Open"}
-                </p>
-                <p className="mt-1 text-sm text-zinc-600">Per-customer cap</p>
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-zinc-950">{available}</p>
-                <p className="mt-1 text-sm text-zinc-600">Available after safety stock</p>
-              </div>
+            <h2 className="text-xl font-semibold text-zinc-950">Availability</h2>
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              <Metric value={product.preorderReserve} label="Reserved for preorders" />
+              <Metric value={product.maxPerCustomer ?? "Open"} label="Per-customer limit" />
+              <Metric value={available} label="Available" />
             </div>
           </section>
         </div>
 
         <aside className="space-y-5">
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-zinc-500">Current price</p>
+            <p className="text-sm font-medium text-zinc-500">Price</p>
             <p className="mt-2 text-4xl font-bold text-zinc-950">
               {formatMoney(product.priceCents, product.currency)}
             </p>
-            <p className="mt-1 text-xs text-zinc-500">
-              Regular price · GST included where applicable
-            </p>
+            <p className="mt-1 text-xs text-zinc-500">GST included where applicable</p>
             {product.msrpCents ? (
               <p className="mt-2 text-sm text-zinc-500">
                 MSRP {formatMoney(product.msrpCents, product.currency)}
               </p>
             ) : null}
-            {wholesaleDiscountBps > 0 ? (
-              <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-                <p className="font-semibold">
-                  Approved wholesale price {formatMoney(wholesalePriceCents, product.currency)}
-                </p>
-                <p className="mt-1 text-xs">
-                  {formatDiscountBps(wholesaleDiscountBps)} off list after the{" "}
-                  {formatSharedMoney(wholesaleMinimumCents, product.currency)} wholesale minimum.
-                </p>
-              </div>
-            ) : null}
             {activeDeal ? (
               <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
                 <p className="font-semibold">
-                  Limited-time price {formatMoney(activeDeal.dealPriceCents, activeDeal.currency)}
+                  Deal price {formatMoney(activeDeal.dealPriceCents, activeDeal.currency)}
                 </p>
-                <p className="mt-1 text-xs">
-                  Save {formatDealDiscount(activeDeal.discountBps)}. Eligibility and expiry are
-                  revalidated during signed-in checkout.
-                </p>
+                <p className="mt-1 text-xs">Save {formatDealDiscount(activeDeal.discountBps)}</p>
               </div>
             ) : null}
             <div className="mt-5 grid gap-2">
@@ -204,27 +145,25 @@ export default async function ProductPage({ params }: ProductPageProps) {
               ) : (
                 <Link
                   href="/catalog"
-                  className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-5 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
                 >
-                  Configure database to order
+                  Back to catalog
                 </Link>
               )}
-              {product.setStatus === "preorder_open" ? (
-                skuId ? (
-                  <CartCheckoutPanel
-                    authRedirectPath={`/catalog/${product.slug}`}
-                    clearCartOnSuccess={false}
-                    items={[{ skuId, quantity: 1 }]}
-                    mode="preorder"
-                    publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                    returnPath="/preorders?checkout=processing"
-                    startLabel="Pay preorder deposit"
-                    successHref="/preorders"
-                    successLabel="View preorders"
-                    supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
-                    supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
-                  />
-                ) : null
+              {product.setStatus === "preorder_open" && skuId ? (
+                <CartCheckoutPanel
+                  authRedirectPath={`/catalog/${product.slug}`}
+                  clearCartOnSuccess={false}
+                  items={[{ skuId, quantity: 1 }]}
+                  mode="preorder"
+                  publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                  returnPath="/preorders?checkout=processing"
+                  startLabel="Pay preorder deposit"
+                  successHref="/preorders"
+                  successLabel="View preorders"
+                  supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
+                  supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+                />
               ) : null}
               {skuId ? (
                 <WaitlistSignupPanel
@@ -238,32 +177,52 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-950">Preorder flow</h2>
-            <div className="mt-5">
-              <Timeline items={preorderTimeline} />
-            </div>
-          </section>
+          {product.setStatus === "preorder_open" ? (
+            <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-zinc-950">Preorder timeline</h2>
+              <div className="mt-5">
+                <Timeline items={preorderTimeline} />
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-950">Fulfillment</h2>
+            <h2 className="text-lg font-semibold text-zinc-950">Stock</h2>
             <dl className="mt-4 grid gap-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-zinc-500">On hand</dt>
-                <dd className="font-semibold text-zinc-950">{product.onHand}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-zinc-500">Incoming</dt>
-                <dd className="font-semibold text-zinc-950">{product.incoming}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-zinc-500">Allocated</dt>
-                <dd className="font-semibold text-zinc-950">{product.allocated}</dd>
-              </div>
+              <StockRow label="On hand" value={product.onHand} />
+              <StockRow label="Incoming" value={product.incoming} />
+              <StockRow label="Allocated" value={product.allocated} />
             </dl>
           </section>
         </aside>
       </section>
+    </div>
+  );
+}
+
+function ProductFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+      <p className="text-sm text-zinc-500">{label}</p>
+      <p className="mt-2 font-semibold text-zinc-950">{value}</p>
+    </div>
+  );
+}
+
+function Metric({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div>
+      <p className="text-3xl font-bold text-zinc-950">{value}</p>
+      <p className="mt-1 text-sm text-zinc-600">{label}</p>
+    </div>
+  );
+}
+
+function StockRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-zinc-500">{label}</dt>
+      <dd className="font-semibold text-zinc-950">{value}</dd>
     </div>
   );
 }
@@ -304,24 +263,11 @@ function mergeProduct(
     maxPerCustomer: liveProduct?.maxPerCustomer ?? fixture?.maxPerCustomer ?? null,
     image: liveProduct?.imageUrl ?? fixture?.image ?? "/images/sealed-tcg-hero.png",
     description: liveProduct?.description ?? fixture?.description ?? "Sealed TCG product.",
-    tags: liveProduct?.tags.length ? liveProduct.tags : (fixture?.tags ?? ["Live catalog"]),
-    channels: liveProduct?.channels.length ? liveProduct.channels : (fixture?.channels ?? ["b2c"]),
+    tags: liveProduct?.tags.length ? liveProduct.tags : (fixture?.tags ?? ["Sealed product"]),
+    channels: liveProduct?.channels.includes("b2c")
+      ? ["b2c"]
+      : fixture?.channels.includes("b2c")
+        ? ["b2c"]
+        : ["b2c"],
   };
-}
-
-async function currentWholesaleAccess(authUserId?: string): Promise<WholesaleAccess | null> {
-  if (!authUserId) return null;
-  try {
-    const customer = await getCustomerProfile(authUserId);
-    if (!customer) return null;
-    const access = await getWholesaleAccess(createServiceClient(), customer.id);
-    return access.status === "approved" && access.tiers.length > 0 ? access : null;
-  } catch (error) {
-    console.error("product wholesale pricing lookup failed:", safeError(error));
-    return null;
-  }
-}
-
-function safeError(error: unknown): string {
-  return error instanceof Error ? error.message : "unknown";
 }
