@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
 import { CatalogBrowser } from "@/app/(shop)/catalog/catalog-browser";
 import { createCatalogFilterProduct } from "@/app/(shop)/catalog/catalog-filters";
+import { DealCard } from "@/app/_components/deal-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { ProductCard } from "@/app/_components/product-card";
-import { StatusBadge } from "@/app/_components/status-badge";
 import {
   getProduct,
   marketplaceProducts,
@@ -10,15 +13,18 @@ import {
   type MarketplaceProduct,
   type SetStatus,
 } from "@/app/_data/marketplace-fixtures";
-import { getCurrentUser, getCustomerProfile } from "@/lib/auth";
-import { getWholesaleAccess, wholesaleIsActive, type WholesaleAccess } from "@/lib/b2b";
+import { getCurrentViewer } from "@/lib/auth";
+import { getStorefrontDeals } from "@/lib/deals";
 import { hasSupabasePublicEnv } from "@/lib/env";
 import { previewFixturesEnabled } from "@/lib/preview-fixtures";
-import { createAnonClient, createServiceClient } from "@/lib/supabase";
+import { createAnonClient } from "@/lib/supabase";
 
-// Always render at request time: the catalog reads live inventory and
-// must not be frozen into the build. It also builds without DB creds.
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Catalog",
+  description: "Browse sealed products, preorders, and current marketplace deals.",
+};
 
 interface ListingItemRow {
   title_override: string | null;
@@ -76,24 +82,8 @@ interface CatalogRow {
     | null;
 }
 
-interface CatalogHeaderConfig {
-  eyebrow: string;
-  title: string;
-  description: string;
-  emptyTitle: string;
-  emptyDescription: string;
-}
-
 type CatalogSource = "live" | "preview" | "unavailable";
-
-const DEFAULT_CATALOG_HEADER: CatalogHeaderConfig = {
-  eyebrow: "Catalog",
-  title: "Sealed product inventory",
-  description:
-    "Browse active booster boxes, collector boxes, cases, and preorders with visible stock and allocation limits.",
-  emptyTitle: "No active products",
-  emptyDescription: "Publish a listing item before opening orders.",
-};
+type CatalogView = "products" | "deals";
 
 function isSetStatus(value: string | undefined): value is SetStatus {
   return (
@@ -210,84 +200,113 @@ async function fetchProducts(): Promise<{
   };
 }
 
-async function fetchCatalogHeader(): Promise<CatalogHeaderConfig> {
-  if (!hasSupabasePublicEnv()) return DEFAULT_CATALOG_HEADER;
-
-  const supabase = createAnonClient();
-  const { data, error } = await supabase
-    .from("storefront_configurations")
-    .select("value")
-    .eq("key", "catalog_header")
-    .eq("active", true)
-    .maybeSingle();
-
-  if (error) {
-    console.error("catalog header configuration query failed:", error.message);
-    return DEFAULT_CATALOG_HEADER;
-  }
-
-  const value = (data?.value ?? {}) as Record<string, unknown>;
-  return {
-    eyebrow: configString(value, "eyebrow", DEFAULT_CATALOG_HEADER.eyebrow),
-    title: configString(value, "title", DEFAULT_CATALOG_HEADER.title),
-    description: configString(value, "description", DEFAULT_CATALOG_HEADER.description),
-    emptyTitle: configString(value, "emptyTitle", DEFAULT_CATALOG_HEADER.emptyTitle),
-    emptyDescription: configString(
-      value,
-      "emptyDescription",
-      DEFAULT_CATALOG_HEADER.emptyDescription
-    ),
-  };
-}
-
-export default async function CatalogPage() {
-  const [{ products, source }, header] = await Promise.all([fetchProducts(), fetchCatalogHeader()]);
-  const wholesaleAccess = await currentWholesaleAccess();
-  const sourceLabel = source === "live" ? "Live" : source === "preview" ? "Preview" : "Unavailable";
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ view?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const view: CatalogView = params.view === "deals" ? "deals" : "products";
+  const viewer = await getCurrentViewer();
+  const [{ products, source }, deals] = await Promise.all([
+    fetchProducts(),
+    view === "deals"
+      ? getStorefrontDeals({ signedIn: Boolean(viewer.user) })
+      : Promise.resolve([]),
+  ]);
 
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow={header.eyebrow}
-        title={header.title}
-        description={header.description}
-        action={
-          <StatusBadge tone={source === "live" ? "success" : "warning"}>
-            {source} data
-          </StatusBadge>
-        }
+        eyebrow="Catalog"
+        title="Sealed products"
+        description="Browse current stock, preorders, and offers."
       />
 
-      {source === "unavailable" ? (
+      <nav
+        aria-label="Catalog sections"
+        className="inline-flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm"
+      >
+        <Link className={sectionLinkClass(view === "products")} href="/catalog">
+          All products
+        </Link>
+        <Link className={sectionLinkClass(view === "deals")} href="/catalog?view=deals">
+          Deals
+        </Link>
+      </nav>
+
+      {view === "deals" ? (
+        <DealsSection deals={deals} signedIn={Boolean(viewer.user)} />
+      ) : source === "unavailable" ? (
         <section
           aria-live="polite"
           className="rounded-lg border border-amber-200 bg-amber-50 p-8 text-center shadow-sm"
         >
           <h2 className="text-xl font-semibold text-amber-950">Catalog temporarily unavailable</h2>
-          <p className="mt-3 text-sm text-amber-900">
-            Live inventory and pricing could not be loaded. No preview products are shown in a
-            production environment. Please try again later.
-          </p>
+          <p className="mt-2 text-sm text-amber-900">Please try again shortly.</p>
         </section>
       ) : products.length === 0 ? (
         <section className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
-          <h2 className="text-xl font-semibold text-zinc-950">{header.emptyTitle}</h2>
-          <p className="mt-3 text-sm text-zinc-600">{header.emptyDescription}</p>
+          <h2 className="text-xl font-semibold text-zinc-950">No products available</h2>
+          <p className="mt-2 text-sm text-zinc-600">Check back for the next release.</p>
         </section>
       ) : (
         <CatalogBrowser products={products.map(createCatalogFilterProduct)}>
           {products.map((product) => (
-            <ProductCard
-              key={product.slug}
-              product={product}
-              sourceLabel={sourceLabel}
-              wholesaleAccess={wholesaleAccess}
-            />
+            <ProductCard key={product.slug} product={product} />
           ))}
         </CatalogBrowser>
       )}
     </div>
   );
+}
+
+function DealsSection({
+  deals,
+  signedIn,
+}: {
+  deals: Awaited<ReturnType<typeof getStorefrontDeals>>;
+  signedIn: boolean;
+}) {
+  return (
+    <section aria-labelledby="catalog-deals-heading" className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="catalog-deals-heading" className="text-2xl font-semibold text-zinc-950">
+            Current deals
+          </h2>
+          <p className="mt-1 text-sm text-zinc-600">Limited-time prices on selected products.</p>
+        </div>
+        {!signedIn ? (
+          <Link
+            className="text-sm font-semibold text-emerald-700 hover:text-emerald-900"
+            href="/sign-in?next=/catalog?view=deals"
+          >
+            Sign in for all eligible deals
+          </Link>
+        ) : null}
+      </div>
+
+      {deals.length > 0 ? (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {deals.map((deal) => (
+            <DealCard deal={deal} key={deal.id} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
+          <h3 className="text-xl font-semibold text-zinc-950">No active deals</h3>
+          <p className="mt-2 text-sm text-zinc-600">Browse the full catalog for current stock.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function sectionLinkClass(active: boolean): string {
+  return active
+    ? "inline-flex min-h-10 items-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white"
+    : "inline-flex min-h-10 items-center rounded-md px-4 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950";
 }
 
 function listingForRow(row: CatalogRow): ListingItemRow | null {
@@ -310,41 +329,13 @@ function listingTags(
 ): string[] {
   const tags = listing?.tags?.filter(Boolean) ?? [];
   const withBadge = listing?.badge_label ? [listing.badge_label, ...tags] : tags;
-  return withBadge.length > 0 ? [...new Set(withBadge)] : (fixture?.tags ?? ["Live catalog"]);
+  return withBadge.length > 0 ? [...new Set(withBadge)] : (fixture?.tags ?? ["Sealed product"]);
 }
 
 function listingChannels(
   listing: ListingItemRow | null,
   fixture: MarketplaceProduct | undefined
 ): Channel[] {
-  const channels = listing?.channels?.filter((channel): channel is Channel => {
-    return channel === "b2c" || channel === "b2b";
-  });
-  return channels && channels.length > 0 ? channels : (fixture?.channels ?? ["b2c"]);
-}
-
-function configString(config: Record<string, unknown>, key: string, fallback: string): string {
-  const value = config[key];
-  return typeof value === "string" && value.trim() ? value : fallback;
-}
-
-async function currentWholesaleAccess(): Promise<WholesaleAccess | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
-  try {
-    const customer = await getCustomerProfile(user.id);
-    if (!customer) return null;
-    const access = await getWholesaleAccess(createServiceClient(), customer.id);
-    return wholesaleIsActive(access) ? access : null;
-  } catch (error) {
-    // Wholesale pricing is an optional catalog enhancement. A backend
-    // credential or B2B lookup failure must not make the public catalog fail.
-    console.error("wholesale customer/access lookup failed:", safeError(error));
-    return null;
-  }
-}
-
-function safeError(error: unknown): string {
-  return error instanceof Error ? error.message : "unknown";
+  const channels = listing?.channels?.filter((channel): channel is Channel => channel === "b2c");
+  return channels && channels.length > 0 ? channels : (fixture?.channels.filter((channel) => channel === "b2c") ?? ["b2c"]);
 }
