@@ -1,4 +1,4 @@
-import { setCustomerAccountDeleted } from "@/app/actions/customer-admin";
+import { CustomerLifecycleControl } from "@/app/(shop)/control/_components/customer-lifecycle-control";
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
@@ -157,34 +157,11 @@ export default async function ControlCustomersPage({
                     </div>
                   ) : null}
 
-                  {deleted ? (
-                    recoverable ? (
-                      <form action={setCustomerAccountDeleted} className="mt-5 flex justify-end">
-                        <input name="customerId" type="hidden" value={customer.id} />
-                        <input name="deleted" type="hidden" value="false" />
-                        <button className="min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800">
-                          Restore account
-                        </button>
-                      </form>
-                    ) : null
-                  ) : (
-                    <details className="mt-5 border-t border-zinc-100 pt-4">
-                      <summary className="cursor-pointer text-right text-sm font-semibold text-rose-700">
-                        Disable account
-                      </summary>
-                      <form action={setCustomerAccountDeleted} className="mt-3 grid justify-items-end gap-3">
-                        <input name="customerId" type="hidden" value={customer.id} />
-                        <input name="deleted" type="hidden" value="true" />
-                        <label className="flex min-h-11 items-center gap-2 text-sm text-zinc-700">
-                          <input name="confirmDisable" required type="checkbox" value="yes" />
-                          Confirm account disable
-                        </label>
-                        <button className="min-h-11 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50">
-                          Disable account
-                        </button>
-                      </form>
-                    </details>
-                  )}
+                  <CustomerLifecycleControl
+                    customerId={customer.id}
+                    deleted={deleted}
+                    recoverable={recoverable}
+                  />
                 </article>
               );
             })}
