@@ -58,6 +58,22 @@ describe("customer provisioning", () => {
     expect(store.rows).toHaveLength(1);
   });
 
+  it("rejects a disabled legacy customer instead of relinking or duplicating it", async () => {
+    const store = fakeCustomerStore([
+      customer({
+        auth_user_id: null,
+        email: "buyer@example.test",
+        deleted_at: "2026-07-16T12:00:00.000Z",
+      }),
+    ]);
+
+    await expect(findOrCreateCustomer(store.client, authUser())).rejects.toThrow(
+      "Customer account is disabled"
+    );
+    expect(store.rows).toHaveLength(1);
+    expect(store.rows[0]?.auth_user_id).toBeNull();
+  });
+
   it("does not relink an email owned by another auth user", async () => {
     const store = fakeCustomerStore([
       customer({ auth_user_id: "other-auth-user", email: "buyer@example.test" }),
@@ -101,6 +117,7 @@ function customer(overrides: Partial<CustomerRecord> = {}): CustomerRecord {
     billing_state: "unpaid",
     provisioning_state: "active",
     provisioning_error: null,
+    deleted_at: null,
     ...overrides,
   };
 }
@@ -122,6 +139,10 @@ function fakeCustomerStore(initial: CustomerRecord[] = []) {
           return builder;
         },
         eq(column: keyof CustomerRecord, value: unknown) {
+          filters.push([column, value]);
+          return builder;
+        },
+        is(column: keyof CustomerRecord, value: unknown) {
           filters.push([column, value]);
           return builder;
         },
