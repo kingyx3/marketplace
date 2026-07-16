@@ -21,8 +21,9 @@ export async function createCatalogProduct(
   _previousState: CatalogProductActionState,
   formData: FormData
 ): Promise<CatalogProductActionState> {
+  const { user } = await requireControlPermission("manage_catalog", "/control/catalog");
+
   try {
-    const { user } = await requireControlPermission("manage_catalog", "/control/catalog");
     const input = adminCatalogProductCreateFromForm(formData);
     const supabase = createServiceClient();
 
@@ -80,21 +81,24 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
     return {
       status: "error",
       field: "productSlug",
-      message: "That product slug is already in use. Change the slug and submit again; the other product details are preserved.",
+      message:
+        "That product slug is already in use. Change the slug and submit again; the other product details are preserved.",
     };
   }
   if (message.includes("archived category")) {
     return {
       status: "error",
       field: "categorySlug",
-      message: "That category slug belongs to an archived category. Restore the category or use a different slug; the product details are preserved.",
+      message:
+        "That category slug belongs to an archived category. Restore the category or use a different slug; the product details are preserved.",
     };
   }
   if (error.code === "23505" || message.includes("duplicate")) {
     return {
       status: "error",
       field: "categorySlug",
-      message: "A category or product already uses that slug. Select the existing category or enter a unique slug; the product details are preserved.",
+      message:
+        "A category or product already uses that slug. Select the existing category or enter a unique slug; the product details are preserved.",
     };
   }
   if (message.includes("category")) {
