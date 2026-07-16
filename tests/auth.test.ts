@@ -3,6 +3,7 @@ import {
   isAdminEmailAllowed,
   parseAdminEmailAllowlist,
 } from "@/lib/admin-email-allowlist";
+import type { StaffProfile } from "@/lib/admin-staff";
 import {
   extractBearerToken,
   isAdminRole,
@@ -49,9 +50,12 @@ describe("auth helpers", () => {
       headers: { authorization: "Bearer token-123" },
     });
 
-    await expect(requireApiAdmin(request, fakeAdminSupabase(null) as never)).rejects.toThrow(
-      "Active staff access required"
-    );
+    await expect(
+      requireApiAdmin(
+        request,
+        fakeAdminSupabase({ id: "staff-1", role: "admin", active: false }) as never
+      )
+    ).rejects.toThrow("Active staff access required");
   });
 
   it("allows an authenticated active staff record", async () => {
@@ -60,8 +64,21 @@ describe("auth helpers", () => {
     });
 
     await expect(
-      requireApiAdmin(request, fakeAdminSupabase({ id: "staff-1" }) as never)
+      requireApiAdmin(
+        request,
+        fakeAdminSupabase({ id: "staff-1", role: "admin", active: true }) as never
+      )
     ).resolves.toMatchObject({ user: { id: "user-1" } });
+  });
+
+  it("provisions an allowlisted authenticated user with no staff row", async () => {
+    const request = new Request("https://example.test/api/admin/orders", {
+      headers: { authorization: "Bearer token-123" },
+    });
+
+    await expect(requireApiAdmin(request, fakeAdminSupabase(null) as never)).resolves.toMatchObject({
+      user: { id: "user-1" },
+    });
   });
 
   it("requires active staff emails to be in the normalized server allowlist", async () => {
@@ -77,7 +94,10 @@ describe("auth helpers", () => {
     });
 
     await expect(
-      requireApiAdmin(request, fakeAdminSupabase({ id: "staff-1" }) as never)
+      requireApiAdmin(
+        request,
+        fakeAdminSupabase({ id: "staff-1", role: "admin", active: true }) as never
+      )
     ).rejects.toThrow("Active staff access required");
   });
 
@@ -208,11 +228,17 @@ describe("auth helpers", () => {
   });
 });
 
-function fakeAdminSupabase(staff: { id: string } | null) {
+function fakeAdminSupabase(initialStaff: StaffProfile | null) {
+  let staff = initialStaff;
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     maybeSingle: vi.fn(async () => ({ data: staff, error: null })),
+    insert: vi.fn((input: { role: StaffProfile["role"]; active: boolean }) => {
+      staff = { id: "provisioned-staff", role: input.role, active: input.active };
+      return builder;
+    }),
+    single: vi.fn(async () => ({ data: staff, error: null })),
   };
 
   return {
