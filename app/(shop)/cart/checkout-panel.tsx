@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+
 import {
   ShippingAddressFields,
   emptyShippingAddress,
@@ -40,17 +41,15 @@ interface CheckoutResponse {
   currency: string;
   quote?: {
     discountCents: number;
-    shippingCents: number;
-    shippingService: string | null;
-    taxCents: number;
+    shippingCents?: number;
+    shippingService?: string | null;
+    taxCents?: number;
     totalCents: number;
   };
 }
 
 interface ApiErrorResponse {
-  error?: {
-    message?: string;
-  };
+  error?: { message?: string };
 }
 
 interface CartCheckoutPanelProps {
@@ -59,7 +58,6 @@ interface CartCheckoutPanelProps {
   supabaseUrl: string;
   supabaseAnonKey: string;
   mode?: "order" | "preorder";
-  channel?: "b2c" | "b2b";
   paymentEndpoint?: string;
   paymentBody?: Record<string, unknown>;
   clearCartOnSuccess?: boolean;
@@ -77,7 +75,6 @@ export function CartCheckoutPanel({
   supabaseUrl,
   supabaseAnonKey,
   mode = "order",
-  channel = "b2c",
   paymentEndpoint = "/api/checkout",
   paymentBody,
   clearCartOnSuccess = true,
@@ -106,9 +103,7 @@ export function CartCheckoutPanel({
   );
 
   async function accessToken(): Promise<string> {
-    if (!supabase) {
-      throw new Error("Authentication is not configured");
-    }
+    if (!supabase) throw new Error("Authentication is not configured");
 
     const { data, error } = await supabase.auth.getSession();
     if (error || !data.session?.access_token) {
@@ -145,7 +140,7 @@ export function CartCheckoutPanel({
     if (disabled || items.length === 0 || phase === "creating") return;
     if (requiresShipping && !isShippingAddressComplete(shippingAddress)) {
       setPhase("failed");
-      setMessage("Complete the required delivery address fields before checkout");
+      setMessage("Complete the required delivery address fields");
       return;
     }
     if (!publishableKey) {
@@ -158,7 +153,7 @@ export function CartCheckoutPanel({
     setMessage(null);
 
     try {
-      const baseBody = paymentBody ?? { mode, channel, items };
+      const baseBody = paymentBody ?? { mode, channel: "b2c", items };
       const requestBody = requiresShipping
         ? { ...baseBody, shippingAddress: shippingAddressPayload(shippingAddress) }
         : baseBody;
@@ -168,7 +163,7 @@ export function CartCheckoutPanel({
       });
       setCheckout(result);
       setPhase("ready");
-      setMessage("Payment is ready. Review the final server-calculated total below.");
+      setMessage("Review the final total and payment details.");
     } catch (error) {
       setCheckout(null);
       setPhase("failed");
@@ -193,9 +188,7 @@ export function CartCheckoutPanel({
   }
 
   async function cancelCheckout() {
-    if (!checkout || phase === "confirming" || phase === "processing" || phase === "succeeded") {
-      return;
-    }
+    if (!checkout || ["confirming", "processing", "succeeded"].includes(phase)) return;
 
     setPhase("canceling");
     setMessage(null);
@@ -228,7 +221,6 @@ export function CartCheckoutPanel({
         },
       }
     : undefined;
-
   const addressReady = !requiresShipping || isShippingAddressComplete(shippingAddress);
   const canCreate =
     !disabled && addressReady && items.length > 0 && !checkout && phase !== "creating";
@@ -245,7 +237,7 @@ export function CartCheckoutPanel({
 
       {!checkout ? (
         <p className="text-xs leading-5 text-zinc-500">
-          By continuing to payment, you agree to the{" "}
+          By continuing, you agree to the{" "}
           <Link className="font-semibold underline" href="/terms">
             Terms
           </Link>
@@ -255,7 +247,7 @@ export function CartCheckoutPanel({
           </Link>
           , and{" "}
           <Link className="font-semibold underline" href="/returns">
-            Returns and Refunds Policy
+            Returns Policy
           </Link>
           .
         </p>
@@ -272,42 +264,7 @@ export function CartCheckoutPanel({
         </button>
       ) : null}
 
-      {checkout?.quote ? (
-        <dl className="grid gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
-          {checkout.quote.discountCents > 0 ? (
-            <div className="flex justify-between gap-4 text-emerald-800">
-              <dt>Eligible savings</dt>
-              <dd className="font-semibold">Applied in final total</dd>
-            </div>
-          ) : null}
-          <div className="flex justify-between gap-4">
-            <dt className="text-zinc-600">Shipping</dt>
-            <dd className="font-semibold text-zinc-950">
-              {formatMoney(checkout.quote.shippingCents, checkout.currency)}
-            </dd>
-          </div>
-          {checkout.quote.shippingService ? (
-            <div className="flex justify-between gap-4">
-              <dt className="text-zinc-600">Service</dt>
-              <dd className="text-right font-semibold text-zinc-950">
-                {checkout.quote.shippingService}
-              </dd>
-            </div>
-          ) : null}
-          <div className="flex justify-between gap-4">
-            <dt className="text-zinc-600">GST included</dt>
-            <dd className="font-semibold text-zinc-950">
-              {formatMoney(checkout.quote.taxCents, checkout.currency)}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4 border-t border-zinc-200 pt-2">
-            <dt className="font-semibold text-zinc-950">Final total</dt>
-            <dd className="text-base font-bold text-zinc-950">
-              {formatMoney(checkout.quote.totalCents, checkout.currency)}
-            </dd>
-          </div>
-        </dl>
-      ) : null}
+      {checkout?.quote ? <CheckoutTotals checkout={checkout} /> : null}
 
       {checkout && stripePromise && elementsOptions ? (
         <Elements key={checkout.clientSecret} options={elementsOptions} stripe={stripePromise}>
@@ -350,13 +307,57 @@ export function CartCheckoutPanel({
         </Link>
       ) : (
         <Link
-          href="/catalog"
           className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
+          href="/catalog"
         >
           Keep shopping
         </Link>
       )}
     </div>
+  );
+}
+
+function CheckoutTotals({ checkout }: { checkout: CheckoutResponse }) {
+  const quote = checkout.quote;
+  if (!quote) return null;
+
+  return (
+    <dl className="grid gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
+      {quote.discountCents > 0 ? (
+        <div className="flex justify-between gap-4 text-emerald-800">
+          <dt>Deals</dt>
+          <dd className="font-semibold">Applied</dd>
+        </div>
+      ) : null}
+      {quote.shippingCents !== undefined ? (
+        <div className="flex justify-between gap-4">
+          <dt className="text-zinc-600">Shipping</dt>
+          <dd className="font-semibold text-zinc-950">
+            {formatMoney(quote.shippingCents, checkout.currency)}
+          </dd>
+        </div>
+      ) : null}
+      {quote.shippingService ? (
+        <div className="flex justify-between gap-4">
+          <dt className="text-zinc-600">Service</dt>
+          <dd className="text-right font-semibold text-zinc-950">{quote.shippingService}</dd>
+        </div>
+      ) : null}
+      {quote.taxCents !== undefined ? (
+        <div className="flex justify-between gap-4">
+          <dt className="text-zinc-600">GST included</dt>
+          <dd className="font-semibold text-zinc-950">
+            {formatMoney(quote.taxCents, checkout.currency)}
+          </dd>
+        </div>
+      ) : null}
+      <div className="flex justify-between gap-4 border-t border-zinc-200 pt-2">
+        <dt className="font-semibold text-zinc-950">Final total</dt>
+        <dd className="text-base font-bold text-zinc-950">
+          {formatMoney(quote.totalCents, checkout.currency)}
+        </dd>
+      </div>
+    </dl>
   );
 }
 
@@ -390,9 +391,7 @@ function PaymentForm({
     const result = await stripe.confirmPayment({
       elements,
       redirect: "if_required",
-      confirmParams: {
-        return_url: `${window.location.origin}${returnPath}`,
-      },
+      confirmParams: { return_url: `${window.location.origin}${returnPath}` },
     });
 
     if (result.error) {
@@ -415,7 +414,7 @@ function PaymentForm({
     }
   }
 
-  const isConfirming = phase === "confirming";
+  const confirming = phase === "confirming";
   const canCancel = !["confirming", "processing", "succeeded", "canceling"].includes(phase);
 
   return (
@@ -426,10 +425,10 @@ function PaymentForm({
       <div className="grid gap-2 sm:grid-cols-2">
         <button
           className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
-          disabled={!stripe || !elements || isConfirming}
+          disabled={!stripe || !elements || confirming}
           type="submit"
         >
-          {isConfirming ? "Confirming" : phase === "failed" ? "Retry payment" : "Confirm payment"}
+          {confirming ? "Confirming" : phase === "failed" ? "Retry payment" : "Confirm payment"}
         </button>
         <button
           className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500 disabled:cursor-not-allowed disabled:text-zinc-400"
@@ -466,8 +465,7 @@ function messageFromError(error: unknown, fallback: string): string {
 }
 
 function formatMoney(amountCents: number, currency: string): string {
-  return new Intl.NumberFormat("en-SG", {
-    style: "currency",
-    currency,
-  }).format(amountCents / 100);
+  return new Intl.NumberFormat("en-SG", { style: "currency", currency }).format(
+    amountCents / 100
+  );
 }
