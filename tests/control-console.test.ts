@@ -33,32 +33,59 @@ describe("control console", () => {
   });
 
   it("keeps every control mutation server-authorized and database-backed", async () => {
-    const source = await readFile(new URL("../app/actions/control.ts", import.meta.url), "utf8");
+    const [controlActions, operationalActions] = await Promise.all([
+      readFile(new URL("../app/actions/control.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/actions/admin.ts", import.meta.url), "utf8"),
+    ]);
 
-    expect(source).toContain('"use server"');
-    expect(source).toContain('requireControlPermission("manage_suppliers"');
-    expect(source).toContain('requireControlPermission("manage_catalog"');
-    expect(source).toContain('requireControlPermission("manage_admins"');
-    expect(source).toContain('rpc("admin_upsert_supplier"');
-    expect(source).toContain('rpc("admin_upsert_category"');
-    expect(source).toContain('rpc("admin_upsert_set_release"');
-    expect(source).toContain('rpc("admin_upsert_access_grant"');
+    expect(controlActions).toContain('"use server"');
+    expect(controlActions).toContain('requireControlPermission("manage_suppliers"');
+    expect(controlActions).toContain('requireControlPermission("manage_catalog"');
+    expect(controlActions).toContain('requireControlPermission("manage_admins"');
+    expect(controlActions).toContain('rpc("admin_upsert_supplier"');
+    expect(controlActions).toContain('rpc("admin_upsert_category"');
+    expect(controlActions).toContain('rpc("admin_upsert_set_release"');
+    expect(controlActions).toContain('rpc("admin_upsert_access_grant"');
+    expect(operationalActions).toContain('requireControlPermission("manage_full_operations"');
+    expect(operationalActions).not.toContain('requireStaff("/admin');
   });
 
-  it("adds relational safeguards and protected administrator grants in one migration", async () => {
-    const source = await readFile(
-      new URL("../supabase/migrations/20260717090000_control_console.sql", import.meta.url),
-      "utf8"
-    );
+  it("requires explicit permissions on bearer-token administrative APIs", async () => {
+    const [apiAuth, orders, allocation, notifications] = await Promise.all([
+      readFile(new URL("../lib/api/auth.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/admin/orders/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/admin/preorders/allocate/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/admin/waitlist/notify/route.ts", import.meta.url), "utf8"),
+    ]);
 
-    expect(source).toContain("create table if not exists public.admin_access_grants");
-    expect(source).toContain("prevent_tcg_category_cycle");
-    expect(source).toContain("category has active children, sets, or products");
-    expect(source).toContain("supplier has open purchase orders");
-    expect(source).toContain("set has active products");
-    expect(source).toContain("environment allowlisted owners are managed through ADMIN_EMAIL_ALLOWLIST");
-    expect(source).toContain("cannot remove or demote the final active owner");
-    expect(source).toContain("grant execute on function public.admin_upsert_access_grant");
+    expect(apiAuth).toContain("requireApiPermission");
+    expect(orders).toContain('requireApiPermission(request, "manage_orders")');
+    expect(allocation).toContain('requireApiPermission(request, "manage_full_operations")');
+    expect(notifications).toContain('requireApiPermission(request, "manage_full_operations")');
+  });
+
+  it("adds relational safeguards and protected administrator grants in migrations", async () => {
+    const [controlMigration, hardeningMigration] = await Promise.all([
+      readFile(
+        new URL("../supabase/migrations/20260717090000_control_console.sql", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL("../supabase/migrations/20260717091000_harden_control_grants.sql", import.meta.url),
+        "utf8"
+      ),
+    ]);
+
+    expect(controlMigration).toContain("create table if not exists public.admin_access_grants");
+    expect(controlMigration).toContain("prevent_tcg_category_cycle");
+    expect(controlMigration).toContain("category has active children, sets, or products");
+    expect(controlMigration).toContain("supplier has open purchase orders");
+    expect(controlMigration).toContain("set has active products");
+    expect(controlMigration).toContain("environment allowlisted owners are managed through ADMIN_EMAIL_ALLOWLIST");
+    expect(controlMigration).toContain("cannot remove or demote the final active owner");
+    expect(controlMigration).toContain("grant execute on function public.admin_upsert_access_grant");
+    expect(hardeningMigration).toContain("accepted administrator email cannot be changed");
+    expect(hardeningMigration).toContain("synchronize_admin_grant_staff");
   });
 });
 
