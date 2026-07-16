@@ -49,7 +49,7 @@ export default async function CartPage({
   const gst = Math.round((merchandiseTotalCents * 9) / 109);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <PageHeader eyebrow="Cart" title="Review your order" />
 
       {params.error ? (
@@ -79,41 +79,46 @@ export default async function CartPage({
       ) : null}
 
       {quote.lines.length === 0 ? (
-        <section className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
+        <section className="rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm sm:p-8">
           <h2 className="text-xl font-semibold text-zinc-950">Your cart is empty</h2>
           <p className="mt-2 text-sm text-zinc-600">Add a product to begin checkout.</p>
           <Link
             href="/catalog"
-            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 sm:w-auto"
           >
             Browse catalog
           </Link>
         </section>
       ) : (
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             {quote.lines.map((line) => {
               const lineDealDiscountBps = dealDiscounts.get(line.skuId) ?? 0;
               return (
                 <article
                   key={line.skuId}
-                  className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm sm:grid-cols-[1fr_auto] sm:items-center"
+                  className="grid min-w-0 gap-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold text-zinc-950">{line.name}</h2>
+                      <h2 className="min-w-0 break-words text-lg font-semibold text-zinc-950">
+                        {line.name}
+                      </h2>
                       <StatusBadge tone={line.available >= line.quantity ? "success" : "warning"}>
                         {line.available} available
                       </StatusBadge>
                     </div>
-                    <p className="mt-2 text-sm text-zinc-500">{line.sku}</p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <form action={updateCartQuantity} className="flex items-end gap-2">
+                    <p className="mt-2 break-all text-sm text-zinc-500">{line.sku}</p>
+                    <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
+                      <form
+                        action={updateCartQuantity}
+                        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:flex sm:w-auto"
+                      >
                         <input type="hidden" name="skuId" value={line.skuId} />
-                        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+                        <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-700">
                           Quantity
                           <input
-                            className="min-h-11 w-24 rounded-md border border-zinc-300 px-3 text-sm"
+                            className="min-h-11 w-full min-w-0 rounded-md border border-zinc-300 px-3 text-sm sm:w-24"
                             defaultValue={line.quantity}
                             min={1}
                             max={24}
@@ -121,19 +126,19 @@ export default async function CartPage({
                             type="number"
                           />
                         </label>
-                        <button className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500">
+                        <button className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-zinc-500 sm:px-4">
                           Update
                         </button>
                       </form>
-                      <form action={removeFromCart} className="grid content-end">
+                      <form action={removeFromCart} className="grid w-full content-end sm:w-auto">
                         <input type="hidden" name="skuId" value={line.skuId} />
-                        <button className="min-h-11 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:border-rose-400">
+                        <button className="min-h-11 w-full rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:border-rose-400">
                           Remove
                         </button>
                       </form>
                     </div>
                   </div>
-                  <div className="text-left sm:text-right">
+                  <div className="min-w-0 text-left sm:text-right">
                     <p className="text-xl font-bold text-zinc-950">
                       {formatMoney(line.lineTotalCents, line.currency)}
                     </p>
@@ -141,7 +146,7 @@ export default async function CartPage({
                       {formatMoney(line.unitPriceCents, line.currency)} each
                     </p>
                     {lineDealDiscountBps > 0 ? (
-                      <p className="mt-2 text-sm font-semibold text-emerald-700">
+                      <p className="mt-2 break-words text-sm font-semibold text-emerald-700">
                         Deal {formatMoney(discountedDealPrice(line.unitPriceCents, lineDealDiscountBps), line.currency)} each ({formatDealDiscount(lineDealDiscountBps)} off)
                       </p>
                     ) : null}
@@ -151,7 +156,7 @@ export default async function CartPage({
             })}
           </div>
 
-          <aside className="h-fit rounded-lg border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-28">
+          <aside className="h-fit min-w-0 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-28">
             <h2 className="text-xl font-semibold text-zinc-950">Order summary</h2>
             <dl className="mt-5 grid gap-3 text-sm">
               <div className="flex justify-between gap-4">
