@@ -48,13 +48,6 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
           className="-mx-4 flex snap-x gap-1 overflow-x-auto px-4 pb-3 text-zinc-600 sm:-mx-6 sm:px-6 lg:hidden"
         >
           <PrimaryLinks signedIn={signedIn} />
-          {signedIn ? (
-            <form action="/auth/sign-out" method="post" className="shrink-0 snap-start">
-              <button type="submit" className={baseLinkClass}>
-                Sign out
-              </button>
-            </form>
-          ) : null}
         </nav>
       </div>
     </header>
@@ -64,9 +57,6 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
 function PrimaryLinks({ signedIn }: { signedIn: boolean }) {
   return (
     <>
-      <Link href="/" className={`${baseLinkClass} snap-start`}>
-        Home
-      </Link>
       <Link href="/catalog" className={`${baseLinkClass} snap-start`}>
         Catalog
       </Link>
@@ -90,11 +80,6 @@ function AccountActions({ signedIn }: { signedIn: boolean }) {
       <Link href="/account" className={baseLinkClass}>
         Account
       </Link>
-      <form action="/auth/sign-out" method="post">
-        <button type="submit" className={baseLinkClass}>
-          Sign out
-        </button>
-      </form>
       <Link
         href="/cart"
         className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
