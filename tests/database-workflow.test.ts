@@ -20,6 +20,9 @@ describe("database workflow", () => {
     expect(ci).toContain("terraform: ${{ steps.filter.outputs.terraform }}");
     expect(ci).toContain("if: needs.changes.outputs.terraform == 'true'");
     expect(deploy).toContain("deployment-migration-log-${{ inputs.environment }}");
+    expect(deploy).toContain("hosted-migration-log-${{ inputs.environment }}");
+    expect(deploy).toContain("set -Eeuo pipefail");
+    expect(deploy).toContain("hosted-migration.log");
     expect(runner).toContain("set -Eeuo pipefail");
     expect(runner).toContain("ON_ERROR_STOP=1");
     expect(runner).toContain('2>&1 | tee -a "$LOG_FILE"');
