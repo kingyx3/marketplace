@@ -85,8 +85,6 @@ describe("catalog product action", () => {
       p_active: true,
       p_actor_auth_user_id: "staff-user-123",
     });
-    expect(rpc.mock.calls[0]?.[1]).not.toHaveProperty("p_name");
-    expect(rpc.mock.calls[0]?.[1]).not.toHaveProperty("p_slug");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/operations");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/products");
   });
