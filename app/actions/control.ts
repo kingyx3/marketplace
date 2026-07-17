@@ -88,7 +88,7 @@ export async function upsertControlCategory(formData: FormData) {
     "/control/categories",
     "/control/sets",
     "/control/operations",
-    "/catalog"
+    "/products"
   );
 }
 
@@ -106,7 +106,7 @@ export async function setControlCategoryActive(formData: FormData) {
     "/control/categories",
     "/control/sets",
     "/control/operations",
-    "/catalog"
+    "/products"
   );
 }
 
@@ -129,7 +129,7 @@ export async function upsertControlSet(formData: FormData) {
   });
 
   if (error) throw new Error(`Set save failed: ${error.message}`);
-  revalidateControlPaths("/control/sets", "/control/operations", "/catalog", "/preorders");
+  revalidateControlPaths("/control/sets", "/control/operations", "/products", "/preorders");
 }
 
 export async function setControlSetActive(formData: FormData) {
@@ -142,7 +142,7 @@ export async function setControlSetActive(formData: FormData) {
   });
 
   if (error) throw new Error(`Set status update failed: ${error.message}`);
-  revalidateControlPaths("/control/sets", "/control/operations", "/catalog", "/preorders");
+  revalidateControlPaths("/control/sets", "/control/operations", "/products", "/preorders");
 }
 
 export async function upsertControlAccessGrant(formData: FormData) {
