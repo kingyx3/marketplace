@@ -35,12 +35,15 @@ describe("database workflow", () => {
     expect(accountDeletion).not.toContain("b2b_accounts");
   });
 
-  it("verifies restores against the retail-only contract", async () => {
+  it("verifies restores against seeded retail invariants", async () => {
     const restore = await read(".github/ci/verify-logical-restore.sh");
 
     expect(restore).toContain("restored database contains retired wholesale capabilities");
-    expect(restore).toContain("restored database is missing active shipping policy");
+    expect(restore).toContain("restored database is missing seeded catalog data");
+    expect(restore).toContain("restored database is missing seeded inventory state");
+    expect(restore).toContain("restored database is missing seeded retail deal");
     expect(restore).toContain("restored database contains retired invoice policy");
+    expect(restore).not.toContain("restored database is missing active shipping policy");
     expect(restore).not.toContain("restored database is missing invoice checkout function");
   });
 });
