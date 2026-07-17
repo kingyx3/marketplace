@@ -1,12 +1,14 @@
 import { badRequest } from "@/lib/api/errors";
-import { setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
+import {
+  productTypeCodeFromName,
+  setCodeFromName,
+  slugFromName,
+} from "@/lib/catalog-identifiers";
 
 export interface AdminCatalogProductInput {
   productId: string | null;
   categoryId: string;
-  setId: string | null;
-  slug: string;
-  name: string;
+  setId: string;
   productType: string;
   description: string | null;
   language: string;
@@ -15,15 +17,19 @@ export interface AdminCatalogProductInput {
 }
 
 export interface AdminCatalogProductCreateInput
-  extends Omit<AdminCatalogProductInput, "productId" | "categoryId"> {
+  extends Omit<AdminCatalogProductInput, "productId" | "categoryId" | "setId" | "productType"> {
   categoryId: string | null;
   newCategoryName: string | null;
   newCategorySlug: string | null;
   newCategoryPublisher: string | null;
+  setId: string | null;
   newSetName: string | null;
   newSetCode: string | null;
   newSetReleaseDate: string | null;
   newSetStatus: SetStatus | null;
+  productType: string | null;
+  newProductTypeName: string | null;
+  newProductTypeCode: string | null;
 }
 
 export interface AdminCatalogSkuInput {
@@ -51,6 +57,7 @@ export interface AdminInventoryAdjustmentInput {
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SET_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,15}$/;
+const PRODUCT_TYPE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const LANGUAGE_PATTERN = /^[A-Z]{2,8}$/;
@@ -63,21 +70,27 @@ const SET_STATUSES = [
 ] as const;
 
 type SetStatus = (typeof SET_STATUSES)[number];
-type SetMode = "none" | "existing" | "new";
+type SetMode = "existing" | "new";
+type ProductTypeMode = "existing" | "new";
 
 export function adminCatalogProductFromForm(formData: FormData): AdminCatalogProductInput {
-  const base = productFieldsFromForm(formData);
+  const productType = requiredString(formData, "productType").toLowerCase();
+  if (!PRODUCT_TYPE_PATTERN.test(productType)) {
+    throw badRequest("Select a valid product type");
+  }
+
   return {
     productId: optionalString(formData, "productId") ?? null,
     categoryId: requiredString(formData, "categoryId"),
-    ...base,
+    setId: requiredString(formData, "setId"),
+    productType,
+    ...commonProductFieldsFromForm(formData),
   };
 }
 
 export function adminCatalogProductCreateFromForm(
   formData: FormData
 ): AdminCatalogProductCreateInput {
-  const base = productFieldsFromForm(formData);
   const categoryMode = optionalString(formData, "categoryMode") ?? "existing";
   const categoryId = categoryMode === "new" ? null : optionalString(formData, "categoryId") ?? null;
   const newCategoryName =
@@ -91,9 +104,9 @@ export function adminCatalogProductCreateFromForm(
     throw badRequest("New category name must contain letters or numbers for its generated slug");
   }
 
-  const setMode = parseSetMode(formData, base.setId);
+  const setMode = parseSetMode(formData);
   if (categoryMode === "new" && setMode === "existing") {
-    throw badRequest("Create or select the category before choosing an existing set");
+    throw badRequest("Add a set for the new category before creating its product");
   }
 
   let setId: string | null = null;
@@ -103,11 +116,9 @@ export function adminCatalogProductCreateFromForm(
   let newSetStatus: SetStatus | null = null;
 
   if (setMode === "existing") {
-    setId = base.setId;
+    setId = optionalString(formData, "setId") ?? null;
     if (!setId) throw badRequest("Select an existing set");
-  }
-
-  if (setMode === "new") {
+  } else {
     newSetName = optionalString(formData, "newSetName") ?? null;
     newSetCode = newSetName ? setCodeFromName(newSetName) : null;
     newSetReleaseDate = optionalString(formData, "newSetReleaseDate") ?? null;
@@ -122,25 +133,56 @@ export function adminCatalogProductCreateFromForm(
     }
   }
 
+  const productTypeMode = parseProductTypeMode(formData);
+  let productType: string | null = null;
+  let newProductTypeName: string | null = null;
+  let newProductTypeCode: string | null = null;
+
+  if (productTypeMode === "existing") {
+    productType = optionalString(formData, "productType")?.toLowerCase() ?? null;
+    if (!productType) throw badRequest("Select a product type");
+    if (!PRODUCT_TYPE_PATTERN.test(productType)) throw badRequest("Select a valid product type");
+  } else {
+    newProductTypeName = optionalString(formData, "newProductTypeName") ?? null;
+    newProductTypeCode = newProductTypeName
+      ? productTypeCodeFromName(newProductTypeName)
+      : null;
+    if (!newProductTypeName) throw badRequest("New product type name is required");
+    if (!newProductTypeCode || !PRODUCT_TYPE_PATTERN.test(newProductTypeCode)) {
+      throw badRequest("New product type name must contain letters or numbers");
+    }
+  }
+
   return {
     categoryId,
     newCategoryName,
     newCategorySlug,
     newCategoryPublisher:
       categoryMode === "new" ? optionalString(formData, "newCategoryPublisher") ?? null : null,
-    ...base,
     setId,
     newSetName,
     newSetCode,
     newSetReleaseDate,
     newSetStatus,
+    productType,
+    newProductTypeName,
+    newProductTypeCode,
+    ...commonProductFieldsFromForm(formData),
   };
 }
 
-function parseSetMode(formData: FormData, setId: string | null): SetMode {
-  const value = optionalString(formData, "setMode") ?? (setId ? "existing" : "none");
-  if (value !== "none" && value !== "existing" && value !== "new") {
-    throw badRequest("Invalid set selection mode");
+function parseSetMode(formData: FormData): SetMode {
+  const value = optionalString(formData, "setMode") ?? "existing";
+  if (value !== "existing" && value !== "new") {
+    throw badRequest("Select an existing set or add a new set");
+  }
+  return value;
+}
+
+function parseProductTypeMode(formData: FormData): ProductTypeMode {
+  const value = optionalString(formData, "productTypeMode") ?? "existing";
+  if (value !== "existing" && value !== "new") {
+    throw badRequest("Select an existing product type or add a new product type");
   }
   return value;
 }
@@ -152,25 +194,15 @@ function parseSetStatus(value: string): SetStatus {
   return value as SetStatus;
 }
 
-function productFieldsFromForm(
+function commonProductFieldsFromForm(
   formData: FormData
-): Omit<AdminCatalogProductInput, "productId" | "categoryId"> {
-  const name = requiredString(formData, "name");
-  const slug = slugFromName(name);
+): Pick<AdminCatalogProductInput, "description" | "language" | "imageUrl" | "active"> {
   const language = (optionalString(formData, "language") ?? "EN").toUpperCase();
-
-  if (!slug || !SLUG_PATTERN.test(slug)) {
-    throw badRequest("Product name must contain letters or numbers for its generated slug");
-  }
   if (!LANGUAGE_PATTERN.test(language)) {
     throw badRequest("language must be 2-8 uppercase letters");
   }
 
   return {
-    setId: optionalString(formData, "setId") ?? null,
-    slug,
-    name,
-    productType: requiredString(formData, "productType").toLowerCase(),
     description: optionalString(formData, "description") ?? null,
     language,
     imageUrl: optionalString(formData, "imageUrl") ?? null,
