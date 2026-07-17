@@ -25,16 +25,12 @@ export default async function ControlOverviewPage() {
 
   const destinations = [
     {
-      href: "/control/catalog",
-      label: "Catalog",
-      detail: "Create products, add categories and sets, and review publication state.",
-      visible: hasControlPermission(staff, "manage_catalog"),
-    },
-    {
       href: "/control/operations",
       label: "Operations",
-      detail: "Manage inventory, purchasing, SKUs, allocation, and order exceptions.",
-      visible: hasControlPermission(staff, "manage_full_operations"),
+      detail: hasControlPermission(staff, "manage_full_operations")
+        ? "Create and maintain products, SKUs, inventory, purchasing, allocation, and order exceptions."
+        : "Create products, manage category and set relationships, and maintain SKUs.",
+      visible: hasControlPermission(staff, "manage_catalog"),
     },
     {
       href: "/control/deliveries",
@@ -85,7 +81,7 @@ export default async function ControlOverviewPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Active products" value={products} />
-        <Metric label="Catalog structure" value={categories + sets} detail={`${categories} categories · ${sets} sets`} />
+        <Metric label="Product structure" value={categories + sets} detail={`${categories} categories · ${sets} sets`} />
         <Metric label="Customers" value={customers} detail={`${deletedCustomers} deleted`} />
         <Metric label="Active suppliers" value={suppliers} />
         <Metric label="Active staff" value={administrators} />
