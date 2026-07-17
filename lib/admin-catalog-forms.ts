@@ -1,4 +1,5 @@
 import { badRequest } from "@/lib/api/errors";
+import { setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
 
 export interface AdminCatalogProductInput {
   productId: string | null;
@@ -79,17 +80,15 @@ export function adminCatalogProductCreateFromForm(
   const base = productFieldsFromForm(formData);
   const categoryMode = optionalString(formData, "categoryMode") ?? "existing";
   const categoryId = categoryMode === "new" ? null : optionalString(formData, "categoryId") ?? null;
-  const newCategoryName = optionalString(formData, "newCategoryName") ?? null;
-  const newCategorySlugRaw = optionalString(formData, "newCategorySlug")?.toLowerCase() ?? null;
+  const newCategoryName =
+    categoryMode === "new" ? optionalString(formData, "newCategoryName") ?? null : null;
+  const newCategorySlug = newCategoryName ? slugFromName(newCategoryName) : null;
 
   if (!categoryId && !newCategoryName) {
     throw badRequest("Select a category or add a new category");
   }
-  if (!categoryId && !newCategorySlugRaw) {
-    throw badRequest("New category slug is required");
-  }
-  if (newCategorySlugRaw && !SLUG_PATTERN.test(newCategorySlugRaw)) {
-    throw badRequest("new category slug must use lowercase words separated by hyphens");
+  if (newCategoryName && (!newCategorySlug || !SLUG_PATTERN.test(newCategorySlug))) {
+    throw badRequest("New category name must contain letters or numbers for its generated slug");
   }
 
   const setMode = parseSetMode(formData, base.setId);
@@ -110,14 +109,13 @@ export function adminCatalogProductCreateFromForm(
 
   if (setMode === "new") {
     newSetName = optionalString(formData, "newSetName") ?? null;
-    newSetCode = optionalString(formData, "newSetCode")?.toUpperCase() ?? null;
+    newSetCode = newSetName ? setCodeFromName(newSetName) : null;
     newSetReleaseDate = optionalString(formData, "newSetReleaseDate") ?? null;
     newSetStatus = parseSetStatus(optionalString(formData, "newSetStatus") ?? "announced");
 
     if (!newSetName) throw badRequest("New set name is required");
-    if (!newSetCode) throw badRequest("New set code is required");
-    if (!SET_CODE_PATTERN.test(newSetCode)) {
-      throw badRequest("new set code must be 2-16 uppercase letters, numbers, underscores, or hyphens");
+    if (!newSetCode || !SET_CODE_PATTERN.test(newSetCode)) {
+      throw badRequest("New set name must contain letters or numbers for its generated code");
     }
     if (newSetReleaseDate && !DATE_PATTERN.test(newSetReleaseDate)) {
       throw badRequest("new set release date must use YYYY-MM-DD");
@@ -127,8 +125,9 @@ export function adminCatalogProductCreateFromForm(
   return {
     categoryId,
     newCategoryName,
-    newCategorySlug: newCategorySlugRaw,
-    newCategoryPublisher: optionalString(formData, "newCategoryPublisher") ?? null,
+    newCategorySlug,
+    newCategoryPublisher:
+      categoryMode === "new" ? optionalString(formData, "newCategoryPublisher") ?? null : null,
     ...base,
     setId,
     newSetName,
@@ -156,11 +155,12 @@ function parseSetStatus(value: string): SetStatus {
 function productFieldsFromForm(
   formData: FormData
 ): Omit<AdminCatalogProductInput, "productId" | "categoryId"> {
-  const slug = requiredString(formData, "slug").toLowerCase();
+  const name = requiredString(formData, "name");
+  const slug = slugFromName(name);
   const language = (optionalString(formData, "language") ?? "EN").toUpperCase();
 
-  if (!SLUG_PATTERN.test(slug)) {
-    throw badRequest("slug must use lowercase words separated by hyphens");
+  if (!slug || !SLUG_PATTERN.test(slug)) {
+    throw badRequest("Product name must contain letters or numbers for its generated slug");
   }
   if (!LANGUAGE_PATTERN.test(language)) {
     throw badRequest("language must be 2-8 uppercase letters");
@@ -169,7 +169,7 @@ function productFieldsFromForm(
   return {
     setId: optionalString(formData, "setId") ?? null,
     slug,
-    name: requiredString(formData, "name"),
+    name,
     productType: requiredString(formData, "productType").toLowerCase(),
     description: optionalString(formData, "description") ?? null,
     language,
