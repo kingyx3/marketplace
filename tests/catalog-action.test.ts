@@ -18,10 +18,8 @@ vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
 
-import {
-  createCatalogProduct,
-  initialCatalogProductActionState,
-} from "@/app/actions/catalog";
+import { createCatalogProduct } from "@/app/actions/catalog";
+import { initialCatalogProductActionState } from "@/lib/catalog-product-action-state";
 
 describe("catalog product action", () => {
   beforeEach(() => {
