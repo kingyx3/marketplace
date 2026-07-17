@@ -132,9 +132,14 @@ function SetForm({ categories, set }: { categories: CategoryOption[]; set?: SetR
   return (
     <form action={upsertControlSet} className="mt-4 grid gap-4">
       {set ? <input name="setId" type="hidden" value={set.id} /> : null}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Field label="Name" name="name" required value={set?.name} />
-        <Field label="Code" name="code" required value={set?.code} />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field
+          hint="Code is generated automatically from the set name."
+          label="Name"
+          name="name"
+          required
+          value={set?.name}
+        />
         <label className="grid gap-1 text-sm font-medium text-zinc-700">
           Category
           <select
@@ -226,6 +231,7 @@ function Field({
   required = false,
   type = "text",
   min,
+  hint,
 }: {
   label: string;
   name: string;
@@ -233,6 +239,7 @@ function Field({
   required?: boolean;
   type?: string;
   min?: number;
+  hint?: string;
 }) {
   return (
     <label className="grid gap-1 text-sm font-medium text-zinc-700">
@@ -245,6 +252,7 @@ function Field({
         required={required}
         type={type}
       />
+      {hint ? <span className="text-xs font-normal text-zinc-500">{hint}</span> : null}
     </label>
   );
 }
