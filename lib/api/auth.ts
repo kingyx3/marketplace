@@ -19,7 +19,6 @@ export interface CustomerRecord {
   segment: string;
   default_currency: string;
   marketing_opt_in: boolean;
-  billing_state?: string;
   provisioning_state?: string;
   provisioning_error?: string | null;
   deleted_at?: string | null;
