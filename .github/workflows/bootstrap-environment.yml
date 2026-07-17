@@ -58,7 +58,7 @@ jobs:
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
     steps:
       - uses: actions/checkout@v7.0.0
-      - uses: actions/setup-node@v6.4.0
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
