@@ -52,9 +52,9 @@ export default async function OrdersPage() {
             <p className="mt-3 text-sm text-zinc-600">Orders appear here after checkout starts.</p>
             <Link
               className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
-              href="/catalog"
+              href="/products"
             >
-              Browse catalog
+              Browse products
             </Link>
           </div>
         ) : (
