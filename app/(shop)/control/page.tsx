@@ -37,6 +37,12 @@ export default async function ControlOverviewPage() {
       visible: hasControlPermission(staff, "manage_full_operations"),
     },
     {
+      href: "/control/deliveries",
+      label: "Deliveries",
+      detail: "Arrange fully paid orders and maintain shipment progress manually.",
+      visible: hasControlPermission(staff, "manage_orders"),
+    },
+    {
       href: "/control/suppliers",
       label: "Suppliers",
       detail: "Manage supplier profiles, contact details, terms, and lifecycle state.",
