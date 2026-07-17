@@ -65,7 +65,7 @@ export async function upsertControlCategory(formData: FormData) {
   const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
   if (duplicateError) throw new Error(`Category duplicate check failed: ${duplicateError.message}`);
   if (duplicate) {
-    await redirectToCategoryConflict(input.slug, duplicate.name, supabase);
+    redirectToCategoryConflict(input.name, duplicate.name);
   }
 
   const { error } = await supabase.rpc("admin_upsert_category", {
@@ -81,7 +81,7 @@ export async function upsertControlCategory(formData: FormData) {
   });
 
   if (error?.code === "23505") {
-    await redirectToCategoryConflict(input.slug, "another category", supabase);
+    redirectToCategoryConflict(input.name, "another category");
   }
   if (error) throw new Error(`Category save failed: ${error.message}`);
   revalidateControlPaths(
@@ -128,6 +128,9 @@ export async function upsertControlSet(formData: FormData) {
     p_actor_auth_user_id: user.id,
   });
 
+  if (error?.code === "23505") {
+    throw new Error("Set save failed: another set in this category uses the generated code; rename the set or edit the existing record");
+  }
   if (error) throw new Error(`Set save failed: ${error.message}`);
   revalidateControlPaths("/control/sets", "/control/operations", "/products", "/preorders");
 }
@@ -160,24 +163,11 @@ export async function upsertControlAccessGrant(formData: FormData) {
   revalidateControlPaths("/control/administrators", "/control/audit");
 }
 
-async function redirectToCategoryConflict(
-  slug: string,
-  existingName: string,
-  supabase: ReturnType<typeof createServiceClient>
-): Promise<never> {
-  const { data } = await supabase
-    .from("tcg_categories")
-    .select("slug")
-    .like("slug", `${slug}%`)
-    .limit(100);
-  const used = new Set((data ?? []).map((row) => String(row.slug)));
-  let suffix = 2;
-  while (used.has(`${slug}-${suffix}`)) suffix += 1;
+function redirectToCategoryConflict(name: string, existingName: string): never {
   const search = new URLSearchParams({
     error: "duplicate-category",
-    slug,
+    name,
     existing: existingName,
-    suggested: `${slug}-${suffix}`,
   });
   redirect(`/control/categories?${search.toString()}`);
 }

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
+
 const optionalText = z
   .string()
   .trim()
@@ -50,7 +52,9 @@ const supplierSchema = z.object({
 const categorySchema = z.object({
   categoryId: optionalUuid,
   parentId: optionalUuid,
-  slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Category name must produce a valid slug"),
   name: z.string().trim().min(1).max(160),
   publisher: optionalText,
   description: optionalText,
@@ -63,7 +67,9 @@ const setSchema = z
     setId: optionalUuid,
     categoryId: z.uuid(),
     name: z.string().trim().min(1).max(160),
-    code: z.string().trim().toUpperCase().regex(/^[A-Z0-9][A-Z0-9_-]{1,15}$/),
+    code: z
+      .string()
+      .regex(/^[A-Z0-9][A-Z0-9_-]{1,15}$/, "Set name must produce a valid code"),
     description: optionalText,
     releaseDate: dateOrNull,
     preorderOpenAt: dateTimeOrNull,
@@ -116,11 +122,12 @@ export function controlSupplierFromForm(formData: FormData) {
 }
 
 export function controlCategoryFromForm(formData: FormData) {
+  const name = String(formData.get("name") ?? "");
   return categorySchema.parse({
     categoryId: String(formData.get("categoryId") ?? ""),
     parentId: String(formData.get("parentId") ?? ""),
-    slug: String(formData.get("slug") ?? ""),
-    name: String(formData.get("name") ?? ""),
+    slug: slugFromName(name),
+    name,
     publisher: String(formData.get("publisher") ?? ""),
     description: String(formData.get("description") ?? ""),
     sortOrder: String(formData.get("sortOrder") ?? "0"),
@@ -129,11 +136,12 @@ export function controlCategoryFromForm(formData: FormData) {
 }
 
 export function controlSetFromForm(formData: FormData) {
+  const name = String(formData.get("name") ?? "");
   return setSchema.parse({
     setId: String(formData.get("setId") ?? ""),
     categoryId: String(formData.get("categoryId") ?? ""),
-    name: String(formData.get("name") ?? ""),
-    code: String(formData.get("code") ?? ""),
+    name,
+    code: setCodeFromName(name),
     description: String(formData.get("description") ?? ""),
     releaseDate: String(formData.get("releaseDate") ?? ""),
     preorderOpenAt: String(formData.get("preorderOpenAt") ?? ""),

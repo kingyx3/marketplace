@@ -100,6 +100,9 @@ export async function upsertCatalogProduct(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
+  if (error?.code === "23505") {
+    throw new Error("Product save failed: another product uses the slug generated from this name; rename the product");
+  }
   if (error) throw new Error(`Product save failed: ${error.message}`);
   revalidateCatalogPaths();
 }
@@ -201,7 +204,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "productSlug",
       message:
-        "That product slug is already in use. Change the slug and submit again; the other product details are preserved.",
+        "Another product already uses the slug generated from this name. Rename the product and submit again; the other product details are preserved.",
     };
   }
   if (message.includes("archived category")) {
@@ -209,7 +212,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "categorySlug",
       message:
-        "That category slug belongs to an archived category. Restore the category or use a different slug; the product details are preserved.",
+        "The generated category slug belongs to an archived category. Restore that category or rename the new category; the product details are preserved.",
     };
   }
   if (message.includes("set code already exists")) {
@@ -217,7 +220,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "setCode",
       message:
-        "That set code already exists in the selected category. Choose the existing set or enter a unique code; the product details are preserved.",
+        "A set with the generated code already exists in the selected category. Choose the existing set or rename the new set; the product details are preserved.",
     };
   }
   if (message.includes("archived set")) {
@@ -225,7 +228,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "setCode",
       message:
-        "That set code belongs to an archived set in this category. Restore the set or use a different code; the product details are preserved.",
+        "The generated set code belongs to an archived set in this category. Restore that set or rename the new set; the product details are preserved.",
     };
   }
   if (message.includes("set") && message.includes("category")) {
@@ -240,7 +243,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "categorySlug",
       message:
-        "A category, set, or product already uses that identifier. Select the existing category or enter a unique slug. For a set conflict, select the existing set or enter a unique code; the product details are preserved.",
+        "A category, set, or product already uses the identifier generated from that name. Select the existing record or rename the new one; the product details are preserved.",
     };
   }
   if (message.includes("category")) {
