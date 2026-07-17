@@ -58,7 +58,7 @@ function PrimaryLinks({ signedIn }: { signedIn: boolean }) {
   return (
     <>
       <Link href="/catalog" className={`${baseLinkClass} snap-start`}>
-        Catalog
+        Products
       </Link>
       {signedIn ? (
         <>
