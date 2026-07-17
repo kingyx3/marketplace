@@ -1,90 +1,114 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
+
 import {
   adminCatalogProductFromForm,
   adminCatalogSkuFromForm,
   adminInventoryAdjustmentFromForm,
 } from "@/lib/admin-catalog-forms";
-import { controlPurchaseOrderFromForm } from "@/lib/control-forms";
+import {
+  adminLimitedTimeDealFromForm,
+  adminLimitedTimeDealStatusFromForm,
+  adminListingItemFromForm,
+  adminStorefrontConfigurationFromForm,
+} from "@/lib/admin-listing-forms";
+import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
+import { adminPurchaseOrderFromForm } from "@/lib/admin-purchase-order-forms";
 import { requireControlPermission } from "@/lib/control-access";
+import { performAdminOrderAction } from "@/lib/orders";
+import { runPreorderAllocationForSku } from "@/lib/preorders";
 import { createServiceClient } from "@/lib/supabase";
 
-export async function recordSupplierPurchaseOrder(formData: FormData) {
-  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
-  const input = controlPurchaseOrderFromForm(formData);
+export async function upsertLimitedTimeDeal(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/deals");
+  const input = adminLimitedTimeDealFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_record_supplier_purchase_order", {
-    p_supplier_id: input.supplierId,
+  const { error } = await createServiceClient().rpc("admin_upsert_limited_time_deal", {
+    p_deal_id: input.dealId,
+    p_code: input.code,
     p_sku_id: input.skuId,
-    p_quantity: input.quantity,
-    p_unit_cost_cents: input.unitCostCents,
-    p_currency: input.currency,
-    p_expected_at: input.expectedAt,
-    p_notes: input.notes,
+    p_title: input.title,
+    p_description: input.description,
+    p_discount_bps: input.discountBps,
+    p_visibility: input.visibility,
+    p_starts_at: input.startsAt,
+    p_ends_at: input.endsAt,
+    p_sort_priority: input.sortPriority,
+    p_active: input.active,
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) throw new Error(`Purchase order recording failed: ${error.message}`);
+  if (error) throw new Error(`Limited-time deal save failed: ${error.message}`);
 
-  revalidatePath("/control");
-  revalidatePath("/control/operations");
-  revalidatePath("/products");
+  revalidateDealPaths();
 }
 
-export async function runPreorderAllocation(formData: FormData) {
-  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
-  const skuId = String(formData.get("skuId") ?? "");
+export async function setLimitedTimeDealActive(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/deals");
+  const input = adminLimitedTimeDealStatusFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_allocate_preorders", {
-    p_sku_id: skuId,
+  const { error } = await createServiceClient().rpc("admin_set_limited_time_deal_active", {
+    p_deal_id: input.dealId,
+    p_active: input.active,
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) throw new Error(`Preorder allocation failed: ${error.message}`);
+  if (error) throw new Error(`Limited-time deal status update failed: ${error.message}`);
 
-  revalidatePath("/control");
-  revalidatePath("/control/operations");
-  revalidatePath("/preorders");
+  revalidateDealPaths();
+}
+
+function revalidateDealPaths() {
+  revalidatePath("/");
+  revalidatePath("/control/deals");
   revalidatePath("/products");
 }
 
-export async function runAdminOrderAction(formData: FormData) {
-  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
-  const action = String(formData.get("action") ?? "");
-  const orderId = String(formData.get("orderId") ?? "");
-  const reason = String(formData.get("reason") ?? "");
-  const supabase = createServiceClient();
+export async function upsertListingItem(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/listings");
+  const input = adminListingItemFromForm(formData);
 
-  if (action === "cancel_unpaid") {
-    const { error } = await supabase.rpc("admin_cancel_unpaid_order", {
-      p_order_id: orderId,
-      p_reason: reason,
-      p_actor: `staff:${user.id}`,
-    });
-    if (error) throw new Error(`Order cancellation failed: ${error.message}`);
-  } else if (action === "record_manual_reconciliation") {
-    const amountCents = Number(formData.get("amountCents") ?? 0);
-    const currency = String(formData.get("currency") ?? "SGD").toUpperCase();
-    const provider = String(formData.get("provider") ?? "stripe");
-    const providerPaymentId = String(formData.get("providerPaymentId") ?? "");
-    const { error } = await supabase.rpc("admin_record_manual_payment_reconciliation", {
-      p_order_id: orderId,
-      p_provider: provider,
-      p_provider_payment_id: providerPaymentId,
-      p_amount_cents: amountCents,
-      p_currency: currency,
-      p_reason: reason,
-      p_actor: `staff:${user.id}`,
-    });
-    if (error) throw new Error(`Payment reconciliation failed: ${error.message}`);
-  } else {
-    throw new Error("Unsupported admin order action");
-  }
+  const { error } = await createServiceClient().rpc("admin_upsert_listing_item", {
+    p_product_id: input.productId,
+    p_title_override: input.titleOverride,
+    p_badge_label: input.badgeLabel,
+    p_tags: input.tags,
+    p_max_per_customer: input.maxPerCustomer,
+    p_preorder_reserve: input.preorderReserve,
+    p_sort_priority: input.sortPriority,
+    p_featured: input.featured,
+    p_published: input.published,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Listing item save failed: ${error.message}`);
 
   revalidatePath("/control");
   revalidatePath("/control/operations");
-  revalidatePath("/account/orders");
+  revalidatePath("/control/listings");
+  revalidatePath("/products");
+}
+
+export async function upsertStorefrontConfiguration(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/listings");
+  const input = adminStorefrontConfigurationFromForm(formData);
+
+  const { error } = await createServiceClient().rpc("admin_upsert_storefront_configuration", {
+    p_key: input.key,
+    p_label: input.label,
+    p_description: input.description,
+    p_value: input.value,
+    p_active: input.active,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Storefront configuration save failed: ${error.message}`);
+
+  revalidatePath("/control");
+  revalidatePath("/control/listings");
+  revalidatePath("/products");
 }
 
 export async function updateInventory(formData: FormData) {
@@ -149,6 +173,40 @@ export async function setCatalogProductActive(formData: FormData) {
   revalidatePath("/products");
 }
 
+export async function uploadCatalogProductImage(formData: FormData) {
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
+  const productId = String(formData.get("productId") ?? "");
+  const image = formData.get("image");
+
+  if (!(image instanceof File) || image.size === 0) throw new Error("Product image file is required");
+  if (!image.type.startsWith("image/")) throw new Error("Product image must be an image file");
+
+  const supabase = createServiceClient();
+  const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+  const path = `${productId}/${randomUUID()}.${extension}`;
+  const { error: uploadError } = await supabase.storage
+    .from("product-images")
+    .upload(path, Buffer.from(await image.arrayBuffer()), {
+      contentType: image.type,
+      upsert: false,
+    });
+
+  if (uploadError) throw new Error(`Product image upload failed: ${uploadError.message}`);
+
+  const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+  const { error } = await supabase.rpc("admin_set_product_image", {
+    p_product_id: productId,
+    p_image_url: data.publicUrl,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Product image assignment failed: ${error.message}`);
+
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
+  revalidatePath("/products");
+}
+
 export async function upsertCatalogSku(formData: FormData) {
   const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
   const input = adminCatalogSkuFromForm(formData);
@@ -190,5 +248,70 @@ export async function setCatalogSkuActive(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/operations");
+  revalidatePath("/products");
+}
+
+export async function shipOrder(formData: FormData) {
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
+  const orderId = String(formData.get("orderId") ?? "");
+  const carrier = String(formData.get("carrier") ?? "");
+  const trackingNumber = String(formData.get("trackingNumber") ?? "");
+
+  const { error } = await createServiceClient().rpc("admin_ship_order", {
+    p_order_id: orderId,
+    p_carrier: carrier,
+    p_tracking_number: trackingNumber,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Order shipment failed: ${error.message}`);
+
+  revalidatePath("/control/operations");
+  revalidatePath(`/account/orders/${orderId}`);
+}
+
+export async function runAdminOrderAction(formData: FormData) {
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
+  const { orderId, body } = adminOrderActionFromForm(formData);
+
+  await performAdminOrderAction(createServiceClient(), orderId, body, `staff:${user.id}`);
+
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
+  revalidatePath(`/orders/${orderId}`);
+}
+
+export async function recordSupplierPurchaseOrder(formData: FormData) {
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
+  const input = adminPurchaseOrderFromForm(formData);
+
+  const { error } = await createServiceClient().rpc("admin_create_supplier_purchase_order", {
+    p_supplier_id: input.supplierId,
+    p_sku_id: input.skuId,
+    p_quantity: input.quantity,
+    p_unit_cost_cents: input.unitCostCents,
+    p_currency: input.currency,
+    p_expected_at: input.expectedAt,
+    p_notes: input.notes,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Supplier purchase order intake failed: ${error.message}`);
+
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
+  revalidatePath("/products");
+  revalidatePath("/preorders");
+}
+
+export async function runPreorderAllocation(formData: FormData) {
+  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
+  const skuId = String(formData.get("skuId") ?? "");
+
+  await runPreorderAllocationForSku(createServiceClient(), skuId, `staff:${user.id}`);
+
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
+  revalidatePath("/preorders");
   revalidatePath("/products");
 }
