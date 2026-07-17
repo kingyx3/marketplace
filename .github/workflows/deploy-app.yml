@@ -21,7 +21,7 @@ on:
 
 concurrency:
   group: marketplace-deploy-${{ inputs.target || github.ref_name || github.event_name }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
