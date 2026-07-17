@@ -95,7 +95,9 @@ export default async function ControlCatalogPage() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-zinc-950">Create product</h2>
-            <p className="mt-1 text-sm text-zinc-600">Select a category or add it without leaving this form.</p>
+            <p className="mt-1 text-sm text-zinc-600">
+              Choose or add a category, then choose, add, or skip its set without leaving the form.
+            </p>
           </div>
           <Link className="text-sm font-semibold text-emerald-700 hover:text-emerald-900" href="/control/listings">
             Storefront listings
