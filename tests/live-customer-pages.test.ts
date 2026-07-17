@@ -57,7 +57,7 @@ describe("live customer pages", () => {
 
     expect(orderItemCount(order)).toBe(2);
     expect(productNameForItem(order.order_items![0]!)).toBe("Sample Set Play Booster Box");
-    expect(productHrefForItem(order.order_items![0]!)).toBe("/catalog/smp-play-booster-box");
+    expect(productHrefForItem(order.order_items![0]!)).toBe("/products/smp-play-booster-box");
     expect(orderTimeline(order).map((item) => item.label)).toEqual([
       "Created",
       "Payment",
@@ -94,6 +94,6 @@ describe("live customer pages", () => {
     };
 
     expect(productNameForItem(preorder)).toBe("Aurora Skies Booster Box");
-    expect(productHrefForItem(preorder)).toBe("/catalog/aurora-booster-box");
+    expect(productHrefForItem(preorder)).toBe("/products/aurora-booster-box");
   });
 });

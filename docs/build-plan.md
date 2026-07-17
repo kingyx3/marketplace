@@ -4,7 +4,7 @@ Honest status ledger. **Unchecked roadmap items are not built yet** — docs and
 
 ## Built (this scaffold)
 
-- ✅ Next.js 16 app shell; landing, `/catalog`, and product detail pages reading live catalog rows from Postgres with fixture/image fallbacks
+- ✅ Next.js 16 app shell; landing, `/products`, and product detail pages reading live catalog rows from Postgres with fixture/image fallbacks
 - ✅ Google-only Supabase Auth routes, session refresh middleware, sign-out, customer row provisioning with first-signup welcome messaging, protected account/admin pages, and authenticated account/order/pre-order APIs
 - ✅ Cookie cart helpers and server-side checkout validation for SKU, quantity, inventory, currency, B2B eligibility, tier discounts, and server-derived totals
 - ✅ Checkout order RPC with atomic inventory allocation, persisted discounts, expected subtotal/total checks, and Stripe amount/currency verification before an order can become `paid`

@@ -80,7 +80,7 @@ describe("catalog product action", () => {
       p_actor_auth_user_id: "staff-user-123",
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/operations");
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/catalog");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/products");
   });
 
   it("creates a missing set under the selected category in the same mutation", async () => {

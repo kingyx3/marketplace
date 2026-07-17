@@ -4,7 +4,7 @@ const PRODUCT_RESULTS = { name: "Product results" } as const;
 
 test.describe("products", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/catalog");
+    await page.goto("/products");
     await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
   });
 

@@ -136,7 +136,7 @@ export default async function ControlOperationsPage() {
         <ControlLink href="/control/categories">Category details</ControlLink>
         <ControlLink href="/control/sets">Set details</ControlLink>
         {canManageFullOperations ? <ControlLink href="/preorders">Preorders</ControlLink> : null}
-        <ControlLink href="/catalog">Open products</ControlLink>
+        <ControlLink href="/products">Open products</ControlLink>
       </nav>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

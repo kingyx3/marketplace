@@ -41,7 +41,7 @@ The protected `/control` console supports catalog, category, set, listing, deal,
 
 1. Confirm the SKU, title, discount, visibility, start, end, and priority.
 2. Create or update the deal in `/control/deals`.
-3. Confirm the offer appears under `/catalog?view=deals` for the intended audience.
+3. Confirm the offer appears under `/products?view=deals` for the intended audience.
 4. Verify checkout applies the best eligible active deal from current server data.
 
 ## Suppliers and purchase orders
