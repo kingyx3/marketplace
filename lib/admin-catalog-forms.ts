@@ -19,6 +19,10 @@ export interface AdminCatalogProductCreateInput
   newCategoryName: string | null;
   newCategorySlug: string | null;
   newCategoryPublisher: string | null;
+  newSetName: string | null;
+  newSetCode: string | null;
+  newSetReleaseDate: string | null;
+  newSetStatus: SetStatus | null;
 }
 
 export interface AdminCatalogSkuInput {
@@ -45,8 +49,20 @@ export interface AdminInventoryAdjustmentInput {
 }
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SET_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,15}$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const LANGUAGE_PATTERN = /^[A-Z]{2,8}$/;
+const SET_STATUSES = [
+  "announced",
+  "preorder_open",
+  "preorder_closed",
+  "released",
+  "out_of_print",
+] as const;
+
+type SetStatus = (typeof SET_STATUSES)[number];
+type SetMode = "none" | "existing" | "new";
 
 export function adminCatalogProductFromForm(formData: FormData): AdminCatalogProductInput {
   const base = productFieldsFromForm(formData);
@@ -76,13 +92,65 @@ export function adminCatalogProductCreateFromForm(
     throw badRequest("new category slug must use lowercase words separated by hyphens");
   }
 
+  const setMode = parseSetMode(formData, base.setId);
+  if (categoryMode === "new" && setMode === "existing") {
+    throw badRequest("Create or select the category before choosing an existing set");
+  }
+
+  let setId: string | null = null;
+  let newSetName: string | null = null;
+  let newSetCode: string | null = null;
+  let newSetReleaseDate: string | null = null;
+  let newSetStatus: SetStatus | null = null;
+
+  if (setMode === "existing") {
+    setId = base.setId;
+    if (!setId) throw badRequest("Select an existing set");
+  }
+
+  if (setMode === "new") {
+    newSetName = optionalString(formData, "newSetName") ?? null;
+    newSetCode = optionalString(formData, "newSetCode")?.toUpperCase() ?? null;
+    newSetReleaseDate = optionalString(formData, "newSetReleaseDate") ?? null;
+    newSetStatus = parseSetStatus(optionalString(formData, "newSetStatus") ?? "announced");
+
+    if (!newSetName) throw badRequest("New set name is required");
+    if (!newSetCode) throw badRequest("New set code is required");
+    if (!SET_CODE_PATTERN.test(newSetCode)) {
+      throw badRequest("new set code must be 2-16 uppercase letters, numbers, underscores, or hyphens");
+    }
+    if (newSetReleaseDate && !DATE_PATTERN.test(newSetReleaseDate)) {
+      throw badRequest("new set release date must use YYYY-MM-DD");
+    }
+  }
+
   return {
     categoryId,
     newCategoryName,
     newCategorySlug: newCategorySlugRaw,
     newCategoryPublisher: optionalString(formData, "newCategoryPublisher") ?? null,
     ...base,
+    setId,
+    newSetName,
+    newSetCode,
+    newSetReleaseDate,
+    newSetStatus,
   };
+}
+
+function parseSetMode(formData: FormData, setId: string | null): SetMode {
+  const value = optionalString(formData, "setMode") ?? (setId ? "existing" : "none");
+  if (value !== "none" && value !== "existing" && value !== "new") {
+    throw badRequest("Invalid set selection mode");
+  }
+  return value;
+}
+
+function parseSetStatus(value: string): SetStatus {
+  if (!SET_STATUSES.includes(value as SetStatus)) {
+    throw badRequest("Invalid set status");
+  }
+  return value as SetStatus;
 }
 
 function productFieldsFromForm(
