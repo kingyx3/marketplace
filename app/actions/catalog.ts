@@ -191,7 +191,7 @@ export async function setCatalogSkuActive(formData: FormData) {
 function revalidateCatalogPaths() {
   revalidatePath("/control");
   revalidatePath("/control/operations");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 function catalogProductError(error: { code?: string; message: string }): CatalogProductActionState {
