@@ -56,17 +56,31 @@ begin
     select 1
     from public.products
     where slug = 'smp-play-booster-box'
+      and active
   ) then
     raise exception 'restored database is missing seeded catalog data';
   end if;
 
   if not exists (
     select 1
-    from public.storefront_configurations
-    where "key" = 'shipping_policy'
-      and active
+    from public.inventory i
+    join public.booster_box_skus sku on sku.id = i.sku_id
+    where sku.sku = 'MTG-SMP-PBB-EN'
+      and i.location = 'main'
+      and i.incoming = 24
+      and i.safety_stock = 2
   ) then
-    raise exception 'restored database is missing active shipping policy';
+    raise exception 'restored database is missing seeded inventory state';
+  end if;
+
+  if not exists (
+    select 1
+    from public.limited_time_deals
+    where code = 'sample_launch_preview'
+      and active
+      and visibility = 'public'
+  ) then
+    raise exception 'restored database is missing seeded retail deal';
   end if;
 
   if exists (
