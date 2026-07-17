@@ -68,7 +68,7 @@ describe("delivery management", () => {
       readFile(new URL("../lib/auth.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/api/auth.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../supabase/migrations/20260717103000_delivery_management.sql", import.meta.url),
+        new URL("../supabase/migrations/20260717170000_delivery_management.sql", import.meta.url),
         "utf8"
       ),
     ]);
@@ -81,7 +81,7 @@ describe("delivery management", () => {
 
   it("guards packing and shipment changes with captured payment totals", async () => {
     const migration = await readFile(
-      new URL("../supabase/migrations/20260717103000_delivery_management.sql", import.meta.url),
+      new URL("../supabase/migrations/20260717170000_delivery_management.sql", import.meta.url),
       "utf8"
     );
 
