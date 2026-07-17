@@ -76,11 +76,10 @@ export function netCapturedPaymentTotal(
   const expectedCurrency = currency.toUpperCase();
 
   return payments.reduce((sum, payment) => {
+    if (payment.status !== "captured") return sum;
+    if (payment.currency.toUpperCase() !== expectedCurrency) return sum;
     if (seen.has(payment.id)) return sum;
     seen.add(payment.id);
-
-    if (!["captured", "refunded"].includes(payment.status)) return sum;
-    if (payment.currency.toUpperCase() !== expectedCurrency) return sum;
 
     const refundedCents = (payment.refunds ?? [])
       .filter((refund) => refund.status === "succeeded")
