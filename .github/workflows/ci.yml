@@ -20,6 +20,7 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       config: ${{ steps.filter.outputs.config }}
       migrations: ${{ steps.filter.outputs.migrations }}
+      terraform: ${{ steps.filter.outputs.terraform }}
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: dorny/paths-filter@v4.0.2
@@ -62,6 +63,9 @@ jobs:
             migrations:
               - 'supabase/**'
               - '.github/ci/run-database-contracts.sh'
+              - '.github/ci/verify-logical-restore.sh'
+            terraform:
+              - 'infra/terraform/**'
 
   app-checks:
     needs: changes
@@ -91,7 +95,7 @@ jobs:
 
   terraform-validation:
     needs: changes
-    if: needs.changes.outputs.config == 'true'
+    if: needs.changes.outputs.terraform == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
