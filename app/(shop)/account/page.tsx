@@ -134,14 +134,10 @@ export default async function AccountPage({
                 <p className="text-sm font-medium text-zinc-500">Profile</p>
                 <p className="mt-1 truncate font-semibold text-zinc-950">{customer.email}</p>
               </div>
-              <StatusBadge tone={customer.billing_state === "active" ? "success" : "warning"}>
-                {formatStatus(customer.billing_state)}
+              <StatusBadge tone={provisioningTone(customer.provisioning_state)}>
+                {formatStatus(customer.provisioning_state)}
               </StatusBadge>
             </div>
-            <dl className="mt-5 divide-y divide-zinc-100 text-sm">
-              <AccountRow label="Account" value={formatStatus(customer.provisioning_state)} />
-              <AccountRow label="Billing" value={formatStatus(customer.billing_state)} />
-            </dl>
             {customer.provisioning_error ? (
               <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
                 Account setup needs support review.
@@ -229,15 +225,6 @@ export default async function AccountPage({
           </div>
         </div>
       </section>
-    </div>
-  );
-}
-
-function AccountRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <dt className="text-zinc-500">{label}</dt>
-      <dd className="font-medium text-zinc-950">{value}</dd>
     </div>
   );
 }
