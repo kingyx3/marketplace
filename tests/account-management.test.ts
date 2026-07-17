@@ -25,7 +25,7 @@ describe("customer account management", () => {
       readFile(new URL("../lib/api/auth.ts", import.meta.url), "utf8"),
       readFile(
         new URL(
-          "../supabase/migrations/20260717014500_customer_account_soft_deletion.sql",
+          "../supabase/migrations/20260717160000_customer_account_soft_deletion.sql",
           import.meta.url
         ),
         "utf8"
