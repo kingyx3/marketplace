@@ -23,9 +23,8 @@ export default async function ControlCategoriesPage({
 }: {
   searchParams?: Promise<{
     error?: string;
-    slug?: string;
+    name?: string;
     existing?: string;
-    suggested?: string;
   }>;
 }) {
   await requireControlPermission("manage_catalog", "/control/categories");
@@ -56,16 +55,16 @@ export default async function ControlCategoriesPage({
 
       {params.error === "duplicate-category" ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          <p className="font-semibold">The slug “{params.slug}” is already used by {params.existing}.</p>
-          <p className="mt-1">
-            Edit the existing category or use a unique slug such as <code>{params.suggested}</code>.
+          <p className="font-semibold">
+            The name “{params.name}” generates the same slug as {params.existing}.
           </p>
+          <p className="mt-1">Rename the category or edit the existing category instead.</p>
         </div>
       ) : null}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-zinc-950">Add category</h2>
-        <CategoryForm categories={categories} suggestedSlug={params.suggested} />
+        <CategoryForm categories={categories} />
       </section>
 
       <section className="space-y-4">
@@ -127,18 +126,21 @@ export default async function ControlCategoriesPage({
 function CategoryForm({
   categories,
   category,
-  suggestedSlug,
 }: {
   categories: CategoryRow[];
   category?: CategoryRow;
-  suggestedSlug?: string;
 }) {
   return (
     <form action={upsertControlCategory} className="mt-4 grid gap-4">
       {category ? <input name="categoryId" type="hidden" value={category.id} /> : null}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Field label="Name" name="name" required value={category?.name} />
-        <Field label="Slug" name="slug" required value={category?.slug ?? suggestedSlug} />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field
+          hint="Slug is generated automatically from the category name."
+          label="Name"
+          name="name"
+          required
+          value={category?.name}
+        />
         <Field label="Publisher" name="publisher" value={category?.publisher ?? ""} />
         <Field
           label="Sort order"
@@ -221,6 +223,7 @@ function Field({
   required = false,
   type = "text",
   min,
+  hint,
 }: {
   label: string;
   name: string;
@@ -228,6 +231,7 @@ function Field({
   required?: boolean;
   type?: string;
   min?: number;
+  hint?: string;
 }) {
   return (
     <label className="grid gap-1 text-sm font-medium text-zinc-700">
@@ -240,6 +244,7 @@ function Field({
         required={required}
         type={type}
       />
+      {hint ? <span className="text-xs font-normal text-zinc-500">{hint}</span> : null}
     </label>
   );
 }
