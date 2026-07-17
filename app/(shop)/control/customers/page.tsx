@@ -12,7 +12,6 @@ interface CustomerRow {
   auth_user_id: string | null;
   email: string;
   name: string | null;
-  billing_state: string;
   provisioning_state: string;
   deleted_at: string | null;
   deletion_actor: string | null;
@@ -38,7 +37,7 @@ export default async function ControlCustomersPage({
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, auth_user_id, email, name, billing_state, provisioning_state, deleted_at, deletion_actor, restored_at, restoration_actor, created_at, updated_at, orders(id), preorders(id)"
+      "id, auth_user_id, email, name, provisioning_state, deleted_at, deletion_actor, restored_at, restoration_actor, created_at, updated_at, orders(id), preorders(id)"
     )
     .order("updated_at", { ascending: false })
     .limit(250);
@@ -137,7 +136,6 @@ export default async function ControlCustomersPage({
                   <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
                     <Data label="Orders" value={String(customer.orders?.length ?? 0)} />
                     <Data label="Preorders" value={String(customer.preorders?.length ?? 0)} />
-                    <Data label="Billing" value={formatLabel(customer.billing_state)} />
                     <Data label="Provisioning" value={formatLabel(customer.provisioning_state)} />
                     <Data label="Created" value={formatDate(customer.created_at)} />
                     <Data label="Updated" value={formatDate(customer.updated_at)} />

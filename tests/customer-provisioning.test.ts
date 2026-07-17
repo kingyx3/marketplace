@@ -35,7 +35,6 @@ describe("customer provisioning", () => {
       auth_user_id: "auth-user-123",
       email: "buyer@example.test",
       name: "Google Buyer",
-      billing_state: "unpaid",
       provisioning_state: "active",
     });
     expect(store.rows).toHaveLength(1);
@@ -114,7 +113,6 @@ function customer(overrides: Partial<CustomerRecord> = {}): CustomerRecord {
     segment: "player",
     default_currency: "SGD",
     marketing_opt_in: false,
-    billing_state: "unpaid",
     provisioning_state: "active",
     provisioning_error: null,
     deleted_at: null,
