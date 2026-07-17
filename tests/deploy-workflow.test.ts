@@ -138,6 +138,17 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("vars.ENABLE_RELEASE_TOPOLOGY != 'true'");
   });
 
+  it("publishes the development deployment result on each branch commit", async () => {
+    const workflow = await read(".github/workflows/deploy-app.yml");
+
+    expect(workflow).toContain("statuses: write");
+    expect(workflow).toContain("development-status:");
+    expect(workflow).toContain("needs: [development-ready, deploy-development]");
+    expect(workflow).toContain("Deploy App / development");
+    expect(workflow).toContain("/statuses/$GITHUB_SHA");
+    expect(workflow).toContain("$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID");
+  });
+
   it("keeps infrastructure helpers convergent and reusable-only", async () => {
     const state = await read(".github/workflows/terraform-state-bootstrap.yml");
     const platform = await read(".github/workflows/terraform-platform.yml");
