@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import {
+  ProductIntakeForm,
+  type CatalogCategoryOption,
+  type CatalogSetOption,
+} from "@/app/(shop)/control/_components/product-intake-form";
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
@@ -7,14 +12,16 @@ import {
   recordSupplierPurchaseOrder,
   runAdminOrderAction,
   runPreorderAllocation,
+  updateInventory,
+} from "@/app/actions/admin";
+import {
   setCatalogProductActive,
   setCatalogSkuActive,
-  updateInventory,
   uploadCatalogProductImage,
   upsertCatalogProduct,
   upsertCatalogSku,
-} from "@/app/actions/admin";
-import { requireControlPermission } from "@/lib/control-access";
+} from "@/app/actions/catalog";
+import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
 import { listAdminOrderExceptions, type AdminOrderException } from "@/lib/orders";
 import { createServiceClient } from "@/lib/supabase";
@@ -50,18 +57,15 @@ interface ProductRow {
   language: string;
   imageUrl: string | null;
   active: boolean;
+  published: boolean;
 }
 
-interface CategoryOption {
-  id: string;
-  name: string;
+interface CategoryOption extends CatalogCategoryOption {
+  active: boolean;
 }
 
-interface SetOption {
-  id: string;
-  categoryId: string;
-  name: string;
-  code: string;
+interface SetOption extends CatalogSetOption {
+  active: boolean;
 }
 
 interface PurchaseOrderRow {
@@ -83,83 +87,108 @@ interface SupplierOption {
 export const dynamic = "force-dynamic";
 
 export default async function ControlOperationsPage() {
-  const { staff } = await requireControlPermission(
-    "manage_full_operations",
-    "/control/operations"
-  );
+  const { staff } = await requireControlPermission("manage_catalog", "/control/operations");
+  const canManageFullOperations = hasControlPermission(staff, "manage_full_operations");
   const supabase = createServiceClient();
-  const [inventory, exceptions, products, categories, sets, purchaseOrders, suppliers] =
+
+  const [products, categories, sets, inventory, exceptions, purchaseOrders, suppliers] =
     await Promise.all([
-      fetchInventoryRows(supabase),
-      listAdminOrderExceptions(supabase),
       fetchProducts(supabase),
       fetchCategories(supabase),
       fetchSets(supabase),
-      fetchPurchaseOrders(supabase),
-      fetchSuppliers(supabase),
+      canManageFullOperations
+        ? fetchInventoryRows(supabase)
+        : Promise.resolve([] as InventoryRow[]),
+      canManageFullOperations
+        ? listAdminOrderExceptions(supabase)
+        : Promise.resolve([] as AdminOrderException[]),
+      canManageFullOperations
+        ? fetchPurchaseOrders(supabase)
+        : Promise.resolve([] as PurchaseOrderRow[]),
+      canManageFullOperations
+        ? fetchSuppliers(supabase)
+        : Promise.resolve([] as SupplierOption[]),
     ]);
 
   const activeProducts = products.filter((product) => product.active).length;
+  const activeCategories = categories.filter((category) => category.active).length;
+  const activeSets = sets.filter((set) => set.active).length;
+  const publishedProducts = products.filter((product) => product.published).length;
   const incoming = inventory.reduce((sum, row) => sum + row.incoming, 0);
   const allocated = inventory.reduce((sum, row) => sum + row.allocated, 0);
 
   return (
     <div className="space-y-8">
       <PageHeader
+        action={<StatusBadge tone="success">{staff.role}</StatusBadge>}
+        description={
+          canManageFullOperations
+            ? "Create and maintain products, SKUs, stock, purchasing, allocation, and order exceptions."
+            : "Create products and maintain their category, set, SKU, image, and publication relationships."
+        }
         eyebrow="Control"
         title="Operations"
-        description="Manage products, stock, purchasing, allocation, and order exceptions."
-        action={<StatusBadge tone="success">{staff.role}</StatusBadge>}
       />
 
-      <nav aria-label="Control operations sections" className="flex flex-wrap gap-3">
+      <nav aria-label="Operations links" className="flex flex-wrap gap-3">
         <ControlLink href="/control/listings">Storefront listings</ControlLink>
         <ControlLink href="/control/deals">Deals</ControlLink>
-        <ControlLink href="/preorders">Preorders</ControlLink>
-        <ControlLink href="/catalog">Open catalog</ControlLink>
+        <ControlLink href="/control/categories">Category details</ControlLink>
+        <ControlLink href="/control/sets">Set details</ControlLink>
+        {canManageFullOperations ? <ControlLink href="/preorders">Preorders</ControlLink> : null}
+        <ControlLink href="/catalog">Open products</ControlLink>
       </nav>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Products" value={String(products.length)} detail={`${activeProducts} active`} />
         <MetricCard
-          label="Open exceptions"
-          value={String(exceptions.length)}
-          detail="Payment or order issues requiring review"
+          label="Categories"
+          value={String(categories.length)}
+          detail={`${activeCategories} active`}
         />
+        <MetricCard label="Sets" value={String(sets.length)} detail={`${activeSets} active`} />
         <MetricCard
-          label="Active products"
-          value={String(activeProducts)}
-          detail={`${products.length} products configured`}
-        />
-        <MetricCard
-          label="Incoming boxes"
-          value={String(incoming)}
-          detail="Expected stock across all SKUs"
-        />
-        <MetricCard
-          label="Allocated boxes"
-          value={String(allocated)}
-          detail="Reserved for orders and preorders"
+          label="Published"
+          value={String(publishedProducts)}
+          detail="Visible storefront listings"
         />
       </section>
 
-      <CatalogSection
-        categories={categories}
-        products={products}
-        sets={sets}
-        skus={inventory}
-      />
+      <CatalogSection categories={categories} products={products} sets={sets} skus={inventory} />
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="space-y-6">
-          <InventorySection rows={inventory} />
-          <PurchaseOrdersSection
-            purchaseOrders={purchaseOrders}
-            suppliers={suppliers}
-            skus={inventory}
-          />
-        </div>
-        <PaymentExceptionsSection exceptions={exceptions} />
-      </section>
+      {canManageFullOperations ? (
+        <>
+          <section className="grid gap-4 sm:grid-cols-3">
+            <MetricCard
+              label="Open exceptions"
+              value={String(exceptions.length)}
+              detail="Payment or order issues requiring review"
+            />
+            <MetricCard
+              label="Incoming boxes"
+              value={String(incoming)}
+              detail="Expected stock across all SKUs"
+            />
+            <MetricCard
+              label="Allocated boxes"
+              value={String(allocated)}
+              detail="Reserved for orders and preorders"
+            />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+            <div className="space-y-6">
+              <InventorySection rows={inventory} />
+              <PurchaseOrdersSection
+                purchaseOrders={purchaseOrders}
+                suppliers={suppliers}
+                skus={inventory}
+              />
+            </div>
+            <PaymentExceptionsSection exceptions={exceptions} />
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -186,53 +215,67 @@ function CatalogSection({
   sets: SetOption[];
   skus: InventoryRow[];
 }) {
+  const intakeCategories = categories.filter((category) => category.active);
+  const intakeSets = sets.filter((set) => set.active);
+
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-zinc-950">Catalog</h2>
+    <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-zinc-950">Products and SKUs</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            Select or create the category first, then select, create, or skip its set.
+          </p>
+        </div>
         <StatusBadge tone="info">{products.length} products</StatusBadge>
       </div>
-      <div className="grid gap-6 xl:grid-cols-2">
+
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 sm:p-5">
+        <h3 className="mb-5 font-semibold text-zinc-950">Create product</h3>
+        <ProductIntakeForm categories={intakeCategories} sets={intakeSets} />
+      </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
-          <form action={upsertCatalogProduct} className={editorClass}>
-            <h3 className="font-semibold text-zinc-950">Add product</h3>
-            <ProductFields categories={categories} sets={sets} />
-            <PrimaryButton>Create product</PrimaryButton>
-          </form>
-          {products.slice(0, 8).map((product) => (
-            <article key={product.id} className="rounded-md border border-zinc-200 p-4">
-              <RecordHeader
-                title={product.name}
-                detail={`/${product.slug}`}
-                active={product.active}
-              />
-              <form action={upsertCatalogProduct} className="grid gap-3">
-                <input name="productId" type="hidden" value={product.id} />
-                <ProductFields categories={categories} product={product} sets={sets} />
-                <SecondaryButton>Save product</SecondaryButton>
-              </form>
-              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                <form action={uploadCatalogProductImage} className="flex gap-2">
-                  <input name="productId" type="hidden" value={product.id} />
-                  <input
-                    accept="image/*"
-                    className="min-h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-2 py-2 text-xs"
-                    name="image"
-                    required
-                    type="file"
-                  />
-                  <SecondaryButton>Upload</SecondaryButton>
-                </form>
-                <ToggleForm
-                  action={setCatalogProductActive}
+          <h3 className="font-semibold text-zinc-950">Existing products</h3>
+          {products.length === 0 ? (
+            <EmptyState text="No products have been created." />
+          ) : (
+            products.slice(0, 20).map((product) => (
+              <article key={product.id} className="rounded-md border border-zinc-200 p-4">
+                <RecordHeader
                   active={product.active}
-                  id={product.id}
-                  idName="productId"
-                  noun="product"
+                  detail={`/${product.slug}`}
+                  title={product.name}
                 />
-              </div>
-            </article>
-          ))}
+                <form action={upsertCatalogProduct} className="grid gap-3">
+                  <input name="productId" type="hidden" value={product.id} />
+                  <ProductFields categories={categories} product={product} sets={sets} />
+                  <SecondaryButton>Save product</SecondaryButton>
+                </form>
+                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <form action={uploadCatalogProductImage} className="flex gap-2">
+                    <input name="productId" type="hidden" value={product.id} />
+                    <input
+                      accept="image/*"
+                      className="min-h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-2 py-2 text-xs"
+                      name="image"
+                      required
+                      type="file"
+                    />
+                    <SecondaryButton>Upload</SecondaryButton>
+                  </form>
+                  <ToggleForm
+                    action={setCatalogProductActive}
+                    active={product.active}
+                    id={product.id}
+                    idName="productId"
+                    noun="product"
+                  />
+                </div>
+              </article>
+            ))
+          )}
         </div>
 
         <div className="space-y-4">
@@ -241,29 +284,33 @@ function CatalogSection({
             <SkuFields products={products} />
             <PrimaryButton disabled={products.length === 0}>Create SKU</PrimaryButton>
           </form>
-          {skus.slice(0, 10).map((sku) => (
-            <article key={sku.skuId} className="rounded-md border border-zinc-200 p-4">
-              <RecordHeader
-                title={sku.sku}
-                detail={`${sku.productName} · ${formatMoney(sku.priceCents, sku.currency)}`}
-                active={sku.skuActive}
-              />
-              <form action={upsertCatalogSku} className="grid gap-3">
-                <input name="skuId" type="hidden" value={sku.skuId} />
-                <SkuFields products={products} sku={sku} />
-                <SecondaryButton>Save SKU</SecondaryButton>
-              </form>
-              <div className="mt-3">
-                <ToggleForm
-                  action={setCatalogSkuActive}
+          {skus.length === 0 ? (
+            <EmptyState text="No SKUs have been created." />
+          ) : (
+            skus.slice(0, 20).map((sku) => (
+              <article key={sku.skuId} className="rounded-md border border-zinc-200 p-4">
+                <RecordHeader
                   active={sku.skuActive}
-                  id={sku.skuId}
-                  idName="skuId"
-                  noun="SKU"
+                  detail={`${sku.productName} · ${formatMoney(sku.priceCents, sku.currency)}`}
+                  title={sku.sku}
                 />
-              </div>
-            </article>
-          ))}
+                <form action={upsertCatalogSku} className="grid gap-3">
+                  <input name="skuId" type="hidden" value={sku.skuId} />
+                  <SkuFields products={products} sku={sku} />
+                  <SecondaryButton>Save SKU</SecondaryButton>
+                </form>
+                <div className="mt-3">
+                  <ToggleForm
+                    action={setCatalogSkuActive}
+                    active={sku.skuActive}
+                    id={sku.skuId}
+                    idName="skuId"
+                    noun="SKU"
+                  />
+                </div>
+              </article>
+            ))
+          )}
         </div>
       </div>
     </section>
@@ -276,46 +323,41 @@ function ProductFields({
   sets,
 }: {
   categories: CategoryOption[];
-  product?: ProductRow;
+  product: ProductRow;
   sets: SetOption[];
 }) {
   return (
     <>
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label="Name" name="name" value={product?.name} required />
-        <TextField label="Slug" name="slug" value={product?.slug} required />
+        <TextField label="Name" name="name" value={product.name} required />
+        <TextField label="Slug" name="slug" value={product.slug} required />
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <SelectField
           label="Category"
           name="categoryId"
-          value={product?.categoryId}
           options={categories.map((item) => ({ value: item.id, label: item.name }))}
+          value={product.categoryId}
         />
         <SelectField
           label="Set"
           name="setId"
-          value={product?.setId ?? ""}
           optional
           options={sets.map((item) => ({ value: item.id, label: `${item.name} (${item.code})` }))}
+          value={product.setId ?? ""}
         />
-        <TextField
-          label="Type"
-          name="productType"
-          value={product?.productType ?? "booster_box"}
-          required
-        />
+        <TextField label="Type" name="productType" value={product.productType} required />
       </div>
       <div className="grid gap-3 sm:grid-cols-[7rem_1fr_auto]">
-        <TextField label="Language" name="language" value={product?.language ?? "EN"} required />
-        <TextField label="Image URL" name="imageUrl" value={product?.imageUrl ?? ""} />
-        <BooleanField label="Active" name="active" checked={product?.active ?? true} />
+        <TextField label="Language" name="language" value={product.language} required />
+        <TextField label="Image URL" name="imageUrl" value={product.imageUrl ?? ""} />
+        <BooleanField label="Active" name="active" checked={product.active} />
       </div>
       <label className={labelClass}>
         Description
         <textarea
           className="min-h-20 rounded-md border border-zinc-300 px-2 py-2 text-sm"
-          defaultValue={product?.description ?? ""}
+          defaultValue={product.description ?? ""}
           maxLength={2000}
           name="description"
         />
@@ -330,8 +372,8 @@ function SkuFields({ products, sku }: { products: ProductRow[]; sku?: InventoryR
       <SelectField
         label="Product"
         name="productId"
-        value={sku?.productId}
         options={products.map((item) => ({ value: item.id, label: item.name }))}
+        value={sku?.productId}
       />
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField label="SKU" name="sku" value={sku?.sku} required />
@@ -450,7 +492,7 @@ function PurchaseOrdersSection({
           purchaseOrders.map((order) => (
             <article key={order.id} className="rounded-md border border-zinc-200 p-4">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="font-semibold text-zinc-950">{order.id}</h3>
+                <h3 className="break-all font-semibold text-zinc-950">{order.id}</h3>
                 <StatusBadge tone={order.status === "confirmed" ? "success" : "info"}>
                   {order.status}
                 </StatusBadge>
@@ -756,24 +798,29 @@ async function fetchInventoryRows(
 async function fetchProducts(supabase = createServiceClient()): Promise<ProductRow[]> {
   const { data, error } = await supabase
     .from("products")
-    .select("id, category_id, set_id, slug, name, product_type, description, language, image_url, active")
+    .select(
+      "id, category_id, set_id, slug, name, product_type, description, language, image_url, active, listing_items(published)"
+    )
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(40);
 
-  if (error) throw new Error(`Control catalog product query failed: ${error.message}`);
+  if (error) throw new Error(`Control product query failed: ${error.message}`);
 
-  return ((data ?? []) as Array<{
-    id: string;
-    category_id: string;
-    set_id: string | null;
-    slug: string;
-    name: string;
-    product_type: string;
-    description: string | null;
-    language: string;
-    image_url: string | null;
-    active: boolean;
-  }>).map((row) => ({
+  return (
+    (data ?? []) as unknown as Array<{
+      id: string;
+      category_id: string;
+      set_id: string | null;
+      slug: string;
+      name: string;
+      product_type: string;
+      description: string | null;
+      language: string;
+      image_url: string | null;
+      active: boolean;
+      listing_items: Array<{ published: boolean }> | null;
+    }>
+  ).map((row) => ({
     id: row.id,
     categoryId: row.category_id,
     setId: row.set_id,
@@ -784,29 +831,44 @@ async function fetchProducts(supabase = createServiceClient()): Promise<ProductR
     language: row.language,
     imageUrl: row.image_url,
     active: row.active,
+    published: Boolean(row.listing_items?.[0]?.published),
   }));
 }
 
 async function fetchCategories(
   supabase = createServiceClient()
 ): Promise<CategoryOption[]> {
-  const { data, error } = await supabase.from("tcg_categories").select("id, name").order("name");
+  const { data, error } = await supabase
+    .from("tcg_categories")
+    .select("id, name, slug, active")
+    .order("name");
   if (error) throw new Error(`Category option query failed: ${error.message}`);
-  return ((data ?? []) as Array<{ id: string; name: string }>).map((row) => ({
-    id: row.id,
-    name: row.name,
-  }));
+  return ((data ?? []) as Array<{ id: string; name: string; slug: string; active: boolean }>).map(
+    (row) => ({ id: row.id, name: row.name, slug: row.slug, active: row.active })
+  );
 }
 
 async function fetchSets(supabase = createServiceClient()): Promise<SetOption[]> {
   const { data, error } = await supabase
     .from("sets_releases")
-    .select("id, category_id, name, code")
+    .select("id, category_id, name, code, active")
     .order("release_date", { ascending: false });
   if (error) throw new Error(`Set option query failed: ${error.message}`);
-  return ((data ?? []) as Array<{ id: string; category_id: string; name: string; code: string }>).map(
-    (row) => ({ id: row.id, categoryId: row.category_id, name: row.name, code: row.code })
-  );
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      category_id: string;
+      name: string;
+      code: string;
+      active: boolean;
+    }>
+  ).map((row) => ({
+    id: row.id,
+    categoryId: row.category_id,
+    name: row.name,
+    code: row.code,
+    active: row.active,
+  }));
 }
 
 async function fetchSuppliers(
