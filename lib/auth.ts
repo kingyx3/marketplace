@@ -33,7 +33,6 @@ export interface CustomerProfile {
   id: string;
   email: string;
   name: string | null;
-  billing_state: string;
   provisioning_state: string;
   provisioning_error: string | null;
 }
@@ -95,7 +94,7 @@ export async function getCustomerProfile(authUserId: string): Promise<CustomerPr
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("customers")
-    .select("id, email, name, billing_state, provisioning_state, provisioning_error")
+    .select("id, email, name, provisioning_state, provisioning_error")
     .eq("auth_user_id", authUserId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -117,7 +116,6 @@ export async function requireCustomer(next = "/account") {
       id: customer.id,
       email: customer.email,
       name: customer.name,
-      billing_state: customer.billing_state ?? "unpaid",
       provisioning_state: customer.provisioning_state ?? "active",
       provisioning_error: customer.provisioning_error ?? null,
     } satisfies CustomerProfile,
