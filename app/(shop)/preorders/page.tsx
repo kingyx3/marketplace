@@ -75,9 +75,9 @@ export default async function PreordersPage({
               </p>
               <Link
                 className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
-                href="/catalog"
+                href="/products"
               >
-                Browse catalog
+                Browse products
               </Link>
             </div>
           ) : (
@@ -128,7 +128,7 @@ export default async function PreordersPage({
                     <div className="mt-5 flex flex-wrap gap-2">
                       <Link
                         className="inline-flex min-h-10 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
-                        href={href ?? "/catalog"}
+                        href={href ?? "/products"}
                       >
                         View product
                       </Link>
@@ -179,7 +179,7 @@ export default async function PreordersPage({
                 return (
                   <Link
                     className="rounded-md border border-zinc-200 p-4 hover:border-emerald-500"
-                    href={`/catalog/${product.slug}`}
+                    href={`/products/${product.slug}`}
                     key={product.slug}
                   >
                     <p className="font-semibold text-zinc-950">{product.name}</p>
