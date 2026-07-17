@@ -107,7 +107,7 @@ export function skuForItem(item: LiveOrderItem | LivePreorder): string | null {
 
 export function productHrefForItem(item: LiveOrderItem | LivePreorder): string | null {
   const slug = productForSku(item.booster_box_skus)?.slug;
-  return slug ? `/catalog/${slug}` : null;
+  return slug ? `/products/${slug}` : null;
 }
 
 export function latestShipment(order: LiveOrder): LiveShipment | null {
