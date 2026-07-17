@@ -17,6 +17,8 @@ describe("database workflow", () => {
     }
 
     expect(ci).toContain("VERIFY_LOGICAL_RESTORE: 'true'");
+    expect(ci).toContain("terraform: ${{ steps.filter.outputs.terraform }}");
+    expect(ci).toContain("if: needs.changes.outputs.terraform == 'true'");
     expect(deploy).toContain("deployment-migration-log-${{ inputs.environment }}");
     expect(runner).toContain("set -Eeuo pipefail");
     expect(runner).toContain("ON_ERROR_STOP=1");
@@ -31,5 +33,14 @@ describe("database workflow", () => {
 
     expect(wholesaleRemoval).toContain("b2b_accounts");
     expect(accountDeletion).not.toContain("b2b_accounts");
+  });
+
+  it("verifies restores against the retail-only contract", async () => {
+    const restore = await read(".github/ci/verify-logical-restore.sh");
+
+    expect(restore).toContain("restored database contains retired wholesale capabilities");
+    expect(restore).toContain("restored database is missing active shipping policy");
+    expect(restore).toContain("restored database contains retired invoice policy");
+    expect(restore).not.toContain("restored database is missing invoice checkout function");
   });
 });
