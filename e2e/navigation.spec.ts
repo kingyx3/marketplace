@@ -17,9 +17,9 @@ test.describe("storefront navigation", () => {
 
     const navigation = page.getByRole("navigation", { name: "Primary navigation" });
     await expect(navigation.getByRole("link", { name: "Home" })).toHaveCount(0);
-    await expect(navigation.getByRole("link", { name: "Catalog" })).toHaveAttribute(
+    await expect(navigation.getByRole("link", { name: "Products" })).toHaveAttribute(
       "href",
-      "/catalog"
+      "/products"
     );
     await expect(navigation.getByRole("link", { name: "Deals" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Wholesale" })).toHaveCount(0);
@@ -33,12 +33,12 @@ test.describe("storefront navigation", () => {
     await expect(navigation.getByRole("link", { name: "Admin" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Control" })).toHaveCount(0);
 
-    await page.getByRole("link", { name: "Browse catalog" }).first().click();
-    await expect(page).toHaveURL(/\/catalog$/);
+    await page.getByRole("link", { name: "Browse products" }).first().click();
+    await expect(page).toHaveURL(/\/products$/);
     await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Deals" })).toHaveAttribute(
       "href",
-      "/catalog?view=deals"
+      "/products?view=deals"
     );
   });
 
@@ -51,17 +51,17 @@ test.describe("storefront navigation", () => {
     await expect(homeLink).toBeVisible();
 
     const mobileNavigation = page.getByRole("navigation", { name: "Mobile primary navigation" });
-    await expect(mobileNavigation.getByRole("link", { name: "Catalog" })).toBeVisible();
+    await expect(mobileNavigation.getByRole("link", { name: "Products" })).toBeVisible();
     await expect(mobileNavigation.getByRole("link", { name: "Home" })).toHaveCount(0);
     await expect(banner.getByRole("link", { name: "Cart", exact: true }).first()).toBeVisible();
 
-    await page.goto("/catalog");
+    await page.goto("/products");
     await banner.locator('a[href="/"]').first().click();
     await expect(page).toHaveURL(/\/$/);
   });
 
   test("opens the empty cart from a product page", async ({ page }) => {
-    await page.goto("/catalog/smp-play-booster-box", { waitUntil: "domcontentloaded" });
+    await page.goto("/products/smp-play-booster-box", { waitUntil: "domcontentloaded" });
     await expect(
       page.getByRole("heading", { name: "Sample Standard Play Booster Box" })
     ).toBeVisible();
@@ -72,9 +72,11 @@ test.describe("storefront navigation", () => {
     await expect(page.getByRole("heading", { name: "Your cart is empty" })).toBeVisible();
   });
 
-  test("returns 404 for the removed wholesale route", async ({ request }) => {
-    const response = await request.get("/wholesale");
-    expect(response.status()).toBe(404);
+  test("returns 404 for removed storefront routes", async ({ request }) => {
+    for (const path of ["/catalog", "/catalog/not-a-real-product", "/wholesale"]) {
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(404);
+    }
   });
 
   test("redirects protected pages through sign-in without server errors", async ({ page }) => {
@@ -86,7 +88,7 @@ test.describe("storefront navigation", () => {
   });
 
   test("returns a real 404 for an unknown product", async ({ request }) => {
-    const response = await request.get("/catalog/not-a-real-product");
+    const response = await request.get("/products/not-a-real-product");
     expect(response.status()).toBe(404);
   });
 });

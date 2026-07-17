@@ -55,13 +55,13 @@ export default async function HomePage({
             </p>
             <div className="mt-7 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap">
               <Link
-                href="/catalog"
+                href="/products"
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-white px-5 text-sm font-semibold text-zinc-950 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:w-auto"
               >
-                Browse catalog
+                Browse products
               </Link>
               <Link
-                href={signedIn ? "/account" : "/catalog?view=deals"}
+                href={signedIn ? "/account" : "/products?view=deals"}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-white/60 px-5 text-sm font-semibold text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:w-auto"
               >
                 {signedIn ? "Open account" : "View deals"}
@@ -79,10 +79,10 @@ export default async function HomePage({
 
       <section>
         <SectionHeading
-          eyebrow="Catalog"
+          eyebrow="Products"
           title="Featured products"
-          href="/catalog"
-          linkLabel="View catalog"
+          href="/products"
+          linkLabel="View products"
         />
 
         {featuredProducts.length > 0 ? (
@@ -92,7 +92,7 @@ export default async function HomePage({
             ))}
           </div>
         ) : (
-          <EmptyState text="Products are temporarily unavailable. Try the catalog again shortly." />
+          <EmptyState text="Products are temporarily unavailable. Try the products page again shortly." />
         )}
       </section>
 
@@ -100,7 +100,7 @@ export default async function HomePage({
         <SectionHeading
           eyebrow="Deals"
           title={signedIn ? "Your eligible deals" : "Current offers"}
-          href="/catalog?view=deals"
+          href="/products?view=deals"
           linkLabel="View deals"
         />
 
@@ -165,7 +165,7 @@ function FeaturedProductCard({ product }: { product: CatalogProduct }) {
 
   return (
     <article className="grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <Link href={`/catalog/${product.slug}`} className="group block">
+      <Link href={`/products/${product.slug}`} className="group block">
         <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
           <Image
             alt={`${product.name} sealed product`}
@@ -181,7 +181,7 @@ function FeaturedProductCard({ product }: { product: CatalogProduct }) {
           {product.categoryName ?? "Trading card game"} · {product.setCode ?? sku.sku}
         </p>
         <h3 className="text-lg font-semibold text-zinc-950">
-          <Link className="hover:text-emerald-700" href={`/catalog/${product.slug}`}>
+          <Link className="hover:text-emerald-700" href={`/products/${product.slug}`}>
             {product.name}
           </Link>
         </h3>

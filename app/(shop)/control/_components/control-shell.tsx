@@ -6,8 +6,7 @@ import type { StaffProfile } from "@/lib/admin-staff";
 
 const links: Array<{ href: string; label: string; permission: ControlPermission }> = [
   { href: "/control", label: "Overview", permission: "view_control" },
-  { href: "/control/catalog", label: "Catalog", permission: "manage_catalog" },
-  { href: "/control/operations", label: "Operations", permission: "manage_full_operations" },
+  { href: "/control/operations", label: "Operations", permission: "manage_catalog" },
   { href: "/control/deliveries", label: "Deliveries", permission: "manage_orders" },
   { href: "/control/suppliers", label: "Suppliers", permission: "manage_suppliers" },
   { href: "/control/deals", label: "Deals", permission: "manage_catalog" },

@@ -3,10 +3,8 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import {
-  createCatalogProduct,
-  initialCatalogProductActionState,
-} from "@/app/actions/catalog";
+import { createCatalogProduct } from "@/app/actions/catalog";
+import { initialCatalogProductActionState } from "@/lib/catalog-product-action-state";
 
 export interface CatalogCategoryOption {
   id: string;
@@ -208,10 +206,13 @@ export function ProductIntakeForm({
               <p className="mt-1 text-xs text-zinc-500">Optional. Sets are always created under the category above.</p>
             </div>
             <div className="flex flex-wrap rounded-md border border-zinc-300 bg-white p-1 text-xs font-semibold">
-              <ModeButton active={setMode === "none"} onClick={() => {
-                setSetMode("none");
-                setSetId("");
-              }}>
+              <ModeButton
+                active={setMode === "none"}
+                onClick={() => {
+                  setSetMode("none");
+                  setSetId("");
+                }}
+              >
                 No set
               </ModeButton>
               <ModeButton
@@ -221,10 +222,13 @@ export function ProductIntakeForm({
               >
                 Existing
               </ModeButton>
-              <ModeButton active={setMode === "new"} onClick={() => {
-                setSetMode("new");
-                setSetId("");
-              }}>
+              <ModeButton
+                active={setMode === "new"}
+                onClick={() => {
+                  setSetMode("new");
+                  setSetId("");
+                }}
+              >
                 Add set
               </ModeButton>
             </div>

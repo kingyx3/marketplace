@@ -18,10 +18,8 @@ vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
 
-import {
-  createCatalogProduct,
-  initialCatalogProductActionState,
-} from "@/app/actions/catalog";
+import { createCatalogProduct } from "@/app/actions/catalog";
+import { initialCatalogProductActionState } from "@/lib/catalog-product-action-state";
 
 describe("catalog product action", () => {
   beforeEach(() => {
@@ -81,8 +79,8 @@ describe("catalog product action", () => {
       p_active: true,
       p_actor_auth_user_id: "staff-user-123",
     });
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/catalog");
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/catalog");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/operations");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/products");
   });
 
   it("creates a missing set under the selected category in the same mutation", async () => {

@@ -144,15 +144,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </form>
               ) : (
                 <Link
-                  href="/catalog"
+                  href="/products"
                   className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-5 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
                 >
-                  Back to catalog
+                  Back to products
                 </Link>
               )}
               {product.setStatus === "preorder_open" && skuId ? (
                 <CartCheckoutPanel
-                  authRedirectPath={`/catalog/${product.slug}`}
+                  authRedirectPath={`/products/${product.slug}`}
                   clearCartOnSuccess={false}
                   items={[{ skuId, quantity: 1 }]}
                   mode="preorder"
@@ -167,7 +167,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               ) : null}
               {skuId ? (
                 <WaitlistSignupPanel
-                  authRedirectPath={`/catalog/${product.slug}`}
+                  authRedirectPath={`/products/${product.slug}`}
                   inStock={available > 0}
                   skuId={skuId}
                   supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}

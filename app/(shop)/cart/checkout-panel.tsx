@@ -308,7 +308,7 @@ export function CartCheckoutPanel({
       ) : (
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
-          href="/catalog"
+          href="/products"
         >
           Keep shopping
         </Link>

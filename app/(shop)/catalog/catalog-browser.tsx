@@ -47,7 +47,7 @@ export function CatalogBrowser({
   return (
     <div className="space-y-5 sm:space-y-6">
       <form
-        aria-label="Filter catalog"
+        aria-label="Filter products"
         className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:grid-cols-[minmax(0,1fr)_11rem_11rem_auto]"
         onSubmit={applyFilters}
       >
@@ -102,14 +102,14 @@ export function CatalogBrowser({
         </label>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end lg:grid lg:grid-cols-1">
           <button
-            aria-controls="catalog-results"
+            aria-controls="product-results"
             className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             type="submit"
           >
             Apply
           </button>
           <button
-            aria-controls="catalog-results"
+            aria-controls="product-results"
             className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             disabled={!canClear}
             onClick={clearFilters}
@@ -126,16 +126,16 @@ export function CatalogBrowser({
 
       {filteredProducts.length === 0 ? (
         <section
-          aria-label="Catalog results"
+          aria-label="Product results"
           className="rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm sm:p-8"
-          id="catalog-results"
+          id="product-results"
         >
           <h2 className="text-xl font-semibold text-zinc-950">No products match these filters</h2>
           <p className="mt-3 text-sm text-zinc-600">
             Clear the filters or try a broader search term.
           </p>
           <button
-            aria-controls="catalog-results"
+            aria-controls="product-results"
             className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 sm:w-auto"
             onClick={clearFilters}
             type="button"
@@ -145,9 +145,9 @@ export function CatalogBrowser({
         </section>
       ) : (
         <section
-          aria-label="Catalog results"
+          aria-label="Product results"
           className="grid gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3"
-          id="catalog-results"
+          id="product-results"
         >
           {products.map((product, index) => (visibleSlugs.has(product.slug) ? cards[index] : null))}
         </section>

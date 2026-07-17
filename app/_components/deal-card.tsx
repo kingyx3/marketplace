@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/money";
 export function DealCard({ deal }: { deal: LimitedTimeDeal }) {
   return (
     <article className="group grid overflow-hidden rounded-xl border border-emerald-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <Link href={`/catalog/${deal.productSlug}`} className="block">
+      <Link href={`/products/${deal.productSlug}`} className="block">
         <div className="relative aspect-[16/9] overflow-hidden bg-zinc-100">
           <Image
             alt={`${deal.productName} sealed product`}
@@ -29,7 +29,7 @@ export function DealCard({ deal }: { deal: LimitedTimeDeal }) {
             {deal.title}
           </p>
           <h3 className="mt-2 text-lg font-semibold text-zinc-950">
-            <Link href={`/catalog/${deal.productSlug}`} className="hover:text-emerald-700">
+            <Link href={`/products/${deal.productSlug}`} className="hover:text-emerald-700">
               {deal.productName}
             </Link>
           </h3>
@@ -45,7 +45,7 @@ export function DealCard({ deal }: { deal: LimitedTimeDeal }) {
         <p className="text-xs text-zinc-500">Ends {formatDealExpiry(deal.endsAt)}</p>
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
-          href={`/catalog/${deal.productSlug}`}
+          href={`/products/${deal.productSlug}`}
         >
           View product
         </Link>

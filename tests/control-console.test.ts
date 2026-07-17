@@ -32,9 +32,9 @@ describe("control console", () => {
     expect(controlSupplierFromForm(formData).active).toBe(true);
   });
 
-  it("ships consolidated catalog and focused administrative screens", async () => {
+  it("ships one operations workspace and focused administrative screens", async () => {
     for (const path of [
-      "../app/(shop)/control/catalog/page.tsx",
+      "../app/(shop)/control/operations/page.tsx",
       "../app/(shop)/control/customers/page.tsx",
       "../app/(shop)/control/suppliers/page.tsx",
       "../app/(shop)/control/categories/page.tsx",
@@ -46,6 +46,14 @@ describe("control console", () => {
       expect(source).toContain("requireControlPermission");
       expect(source.length).toBeGreaterThan(1000);
     }
+
+    const operations = await readFile(
+      new URL("../app/(shop)/control/operations/page.tsx", import.meta.url),
+      "utf8"
+    );
+    expect(operations).toContain('requireControlPermission("manage_catalog", "/control/operations")');
+    expect(operations).toContain('hasControlPermission(staff, "manage_full_operations")');
+    expect(operations).toContain("ProductIntakeForm");
   });
 
   it("keeps every control mutation server-authorized and database-backed", async () => {
@@ -64,8 +72,10 @@ describe("control console", () => {
     expect(controlActions).toContain('rpc("admin_upsert_category"');
     expect(controlActions).toContain('rpc("admin_upsert_set_release"');
     expect(controlActions).toContain('rpc("admin_upsert_access_grant"');
-    expect(catalogActions).toContain('requireControlPermission("manage_catalog"');
+    expect(catalogActions).toContain('requireControlPermission("manage_catalog", "/control/operations")');
     expect(catalogActions).toContain('rpc("admin_create_catalog_product_hierarchy"');
+    expect(catalogActions).toContain('rpc("admin_upsert_catalog_product"');
+    expect(catalogActions).toContain('rpc("admin_upsert_booster_box_sku"');
     expect(customerActions).toContain('"manage_customers"');
     expect(customerActions).toContain("setCustomerAccountDeleted");
     expect(operationalActions).toContain('requireControlPermission("manage_full_operations"');

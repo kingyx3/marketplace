@@ -22,7 +22,7 @@ export function ProductCard({ product }: { product: MarketplaceProduct }) {
 
   return (
     <article className="group grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <Link href={`/catalog/${product.slug}`} className="block">
+      <Link href={`/products/${product.slug}`} className="block">
         <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
           <Image
             src={product.image}
@@ -45,7 +45,7 @@ export function ProductCard({ product }: { product: MarketplaceProduct }) {
             {product.game} · {product.setCode}
           </p>
           <h2 className="mt-2 text-lg font-semibold leading-tight text-zinc-950">
-            <Link href={`/catalog/${product.slug}`} className="hover:text-emerald-700">
+            <Link href={`/products/${product.slug}`} className="hover:text-emerald-700">
               {product.name}
             </Link>
           </h2>
@@ -73,7 +73,7 @@ export function ProductCard({ product }: { product: MarketplaceProduct }) {
         </div>
 
         <Link
-          href={`/catalog/${product.slug}`}
+          href={`/products/${product.slug}`}
           className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
         >
           View product

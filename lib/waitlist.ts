@@ -253,7 +253,7 @@ function buildDropNotificationMessage(
   const product = productForSku(sku);
   const appName = getAppName(env);
   const siteUrl = (env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
-  const productPath = `/catalog/${product.slug}`;
+  const productPath = `/products/${product.slug}`;
   const productUrl = siteUrl ? `${siteUrl}${productPath}` : productPath;
   const payload = {
     skuId: sku.id,

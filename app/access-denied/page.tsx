@@ -22,10 +22,10 @@ export default function AccessDeniedPage() {
           Go to account
         </Link>
         <Link
-          href="/catalog"
+          href="/products"
           className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
         >
-          Browse catalog
+          Browse products
         </Link>
       </div>
     </section>
