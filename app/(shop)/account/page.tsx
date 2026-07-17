@@ -101,7 +101,7 @@ export default async function AccountPage({
           </div>
           <div className="grid gap-3 p-4 sm:p-5">
             {recentOrders.length === 0 ? (
-              <EmptyState href="/catalog" label="Browse catalog" text="No orders yet." />
+              <EmptyState href="/products" label="Browse products" text="No orders yet." />
             ) : (
               recentOrders.slice(0, 4).map((order) => (
                 <Link
@@ -171,14 +171,14 @@ export default async function AccountPage({
             )}
           </ActivityCard>
 
-          <ActivityCard title="Drop alerts" href="/catalog" linkLabel="Browse">
+          <ActivityCard title="Drop alerts" href="/products" linkLabel="Browse">
             {recentWaitlist.length === 0 ? (
               <p className="text-sm text-zinc-500">No drop alerts.</p>
             ) : (
               recentWaitlist.slice(0, 3).map((entry) => (
                 <Link
                   className="block rounded-md border border-zinc-200 p-3 hover:border-emerald-500"
-                  href={entry.productSlug ? `/catalog/${entry.productSlug}` : "/catalog"}
+                  href={entry.productSlug ? `/products/${entry.productSlug}` : "/products"}
                   key={entry.id}
                 >
                   <div className="flex items-center justify-between gap-3">
