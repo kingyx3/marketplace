@@ -8,12 +8,11 @@ import {
 } from "@/lib/admin-catalog-forms";
 
 describe("admin catalog management", () => {
-  it("parses product create/update forms with normalized slug and language", () => {
+  it("generates product slugs from names and normalizes language", () => {
     const form = new FormData();
     form.set("categoryId", "22222222-2222-4222-8222-222222222222");
     form.set("setId", "33333333-3333-4333-8333-333333333333");
-    form.set("slug", "sample-box");
-    form.set("name", "Sample Box");
+    form.set("name", "Pokémon   Sample Box");
     form.set("productType", "booster_box");
     form.set("description", "A sealed display box");
     form.set("language", "en");
@@ -23,26 +22,23 @@ describe("admin catalog management", () => {
     expect(adminCatalogProductFromForm(form)).toMatchObject({
       categoryId: "22222222-2222-4222-8222-222222222222",
       setId: "33333333-3333-4333-8333-333333333333",
-      slug: "sample-box",
-      name: "Sample Box",
+      slug: "pokemon-sample-box",
+      name: "Pokémon   Sample Box",
       productType: "booster_box",
       language: "EN",
       active: true,
     });
   });
 
-  it("parses atomic category and set creation in hierarchical order", () => {
+  it("generates identifiers during atomic category and set creation", () => {
     const form = new FormData();
     form.set("categoryMode", "new");
     form.set("newCategoryName", "Example Game");
-    form.set("newCategorySlug", "example-game");
     form.set("newCategoryPublisher", "Example Publisher");
     form.set("setMode", "new");
     form.set("newSetName", "First Release");
-    form.set("newSetCode", "fr-01");
     form.set("newSetReleaseDate", "2026-08-01");
     form.set("newSetStatus", "preorder_open");
-    form.set("slug", "first-release-booster-box");
     form.set("name", "First Release Booster Box");
     form.set("productType", "booster_box");
     form.set("language", "en");
@@ -55,7 +51,7 @@ describe("admin catalog management", () => {
       newCategoryPublisher: "Example Publisher",
       setId: null,
       newSetName: "First Release",
-      newSetCode: "FR-01",
+      newSetCode: "FIRST-RELEASE",
       newSetReleaseDate: "2026-08-01",
       newSetStatus: "preorder_open",
       slug: "first-release-booster-box",
@@ -67,10 +63,8 @@ describe("admin catalog management", () => {
     const form = new FormData();
     form.set("categoryMode", "new");
     form.set("newCategoryName", "Example Game");
-    form.set("newCategorySlug", "example-game");
     form.set("setMode", "existing");
     form.set("setId", "33333333-3333-4333-8333-333333333333");
-    form.set("slug", "sample-box");
     form.set("name", "Sample Box");
     form.set("productType", "booster_box");
 
@@ -79,15 +73,14 @@ describe("admin catalog management", () => {
     );
   });
 
-  it("rejects unsafe product slugs and malformed SKU currency", () => {
+  it("rejects names that cannot generate identifiers and malformed SKU currency", () => {
     const product = new FormData();
     product.set("categoryId", "22222222-2222-4222-8222-222222222222");
-    product.set("slug", "Bad Slug");
-    product.set("name", "Sample Box");
+    product.set("name", "🎴✨");
     product.set("productType", "booster_box");
 
     expect(() => adminCatalogProductFromForm(product)).toThrow(
-      "slug must use lowercase words separated by hyphens"
+      "Product name must contain letters or numbers for its generated slug"
     );
 
     const sku = new FormData();
