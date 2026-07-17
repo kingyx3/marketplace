@@ -9,7 +9,7 @@ describe("audience-aware frontend access", () => {
   it("shows only public navigation to anonymous visitors", () => {
     const html = renderHeader({ user: null, staff: null, staffLookup: "not_applicable" });
 
-    expect(html).toContain("Catalog");
+    expect(html).toContain("Products");
     expect(html).toContain("Cart");
     expect(html).toContain("Sign in");
     expect(html).not.toContain(">Home<");
