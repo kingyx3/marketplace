@@ -31,7 +31,7 @@ describe("database workflow", () => {
   it("does not recreate policies for wholesale tables removed earlier in migration order", async () => {
     const [wholesaleRemoval, accountDeletion] = await Promise.all([
       read("supabase/migrations/20260716213000_remove_wholesale_b2b.sql"),
-      read("supabase/migrations/20260717014500_customer_account_soft_deletion.sql"),
+      read("supabase/migrations/20260717160000_customer_account_soft_deletion.sql"),
     ]);
 
     expect(wholesaleRemoval).toContain("b2b_accounts");
