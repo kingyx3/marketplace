@@ -81,7 +81,7 @@ describe("catalog product action", () => {
       p_active: true,
       p_actor_auth_user_id: "staff-user-123",
     });
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/catalog");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/operations");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/catalog");
   });
 
