@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
+  adminCatalogProductCreateFromForm,
   adminCatalogProductFromForm,
   adminCatalogSkuFromForm,
   adminInventoryAdjustmentFromForm,
@@ -28,6 +29,54 @@ describe("admin catalog management", () => {
       language: "EN",
       active: true,
     });
+  });
+
+  it("parses atomic category and set creation in hierarchical order", () => {
+    const form = new FormData();
+    form.set("categoryMode", "new");
+    form.set("newCategoryName", "Example Game");
+    form.set("newCategorySlug", "example-game");
+    form.set("newCategoryPublisher", "Example Publisher");
+    form.set("setMode", "new");
+    form.set("newSetName", "First Release");
+    form.set("newSetCode", "fr-01");
+    form.set("newSetReleaseDate", "2026-08-01");
+    form.set("newSetStatus", "preorder_open");
+    form.set("slug", "first-release-booster-box");
+    form.set("name", "First Release Booster Box");
+    form.set("productType", "booster_box");
+    form.set("language", "en");
+    form.set("active", "true");
+
+    expect(adminCatalogProductCreateFromForm(form)).toMatchObject({
+      categoryId: null,
+      newCategoryName: "Example Game",
+      newCategorySlug: "example-game",
+      newCategoryPublisher: "Example Publisher",
+      setId: null,
+      newSetName: "First Release",
+      newSetCode: "FR-01",
+      newSetReleaseDate: "2026-08-01",
+      newSetStatus: "preorder_open",
+      slug: "first-release-booster-box",
+      language: "EN",
+    });
+  });
+
+  it("requires an existing set to follow an existing category", () => {
+    const form = new FormData();
+    form.set("categoryMode", "new");
+    form.set("newCategoryName", "Example Game");
+    form.set("newCategorySlug", "example-game");
+    form.set("setMode", "existing");
+    form.set("setId", "33333333-3333-4333-8333-333333333333");
+    form.set("slug", "sample-box");
+    form.set("name", "Sample Box");
+    form.set("productType", "booster_box");
+
+    expect(() => adminCatalogProductCreateFromForm(form)).toThrow(
+      "Create or select the category before choosing an existing set"
+    );
   });
 
   it("rejects unsafe product slugs and malformed SKU currency", () => {
