@@ -63,7 +63,7 @@ export async function setLimitedTimeDealActive(formData: FormData) {
 function revalidateDealPaths() {
   revalidatePath("/");
   revalidatePath("/control/deals");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function upsertListingItem(formData: FormData) {
@@ -88,7 +88,7 @@ export async function upsertListingItem(formData: FormData) {
   revalidatePath("/control");
   revalidatePath("/control/operations");
   revalidatePath("/control/listings");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function upsertStorefrontConfiguration(formData: FormData) {
@@ -108,7 +108,7 @@ export async function upsertStorefrontConfiguration(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/listings");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function updateInventory(formData: FormData) {
@@ -129,7 +129,7 @@ export async function updateInventory(formData: FormData) {
 
   revalidatePath("/control/operations");
   revalidatePath("/control");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function upsertCatalogProduct(formData: FormData) {
@@ -154,7 +154,7 @@ export async function upsertCatalogProduct(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/operations");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function setCatalogProductActive(formData: FormData) {
@@ -172,7 +172,7 @@ export async function setCatalogProductActive(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/operations");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function uploadCatalogProductImage(formData: FormData) {
@@ -206,7 +206,7 @@ export async function uploadCatalogProductImage(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/operations");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function upsertCatalogSku(formData: FormData) {
@@ -232,7 +232,7 @@ export async function upsertCatalogSku(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/operations");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function setCatalogSkuActive(formData: FormData) {
@@ -250,7 +250,7 @@ export async function setCatalogSkuActive(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/operations");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
 
 export async function shipOrder(formData: FormData) {
@@ -302,7 +302,7 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/operations");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
   revalidatePath("/preorders");
 }
 
@@ -315,5 +315,5 @@ export async function runPreorderAllocation(formData: FormData) {
   revalidatePath("/control");
   revalidatePath("/control/operations");
   revalidatePath("/preorders");
-  revalidatePath("/catalog");
+  revalidatePath("/products");
 }
