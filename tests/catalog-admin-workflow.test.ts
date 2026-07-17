@@ -37,8 +37,12 @@ describe("catalog administration workflow", () => {
     expect(form).toContain("Step 2");
     expect(form).toContain("Add category");
     expect(form).toContain("Add set");
-    expect(form).toContain('name="newCategorySlug"');
-    expect(form).toContain('name="newSetCode"');
+    expect(form).not.toContain('name="slug"');
+    expect(form).not.toContain('name="newCategorySlug"');
+    expect(form).not.toContain('name="newSetCode"');
+    expect(form).toContain("Slug is generated automatically from the product name.");
+    expect(form).toContain("Slug is generated automatically from the category name.");
+    expect(form).toContain("Code is generated automatically from the set name.");
     expect(form).toContain('name="setMode"');
     expect(form).toContain("visibleSets");
     expect(form).toContain("useActionState");
@@ -60,7 +64,7 @@ describe("catalog administration workflow", () => {
     ).rejects.toThrow();
   });
 
-  it("surfaces duplicate category slugs with an available suggestion", async () => {
+  it("surfaces duplicate generated category slugs through the source name", async () => {
     const [categoryAction, categoryPage] = await Promise.all([
       readFile(new URL("../app/actions/control.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/(shop)/control/categories/page.tsx", import.meta.url), "utf8"),
@@ -68,8 +72,9 @@ describe("catalog administration workflow", () => {
 
     expect(categoryAction).toContain("redirectToCategoryConflict");
     expect(categoryAction).toContain('error: "duplicate-category"');
-    expect(categoryAction).toContain("while (used.has");
-    expect(categoryPage).toContain("already used by");
-    expect(categoryPage).toContain("use a unique slug such as");
+    expect(categoryAction).not.toContain("while (used.has");
+    expect(categoryPage).toContain("generates the same slug as");
+    expect(categoryPage).toContain("Rename the category or edit the existing category instead.");
+    expect(categoryPage).not.toContain('name="slug"');
   });
 });
