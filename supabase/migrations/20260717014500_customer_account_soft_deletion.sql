@@ -109,18 +109,6 @@ create policy "own shipments" on public.shipments
     )
   );
 
-drop policy if exists "own b2b account" on public.b2b_accounts;
-create policy "own b2b account" on public.b2b_accounts
-  for select to authenticated
-  using (
-    exists (
-      select 1 from public.customers c
-      where c.id = b2b_accounts.customer_id
-        and c.auth_user_id = (select auth.uid())
-        and c.deleted_at is null
-    )
-  );
-
 drop policy if exists "own notifications" on public.notifications;
 create policy "own notifications" on public.notifications
   for select to authenticated
