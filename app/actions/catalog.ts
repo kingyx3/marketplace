@@ -1,8 +1,13 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
-import { adminCatalogProductCreateFromForm } from "@/lib/admin-catalog-forms";
+import {
+  adminCatalogProductCreateFromForm,
+  adminCatalogProductFromForm,
+  adminCatalogSkuFromForm,
+} from "@/lib/admin-catalog-forms";
 import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -21,7 +26,7 @@ export async function createCatalogProduct(
   _previousState: CatalogProductActionState,
   formData: FormData
 ): Promise<CatalogProductActionState> {
-  const { user } = await requireControlPermission("manage_catalog", "/control/catalog");
+  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
 
   try {
     const input = adminCatalogProductCreateFromForm(formData);
@@ -69,13 +74,10 @@ export async function createCatalogProduct(
       messages.push(`A new ${result.set_name} set was created.`);
     }
 
-    revalidatePath("/control");
-    revalidatePath("/control/catalog");
+    revalidateCatalogPaths();
     revalidatePath("/control/categories");
     revalidatePath("/control/sets");
     revalidatePath("/control/listings");
-    revalidatePath("/control/operations");
-    revalidatePath("/catalog");
     revalidatePath("/preorders");
 
     return {
@@ -88,6 +90,118 @@ export async function createCatalogProduct(
       message: safeError(error),
     };
   }
+}
+
+export async function upsertCatalogProduct(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const input = adminCatalogProductFromForm(formData);
+
+  const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
+    p_product_id: input.productId,
+    p_category_id: input.categoryId,
+    p_set_id: input.setId,
+    p_slug: input.slug,
+    p_name: input.name,
+    p_product_type: input.productType,
+    p_description: input.description,
+    p_language: input.language,
+    p_image_url: input.imageUrl,
+    p_active: input.active,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Product save failed: ${error.message}`);
+  revalidateCatalogPaths();
+}
+
+export async function setCatalogProductActive(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const productId = String(formData.get("productId") ?? "");
+  const active = String(formData.get("active") ?? "false") === "true";
+
+  const { error } = await createServiceClient().rpc("admin_set_product_active", {
+    p_product_id: productId,
+    p_active: active,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Product ${active ? "restore" : "archive"} failed: ${error.message}`);
+  revalidateCatalogPaths();
+}
+
+export async function uploadCatalogProductImage(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const productId = String(formData.get("productId") ?? "");
+  const image = formData.get("image");
+
+  if (!(image instanceof File) || image.size === 0) throw new Error("Product image file is required");
+  if (!image.type.startsWith("image/")) throw new Error("Product image must be an image file");
+
+  const supabase = createServiceClient();
+  const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+  const path = `${productId}/${randomUUID()}.${extension}`;
+  const { error: uploadError } = await supabase.storage
+    .from("product-images")
+    .upload(path, Buffer.from(await image.arrayBuffer()), {
+      contentType: image.type,
+      upsert: false,
+    });
+
+  if (uploadError) throw new Error(`Product image upload failed: ${uploadError.message}`);
+
+  const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+  const { error } = await supabase.rpc("admin_set_product_image", {
+    p_product_id: productId,
+    p_image_url: data.publicUrl,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`Product image assignment failed: ${error.message}`);
+  revalidateCatalogPaths();
+}
+
+export async function upsertCatalogSku(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const input = adminCatalogSkuFromForm(formData);
+
+  const { error } = await createServiceClient().rpc("admin_upsert_booster_box_sku", {
+    p_sku_id: input.skuId,
+    p_product_id: input.productId,
+    p_sku: input.sku,
+    p_barcode: input.barcode,
+    p_packs_per_box: input.packsPerBox,
+    p_cards_per_pack: input.cardsPerPack,
+    p_msrp_cents: input.msrpCents,
+    p_price_cents: input.priceCents,
+    p_currency: input.currency,
+    p_weight_grams: input.weightGrams,
+    p_active: input.active,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`SKU save failed: ${error.message}`);
+  revalidateCatalogPaths();
+}
+
+export async function setCatalogSkuActive(formData: FormData) {
+  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const skuId = String(formData.get("skuId") ?? "");
+  const active = String(formData.get("active") ?? "false") === "true";
+
+  const { error } = await createServiceClient().rpc("admin_set_booster_box_sku_active", {
+    p_sku_id: skuId,
+    p_active: active,
+    p_actor: `staff:${user.id}`,
+  });
+
+  if (error) throw new Error(`SKU ${active ? "restore" : "archive"} failed: ${error.message}`);
+  revalidateCatalogPaths();
+}
+
+function revalidateCatalogPaths() {
+  revalidatePath("/control");
+  revalidatePath("/control/operations");
+  revalidatePath("/catalog");
 }
 
 function catalogProductError(error: { code?: string; message: string }): CatalogProductActionState {
