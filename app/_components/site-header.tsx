@@ -57,7 +57,7 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
 function PrimaryLinks({ signedIn }: { signedIn: boolean }) {
   return (
     <>
-      <Link href="/catalog" className={`${baseLinkClass} snap-start`}>
+      <Link href="/products" className={`${baseLinkClass} snap-start`}>
         Products
       </Link>
       {signedIn ? (
