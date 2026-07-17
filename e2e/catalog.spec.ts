@@ -1,15 +1,15 @@
 import { expect, test } from "./fixtures";
 
-const CATALOG_RESULTS = { name: "Catalog results" } as const;
+const PRODUCT_RESULTS = { name: "Product results" } as const;
 
-test.describe("catalog", () => {
+test.describe("products", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/catalog");
     await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
   });
 
   test("loads preview inventory and opens a product", async ({ page }) => {
-    const results = page.getByRole("region", CATALOG_RESULTS);
+    const results = page.getByRole("region", PRODUCT_RESULTS);
 
     await expect(page.getByText("Showing 4 of 4 products")).toBeVisible();
     await expect(results.getByRole("article")).toHaveCount(4);
@@ -28,7 +28,7 @@ test.describe("catalog", () => {
   });
 
   test("applies query, game, and status filters", async ({ page }) => {
-    const results = page.getByRole("region", CATALOG_RESULTS);
+    const results = page.getByRole("region", PRODUCT_RESULTS);
     const search = page.getByRole("searchbox", { name: "Search" });
 
     await search.fill("pokemon");
@@ -51,7 +51,7 @@ test.describe("catalog", () => {
   });
 
   test("keeps draft filters separate and resets every control", async ({ page }) => {
-    const results = page.getByRole("region", CATALOG_RESULTS);
+    const results = page.getByRole("region", PRODUCT_RESULTS);
     const search = page.getByRole("searchbox", { name: "Search" });
     const clear = page.getByRole("button", { name: "Clear", exact: true });
 
@@ -80,6 +80,6 @@ test.describe("catalog", () => {
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(search).toHaveValue("");
     await expect(page.getByText("Showing 4 of 4 products")).toBeVisible();
-    await expect(page.getByRole("region", CATALOG_RESULTS).getByRole("article")).toHaveCount(4);
+    await expect(page.getByRole("region", PRODUCT_RESULTS).getByRole("article")).toHaveCount(4);
   });
 });
