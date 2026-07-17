@@ -36,12 +36,6 @@ export function ProductIntakeForm({
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [setMode, setSetMode] = useState<SetMode>("none");
   const [setId, setSetId] = useState("");
-  const [productName, setProductName] = useState("");
-  const [productSlug, setProductSlug] = useState("");
-  const [categoryName, setCategoryName] = useState("");
-  const [categorySlug, setCategorySlug] = useState("");
-  const [setName, setSetName] = useState("");
-  const [setCode, setSetCode] = useState("");
   const visibleSets = sets.filter((set) => set.categoryId === categoryId);
 
   function selectCategoryMode(mode: CategoryMode) {
@@ -70,32 +64,10 @@ export function ProductIntakeForm({
           <h3 className="font-semibold text-zinc-950">Product</h3>
           <span className="text-xs text-zinc-500">Required fields only</span>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name">
-            <input
-              className={inputClass}
-              maxLength={160}
-              name="name"
-              onBlur={() => {
-                if (!productSlug) setProductSlug(slugify(productName));
-              }}
-              onChange={(event) => setProductName(event.target.value)}
-              required
-              value={productName}
-            />
-          </Field>
-          <Field label="Slug" error={state.field === "productSlug"}>
-            <input
-              className={inputClass}
-              maxLength={180}
-              name="slug"
-              onChange={(event) => setProductSlug(event.target.value.toLowerCase())}
-              pattern="[a-z0-9]+(-[a-z0-9]+)*"
-              required
-              value={productSlug}
-            />
-          </Field>
-        </div>
+        <Field label="Name" error={state.field === "productSlug"}>
+          <input className={inputClass} maxLength={160} name="name" required />
+          <IdentifierHint>Slug is generated automatically from the product name.</IdentifierHint>
+        </Field>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Type">
             <select className={inputClass} defaultValue="booster_box" name="productType">
@@ -166,30 +138,10 @@ export function ProductIntakeForm({
               </select>
             </Field>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Category name">
-                <input
-                  className={inputClass}
-                  maxLength={160}
-                  name="newCategoryName"
-                  onBlur={() => {
-                    if (!categorySlug) setCategorySlug(slugify(categoryName));
-                  }}
-                  onChange={(event) => setCategoryName(event.target.value)}
-                  required
-                  value={categoryName}
-                />
-              </Field>
-              <Field label="Category slug" error={state.field === "categorySlug"}>
-                <input
-                  className={inputClass}
-                  maxLength={180}
-                  name="newCategorySlug"
-                  onChange={(event) => setCategorySlug(event.target.value.toLowerCase())}
-                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                  required
-                  value={categorySlug}
-                />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Category name" error={state.field === "categorySlug"}>
+                <input className={inputClass} maxLength={160} name="newCategoryName" required />
+                <IdentifierHint>Slug is generated automatically from the category name.</IdentifierHint>
               </Field>
               <Field label="Publisher">
                 <input className={inputClass} maxLength={160} name="newCategoryPublisher" />
@@ -256,29 +208,9 @@ export function ProductIntakeForm({
 
           {setMode === "new" ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Set name">
-                <input
-                  className={inputClass}
-                  maxLength={160}
-                  name="newSetName"
-                  onBlur={() => {
-                    if (!setCode) setSetCode(setCodeFromName(setName));
-                  }}
-                  onChange={(event) => setSetName(event.target.value)}
-                  required
-                  value={setName}
-                />
-              </Field>
-              <Field label="Set code" error={state.field === "setCode"}>
-                <input
-                  className={inputClass}
-                  maxLength={16}
-                  name="newSetCode"
-                  onChange={(event) => setSetCode(event.target.value.toUpperCase())}
-                  pattern="[A-Za-z0-9][A-Za-z0-9_-]{1,15}"
-                  required
-                  value={setCode}
-                />
+              <Field label="Set name" error={state.field === "setCode"}>
+                <input className={inputClass} maxLength={160} name="newSetName" required />
+                <IdentifierHint>Code is generated automatically from the set name.</IdentifierHint>
               </Field>
               <Field label="Release date">
                 <input className={inputClass} name="newSetReleaseDate" type="date" />
@@ -361,21 +293,8 @@ function Field({
   );
 }
 
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function setCodeFromName(value: string): string {
-  return value
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 16);
+function IdentifierHint({ children }: { children: React.ReactNode }) {
+  return <span className="text-xs font-normal text-zinc-500">{children}</span>;
 }
 
 const inputClass =
