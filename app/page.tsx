@@ -58,7 +58,7 @@ export default async function HomePage({
                 href="/catalog"
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-white px-5 text-sm font-semibold text-zinc-950 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:w-auto"
               >
-                Browse catalog
+                Browse products
               </Link>
               <Link
                 href={signedIn ? "/account" : "/catalog?view=deals"}
@@ -79,10 +79,10 @@ export default async function HomePage({
 
       <section>
         <SectionHeading
-          eyebrow="Catalog"
+          eyebrow="Products"
           title="Featured products"
           href="/catalog"
-          linkLabel="View catalog"
+          linkLabel="View products"
         />
 
         {featuredProducts.length > 0 ? (
@@ -92,7 +92,7 @@ export default async function HomePage({
             ))}
           </div>
         ) : (
-          <EmptyState text="Products are temporarily unavailable. Try the catalog again shortly." />
+          <EmptyState text="Products are temporarily unavailable. Try the products page again shortly." />
         )}
       </section>
 
