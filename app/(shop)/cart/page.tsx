@@ -83,10 +83,10 @@ export default async function CartPage({
           <h2 className="text-xl font-semibold text-zinc-950">Your cart is empty</h2>
           <p className="mt-2 text-sm text-zinc-600">Add a product to begin checkout.</p>
           <Link
-            href="/catalog"
+            href="/products"
             className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 sm:w-auto"
           >
-            Browse catalog
+            Browse products
           </Link>
         </section>
       ) : (
