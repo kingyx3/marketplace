@@ -39,6 +39,9 @@ describe("catalog product action", () => {
           category_id: "category-123",
           category_name: "Pokémon",
           category_created: true,
+          set_id: null,
+          set_name: null,
+          set_created: false,
         },
       ],
       error: null,
@@ -59,12 +62,16 @@ describe("catalog product action", () => {
       status: "success",
       message: "Product created. A new Pokémon category was created.",
     });
-    expect(rpc).toHaveBeenCalledWith("admin_create_catalog_product_with_category", {
+    expect(rpc).toHaveBeenCalledWith("admin_create_catalog_product_hierarchy", {
       p_category_id: null,
       p_new_category_slug: "pokemon",
       p_new_category_name: "Pokémon",
       p_new_category_publisher: "The Pokémon Company",
       p_set_id: null,
+      p_new_set_name: null,
+      p_new_set_code: null,
+      p_new_set_release_date: null,
+      p_new_set_status: null,
       p_slug: "pokemon-booster-box",
       p_name: "Pokémon Booster Box",
       p_product_type: "booster_box",
@@ -76,6 +83,51 @@ describe("catalog product action", () => {
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/catalog");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/catalog");
+  });
+
+  it("creates a missing set under the selected category in the same mutation", async () => {
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          product_id: "product-123",
+          category_id: "category-123",
+          category_name: "Pokémon",
+          category_created: false,
+          set_id: "set-123",
+          set_name: "Destined Rivals",
+          set_created: true,
+        },
+      ],
+      error: null,
+    }));
+    mocks.createServiceClient.mockReturnValue({ rpc });
+
+    const result = await createCatalogProduct(
+      initialCatalogProductActionState,
+      productForm({
+        setMode: "new",
+        newSetName: "Destined Rivals",
+        newSetCode: "dri",
+        newSetReleaseDate: "2026-08-01",
+        newSetStatus: "preorder_open",
+      })
+    );
+
+    expect(result).toEqual({
+      status: "success",
+      message: "Product created. A new Destined Rivals set was created.",
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "admin_create_catalog_product_hierarchy",
+      expect.objectContaining({
+        p_category_id: "category-123",
+        p_set_id: null,
+        p_new_set_name: "Destined Rivals",
+        p_new_set_code: "DRI",
+        p_new_set_release_date: "2026-08-01",
+        p_new_set_status: "preorder_open",
+      })
+    );
   });
 
   it("keeps product input recoverable when a product slug conflicts", async () => {
@@ -119,6 +171,23 @@ describe("catalog product action", () => {
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
+  it("surfaces duplicate set codes on the set field", async () => {
+    const rpc = vi.fn(async () => ({
+      data: null,
+      error: { code: "23505", message: "set code already exists for category; select existing set" },
+    }));
+    mocks.createServiceClient.mockReturnValue({ rpc });
+
+    const result = await createCatalogProduct(
+      initialCatalogProductActionState,
+      productForm({ setMode: "new", newSetName: "Destined Rivals", newSetCode: "DRI" })
+    );
+
+    expect(result).toMatchObject({ status: "error", field: "setCode" });
+    expect(result.message).toContain("Choose the existing set or enter a unique code");
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
   it("returns validation feedback before any database mutation", async () => {
     const rpc = vi.fn();
     mocks.createServiceClient.mockReturnValue({ rpc });
@@ -140,6 +209,7 @@ function productForm(overrides: Record<string, string> = {}): FormData {
   const values: Record<string, string> = {
     categoryMode: "existing",
     categoryId: "category-123",
+    setMode: "none",
     setId: "",
     slug: "pokemon-booster-box",
     name: "Pokémon Booster Box",
@@ -151,6 +221,10 @@ function productForm(overrides: Record<string, string> = {}): FormData {
     newCategoryName: "",
     newCategorySlug: "",
     newCategoryPublisher: "",
+    newSetName: "",
+    newSetCode: "",
+    newSetReleaseDate: "",
+    newSetStatus: "",
     ...overrides,
   };
   const formData = new FormData();
