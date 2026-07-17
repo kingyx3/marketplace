@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("catalog administration workflow", () => {
-  it("consolidates product intake and inline category creation", async () => {
+  it("consolidates product intake with inline category and set creation", async () => {
     const [shell, page, form, action, migration] = await Promise.all([
       readFile(
         new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
@@ -16,7 +16,7 @@ describe("catalog administration workflow", () => {
       readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8"),
       readFile(
         new URL(
-          "../supabase/migrations/20260717153000_consolidated_catalog_product_flow.sql",
+          "../supabase/migrations/20260717180000_hierarchical_catalog_product_flow.sql",
           import.meta.url
         ),
         "utf8"
@@ -27,15 +27,25 @@ describe("catalog administration workflow", () => {
     expect(shell).not.toContain('href: "/control/categories"');
     expect(shell).not.toContain('href: "/control/sets"');
     expect(page).toContain("ProductIntakeForm");
+    expect(page).toContain("choose, add, or skip its set");
     expect(page).toContain("Quick add category");
     expect(page).toContain("Quick add set");
+    expect(form).toContain("Step 1");
+    expect(form).toContain("Step 2");
     expect(form).toContain("Add category");
+    expect(form).toContain("Add set");
     expect(form).toContain('name="newCategorySlug"');
+    expect(form).toContain('name="newSetCode"');
+    expect(form).toContain('name="setMode"');
+    expect(form).toContain("visibleSets");
     expect(form).toContain("useActionState");
-    expect(action).toContain('rpc("admin_create_catalog_product_with_category"');
-    expect(action).toContain("the other product details are preserved");
+    expect(action).toContain('rpc("admin_create_catalog_product_hierarchy"');
+    expect(action).toContain("the product details are preserved");
     expect(migration).toContain("category_created boolean");
+    expect(migration).toContain("set_created boolean");
     expect(migration).toContain("CONTROL_CATEGORY_CREATE_INLINE");
+    expect(migration).toContain("CONTROL_SET_CREATE_INLINE");
+    expect(migration).toContain("active set not found for category");
   });
 
   it("surfaces duplicate category slugs with an available suggestion", async () => {
