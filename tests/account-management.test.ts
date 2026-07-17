@@ -43,6 +43,7 @@ describe("customer account management", () => {
     expect(apiAuth).toContain('forbidden("Customer account is disabled")');
     expect(migration).toContain("deletion_actor text");
     expect(migration).toContain("c.deleted_at is null");
+    expect(migration).not.toContain("b2b_accounts");
   });
 
   it("allows only administrators to disable and restore customer accounts", async () => {
