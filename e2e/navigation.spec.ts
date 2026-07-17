@@ -10,8 +10,13 @@ test.describe("storefront navigation", () => {
       })
     ).toBeVisible();
 
+    const banner = page.getByRole("banner");
+    const homeLink = banner.locator('a[href="/"]').first();
+    await expect(homeLink).toBeVisible();
+    await expect(homeLink).toHaveAttribute("href", "/");
+
     const navigation = page.getByRole("navigation", { name: "Primary navigation" });
-    await expect(navigation.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    await expect(navigation.getByRole("link", { name: "Home" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Catalog" })).toHaveAttribute(
       "href",
       "/catalog"
@@ -35,6 +40,24 @@ test.describe("storefront navigation", () => {
       "href",
       "/catalog?view=deals"
     );
+  });
+
+  test("keeps mobile navigation compact and the app name as the home control", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    const banner = page.getByRole("banner");
+    const homeLink = banner.locator('a[href="/"]').first();
+    await expect(homeLink).toBeVisible();
+
+    const mobileNavigation = page.getByRole("navigation", { name: "Mobile primary navigation" });
+    await expect(mobileNavigation.getByRole("link", { name: "Catalog" })).toBeVisible();
+    await expect(mobileNavigation.getByRole("link", { name: "Home" })).toHaveCount(0);
+    await expect(banner.getByRole("link", { name: "Cart", exact: true }).first()).toBeVisible();
+
+    await page.goto("/catalog");
+    await banner.locator('a[href="/"]').first().click();
+    await expect(page).toHaveURL(/\/$/);
   });
 
   test("opens the empty cart from a product page", async ({ page }) => {

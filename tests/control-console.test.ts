@@ -11,9 +11,11 @@ describe("control console", () => {
     expect(hasControlPermission(staff("viewer"), "manage_catalog")).toBe(false);
     expect(hasControlPermission(staff("catalog"), "manage_catalog")).toBe(true);
     expect(hasControlPermission(staff("catalog"), "manage_suppliers")).toBe(false);
+    expect(hasControlPermission(staff("catalog"), "manage_customers")).toBe(false);
     expect(hasControlPermission(staff("operations"), "manage_suppliers")).toBe(true);
     expect(hasControlPermission(staff("operations"), "manage_full_operations")).toBe(false);
     expect(hasControlPermission(staff("admin"), "manage_full_operations")).toBe(true);
+    expect(hasControlPermission(staff("admin"), "manage_customers")).toBe(true);
     expect(hasControlPermission(staff("admin"), "manage_admins")).toBe(true);
     expect(hasControlPermission(staff("owner"), "manage_admins")).toBe(true);
     expect(hasControlPermission({ ...staff("owner"), active: false }, "view_control")).toBe(false);
@@ -30,8 +32,10 @@ describe("control console", () => {
     expect(controlSupplierFromForm(formData).active).toBe(true);
   });
 
-  it("ships dedicated supplier, category, set, administrator, and audit screens", async () => {
+  it("ships consolidated catalog and focused administrative screens", async () => {
     for (const path of [
+      "../app/(shop)/control/catalog/page.tsx",
+      "../app/(shop)/control/customers/page.tsx",
       "../app/(shop)/control/suppliers/page.tsx",
       "../app/(shop)/control/categories/page.tsx",
       "../app/(shop)/control/sets/page.tsx",
@@ -45,9 +49,11 @@ describe("control console", () => {
   });
 
   it("keeps every control mutation server-authorized and database-backed", async () => {
-    const [controlActions, operationalActions] = await Promise.all([
+    const [controlActions, catalogActions, operationalActions, customerActions] = await Promise.all([
       readFile(new URL("../app/actions/control.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/actions/admin.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/actions/customer-admin.ts", import.meta.url), "utf8"),
     ]);
 
     expect(controlActions).toContain('"use server"');
@@ -58,6 +64,10 @@ describe("control console", () => {
     expect(controlActions).toContain('rpc("admin_upsert_category"');
     expect(controlActions).toContain('rpc("admin_upsert_set_release"');
     expect(controlActions).toContain('rpc("admin_upsert_access_grant"');
+    expect(catalogActions).toContain('requireControlPermission("manage_catalog"');
+    expect(catalogActions).toContain('rpc("admin_create_catalog_product_with_category"');
+    expect(customerActions).toContain('"manage_customers"');
+    expect(customerActions).toContain("setCustomerAccountDeleted");
     expect(operationalActions).toContain('requireControlPermission("manage_full_operations"');
     expect(operationalActions).not.toContain('requireStaff("/admin');
   });

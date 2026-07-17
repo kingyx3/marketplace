@@ -20,6 +20,7 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       config: ${{ steps.filter.outputs.config }}
       migrations: ${{ steps.filter.outputs.migrations }}
+      terraform: ${{ steps.filter.outputs.terraform }}
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: dorny/paths-filter@v4.0.2
@@ -61,6 +62,10 @@ jobs:
               - 'vercel.json'
             migrations:
               - 'supabase/**'
+              - '.github/ci/run-database-contracts.sh'
+              - '.github/ci/verify-logical-restore.sh'
+            terraform:
+              - 'infra/terraform/**'
 
   app-checks:
     needs: changes
@@ -90,7 +95,7 @@ jobs:
 
   terraform-validation:
     needs: changes
-    if: needs.changes.outputs.config == 'true'
+    if: needs.changes.outputs.terraform == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -147,26 +152,11 @@ jobs:
           --health-retries 10
     env:
       PGPASSWORD: postgres
+      VERIFY_LOGICAL_RESTORE: 'true'
     steps:
       - uses: actions/checkout@v7.0.0
-      - name: Apply auth shim
-        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql 2>&1 | tee migration.log
-      - name: Apply migrations in order
-        run: |
-          for f in supabase/migrations/*.sql; do
-            echo "applying $f"
-            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
-          done 2>&1 | tee -a migration.log
-      - name: Apply seed
-        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql 2>&1 | tee -a migration.log
-      - name: Run database contract tests
-        run: |
-          for f in supabase/tests/*.sql; do
-            echo "testing $f"
-            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
-          done 2>&1 | tee -a migration.log
-      - name: Verify logical backup and restore
-        run: bash .github/ci/verify-logical-restore.sh 2>&1 | tee -a migration.log
+      - name: Run database migration and contract suite
+        run: bash .github/ci/run-database-contracts.sh
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:

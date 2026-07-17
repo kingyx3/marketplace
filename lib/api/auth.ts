@@ -22,6 +22,7 @@ export interface CustomerRecord {
   billing_state?: string;
   provisioning_state?: string;
   provisioning_error?: string | null;
+  deleted_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -155,7 +156,9 @@ export async function findOrCreateCustomer(
     throw new Error(byUser.error.message);
   }
   if (byUser.data) {
-    return byUser.data as CustomerRecord;
+    const existing = byUser.data as CustomerRecord;
+    assertCustomerActive(existing);
+    return existing;
   }
 
   const byEmail = await supabase.from("customers").select("*").eq("email", email).maybeSingle();
@@ -165,6 +168,7 @@ export async function findOrCreateCustomer(
 
   if (byEmail.data) {
     const existing = byEmail.data as CustomerRecord;
+    assertCustomerActive(existing);
     if (existing.auth_user_id && existing.auth_user_id !== user.id) {
       throw conflict("Email is already linked to another account");
     }
@@ -173,6 +177,7 @@ export async function findOrCreateCustomer(
       .from("customers")
       .update({ auth_user_id: user.id })
       .eq("id", existing.id)
+      .is("deleted_at", null)
       .select("*")
       .single();
     if (updated.error) {
@@ -199,6 +204,12 @@ export async function findOrCreateCustomer(
   }
 
   return inserted.data as CustomerRecord;
+}
+
+function assertCustomerActive(customer: CustomerRecord): void {
+  if (customer.deleted_at) {
+    throw forbidden("Customer account is disabled");
+  }
 }
 
 function displayNameFromUser(user: User): string | null {

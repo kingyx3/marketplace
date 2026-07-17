@@ -23,7 +23,9 @@ describe("deployment idempotency contract", () => {
     expect(deployApp).toContain(
       "group: marketplace-deploy-${{ inputs.target || github.ref_name || github.event_name }}",
     );
-    expect(deployApp).toContain("cancel-in-progress: false");
+    expect(deployApp).toContain("cancel-in-progress: ${{ github.event_name == 'push'");
+    expect(deployApp).toContain("startsWith(github.ref, 'refs/heads/')");
+    expect(deployApp).toContain("github.ref != 'refs/heads/main'");
   });
 
   it("uses one convergent infrastructure path and applies the exact generated plan", async () => {

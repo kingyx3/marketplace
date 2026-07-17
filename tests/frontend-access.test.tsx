@@ -12,6 +12,7 @@ describe("audience-aware frontend access", () => {
     expect(html).toContain("Catalog");
     expect(html).toContain("Cart");
     expect(html).toContain("Sign in");
+    expect(html).not.toContain(">Home<");
     expect(html).not.toContain("Deals");
     expect(html).not.toContain("Wholesale");
     expect(html).not.toContain("Account");
@@ -29,7 +30,8 @@ describe("audience-aware frontend access", () => {
 
     expect(html).toContain("Account");
     expect(html).toContain("Orders");
-    expect(html).toContain("Sign out");
+    expect(html).not.toContain(">Home<");
+    expect(html).not.toContain("Sign out");
     expect(html).not.toContain("Admin");
     expect(html).not.toContain("Control");
   });
@@ -79,6 +81,33 @@ describe("audience-aware frontend access", () => {
       );
       expect(source.length).toBeGreaterThan(100);
     }
+  });
+
+  it("keeps critical storefront and control surfaces mobile safe", async () => {
+    const [siteHeader, appShell, controlShell, catalogBrowser, cartPage, globalStyles] =
+      await Promise.all([
+        readFile(new URL("../app/_components/site-header.tsx", import.meta.url), "utf8"),
+        readFile(new URL("../app/_components/app-shell.tsx", import.meta.url), "utf8"),
+        readFile(
+          new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
+          "utf8"
+        ),
+        readFile(new URL("../app/(shop)/catalog/catalog-browser.tsx", import.meta.url), "utf8"),
+        readFile(new URL("../app/(shop)/cart/page.tsx", import.meta.url), "utf8"),
+        readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+      ]);
+
+    expect(siteHeader).toContain('aria-label="Mobile primary navigation"');
+    expect(siteHeader).toContain("overflow-x-auto");
+    expect(siteHeader).toContain("min-h-11");
+    expect(appShell).toContain("min-w-0");
+    expect(controlShell).toContain("snap-x");
+    expect(controlShell).toContain("overflow-x-auto");
+    expect(catalogBrowser).toContain("lg:grid-cols");
+    expect(catalogBrowser).toContain("sm:grid-cols-2");
+    expect(cartPage).toContain("grid-cols-[minmax(0,1fr)_auto]");
+    expect(globalStyles).toContain("font-size: 16px");
+    expect(globalStyles).toContain("overflow-x: clip");
   });
 });
 

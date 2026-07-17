@@ -13,6 +13,14 @@ export interface AdminCatalogProductInput {
   active: boolean;
 }
 
+export interface AdminCatalogProductCreateInput
+  extends Omit<AdminCatalogProductInput, "productId" | "categoryId"> {
+  categoryId: string | null;
+  newCategoryName: string | null;
+  newCategorySlug: string | null;
+  newCategoryPublisher: string | null;
+}
+
 export interface AdminCatalogSkuInput {
   skuId: string | null;
   productId: string;
@@ -41,6 +49,45 @@ const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const LANGUAGE_PATTERN = /^[A-Z]{2,8}$/;
 
 export function adminCatalogProductFromForm(formData: FormData): AdminCatalogProductInput {
+  const base = productFieldsFromForm(formData);
+  return {
+    productId: optionalString(formData, "productId") ?? null,
+    categoryId: requiredString(formData, "categoryId"),
+    ...base,
+  };
+}
+
+export function adminCatalogProductCreateFromForm(
+  formData: FormData
+): AdminCatalogProductCreateInput {
+  const base = productFieldsFromForm(formData);
+  const categoryMode = optionalString(formData, "categoryMode") ?? "existing";
+  const categoryId = categoryMode === "new" ? null : optionalString(formData, "categoryId") ?? null;
+  const newCategoryName = optionalString(formData, "newCategoryName") ?? null;
+  const newCategorySlugRaw = optionalString(formData, "newCategorySlug")?.toLowerCase() ?? null;
+
+  if (!categoryId && !newCategoryName) {
+    throw badRequest("Select a category or add a new category");
+  }
+  if (!categoryId && !newCategorySlugRaw) {
+    throw badRequest("New category slug is required");
+  }
+  if (newCategorySlugRaw && !SLUG_PATTERN.test(newCategorySlugRaw)) {
+    throw badRequest("new category slug must use lowercase words separated by hyphens");
+  }
+
+  return {
+    categoryId,
+    newCategoryName,
+    newCategorySlug: newCategorySlugRaw,
+    newCategoryPublisher: optionalString(formData, "newCategoryPublisher") ?? null,
+    ...base,
+  };
+}
+
+function productFieldsFromForm(
+  formData: FormData
+): Omit<AdminCatalogProductInput, "productId" | "categoryId"> {
   const slug = requiredString(formData, "slug").toLowerCase();
   const language = (optionalString(formData, "language") ?? "EN").toUpperCase();
 
@@ -52,8 +99,6 @@ export function adminCatalogProductFromForm(formData: FormData): AdminCatalogPro
   }
 
   return {
-    productId: optionalString(formData, "productId") ?? null,
-    categoryId: requiredString(formData, "categoryId"),
     setId: optionalString(formData, "setId") ?? null,
     slug,
     name: requiredString(formData, "name"),

@@ -100,19 +100,15 @@ jobs:
       PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v7.0.0
-      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f .github/ci/auth-shim.sql
-      - name: Apply migrations in order
-        run: |
-          for f in supabase/migrations/*.sql; do
-            echo "applying $f"
-            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
-          done
-      - run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/seed.sql
-      - name: Run transactional database contracts
-        run: |
-          for f in supabase/tests/*.sql; do
-            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f "$f"
-          done
+      - name: Run database migration and contract suite
+        run: bash .github/ci/run-database-contracts.sh
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: deployment-migration-log-${{ inputs.environment }}
+          path: migration.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   migrate:
     needs: [validate-env, migration-check]
@@ -132,10 +128,22 @@ jobs:
       - run: terraform -chdir=infra/terraform/platform output -json > infra/terraform/platform/tf-outputs.json
       - run: node scripts/resolve-environment.mjs --environment "${{ inputs.environment }}" --tf-output-json infra/terraform/platform/tf-outputs.json --strict --require-db-password
       - name: Link and push hosted migrations with pinned CLI
+        shell: bash
         run: |
+          set -Eeuo pipefail
+          : > hosted-migration.log
           SUPABASE_CLI=$(node -e 'const v=require("./config/tool-versions.json"); process.stdout.write(v.supabaseCli)')
-          npx --yes "supabase@$SUPABASE_CLI" link --project-ref "$SUPABASE_PROJECT_REF"
-          npx --yes "supabase@$SUPABASE_CLI" db push
+          {
+            npx --yes "supabase@$SUPABASE_CLI" link --project-ref "$SUPABASE_PROJECT_REF"
+            npx --yes "supabase@$SUPABASE_CLI" db push
+          } 2>&1 | tee -a hosted-migration.log
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: hosted-migration-log-${{ inputs.environment }}
+          path: hosted-migration.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   deploy:
     needs: [app-checks, migrate]
