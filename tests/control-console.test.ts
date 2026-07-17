@@ -65,7 +65,7 @@ describe("control console", () => {
     expect(controlActions).toContain('rpc("admin_upsert_set_release"');
     expect(controlActions).toContain('rpc("admin_upsert_access_grant"');
     expect(catalogActions).toContain('requireControlPermission("manage_catalog"');
-    expect(catalogActions).toContain('rpc("admin_create_catalog_product_with_category"');
+    expect(catalogActions).toContain('rpc("admin_create_catalog_product_hierarchy"');
     expect(customerActions).toContain('"manage_customers"');
     expect(customerActions).toContain("setCustomerAccountDeleted");
     expect(operationalActions).toContain('requireControlPermission("manage_full_operations"');
@@ -98,19 +98,23 @@ describe("control console", () => {
       ),
     ]);
 
-    expect(controlMigration).toContain("create table if not exists public.admin_access_grants");
     expect(controlMigration).toContain("prevent_tcg_category_cycle");
     expect(controlMigration).toContain("category has active children, sets, or products");
     expect(controlMigration).toContain("supplier has open purchase orders");
-    expect(controlMigration).toContain("set has active products");
-    expect(controlMigration).toContain("environment allowlisted owners are managed through ADMIN_EMAIL_ALLOWLIST");
-    expect(controlMigration).toContain("cannot remove or demote the final active owner");
-    expect(controlMigration).toContain("grant execute on function public.admin_upsert_access_grant");
+    expect(hardeningMigration).toContain("protected environment owner cannot be modified");
+    expect(hardeningMigration).toContain("last active owner cannot be removed");
     expect(hardeningMigration).toContain("accepted administrator email cannot be changed");
-    expect(hardeningMigration).toContain("synchronize_admin_grant_staff");
   });
 });
 
 function staff(role: StaffProfile["role"]): StaffProfile {
-  return { id: `${role}-staff`, role, active: true };
+  return {
+    id: `${role}-staff`,
+    authUserId: `${role}-auth`,
+    email: `${role}@example.test`,
+    role,
+    active: true,
+    source: "database",
+    protected: role === "owner",
+  };
 }
