@@ -60,7 +60,7 @@ select distinct
   product.category_id,
   'General',
   'GENERAL',
-  null,
+  null::date,
   'released'::public.set_status,
   true,
   0
