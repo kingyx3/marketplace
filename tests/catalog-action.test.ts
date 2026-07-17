@@ -51,7 +51,6 @@ describe("catalog product action", () => {
       productForm({
         categoryMode: "new",
         newCategoryName: "Pokémon",
-        newCategorySlug: "pokemon",
         newCategoryPublisher: "The Pokémon Company",
       })
     );
@@ -105,7 +104,6 @@ describe("catalog product action", () => {
       productForm({
         setMode: "new",
         newSetName: "Destined Rivals",
-        newSetCode: "dri",
         newSetReleaseDate: "2026-08-01",
         newSetStatus: "preorder_open",
       })
@@ -121,14 +119,14 @@ describe("catalog product action", () => {
         p_category_id: "category-123",
         p_set_id: null,
         p_new_set_name: "Destined Rivals",
-        p_new_set_code: "DRI",
+        p_new_set_code: "DESTINED-RIVALS",
         p_new_set_release_date: "2026-08-01",
         p_new_set_status: "preorder_open",
       })
     );
   });
 
-  it("keeps product input recoverable when a product slug conflicts", async () => {
+  it("keeps product input recoverable when a generated product slug conflicts", async () => {
     const rpc = vi.fn(async () => ({
       data: null,
       error: { code: "23505", message: "product slug already exists" },
@@ -141,11 +139,12 @@ describe("catalog product action", () => {
     );
 
     expect(result).toMatchObject({ status: "error", field: "productSlug" });
+    expect(result.message).toContain("Rename the product");
     expect(result.message).toContain("other product details are preserved");
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("surfaces a category slug conflict as a field-level correction", async () => {
+  it("surfaces a generated category slug conflict as a name-level correction", async () => {
     const rpc = vi.fn(async () => ({
       data: null,
       error: {
@@ -160,16 +159,15 @@ describe("catalog product action", () => {
       productForm({
         categoryMode: "new",
         newCategoryName: "Pokémon",
-        newCategorySlug: "pokemon",
       })
     );
 
     expect(result).toMatchObject({ status: "error", field: "categorySlug" });
-    expect(result.message).toContain("Select the existing category or enter a unique slug");
+    expect(result.message).toContain("Select the existing record or rename the new one");
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("surfaces duplicate set codes on the set field", async () => {
+  it("surfaces duplicate generated set codes on the set name", async () => {
     const rpc = vi.fn(async () => ({
       data: null,
       error: { code: "23505", message: "set code already exists for category; select existing set" },
@@ -178,11 +176,11 @@ describe("catalog product action", () => {
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
-      productForm({ setMode: "new", newSetName: "Destined Rivals", newSetCode: "DRI" })
+      productForm({ setMode: "new", newSetName: "Destined Rivals" })
     );
 
     expect(result).toMatchObject({ status: "error", field: "setCode" });
-    expect(result.message).toContain("Choose the existing set or enter a unique code");
+    expect(result.message).toContain("Choose the existing set or rename the new set");
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -192,7 +190,7 @@ describe("catalog product action", () => {
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
-      productForm({ categoryMode: "new", newCategoryName: "", newCategorySlug: "" })
+      productForm({ categoryMode: "new", newCategoryName: "" })
     );
 
     expect(result).toEqual({
@@ -209,7 +207,6 @@ function productForm(overrides: Record<string, string> = {}): FormData {
     categoryId: "category-123",
     setMode: "none",
     setId: "",
-    slug: "pokemon-booster-box",
     name: "Pokémon Booster Box",
     productType: "booster_box",
     description: "",
@@ -217,10 +214,8 @@ function productForm(overrides: Record<string, string> = {}): FormData {
     imageUrl: "",
     active: "true",
     newCategoryName: "",
-    newCategorySlug: "",
     newCategoryPublisher: "",
     newSetName: "",
-    newSetCode: "",
     newSetReleaseDate: "",
     newSetStatus: "",
     ...overrides,
