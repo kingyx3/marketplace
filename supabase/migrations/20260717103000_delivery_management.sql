@@ -23,7 +23,7 @@ as $$
     )
   ), 0)::integer
   from public.payments payment
-  where payment.status in ('captured', 'refunded')
+  where payment.status = 'captured'
     and upper(payment.currency) = (
       select upper(order_row.currency)
       from public.orders order_row
@@ -285,6 +285,10 @@ begin
 
   if v_previous_status is null then
     raise exception 'shipment not found' using errcode = 'P0002';
+  end if;
+
+  if v_order_status not in ('paid', 'packing', 'shipped', 'delivered') then
+    raise exception 'order is not eligible for delivery updates' using errcode = 'P0001';
   end if;
 
   v_captured_cents := public.order_captured_payment_total(p_order_id);
