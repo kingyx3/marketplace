@@ -34,7 +34,7 @@ test.describe("storefront navigation", () => {
     await expect(navigation.getByRole("link", { name: "Control" })).toHaveCount(0);
 
     await page.getByRole("link", { name: "Browse products" }).first().click();
-    await expect(page).toHaveURL(/\/catalog$/);
+    await expect(page).toHaveURL(/\/products$/);
     await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Deals" })).toHaveAttribute(
       "href",
@@ -72,9 +72,11 @@ test.describe("storefront navigation", () => {
     await expect(page.getByRole("heading", { name: "Your cart is empty" })).toBeVisible();
   });
 
-  test("returns 404 for the removed wholesale route", async ({ request }) => {
-    const response = await request.get("/wholesale");
-    expect(response.status()).toBe(404);
+  test("returns 404 for removed storefront routes", async ({ request }) => {
+    for (const path of ["/catalog", "/catalog/not-a-real-product", "/wholesale"]) {
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(404);
+    }
   });
 
   test("redirects protected pages through sign-in without server errors", async ({ page }) => {
