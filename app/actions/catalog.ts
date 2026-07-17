@@ -136,7 +136,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "categorySlug",
       message:
-        "A category, set, or product already uses that identifier. Select the existing record or enter a unique value; the product details are preserved.",
+        "A category, set, or product already uses that identifier. Select the existing category or enter a unique slug. For a set conflict, select the existing set or enter a unique code; the product details are preserved.",
     };
   }
   if (message.includes("category")) {
