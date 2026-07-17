@@ -17,7 +17,7 @@ test.describe("storefront navigation", () => {
 
     const navigation = page.getByRole("navigation", { name: "Primary navigation" });
     await expect(navigation.getByRole("link", { name: "Home" })).toHaveCount(0);
-    await expect(navigation.getByRole("link", { name: "Catalog" })).toHaveAttribute(
+    await expect(navigation.getByRole("link", { name: "Products" })).toHaveAttribute(
       "href",
       "/catalog"
     );
@@ -33,7 +33,7 @@ test.describe("storefront navigation", () => {
     await expect(navigation.getByRole("link", { name: "Admin" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Control" })).toHaveCount(0);
 
-    await page.getByRole("link", { name: "Browse catalog" }).first().click();
+    await page.getByRole("link", { name: "Browse products" }).first().click();
     await expect(page).toHaveURL(/\/catalog$/);
     await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Deals" })).toHaveAttribute(
@@ -51,7 +51,7 @@ test.describe("storefront navigation", () => {
     await expect(homeLink).toBeVisible();
 
     const mobileNavigation = page.getByRole("navigation", { name: "Mobile primary navigation" });
-    await expect(mobileNavigation.getByRole("link", { name: "Catalog" })).toBeVisible();
+    await expect(mobileNavigation.getByRole("link", { name: "Products" })).toBeVisible();
     await expect(mobileNavigation.getByRole("link", { name: "Home" })).toHaveCount(0);
     await expect(banner.getByRole("link", { name: "Cart", exact: true }).first()).toBeVisible();
 
