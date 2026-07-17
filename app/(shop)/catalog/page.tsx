@@ -22,7 +22,7 @@ import { createAnonClient } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Catalog",
+  title: "Products",
   description: "Browse sealed products, preorders, and current marketplace deals.",
 };
 
@@ -187,7 +187,7 @@ async function fetchProducts(): Promise<{
     .limit(50);
 
   if (error) {
-    console.error("catalog query failed:", error.message);
+    console.error("products query failed:", error.message);
     return previewFixturesEnabled()
       ? { products: marketplaceProducts, source: "preview" }
       : { products: [], source: "unavailable" };
@@ -218,13 +218,13 @@ export default async function CatalogPage({
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Catalog"
+        eyebrow="Products"
         title="Sealed products"
         description="Browse current stock, preorders, and offers."
       />
 
       <nav
-        aria-label="Catalog sections"
+        aria-label="Product sections"
         className="inline-flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm"
       >
         <Link className={sectionLinkClass(view === "products")} href="/catalog">
@@ -242,7 +242,7 @@ export default async function CatalogPage({
           aria-live="polite"
           className="rounded-lg border border-amber-200 bg-amber-50 p-8 text-center shadow-sm"
         >
-          <h2 className="text-xl font-semibold text-amber-950">Catalog temporarily unavailable</h2>
+          <h2 className="text-xl font-semibold text-amber-950">Products temporarily unavailable</h2>
           <p className="mt-2 text-sm text-amber-900">Please try again shortly.</p>
         </section>
       ) : products.length === 0 ? (
@@ -269,10 +269,10 @@ function DealsSection({
   signedIn: boolean;
 }) {
   return (
-    <section aria-labelledby="catalog-deals-heading" className="space-y-5">
+    <section aria-labelledby="product-deals-heading" className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 id="catalog-deals-heading" className="text-2xl font-semibold text-zinc-950">
+          <h2 id="product-deals-heading" className="text-2xl font-semibold text-zinc-950">
             Current deals
           </h2>
           <p className="mt-1 text-sm text-zinc-600">Limited-time prices on selected products.</p>
@@ -296,7 +296,7 @@ function DealsSection({
       ) : (
         <div className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
           <h3 className="text-xl font-semibold text-zinc-950">No active deals</h3>
-          <p className="mt-2 text-sm text-zinc-600">Browse the full catalog for current stock.</p>
+          <p className="mt-2 text-sm text-zinc-600">Browse all products for current stock.</p>
         </div>
       )}
     </section>
@@ -337,5 +337,7 @@ function listingChannels(
   fixture: MarketplaceProduct | undefined
 ): Channel[] {
   const channels = listing?.channels?.filter((channel): channel is Channel => channel === "b2c");
-  return channels && channels.length > 0 ? channels : (fixture?.channels.filter((channel) => channel === "b2c") ?? ["b2c"]);
+  return channels && channels.length > 0
+    ? channels
+    : (fixture?.channels.filter((channel) => channel === "b2c") ?? ["b2c"]);
 }
