@@ -1,0 +1,35 @@
+import { readFile } from "node:fs/promises";
+import { describe, expect, it } from "vitest";
+
+const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+
+describe("database workflow", () => {
+  it("uses one fail-fast migration and contract runner in CI and deployment", async () => {
+    const [ci, deploy, runner] = await Promise.all([
+      read(".github/workflows/ci.yml"),
+      read(".github/workflows/deploy.yml"),
+      read(".github/ci/run-database-contracts.sh"),
+    ]);
+
+    for (const workflow of [ci, deploy]) {
+      expect(workflow).toContain("bash .github/ci/run-database-contracts.sh");
+      expect(workflow).toContain("path: migration.log");
+    }
+
+    expect(ci).toContain("VERIFY_LOGICAL_RESTORE: 'true'");
+    expect(deploy).toContain("deployment-migration-log-${{ inputs.environment }}");
+    expect(runner).toContain("set -Eeuo pipefail");
+    expect(runner).toContain("ON_ERROR_STOP=1");
+    expect(runner).toContain('2>&1 | tee -a "$LOG_FILE"');
+  });
+
+  it("does not recreate policies for wholesale tables removed earlier in migration order", async () => {
+    const [wholesaleRemoval, accountDeletion] = await Promise.all([
+      read("supabase/migrations/20260716213000_remove_wholesale_b2b.sql"),
+      read("supabase/migrations/20260717014500_customer_account_soft_deletion.sql"),
+    ]);
+
+    expect(wholesaleRemoval).toContain("b2b_accounts");
+    expect(accountDeletion).not.toContain("b2b_accounts");
+  });
+});
