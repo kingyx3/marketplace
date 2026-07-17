@@ -8,19 +8,9 @@ import {
   adminCatalogProductFromForm,
   adminCatalogSkuFromForm,
 } from "@/lib/admin-catalog-forms";
+import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
-
-export interface CatalogProductActionState {
-  status: "idle" | "success" | "error";
-  message: string;
-  field?: "category" | "categorySlug" | "set" | "setCode" | "productSlug";
-}
-
-export const initialCatalogProductActionState: CatalogProductActionState = {
-  status: "idle",
-  message: "",
-};
 
 export async function createCatalogProduct(
   _previousState: CatalogProductActionState,
