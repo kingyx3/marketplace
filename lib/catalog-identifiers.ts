@@ -21,3 +21,9 @@ export function setCodeFromName(value: string): string {
   if (code.length >= 2) return code;
   return code ? `${code}-1` : "";
 }
+
+export function productTypeCodeFromName(value: string): string {
+  const code = slugFromName(value, 64).replace(/-/g, "_");
+  if (!code) return "";
+  return /^[a-z]/.test(code) ? code : `type_${code}`;
+}
