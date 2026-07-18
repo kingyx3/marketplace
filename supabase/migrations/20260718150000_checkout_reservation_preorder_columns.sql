@@ -18,15 +18,18 @@ alter table public.preorders
   add constraint preorders_allocation_refund_non_negative
   check (allocation_refund_cents >= 0);
 
--- Existing development rows can remain readable, but every new or changed preorder
--- must represent a full upfront payment with no later balance collection.
+-- Active preorders use one full payment and never carry a later balance. Historical
+-- completed/cancelled development fixtures remain readable while the app is pre-production.
 alter table public.preorders
   drop constraint if exists preorders_full_upfront_payment;
 alter table public.preorders
   add constraint preorders_full_upfront_payment
   check (
-    deposit_cents = quantity * unit_price_cents
-    and balance_cents = 0
+    status not in ('pending_payment', 'paid', 'allocated', 'refund_pending')
+    or (
+      deposit_cents = quantity * unit_price_cents
+      and balance_cents = 0
+    )
   ) not valid;
 
 create index if not exists idx_orders_checkout_reservation_expiry
