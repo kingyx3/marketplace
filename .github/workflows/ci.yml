@@ -72,6 +72,7 @@ jobs:
     if: needs.changes.outputs.app == 'true'
     uses: ./.github/workflows/app-checks.yml
     with:
+      environment: development
       run_e2e: true
 
   config-contract:

@@ -84,25 +84,43 @@ describe("audience-aware frontend access", () => {
   });
 
   it("keeps critical storefront and control surfaces mobile safe", async () => {
-    const [siteHeader, appShell, controlShell, catalogBrowser, cartPage, globalStyles] =
-      await Promise.all([
-        readFile(new URL("../app/_components/site-header.tsx", import.meta.url), "utf8"),
-        readFile(new URL("../app/_components/app-shell.tsx", import.meta.url), "utf8"),
-        readFile(
-          new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
-          "utf8"
+    const [
+      siteHeader,
+      appShell,
+      controlShell,
+      controlMobileNavigation,
+      catalogBrowser,
+      cartPage,
+      globalStyles,
+    ] = await Promise.all([
+      readFile(new URL("../app/_components/site-header.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/_components/app-shell.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../app/(shop)/control/_components/control-mobile-navigation.tsx",
+          import.meta.url
         ),
-        readFile(new URL("../app/(shop)/catalog/catalog-browser.tsx", import.meta.url), "utf8"),
-        readFile(new URL("../app/(shop)/cart/page.tsx", import.meta.url), "utf8"),
-        readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-      ]);
+        "utf8"
+      ),
+      readFile(new URL("../app/(shop)/catalog/catalog-browser.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/(shop)/cart/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    ]);
 
     expect(siteHeader).toContain('aria-label="Mobile primary navigation"');
-    expect(siteHeader).toContain("overflow-x-auto");
+    expect(siteHeader).toContain("aria-controls={drawerId}");
+    expect(siteHeader).toContain("fixed inset-0 z-50");
+    expect(siteHeader).not.toContain("overflow-x-auto");
     expect(siteHeader).toContain("min-h-11");
     expect(appShell).toContain("min-w-0");
-    expect(controlShell).toContain("snap-x");
-    expect(controlShell).toContain("overflow-x-auto");
+    expect(controlShell).toContain("ControlMobileNavigation");
+    expect(controlShell).not.toContain("snap-x");
+    expect(controlMobileNavigation).toContain('aria-label="Mobile control navigation"');
+    expect(controlMobileNavigation).toContain("fixed inset-0 z-50");
     expect(catalogBrowser).toContain("lg:grid-cols");
     expect(catalogBrowser).toContain("sm:grid-cols-2");
     expect(cartPage).toContain("grid-cols-[minmax(0,1fr)_auto]");
@@ -112,5 +130,5 @@ describe("audience-aware frontend access", () => {
 });
 
 function renderHeader(viewer: CurrentViewer): string {
-  return renderToStaticMarkup(<SiteHeader appName="Marketplace" viewer={viewer} />);
+  return renderToStaticMarkup(<SiteHeader appName="Configured Store" viewer={viewer} />);
 }

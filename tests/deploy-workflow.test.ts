@@ -16,6 +16,30 @@ describe("deployment workflow contract", () => {
     }
   });
 
+  it("passes the GitHub APP_NAME variable through checks and hosted workflows", async () => {
+    const [checks, ci, deploy, bootstrap, bootstrapEnvironment, configureProviders, releaseGates] =
+      await Promise.all([
+        read(".github/workflows/app-checks.yml"),
+        read(".github/workflows/ci.yml"),
+        read(".github/workflows/deploy.yml"),
+        read(".github/workflows/bootstrap.yml"),
+        read(".github/workflows/bootstrap-environment.yml"),
+        read(".github/workflows/configure-providers.yml"),
+        read(".github/workflows/hosted-release-gates.yml"),
+      ]);
+
+    expect(checks).toContain("environment: ${{ inputs.environment }}");
+    expect(checks).toContain("APP_NAME: ${{ vars.APP_NAME }}");
+    expect(checks).toContain("GitHub variable APP_NAME is required");
+    expect(ci).toContain("environment: development");
+    expect(deploy).toContain("APP_NAME: ${{ vars.APP_NAME }}");
+    expect(deploy).toContain("environment: ${{ inputs.environment }}");
+    expect(bootstrap).toContain("environment: ${{ inputs.target }}");
+    expect(bootstrapEnvironment).toContain("APP_NAME: ${{ vars.APP_NAME }}");
+    expect(configureProviders).toContain("APP_NAME: ${{ vars.APP_NAME }}");
+    expect(releaseGates).toContain("APP_NAME: ${{ vars.APP_NAME }}");
+  });
+
   it("scopes every workflow job that reads GitHub vars or secrets to an environment", async () => {
     const workflowsDirectory = new URL("../.github/workflows/", import.meta.url);
     const workflowNames = (await readdir(workflowsDirectory)).filter((name) => /\.ya?ml$/.test(name));

@@ -46,10 +46,10 @@ export interface ReadinessResponse {
   };
 }
 
-export function shallowHealth(now = new Date()): HealthResponse {
+export function shallowHealth(now = new Date(), env: EnvLike = process.env): HealthResponse {
   return {
     status: "ok",
-    service: getAppName(),
+    service: getAppName(env),
     timestamp: now.toISOString(),
   };
 }

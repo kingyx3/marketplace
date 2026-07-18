@@ -1,6 +1,6 @@
-const DEFAULT_APP_NAME = "Marketplace";
+const LOCAL_FALLBACK_APP_NAME = "Store";
 
 export function getAppName(env: Record<string, string | undefined> = process.env): string {
   const appName = env.APP_NAME?.trim();
-  return appName || DEFAULT_APP_NAME;
+  return appName || LOCAL_FALLBACK_APP_NAME;
 }

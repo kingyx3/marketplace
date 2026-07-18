@@ -42,20 +42,27 @@ test.describe("storefront navigation", () => {
     );
   });
 
-  test("keeps mobile navigation compact and the app name as the home control", async ({ page }) => {
+  test("keeps mobile navigation compact and expandable", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
     const banner = page.getByRole("banner");
     const homeLink = banner.locator('a[href="/"]').first();
     await expect(homeLink).toBeVisible();
+    await expect(banner.getByRole("link", { name: "Cart", exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Mobile primary navigation" })).toHaveCount(0);
 
+    await banner.getByRole("button", { name: "Open navigation" }).click();
     const mobileNavigation = page.getByRole("navigation", { name: "Mobile primary navigation" });
+    await expect(mobileNavigation).toBeVisible();
     await expect(mobileNavigation.getByRole("link", { name: "Products" })).toBeVisible();
+    await expect(mobileNavigation.getByRole("link", { name: "Sign in" })).toBeVisible();
     await expect(mobileNavigation.getByRole("link", { name: "Home" })).toHaveCount(0);
-    await expect(banner.getByRole("link", { name: "Cart", exact: true }).first()).toBeVisible();
 
-    await page.goto("/products");
+    await mobileNavigation.getByRole("link", { name: "Products" }).click();
+    await expect(page).toHaveURL(/\/products$/);
+    await expect(page.getByRole("navigation", { name: "Mobile primary navigation" })).toHaveCount(0);
+
     await banner.locator('a[href="/"]').first().click();
     await expect(page).toHaveURL(/\/$/);
   });
