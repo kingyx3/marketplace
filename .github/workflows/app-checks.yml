@@ -30,7 +30,7 @@ jobs:
             command: npm run build
     steps:
       - uses: actions/checkout@v7.0.0
-      - uses: actions/setup-node@v6.4.0
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -55,7 +55,7 @@ jobs:
       MARKETPLACE_PREVIEW_FIXTURES: "true"
     steps:
       - uses: actions/checkout@v7.0.0
-      - uses: actions/setup-node@v6.4.0
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
