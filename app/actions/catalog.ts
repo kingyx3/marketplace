@@ -2,14 +2,17 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import {
   adminCatalogProductCreateFromForm,
   adminCatalogProductFromForm,
   adminCatalogSkuFromForm,
 } from "@/lib/admin-catalog-forms";
+import { catalogSkuErrorCode } from "@/lib/catalog-sku-errors";
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
+import { logError, logWarn } from "@/lib/observability";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function createCatalogProduct(
@@ -166,25 +169,51 @@ export async function uploadCatalogProductImage(formData: FormData) {
 
 export async function upsertCatalogSku(formData: FormData) {
   const { user } = await requireControlPermission("manage_catalog", "/control/operations");
-  const input = adminCatalogSkuFromForm(formData);
+  const operation = formData.get("skuId") ? "update" : "create";
+  let failure: unknown = null;
 
-  const { error } = await createServiceClient().rpc("admin_upsert_booster_box_sku", {
-    p_sku_id: input.skuId,
-    p_product_id: input.productId,
-    p_sku: input.sku,
-    p_barcode: input.barcode,
-    p_packs_per_box: input.packsPerBox,
-    p_cards_per_pack: input.cardsPerPack,
-    p_msrp_cents: input.msrpCents,
-    p_price_cents: input.priceCents,
-    p_currency: input.currency,
-    p_weight_grams: input.weightGrams,
-    p_active: input.active,
-    p_actor: `staff:${user.id}`,
-  });
+  try {
+    const input = adminCatalogSkuFromForm(formData);
+    const { error } = await createServiceClient().rpc("admin_upsert_booster_box_sku", {
+      p_sku_id: input.skuId,
+      p_product_id: input.productId,
+      p_sku: input.sku,
+      p_barcode: input.barcode,
+      p_packs_per_box: input.packsPerBox,
+      p_cards_per_pack: input.cardsPerPack,
+      p_msrp_cents: input.msrpCents,
+      p_price_cents: input.priceCents,
+      p_currency: input.currency,
+      p_weight_grams: input.weightGrams,
+      p_active: input.active,
+      p_actor: `staff:${user.id}`,
+    });
 
-  if (error) throw new Error(`SKU save failed: ${error.message}`);
-  revalidateCatalogPaths();
+    if (error) {
+      failure = error;
+    } else {
+      revalidateCatalogPaths();
+      return;
+    }
+  } catch (error) {
+    failure = error;
+  }
+
+  const errorCode = catalogSkuErrorCode(failure);
+  const context = {
+    route: "/control/operations",
+    userId: user.id,
+    operation,
+    errorCode,
+  };
+
+  if (errorCode === "save-failed") {
+    logError("catalog.sku_save_failed", failure, context);
+  } else {
+    logWarn("catalog.sku_save_rejected", context);
+  }
+
+  redirect(`/control/operations/sku-error?code=${errorCode}`);
 }
 
 export async function setCatalogSkuActive(formData: FormData) {
