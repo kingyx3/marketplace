@@ -15,6 +15,7 @@ declare
   v_stage_count integer;
   v_inventory_allocated integer;
   v_refund_cents integer;
+  v_settlement text;
 begin
   insert into auth.users (id, email)
   values
@@ -205,6 +206,17 @@ begin
 
   if v_refund_cents <> 19900 then
     raise exception 'allocation refund amount mismatch: %', v_refund_cents;
+  end if;
+
+  v_settlement := public.settle_preorder_payment(
+    v_preorder_2,
+    'pi_allocation_two',
+    19900,
+    'SGD'
+  );
+
+  if v_settlement <> 'not_payable' then
+    raise exception 'refunded preorder accepted a late payment: %', v_settlement;
   end if;
 end;
 $$;
