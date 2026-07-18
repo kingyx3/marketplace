@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import type { CurrentViewer } from "@/lib/auth";
 
@@ -12,22 +13,68 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
   const signedIn = Boolean(viewer.user);
   const [mobileOpen, setMobileOpen] = useState(false);
   const drawerId = useId();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const brandInitial = appName.trim().charAt(0).toUpperCase() || "S";
 
   useEffect(() => {
     if (!mobileOpen) return;
 
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileOpen(false);
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : menuButtonRef.current;
+
+    const closeOnKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusableElements = Array.from(
+        drawerRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      );
+      const firstFocusable = focusableElements.at(0);
+      const lastFocusable = focusableElements.at(-1);
+
+      if (!firstFocusable || !lastFocusable) {
+        event.preventDefault();
+        drawerRef.current?.focus();
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstFocusable) {
+        event.preventDefault();
+        lastFocusable.focus();
+      } else if (!event.shiftKey && document.activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus();
+      }
     };
 
     document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeOnEscape);
+    document.documentElement.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnKeyDown);
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
 
     return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousDocumentOverflow;
+      window.removeEventListener("keydown", closeOnKeyDown);
+      window.requestAnimationFrame(() => {
+        if (previouslyFocused?.isConnected) {
+          previouslyFocused.focus();
+        } else {
+          menuButtonRef.current?.focus();
+        }
+      });
     };
   }, [mobileOpen]);
 
@@ -73,6 +120,7 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
               aria-label="Open navigation"
               className="inline-flex size-11 items-center justify-center rounded-md text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
               onClick={() => setMobileOpen(true)}
+              ref={menuButtonRef}
               type="button"
             >
               <MenuIcon />
@@ -81,64 +129,97 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
         </div>
       </div>
 
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            aria-label="Close navigation overlay"
-            className="absolute inset-0 bg-zinc-950/45 backdrop-blur-[1px]"
-            onClick={() => setMobileOpen(false)}
-            type="button"
-          />
-          <section
-            aria-label="Mobile navigation drawer"
-            className="absolute inset-y-0 right-0 flex w-[min(22rem,calc(100%-3rem))] flex-col border-l border-zinc-200 bg-white shadow-2xl"
-            id={drawerId}
-          >
-            <div className="flex min-h-16 items-center justify-between gap-3 border-b border-zinc-200 px-4">
-              <div className="flex min-w-0 items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-sm font-bold text-white"
-                >
-                  {brandInitial}
-                </span>
-                <span className="truncate font-semibold text-zinc-950">{appName}</span>
-              </div>
+      {mobileOpen
+        ? createPortal(
+            <div className="fixed inset-0 z-[100] isolate lg:hidden">
               <button
-                aria-label="Close navigation"
-                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+                aria-label="Close navigation overlay"
+                className="absolute inset-0 cursor-default bg-zinc-950/80 backdrop-blur-sm"
                 onClick={() => setMobileOpen(false)}
                 type="button"
+              />
+              <section
+                aria-labelledby={`${drawerId}-title`}
+                aria-modal="true"
+                className="absolute inset-y-0 right-0 flex h-dvh w-[min(22rem,calc(100%-2rem))] flex-col overflow-hidden border-l border-zinc-200 bg-white text-zinc-950 shadow-2xl"
+                id={drawerId}
+                ref={drawerRef}
+                role="dialog"
+                tabIndex={-1}
               >
-                <CloseIcon />
-              </button>
-            </div>
+                <div className="flex min-h-16 items-center justify-between gap-3 border-b border-zinc-200 px-4 pt-[env(safe-area-inset-top)]">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-sm font-bold text-white"
+                    >
+                      {brandInitial}
+                    </span>
+                    <span className="truncate font-semibold text-zinc-950" id={`${drawerId}-title`}>
+                      {appName}
+                    </span>
+                  </div>
+                  <button
+                    aria-label="Close navigation"
+                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+                    onClick={() => setMobileOpen(false)}
+                    ref={closeButtonRef}
+                    type="button"
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
 
-            <nav aria-label="Mobile primary navigation" className="grid gap-1 p-3">
-              <MobileLink href="/products" icon={<ProductsIcon />} onClick={() => setMobileOpen(false)}>
-                Products
-              </MobileLink>
-              {signedIn ? (
-                <>
-                  <MobileLink href="/preorders" icon={<PreordersIcon />} onClick={() => setMobileOpen(false)}>
-                    Preorders
+                <nav
+                  aria-label="Mobile primary navigation"
+                  className="grid gap-1 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                >
+                  <MobileLink
+                    href="/products"
+                    icon={<ProductsIcon />}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Products
                   </MobileLink>
-                  <MobileLink href="/orders" icon={<OrdersIcon />} onClick={() => setMobileOpen(false)}>
-                    Orders
-                  </MobileLink>
-                  <MobileLink href="/account" icon={<AccountIcon />} onClick={() => setMobileOpen(false)}>
-                    Account
-                  </MobileLink>
-                </>
-              ) : (
-                <MobileLink href="/sign-in" icon={<SignInIcon />} onClick={() => setMobileOpen(false)}>
-                  Sign in
-                </MobileLink>
-              )}
-            </nav>
-          </section>
-        </div>
-      ) : null}
+                  {signedIn ? (
+                    <>
+                      <MobileLink
+                        href="/preorders"
+                        icon={<PreordersIcon />}
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        Preorders
+                      </MobileLink>
+                      <MobileLink
+                        href="/orders"
+                        icon={<OrdersIcon />}
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        Orders
+                      </MobileLink>
+                      <MobileLink
+                        href="/account"
+                        icon={<AccountIcon />}
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        Account
+                      </MobileLink>
+                    </>
+                  ) : (
+                    <MobileLink
+                      href="/sign-in"
+                      icon={<SignInIcon />}
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Sign in
+                    </MobileLink>
+                  )}
+                </nav>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </header>
   );
 }
@@ -220,7 +301,14 @@ const iconClassName = "size-5";
 
 function CartIcon() {
   return (
-    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      className={iconClassName}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h1.5l1.5 9h10.5l1.5-6.75H6" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 18.75h.008v.008H9v-.008Zm7.5 0h.008v.008H16.5v-.008Z" />
     </svg>
@@ -229,7 +317,14 @@ function CartIcon() {
 
 function MenuIcon() {
   return (
-    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      className={iconClassName}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
     </svg>
   );
@@ -237,7 +332,14 @@ function MenuIcon() {
 
 function CloseIcon() {
   return (
-    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      className={iconClassName}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <path strokeLinecap="round" d="m6 6 12 12M18 6 6 18" />
     </svg>
   );
@@ -245,7 +347,14 @@ function CloseIcon() {
 
 function ProductsIcon() {
   return (
-    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      className={iconClassName}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 7.5 7.5-4 7.5 4v9L12 20.5l-7.5-4v-9Z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 7.5 7.5 4 7.5-4M12 11.5v9" />
     </svg>
@@ -254,7 +363,14 @@ function ProductsIcon() {
 
 function PreordersIcon() {
   return (
-    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      className={iconClassName}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <circle cx="12" cy="12" r="8.25" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.75v4.75l3 1.75" />
     </svg>
@@ -263,7 +379,14 @@ function PreordersIcon() {
 
 function OrdersIcon() {
   return (
-    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      className={iconClassName}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M7 3.75h10v16.5l-2.5-1.5-2.5 1.5-2.5-1.5-2.5 1.5V3.75Z" />
       <path strokeLinecap="round" d="M9 8h6M9 12h6M9 16h3" />
     </svg>
@@ -272,7 +395,14 @@ function OrdersIcon() {
 
 function AccountIcon() {
   return (
-    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      className={iconClassName}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <circle cx="12" cy="8.25" r="3.25" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M5.75 19.5c.75-3.5 2.85-5.25 6.25-5.25s5.5 1.75 6.25 5.25" />
     </svg>
@@ -281,7 +411,14 @@ function AccountIcon() {
 
 function SignInIcon() {
   return (
-    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      className={iconClassName}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 5.25H7.25A2.25 2.25 0 0 0 5 7.5v9A2.25 2.25 0 0 0 7.25 18.75h6.25" />
       <path strokeLinecap="round" strokeLinejoin="round" d="m13 8 4 4-4 4M9 12h8" />
     </svg>
