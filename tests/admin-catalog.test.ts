@@ -6,6 +6,7 @@ import {
   adminCatalogSkuFromForm,
   adminInventoryAdjustmentFromForm,
 } from "@/lib/admin-catalog-forms";
+import { catalogSkuErrorCode, catalogSkuErrorMessage } from "@/lib/catalog-sku-errors";
 
 describe("admin catalog management", () => {
   it("parses relational product identity fields and normalizes language", () => {
@@ -71,7 +72,7 @@ describe("admin catalog management", () => {
     );
   });
 
-  it("rejects invalid product types and malformed SKU currency", () => {
+  it("rejects invalid product types, malformed SKU currency, and zero selling prices", () => {
     const product = new FormData();
     product.set("categoryId", "22222222-2222-4222-8222-222222222222");
     product.set("setId", "33333333-3333-4333-8333-333333333333");
@@ -86,6 +87,33 @@ describe("admin catalog management", () => {
     sku.set("currency", "SG");
 
     expect(() => adminCatalogSkuFromForm(sku)).toThrow("currency must be a 3-letter code");
+
+    sku.set("currency", "SGD");
+    sku.set("priceCents", "0");
+    expect(() => adminCatalogSkuFromForm(sku)).toThrow("priceCents must be positive");
+  });
+
+  it("maps SKU save failures to actionable operator guidance", () => {
+    expect(
+      catalogSkuErrorCode({
+        code: "23514",
+        message: 'new row violates check constraint "booster_box_skus_price_cents_check"',
+      })
+    ).toBe("positive-price");
+    expect(
+      catalogSkuErrorCode({
+        code: "23505",
+        message: 'duplicate key violates constraint "booster_box_skus_sku_key"',
+      })
+    ).toBe("duplicate-sku");
+    expect(
+      catalogSkuErrorCode({
+        code: "23505",
+        message: 'duplicate key violates constraint "booster_box_skus_barcode_key"',
+      })
+    ).toBe("duplicate-barcode");
+    expect(catalogSkuErrorMessage("positive-price")).toContain("greater than 0 cents");
+    expect(catalogSkuErrorMessage("duplicate-sku")).toContain("already exists");
   });
 
   it("requires reason-coded non-negative inventory adjustments", () => {
@@ -117,6 +145,11 @@ describe("admin catalog management", () => {
       new URL("../supabase/migrations/20260705020250_admin_catalog_crud.sql", import.meta.url),
       "utf8"
     );
+    const action = await readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8");
+    const skuErrorPage = await readFile(
+      new URL("../app/(shop)/control/operations/sku-error/page.tsx", import.meta.url),
+      "utf8"
+    );
 
     expect(migration).toContain("add column if not exists active boolean");
     expect(migration).toContain("admin_upsert_catalog_product");
@@ -127,5 +160,8 @@ describe("admin catalog management", () => {
     expect(migration).toContain("and s.active");
     expect(migration).toContain("from public, anon, authenticated");
     expect(migration).toContain("to service_role");
+    expect(action).toContain("catalog.sku_save_rejected");
+    expect(action).toContain("/control/operations/sku-error?code=${errorCode}");
+    expect(skuErrorPage).toContain("SKU could not be saved");
   });
 });
