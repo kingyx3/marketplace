@@ -9,7 +9,6 @@ import { quoteShipping, shippingAddressSchema } from "@/lib/shipping";
 export const MAX_CHECKOUT_LINES = 10;
 export const MAX_QUANTITY_PER_LINE = 24;
 export const MAX_CHECKOUT_TOTAL_QUANTITY = 24;
-export const DEFAULT_PREORDER_DEPOSIT_BPS = 2000;
 
 export type CheckoutMode = "order" | "preorder";
 export type SalesChannel = "b2c";
@@ -124,9 +123,13 @@ export function calculateDiscountCents(subtotalCents: number, discountBps: numbe
   return Math.floor((subtotalCents * discountBps) / 10000);
 }
 
+/**
+ * Pre-orders use the same payment term as normal orders: the entire quoted
+ * amount is paid at checkout. The legacy name remains as a compatibility
+ * helper for callers and tests while returning the full amount.
+ */
 export function calculateDepositCents(totalCents: number): number {
-  if (totalCents <= 0) return 0;
-  return Math.max(100, Math.ceil((totalCents * DEFAULT_PREORDER_DEPOSIT_BPS) / 10000));
+  return Math.max(0, totalCents);
 }
 
 export async function quoteCheckout(
@@ -161,9 +164,11 @@ export async function quoteCheckout(
           lines.map((line) => line.skuId)
         )
       : new Map<string, number>();
-  const discountCents = lines.reduce((total, line) => {
-    return total + calculateDealSavings(line.lineTotalCents, dealDiscounts.get(line.skuId) ?? 0);
-  }, 0);
+  const discountCents = lines.reduce(
+    (total, line) =>
+      total + calculateDealSavings(line.lineTotalCents, dealDiscounts.get(line.skuId) ?? 0),
+    0
+  );
   const discountBps =
     subtotalCents > 0 ? Math.floor((discountCents * 10000) / subtotalCents) : 0;
   const merchandiseTotalCents = subtotalCents - discountCents;
@@ -178,8 +183,6 @@ export async function quoteCheckout(
       : null;
   const shippingCents = shipping?.shippingCents ?? 0;
   const totalCents = merchandiseTotalCents + shippingCents;
-  const depositCents =
-    request.mode === "preorder" ? calculateDepositCents(totalCents) : totalCents;
 
   return {
     mode: request.mode,
@@ -194,8 +197,8 @@ export async function quoteCheckout(
     shippingPolicyKey: shipping?.policyKey ?? null,
     taxCents: Math.round((totalCents * 9) / 109),
     totalCents,
-    depositCents,
-    balanceCents: Math.max(0, totalCents - depositCents),
+    depositCents: totalCents,
+    balanceCents: 0,
   };
 }
 
@@ -209,21 +212,21 @@ async function quoteLine(
     .select("id, sku, active, price_cents, currency, product_variant_id")
     .eq("id", item.skuId)
     .single();
-  if (skuError || !sku) {
-    throw notFound("SKU not found");
-  }
+  if (skuError || !sku) throw notFound("SKU not found");
 
   const skuRecord = sku as SkuRecord;
-  if (!skuRecord.active) {
-    throw badRequest("SKU is not active");
-  }
+  if (!skuRecord.active) throw badRequest("SKU is not active");
 
   const productName = await productNameForSku(supabase, skuRecord.product_variant_id);
   const inventory = await inventoryForSku(supabase, skuRecord.id);
   const availableToSell = availableQuantity(inventory, mode);
 
   if (availableToSell < item.quantity) {
-    throw badRequest("Requested quantity is not available");
+    throw badRequest(
+      mode === "order"
+        ? "Requested quantity is unavailable or currently reserved by another checkout"
+        : "Requested preorder quantity is not available"
+    );
   }
 
   return {
@@ -244,21 +247,15 @@ async function productNameForSku(supabase: SupabaseClient, variantId: string): P
     .select("product_id")
     .eq("id", variantId)
     .single();
-  if (variantResult.error || !variantResult.data) {
-    throw notFound("Product variant not found");
-  }
+  if (variantResult.error || !variantResult.data) throw notFound("Product variant not found");
 
   const productResult = await supabase
     .from("products")
     .select("name, active")
     .eq("id", variantResult.data.product_id)
     .single();
-  if (productResult.error || !productResult.data) {
-    throw notFound("Product not found");
-  }
-  if (!productResult.data.active) {
-    throw badRequest("Product is not active");
-  }
+  if (productResult.error || !productResult.data) throw notFound("Product not found");
+  if (!productResult.data.active) throw badRequest("Product is not active");
 
   return productResult.data.name;
 }
@@ -272,13 +269,8 @@ async function inventoryForSku(supabase: SupabaseClient, skuId: string): Promise
     .limit(1)
     .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (!data) {
-    throw badRequest("Inventory is not available for this SKU");
-  }
-
+  if (error) throw new Error(error.message);
+  if (!data) throw badRequest("Inventory is not available for this SKU");
   return data as InventoryRecord;
 }
 
