@@ -13,7 +13,7 @@ tcg_categories -> sets_releases ---------+-> product_variants -> booster_box_sku
                                                                     v
      suppliers -> purchase_orders -> purchase_order_items ------> inventory
 
-customers -> preorders --(convert)--> orders -> order_items
+customers -> preorders --(allocate)--> orders -> order_items
     |            |                       |-> shipments
     |            +-----------------------+-> payments -> refunds
     |-> notifications
@@ -42,13 +42,19 @@ Every product belongs to one category and one set. `product_types` stores the re
 
 `inventory` tracks on-hand, allocated, incoming, and safety stock. Its constraints prevent allocation beyond on-hand plus confirmed incoming stock. Supplier purchase-order intake records the PO and increments incoming stock in one database transaction.
 
+Normal-order checkout reserves inventory with a conditional database update. The pending order receives `checkout_reserved_until = now() + 15 minutes`. Expiry processing releases the allocation and cancels the unpaid order. A payment that succeeds after expiry cannot consume stock; the webhook records it and issues an idempotent Stripe refund.
+
 ### Preorders
 
-`preorders` stores deposit, balance, allocated quantity, and lifecycle status explicitly. Retail allocation is FIFO with optional per-customer caps. Balance-payment success converts an allocated preorder into one paid order idempotently.
+Retail preorders are charged 100% upfront. Active preorder states require `deposit_cents` to equal the full requested value and `balance_cents = 0`; the legacy column names remain only as stored-schema compatibility. Only a captured `full` payment can enter the allocation queue.
+
+Allocation is an administrator-confirmed, preorder-only process. The control workspace previews FIFO allocation with any configured per-customer caps, calculates the exact refund for every unallocated unit, and fingerprints the queue plus available inventory. PostgreSQL rejects a stale confirmation. The allocation is staged transactionally, Stripe receives idempotent shortfall refunds, and finalization creates a paid order only for the allocated quantity. A zero allocation becomes a fully refunded preorder.
 
 ### Orders and payments
 
-Orders use retail channel `b2c`. Payments distinguish `deposit`, `balance`, and `full`. Stripe webhook events are deduplicated through `webhook_events`, and payment functions validate amount and currency before changing inventory or order state.
+Orders use retail channel `b2c`. Normal-order payments use kind `full`. Stripe webhook events are deduplicated through `webhook_events`, and payment functions validate amount, currency, order state, and reservation deadline before changing inventory or order state.
+
+Preorder payments also use kind `full`. The former deposit/balance collection endpoint and balance-payment transition are not part of the active application.
 
 Manual-invoice checkout, wholesale credit, wholesale pricing tiers, and B2B account tables were removed by `20260716213000_remove_wholesale_b2b.sql`.
 
@@ -59,6 +65,8 @@ Customers own their account, orders, preorders, payments, shipments, notificatio
 ### Admin operations
 
 Catalog, product-type, SKU, image, listing, deal, inventory, purchase-order, preorder-allocation, order, refund, reconciliation, and exception changes use explicit service-role functions. Critical mutations are recorded in `audit_logs`.
+
+The preorder allocation workspace is available only to staff with `manage_full_operations`. It requires an explicit confirmation after the refund impact is shown. Direct allocation API calls require the same reviewed fingerprint and permission.
 
 ## Row-level security
 
