@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useId, useState, type ReactNode } from "react";
 
 import type { CurrentViewer } from "@/lib/auth";
 
@@ -7,16 +10,45 @@ const baseLinkClass =
 
 export function SiteHeader({ appName, viewer }: { appName: string; viewer: CurrentViewer }) {
   const signedIn = Boolean(viewer.user);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const drawerId = useId();
+  const brandInitial = appName.trim().charAt(0).toUpperCase() || "S";
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobileOpen]);
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex min-h-16 items-center justify-between gap-3">
           <Link
+            aria-label={`${appName} home`}
             href="/"
-            className="min-w-0 truncate text-lg font-semibold text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+            className="inline-flex min-w-0 items-center gap-2 rounded-md text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
-            {appName}
+            <span
+              aria-hidden="true"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-sm font-bold text-white"
+            >
+              {brandInitial}
+            </span>
+            <span className="hidden max-w-48 truncate text-lg font-semibold min-[360px]:inline">
+              {appName}
+            </span>
           </Link>
 
           <nav
@@ -27,29 +59,86 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
             <AccountActions signedIn={signedIn} />
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2 lg:hidden">
+          <div className="flex shrink-0 items-center gap-1 lg:hidden">
             <Link
+              aria-label="Cart"
               href="/cart"
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-3 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+              className="inline-flex size-11 items-center justify-center rounded-md text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             >
-              Cart
+              <CartIcon />
             </Link>
-            <Link
-              href={signedIn ? "/account" : "/sign-in"}
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 transition hover:border-zinc-500 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+            <button
+              aria-controls={drawerId}
+              aria-expanded={mobileOpen}
+              aria-label="Open navigation"
+              className="inline-flex size-11 items-center justify-center rounded-md text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+              onClick={() => setMobileOpen(true)}
+              type="button"
             >
-              {signedIn ? "Account" : "Sign in"}
-            </Link>
+              <MenuIcon />
+            </button>
           </div>
         </div>
-
-        <nav
-          aria-label="Mobile primary navigation"
-          className="-mx-4 flex snap-x gap-1 overflow-x-auto px-4 pb-3 text-zinc-600 sm:-mx-6 sm:px-6 lg:hidden"
-        >
-          <PrimaryLinks signedIn={signedIn} />
-        </nav>
       </div>
+
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            aria-label="Close navigation overlay"
+            className="absolute inset-0 bg-zinc-950/45 backdrop-blur-[1px]"
+            onClick={() => setMobileOpen(false)}
+            type="button"
+          />
+          <section
+            aria-label="Mobile navigation drawer"
+            className="absolute inset-y-0 right-0 flex w-[min(22rem,calc(100%-3rem))] flex-col border-l border-zinc-200 bg-white shadow-2xl"
+            id={drawerId}
+          >
+            <div className="flex min-h-16 items-center justify-between gap-3 border-b border-zinc-200 px-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-sm font-bold text-white"
+                >
+                  {brandInitial}
+                </span>
+                <span className="truncate font-semibold text-zinc-950">{appName}</span>
+              </div>
+              <button
+                aria-label="Close navigation"
+                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+                onClick={() => setMobileOpen(false)}
+                type="button"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <nav aria-label="Mobile primary navigation" className="grid gap-1 p-3">
+              <MobileLink href="/products" icon={<ProductsIcon />} onClick={() => setMobileOpen(false)}>
+                Products
+              </MobileLink>
+              {signedIn ? (
+                <>
+                  <MobileLink href="/preorders" icon={<PreordersIcon />} onClick={() => setMobileOpen(false)}>
+                    Preorders
+                  </MobileLink>
+                  <MobileLink href="/orders" icon={<OrdersIcon />} onClick={() => setMobileOpen(false)}>
+                    Orders
+                  </MobileLink>
+                  <MobileLink href="/account" icon={<AccountIcon />} onClick={() => setMobileOpen(false)}>
+                    Account
+                  </MobileLink>
+                </>
+              ) : (
+                <MobileLink href="/sign-in" icon={<SignInIcon />} onClick={() => setMobileOpen(false)}>
+                  Sign in
+                </MobileLink>
+              )}
+            </nav>
+          </section>
+        </div>
+      ) : null}
     </header>
   );
 }
@@ -57,15 +146,15 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
 function PrimaryLinks({ signedIn }: { signedIn: boolean }) {
   return (
     <>
-      <Link href="/products" className={`${baseLinkClass} snap-start`}>
+      <Link href="/products" className={baseLinkClass}>
         Products
       </Link>
       {signedIn ? (
         <>
-          <Link href="/preorders" className={`${baseLinkClass} snap-start`}>
+          <Link href="/preorders" className={baseLinkClass}>
             Preorders
           </Link>
-          <Link href="/orders" className={`${baseLinkClass} snap-start`}>
+          <Link href="/orders" className={baseLinkClass}>
             Orders
           </Link>
         </>
@@ -99,5 +188,102 @@ function AccountActions({ signedIn }: { signedIn: boolean }) {
         Cart
       </Link>
     </>
+  );
+}
+
+function MobileLink({
+  children,
+  href,
+  icon,
+  onClick,
+}: {
+  children: ReactNode;
+  href: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      className="flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+      href={href}
+      onClick={onClick}
+    >
+      <span aria-hidden="true" className="inline-flex size-6 items-center justify-center text-zinc-500">
+        {icon}
+      </span>
+      {children}
+    </Link>
+  );
+}
+
+const iconClassName = "size-5";
+
+function CartIcon() {
+  return (
+    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h1.5l1.5 9h10.5l1.5-6.75H6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 18.75h.008v.008H9v-.008Zm7.5 0h.008v.008H16.5v-.008Z" />
+    </svg>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" d="m6 6 12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
+function ProductsIcon() {
+  return (
+    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 7.5 7.5-4 7.5 4v9L12 20.5l-7.5-4v-9Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 7.5 7.5 4 7.5-4M12 11.5v9" />
+    </svg>
+  );
+}
+
+function PreordersIcon() {
+  return (
+    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="8.25" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.75v4.75l3 1.75" />
+    </svg>
+  );
+}
+
+function OrdersIcon() {
+  return (
+    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 3.75h10v16.5l-2.5-1.5-2.5 1.5-2.5-1.5-2.5 1.5V3.75Z" />
+      <path strokeLinecap="round" d="M9 8h6M9 12h6M9 16h3" />
+    </svg>
+  );
+}
+
+function AccountIcon() {
+  return (
+    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="8.25" r="3.25" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5.75 19.5c.75-3.5 2.85-5.25 6.25-5.25s5.5 1.75 6.25 5.25" />
+    </svg>
+  );
+}
+
+function SignInIcon() {
+  return (
+    <svg aria-hidden="true" className={iconClassName} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 5.25H7.25A2.25 2.25 0 0 0 5 7.5v9A2.25 2.25 0 0 0 7.25 18.75h6.25" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m13 8 4 4-4 4M9 12h8" />
+    </svg>
   );
 }
