@@ -41,7 +41,8 @@ begin
      or to_regclass('public.payments') is null
      or to_regclass('public.inventory') is null
      or to_regclass('public.storefront_configurations') is null
-     or to_regclass('public.limited_time_deals') is null then
+     or to_regclass('public.limited_time_deals') is null
+     or to_regclass('public.product_types') is null then
     raise exception 'restored database is missing critical retail commerce tables';
   end if;
 
@@ -55,10 +56,21 @@ begin
   if not exists (
     select 1
     from public.products
-    where slug = 'smp-play-booster-box'
+    where slug = 'mtg-smp-booster-box-en'
+      and product_type = 'booster_box'
+      and language = 'EN'
       and active
   ) then
     raise exception 'restored database is missing seeded catalog data';
+  end if;
+
+  if not exists (
+    select 1
+    from public.product_types
+    where code = 'booster_box'
+      and active
+  ) then
+    raise exception 'restored database is missing managed product types';
   end if;
 
   if not exists (

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { CatalogReadinessAlert } from "@/app/(shop)/control/_components/catalog-readiness-alert";
 import { ControlShell } from "@/app/(shop)/control/_components/control-shell";
 import { requireControlPermission } from "@/lib/control-access";
 
@@ -11,5 +12,12 @@ export const metadata: Metadata = {
 
 export default async function ControlLayout({ children }: { children: ReactNode }) {
   const { staff } = await requireControlPermission("view_control", "/control");
-  return <ControlShell staff={staff}>{children}</ControlShell>;
+  return (
+    <ControlShell staff={staff}>
+      <div className="space-y-6">
+        <CatalogReadinessAlert />
+        {children}
+      </div>
+    </ControlShell>
+  );
 }

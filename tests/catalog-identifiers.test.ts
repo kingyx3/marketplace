@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
+import {
+  productTypeCodeFromName,
+  setCodeFromName,
+  slugFromName,
+} from "@/lib/catalog-identifiers";
 import { controlCategoryFromForm, controlSetFromForm } from "@/lib/control-forms";
 
 describe("catalog identifiers", () => {
@@ -19,6 +23,14 @@ describe("catalog identifiers", () => {
       "A-VERY-LONG-SET"
     );
     expect(setCodeFromName("A")).toBe("A-1");
+  });
+
+  it("creates reusable product type codes from display names", () => {
+    expect(productTypeCodeFromName("Premium Collection Box")).toBe(
+      "premium_collection_box"
+    );
+    expect(productTypeCodeFromName("151 Case")).toBe("type_151_case");
+    expect(productTypeCodeFromName("Pokémon Élite Box")).toBe("pokemon_elite_box");
   });
 
   it("derives identifiers in detailed category and set forms", () => {

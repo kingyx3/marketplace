@@ -19,29 +19,47 @@ export interface CatalogSetOption {
   code: string;
 }
 
+export interface CatalogProductTypeOption {
+  code: string;
+  name: string;
+}
+
 type CategoryMode = "existing" | "new";
-type SetMode = "none" | "existing" | "new";
+type SetMode = "existing" | "new";
+type ProductTypeMode = "existing" | "new";
 
 export function ProductIntakeForm({
   categories,
+  productTypes,
   sets,
 }: {
   categories: CatalogCategoryOption[];
+  productTypes: CatalogProductTypeOption[];
   sets: CatalogSetOption[];
 }) {
   const [state, action] = useActionState(createCatalogProduct, initialCatalogProductActionState);
+  const initialCategoryId = categories[0]?.id ?? "";
+  const initialCategoryHasSets = sets.some((set) => set.categoryId === initialCategoryId);
   const [categoryMode, setCategoryMode] = useState<CategoryMode>(
     categories.length === 0 ? "new" : "existing"
   );
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
-  const [setMode, setSetMode] = useState<SetMode>("none");
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const [setMode, setSetMode] = useState<SetMode>(initialCategoryHasSets ? "existing" : "new");
   const [setId, setSetId] = useState("");
+  const [productTypeMode, setProductTypeMode] = useState<ProductTypeMode>(
+    productTypes.length === 0 ? "new" : "existing"
+  );
+  const [productType, setProductType] = useState(productTypes[0]?.code ?? "");
   const visibleSets = sets.filter((set) => set.categoryId === categoryId);
 
   function selectCategoryMode(mode: CategoryMode) {
     setCategoryMode(mode);
     setSetId("");
-    setSetMode("none");
+    if (mode === "new") {
+      setSetMode("new");
+      return;
+    }
+    setSetMode(visibleSets.length > 0 ? "existing" : "new");
   }
 
   return (
@@ -61,24 +79,66 @@ export function ProductIntakeForm({
 
       <section className="grid gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-semibold text-zinc-950">Product</h3>
-          <span className="text-xs text-zinc-500">Required fields only</span>
+          <div>
+            <h3 className="font-semibold text-zinc-950">Product</h3>
+            <p className="mt-1 text-xs text-zinc-500">
+              The display name and slug are generated from category, set, type, and language.
+            </p>
+          </div>
+          <span className="text-xs text-zinc-500">No product name required</span>
         </div>
-        <Field label="Name" error={state.field === "productSlug"}>
-          <input className={inputClass} maxLength={160} name="name" required />
-          <IdentifierHint>Slug is generated automatically from the product name.</IdentifierHint>
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Type">
-            <select className={inputClass} defaultValue="booster_box" name="productType">
-              <option value="booster_box">Booster box</option>
-              <option value="collector_box">Collector box</option>
-              <option value="bundle">Bundle</option>
-              <option value="case">Case</option>
-              <option value="other">Other</option>
-            </select>
-          </Field>
-          <Field label="Language">
+
+        <div className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-semibold text-zinc-950">Product type</h4>
+              <p className="mt-1 text-xs text-zinc-500">Choose a reusable type or add one inline.</p>
+            </div>
+            <div className="flex rounded-md border border-zinc-300 bg-zinc-50 p-1 text-xs font-semibold">
+              <ModeButton
+                active={productTypeMode === "existing"}
+                disabled={productTypes.length === 0}
+                onClick={() => setProductTypeMode("existing")}
+              >
+                Existing
+              </ModeButton>
+              <ModeButton
+                active={productTypeMode === "new"}
+                onClick={() => setProductTypeMode("new")}
+              >
+                Add type
+              </ModeButton>
+            </div>
+          </div>
+          <input name="productTypeMode" type="hidden" value={productTypeMode} />
+          {productTypeMode === "existing" ? (
+            <Field label="Type" error={state.field === "productType"}>
+              <select
+                className={inputClass}
+                name="productType"
+                onChange={(event) => setProductType(event.target.value)}
+                required
+                value={productType}
+              >
+                {productTypes.map((type) => (
+                  <option key={type.code} value={type.code}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : (
+            <Field label="New type name" error={state.field === "productType"}>
+              <input className={inputClass} maxLength={160} name="newProductTypeName" required />
+              <IdentifierHint>
+                A reusable dropdown code is generated automatically from this name.
+              </IdentifierHint>
+            </Field>
+          )}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Language" error={state.field === "productIdentity"}>
             <input className={inputClass} defaultValue="EN" maxLength={8} name="language" required />
           </Field>
           <Field label="Image URL">
@@ -123,9 +183,12 @@ export function ProductIntakeForm({
                 className={inputClass}
                 name="categoryId"
                 onChange={(event) => {
-                  setCategoryId(event.target.value);
+                  const nextCategoryId = event.target.value;
+                  setCategoryId(nextCategoryId);
                   setSetId("");
-                  setSetMode("none");
+                  setSetMode(
+                    sets.some((set) => set.categoryId === nextCategoryId) ? "existing" : "new"
+                  );
                 }}
                 required
                 value={categoryId}
@@ -155,18 +218,11 @@ export function ProductIntakeForm({
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Step 2</p>
               <h3 className="font-semibold text-zinc-950">Set</h3>
-              <p className="mt-1 text-xs text-zinc-500">Optional. Sets are always created under the category above.</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Required. Products are identified by their set, type, and language.
+              </p>
             </div>
             <div className="flex flex-wrap rounded-md border border-zinc-300 bg-white p-1 text-xs font-semibold">
-              <ModeButton
-                active={setMode === "none"}
-                onClick={() => {
-                  setSetMode("none");
-                  setSetId("");
-                }}
-              >
-                No set
-              </ModeButton>
               <ModeButton
                 active={setMode === "existing"}
                 disabled={categoryMode !== "existing" || visibleSets.length === 0}

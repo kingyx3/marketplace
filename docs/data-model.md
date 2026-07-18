@@ -5,11 +5,13 @@ The executable source of truth is [`supabase/migrations/`](../supabase/migration
 ## Entity map
 
 ```text
-tcg_categories -> sets_releases -> products -> product_variants -> booster_box_skus
-                                      |                                 |
-                                      -> listing_items                  |
-                                                                        v
-         suppliers -> purchase_orders -> purchase_order_items ------> inventory
+product_types -------------------------> products
+                                          ^
+tcg_categories -> sets_releases ---------+-> product_variants -> booster_box_skus
+                                          |                         |
+                                          -> listing_items          |
+                                                                    v
+     suppliers -> purchase_orders -> purchase_order_items ------> inventory
 
 customers -> preorders --(convert)--> orders -> order_items
     |            |                       |-> shipments
@@ -30,9 +32,11 @@ Money uses integer cents plus a currency code. Retail checkout quotes current SK
 
 ### Catalog and listings
 
+Every product belongs to one category and one set. `product_types` stores the reusable administrator-managed type options shown in product forms. Product records do not require a separately entered name or slug: the database derives the display name from set, product type, and language, and derives the unique slug from category slug, set code, product type code, and language code. The canonical identity is therefore the category–set–type–language combination.
+
 `products` and `booster_box_skus` use active/archive state rather than destructive deletion. `listing_items` stores title overrides, badges, tags, customer limits, preorder reserve, featured ordering, and publish state. Active listings are retail-only and use `channels = ['b2c']`.
 
-`limited_time_deals` attaches time-bounded public or member offers to SKUs. Deals are presented inside Catalog and are revalidated during checkout.
+`limited_time_deals` attaches time-bounded public or member offers to SKUs. Deals are presented inside Products and are revalidated during checkout.
 
 ### Inventory and purchasing
 
@@ -54,10 +58,10 @@ Customers own their account, orders, preorders, payments, shipments, notificatio
 
 ### Admin operations
 
-Catalog, SKU, image, listing, deal, inventory, purchase-order, preorder-allocation, order, refund, reconciliation, and exception changes use explicit service-role functions. Critical mutations are recorded in `audit_logs`.
+Catalog, product-type, SKU, image, listing, deal, inventory, purchase-order, preorder-allocation, order, refund, reconciliation, and exception changes use explicit service-role functions. Critical mutations are recorded in `audit_logs`.
 
 ## Row-level security
 
 RLS is enabled on customer-facing tables. Public reads are limited to active catalog data, availability, published listings, active deals, and active storefront configuration.
 
-Authenticated customers can read their own customer, order, preorder, payment, shipment, notification, and waitlist rows. Supply-side and operational tables—including suppliers, purchase orders, allocation rules, refunds, audit logs, webhook events, and payment exceptions—remain service-role only.
+Authenticated customers can read their own customer, order, preorder, payment, shipment, notification, and waitlist rows. Supply-side and operational tables—including product types, suppliers, purchase orders, allocation rules, refunds, audit logs, webhook events, and payment exceptions—remain service-role only.
