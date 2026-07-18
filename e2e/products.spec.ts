@@ -1,9 +1,22 @@
 import { expect, test } from "./fixtures";
 
 const PRODUCT_RESULTS = { name: "Product results" } as const;
+const CONSENT_COOKIE = "marketplace_cookie_consent";
 
 test.describe("products", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ context, page }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    if (typeof baseURL !== "string") {
+      throw new Error("Products E2E tests require a string baseURL");
+    }
+
+    await context.addCookies([
+      {
+        name: CONSENT_COOKIE,
+        value: "essential",
+        url: baseURL,
+      },
+    ]);
     await page.goto("/products");
     await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
   });
