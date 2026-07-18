@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { DealCard } from "@/app/_components/deal-card";
-import { StatusBadge } from "@/app/_components/status-badge";
 import { getCurrentViewer } from "@/lib/auth";
 import { getCatalogProducts, type CatalogProduct } from "@/lib/catalog";
 import { getStorefrontDeals } from "@/lib/deals";
@@ -46,8 +45,7 @@ export default async function HomePage({
 
         <div className="grid min-h-[340px] content-between gap-8 sm:min-h-[390px] sm:gap-10">
           <div className="max-w-2xl">
-            <StatusBadge tone="success">Live stock and preorders</StatusBadge>
-            <h1 className="mt-5 max-w-2xl text-3xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+            <h1 className="max-w-2xl text-3xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
               Sealed products, clear prices, no guesswork.
             </h1>
             <p className="mt-4 max-w-xl text-base leading-7 text-zinc-100 sm:mt-5 sm:text-lg">
