@@ -3,9 +3,11 @@ import { collectReadiness, shallowHealth } from "@/lib/readiness";
 
 describe("health and readiness", () => {
   it("keeps shallow health dependency-free", () => {
-    expect(shallowHealth(new Date("2026-07-04T12:00:00.000Z"))).toEqual({
+    expect(
+      shallowHealth(new Date("2026-07-04T12:00:00.000Z"), { APP_NAME: "Configured Store" })
+    ).toEqual({
       status: "ok",
-      service: "Marketplace",
+      service: "Configured Store",
       timestamp: "2026-07-04T12:00:00.000Z",
     });
   });
