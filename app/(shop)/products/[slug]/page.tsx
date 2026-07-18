@@ -54,9 +54,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
     : null;
   const available = getAvailable(product);
   const preorderTimeline = [
-    { label: "Deposit", date: "Today", state: "current" as const },
+    { label: "Paid in full", date: "Today", state: "current" as const },
     { label: "Allocation", date: "After supplier confirmation", state: "upcoming" as const },
-    { label: "Balance", date: "When allocated", state: "upcoming" as const },
+    { label: "Shortfall refund", date: "If allocation is below your quantity", state: "upcoming" as const },
     { label: "Ship", date: `After ${product.releaseDate}`, state: "upcoming" as const },
   ];
 
@@ -151,19 +151,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </Link>
               )}
               {product.setStatus === "preorder_open" && skuId ? (
-                <CartCheckoutPanel
-                  authRedirectPath={`/products/${product.slug}`}
-                  clearCartOnSuccess={false}
-                  items={[{ skuId, quantity: 1 }]}
-                  mode="preorder"
-                  publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                  returnPath="/preorders?checkout=processing"
-                  startLabel="Pay preorder deposit"
-                  successHref="/preorders"
-                  successLabel="View preorders"
-                  supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
-                  supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
-                />
+                <>
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+                    Preorders are charged 100% upfront. If confirmed supplier allocation is lower than your requested quantity, the difference is refunded through Stripe.
+                  </div>
+                  <CartCheckoutPanel
+                    authRedirectPath={`/products/${product.slug}`}
+                    clearCartOnSuccess={false}
+                    items={[{ skuId, quantity: 1 }]}
+                    mode="preorder"
+                    publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
+                    returnPath="/preorders?checkout=processing"
+                    startLabel="Pay preorder in full"
+                    successHref="/preorders"
+                    successLabel="View preorders"
+                    supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
+                    supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+                  />
+                </>
               ) : null}
               {skuId ? (
                 <WaitlistSignupPanel
