@@ -21,8 +21,15 @@ begin
   insert into public.sets_releases (id, category_id, name, code, status)
   values (v_set_id, v_category_id, 'Delivery Test Set', 'DELIVERY', 'released');
 
-  insert into public.products (id, category_id, set_id, product_type, language)
-  values (v_product_id, v_category_id, v_set_id, 'booster_box', 'EN');
+  insert into public.products (id, name, category_id, set_id, product_type, language)
+  values (
+    v_product_id,
+    'Delivery Test Set Booster Box',
+    v_category_id,
+    v_set_id,
+    'booster_box',
+    'EN'
+  );
 
   insert into public.product_variants (id, product_id, name)
   values (v_variant_id, v_product_id, 'default');
