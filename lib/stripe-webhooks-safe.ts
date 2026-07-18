@@ -1,5 +1,5 @@
-import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type Stripe from "stripe";
 
 import { sendOrderConfirmationEmail } from "@/lib/notifications";
 import { createStripeClient } from "@/lib/stripe";
@@ -63,37 +63,42 @@ async function handlePaymentIntentSucceeded(
   if (orderId) {
     const result = await settleOrderPayment(supabase, orderId, intent);
     if (result === "paid") {
-      if (payment) {
-        await updatePayment(
-          supabase,
-          payment.id,
-          { status: "captured", captured_at: new Date().toISOString() },
-          ["pending", "requires_capture", "authorized", "failed", "cancelled"]
-        );
-      }
       await sendOrderConfirmationEmail(supabase, orderId);
       return;
     }
 
-    await refundLateOrderPayment(supabase, stripe, payment, orderId, intent, result);
+    await refundNonPayableIntent(
+      supabase,
+      stripe,
+      payment ?? (await paymentByIntent(supabase, intent.id)),
+      intent,
+      {
+        entityKey: "order_id",
+        entityId: orderId,
+        reason: result === "expired" ? "checkout_reservation_expired" : "order_not_payable",
+        idempotencyKey: `late-order-refund:${orderId}:${intent.id}`,
+      }
+    );
     return;
   }
 
-  if (!preorderId || !payment) return;
+  if (!preorderId) return;
 
-  await updatePayment(
+  const result = await settlePreorderPayment(supabase, preorderId, intent);
+  if (result === "paid") return;
+
+  await refundNonPayableIntent(
     supabase,
-    payment.id,
-    { status: "captured", captured_at: new Date().toISOString() },
-    ["pending", "requires_capture", "authorized", "failed"]
+    stripe,
+    payment ?? (await paymentByIntent(supabase, intent.id)),
+    intent,
+    {
+      entityKey: "preorder_id",
+      entityId: preorderId,
+      reason: "preorder_not_payable",
+      idempotencyKey: `late-preorder-refund:${preorderId}:${intent.id}`,
+    }
   );
-
-  const { error } = await supabase
-    .from("preorders")
-    .update({ status: "paid", balance_cents: 0 })
-    .eq("id", preorderId)
-    .in("status", ["pending_payment", "pending_deposit", "deposited"]);
-  if (error) throw new Error(error.message);
 }
 
 async function handlePaymentIntentFailed(
@@ -149,15 +154,35 @@ async function settleOrderPayment(
   throw new Error("order payment settlement returned an invalid result");
 }
 
-async function refundLateOrderPayment(
+async function settlePreorderPayment(
+  supabase: SupabaseClient,
+  preorderId: string,
+  intent: Stripe.PaymentIntent
+): Promise<"paid" | "not_payable"> {
+  const { data, error } = await supabase.rpc("settle_preorder_payment", {
+    p_preorder_id: preorderId,
+    p_provider_payment_id: intent.id,
+    p_amount_cents: intent.amount_received || intent.amount,
+    p_currency: intent.currency,
+  });
+  if (error) throw new Error(error.message);
+  if (data === "paid" || data === "not_payable") return data;
+  throw new Error("preorder payment settlement returned an invalid result");
+}
+
+async function refundNonPayableIntent(
   supabase: SupabaseClient,
   stripe: Stripe,
   payment: PaymentRecord | null,
-  orderId: string,
   intent: Stripe.PaymentIntent,
-  settlement: "expired" | "not_payable"
+  input: {
+    entityKey: "order_id" | "preorder_id";
+    entityId: string;
+    reason: string;
+    idempotencyKey: string;
+  }
 ): Promise<void> {
-  if (!payment) throw new Error("late order payment record not found");
+  if (!payment) throw new Error("captured payment record not found for automatic refund");
 
   await updatePayment(
     supabase,
@@ -166,17 +191,16 @@ async function refundLateOrderPayment(
     ["pending", "requires_capture", "authorized", "failed", "cancelled"]
   );
 
-  const amount = intent.amount_received || intent.amount;
   const refund = await stripe.refunds.create(
     {
       payment_intent: intent.id,
-      amount,
+      amount: intent.amount_received || intent.amount,
       metadata: {
-        order_id: orderId,
-        reason: settlement === "expired" ? "checkout_reservation_expired" : "order_not_payable",
+        [input.entityKey]: input.entityId,
+        reason: input.reason,
       },
     },
-    { idempotencyKey: `late-order-refund:${orderId}:${intent.id}` }
+    { idempotencyKey: input.idempotencyKey }
   );
 
   await upsertRefund(supabase, {
@@ -184,7 +208,7 @@ async function refundLateOrderPayment(
     refundId: refund.id,
     amountCents: refund.amount,
     currency: payment.currency,
-    reason: settlement === "expired" ? "checkout_reservation_expired" : "order_not_payable",
+    reason: input.reason,
     status: refundStatus(refund.status),
   });
 
@@ -234,7 +258,7 @@ async function handleChargeRefunded(
       .from("preorders")
       .update({ status: "refunded" })
       .eq("id", payment.preorder_id)
-      .in("status", ["paid", "allocated", "refund_pending", "converted"]);
+      .in("status", ["paid", "allocated", "refund_pending", "converted", "cancelled"]);
   }
 }
 
