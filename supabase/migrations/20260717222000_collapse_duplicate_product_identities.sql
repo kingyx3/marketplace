@@ -68,7 +68,7 @@ begin
       and duplicate_product.id = duplicate_record.duplicate_product_id;
 
     -- Merge the duplicate listing into the canonical product before removing it.
-    insert into public.listing_items (
+    insert into public.listing_items as current_listing (
       product_id,
       title_override,
       badge_label,
@@ -94,12 +94,12 @@ begin
     from public.listing_items duplicate_listing
     where duplicate_listing.product_id = duplicate_record.duplicate_product_id
     on conflict (product_id) do update
-    set title_override = coalesce(public.listing_items.title_override, excluded.title_override),
-        badge_label = coalesce(public.listing_items.badge_label, excluded.badge_label),
+    set title_override = coalesce(current_listing.title_override, excluded.title_override),
+        badge_label = coalesce(current_listing.badge_label, excluded.badge_label),
         tags = (
           select coalesce(array_agg(distinct merged_tag order by merged_tag), '{}'::text[])
           from unnest(
-            coalesce(public.listing_items.tags, '{}'::text[])
+            coalesce(current_listing.tags, '{}'::text[])
             || coalesce(excluded.tags, '{}'::text[])
           ) as merged_tags(merged_tag)
           where trim(merged_tag) <> ''
@@ -107,25 +107,25 @@ begin
         channels = (
           select coalesce(array_agg(distinct merged_channel order by merged_channel), array['b2c']::text[])
           from unnest(
-            coalesce(public.listing_items.channels, array['b2c']::text[])
+            coalesce(current_listing.channels, array['b2c']::text[])
             || coalesce(excluded.channels, array['b2c']::text[])
           ) as merged_channels(merged_channel)
           where trim(merged_channel) <> ''
         ),
         max_per_customer = coalesce(
-          public.listing_items.max_per_customer,
+          current_listing.max_per_customer,
           excluded.max_per_customer
         ),
         preorder_reserve = greatest(
-          public.listing_items.preorder_reserve,
+          current_listing.preorder_reserve,
           excluded.preorder_reserve
         ),
         sort_priority = least(
-          public.listing_items.sort_priority,
+          current_listing.sort_priority,
           excluded.sort_priority
         ),
-        featured = public.listing_items.featured or excluded.featured,
-        published = public.listing_items.published or excluded.published,
+        featured = current_listing.featured or excluded.featured,
+        published = current_listing.published or excluded.published,
         updated_at = now();
 
     delete from public.listing_items
