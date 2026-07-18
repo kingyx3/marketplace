@@ -59,7 +59,6 @@ interface InventoryCapacityRow {
 
 interface AllocationRuleRow {
   priority: number;
-  channel: "b2c";
   reserve_quantity: number;
   max_per_customer: number | null;
 }
@@ -134,7 +133,9 @@ export async function previewPreorderAllocationForSku(
     loadSkuLabel(supabase, parsedSkuId),
   ]);
 
-  if (preorders.length === 0) throw badRequest("No fully paid preorders are awaiting allocation");
+  if (preorders.length === 0) {
+    throw badRequest("No fully paid preorders are awaiting allocation");
+  }
 
   const availableQty = Math.max(
     0,
@@ -147,9 +148,11 @@ export async function previewPreorderAllocationForSku(
     quantity: preorder.quantity,
     position,
   }));
-  const proposed = allocate(availableQty, rules, pending);
   const allocatedByPreorder = new Map(
-    proposed.map((allocation) => [allocation.preorderId, allocation.allocated])
+    allocate(availableQty, rules, pending).map((allocation) => [
+      allocation.preorderId,
+      allocation.allocated,
+    ])
   );
 
   const rows: PreorderAllocationPreviewRow[] = preorders.map((preorder) => {
@@ -176,15 +179,20 @@ export async function previewPreorderAllocationForSku(
     throw conflict("Allocation queue contains mixed currencies");
   }
 
-  const payload = rows.map((row) => ({
-    preorderId: row.preorderId,
-    requestedQty: row.requestedQty,
-    allocatedQty: row.allocatedQty,
-    unitPriceCents: row.unitPriceCents,
-    createdAt: row.createdAt,
-  }));
   const fingerprint = createHash("sha256")
-    .update(JSON.stringify({ skuId: parsedSkuId, availableQty, payload }))
+    .update(
+      JSON.stringify({
+        skuId: parsedSkuId,
+        availableQty,
+        rows: rows.map((row) => ({
+          preorderId: row.preorderId,
+          requestedQty: row.requestedQty,
+          allocatedQty: row.allocatedQty,
+          unitPriceCents: row.unitPriceCents,
+          createdAt: row.createdAt,
+        })),
+      })
+    )
     .digest("hex");
 
   return {
@@ -212,7 +220,9 @@ export async function executePreorderAllocationForSku(
   if (staged.length === 0) {
     const preview = await previewPreorderAllocationForSku(supabase, parsed.skuId);
     if (preview.fingerprint !== parsed.fingerprint) {
-      throw conflict("The preorder queue or available stock changed. Review a fresh allocation preview.");
+      throw conflict(
+        "The preorder queue or available stock changed. Review a fresh allocation preview."
+      );
     }
 
     const { data, error } = await supabase.rpc("stage_preorder_allocations", {
@@ -228,7 +238,9 @@ export async function executePreorderAllocationForSku(
     staged = (data ?? []) as StagedAllocationRow[];
   }
 
-  if (staged.length === 0) throw conflict("No preorder allocation remains to be confirmed");
+  if (staged.length === 0) {
+    throw conflict("No preorder allocation remains to be confirmed");
+  }
 
   let refundsCreated = 0;
   let refundCents = 0;
@@ -236,7 +248,7 @@ export async function executePreorderAllocationForSku(
 
   for (const row of staged) {
     let refundId: string | null = null;
-    let refundStatus: Stripe.Refund.Status | null = null;
+    let refundStatus: string | null = null;
 
     if (row.refund_cents > 0) {
       const refund = await stripe.refunds.create(
@@ -296,7 +308,7 @@ async function loadAllocationRules(
 ): Promise<AllocationRule[]> {
   const { data, error } = await supabase
     .from("allocation_rules")
-    .select("priority, channel, reserve_quantity, max_per_customer")
+    .select("priority, reserve_quantity, max_per_customer")
     .eq("sku_id", skuId)
     .eq("channel", "b2c")
     .eq("active", true)
@@ -321,7 +333,9 @@ async function loadPaidPreorders(
 ): Promise<PreorderRow[]> {
   const { data, error } = await supabase
     .from("preorders")
-    .select("id, customer_id, quantity, unit_price_cents, currency, created_at, customers(email, name)")
+    .select(
+      "id, customer_id, quantity, unit_price_cents, currency, created_at, customers(email, name)"
+    )
     .eq("sku_id", skuId)
     .eq("channel", "b2c")
     .eq("status", "paid")
@@ -377,7 +391,9 @@ async function loadStagedAllocations(
 
   return preorders.map((preorder) => {
     const payment = paymentByPreorder.get(String(preorder.id));
-    if (!payment) throw conflict(`Captured payment is missing for preorder ${preorder.id}`);
+    if (!payment) {
+      throw conflict(`Captured payment is missing for preorder ${preorder.id}`);
+    }
     return {
       preorder_id: String(preorder.id),
       allocated_qty: Number(preorder.allocated_qty),
