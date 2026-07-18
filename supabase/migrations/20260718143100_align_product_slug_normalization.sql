@@ -1,7 +1,9 @@
 -- Match PostgreSQL product slug generation to the Unicode normalization used by the admin UI.
--- Supabase installs optional extensions in the extensions schema.
+-- Hosted Supabase provides the extensions schema; create it explicitly for local PostgreSQL contract tests.
 
+create schema if not exists extensions;
 create extension if not exists unaccent with schema extensions;
+grant usage on schema extensions to service_role;
 
 create or replace function public.catalog_slug_from_name(p_value text)
 returns text
