@@ -1,0 +1,40 @@
+name: Repair PR 86 lockfile
+
+on:
+  push:
+    branches:
+      - dependabot/npm_and_yarn/application-dependencies-03b5f44352
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: dependabot/npm_and_yarn/application-dependencies-03b5f44352
+          fetch-depth: 0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 22.17.0
+          cache: npm
+      - name: Regenerate compatible lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const p=require('./package.json'); if (p.devDependencies.eslint !== '9.39.2' || p.devDependencies.typescript !== '5.9.3') process.exit(78)"
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          node -e "const p=require('./package-lock.json').packages['']; if (p.devDependencies.eslint !== '9.39.2' || p.devDependencies.typescript !== '5.9.3') process.exit(1)"
+      - name: Commit repaired lockfile and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/repair-pr-86-lockfile.yml
+          git add package-lock.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(deps): retain supported ESLint and TypeScript versions'
+          git push origin HEAD:dependabot/npm_and_yarn/application-dependencies-03b5f44352
