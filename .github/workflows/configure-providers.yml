@@ -28,6 +28,7 @@ jobs:
     environment: ${{ inputs.environment }}
     env:
       TARGET_ENV: ${{ inputs.environment }}
+      APP_NAME: ${{ vars.APP_NAME }}
       GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
