@@ -9,8 +9,9 @@ import {
 import { catalogSkuErrorCode, catalogSkuErrorMessage } from "@/lib/catalog-sku-errors";
 
 describe("admin catalog management", () => {
-  it("parses relational product identity fields and normalizes language", () => {
+  it("parses product display names, relational identity fields, and normalized language", () => {
     const form = new FormData();
+    form.set("name", "Pokémon Destined Rivals Booster Box");
     form.set("categoryId", "22222222-2222-4222-8222-222222222222");
     form.set("setId", "33333333-3333-4333-8333-333333333333");
     form.set("productType", "booster_box");
@@ -20,6 +21,7 @@ describe("admin catalog management", () => {
     form.set("active", "true");
 
     expect(adminCatalogProductFromForm(form)).toMatchObject({
+      name: "Pokémon Destined Rivals Booster Box",
       categoryId: "22222222-2222-4222-8222-222222222222",
       setId: "33333333-3333-4333-8333-333333333333",
       productType: "booster_box",
@@ -28,8 +30,9 @@ describe("admin catalog management", () => {
     });
   });
 
-  it("generates identifiers for new hierarchy and product type options", () => {
+  it("generates hierarchy identifiers while preserving the explicit product display name", () => {
     const form = new FormData();
+    form.set("name", "Example Game First Release Premium Collection Box");
     form.set("categoryMode", "new");
     form.set("newCategoryName", "Example Game");
     form.set("newCategoryPublisher", "Example Publisher");
@@ -43,6 +46,7 @@ describe("admin catalog management", () => {
     form.set("active", "true");
 
     expect(adminCatalogProductCreateFromForm(form)).toMatchObject({
+      name: "Example Game First Release Premium Collection Box",
       categoryId: null,
       newCategoryName: "Example Game",
       newCategorySlug: "example-game",
@@ -61,6 +65,7 @@ describe("admin catalog management", () => {
 
   it("requires a new set when creating a new category", () => {
     const form = new FormData();
+    form.set("name", "Example Game Booster Box");
     form.set("categoryMode", "new");
     form.set("newCategoryName", "Example Game");
     form.set("setMode", "existing");
@@ -72,8 +77,21 @@ describe("admin catalog management", () => {
     );
   });
 
+  it("requires a valid product display name", () => {
+    const form = new FormData();
+    form.set("name", "---");
+    form.set("categoryId", "22222222-2222-4222-8222-222222222222");
+    form.set("setId", "33333333-3333-4333-8333-333333333333");
+    form.set("productType", "booster_box");
+
+    expect(() => adminCatalogProductFromForm(form)).toThrow(
+      "Display name must contain letters or numbers for its generated slug"
+    );
+  });
+
   it("rejects invalid product types, malformed SKU currency, and zero selling prices", () => {
     const product = new FormData();
+    product.set("name", "Example Booster Box");
     product.set("categoryId", "22222222-2222-4222-8222-222222222222");
     product.set("setId", "33333333-3333-4333-8333-333333333333");
     product.set("productType", "not valid");
@@ -145,6 +163,13 @@ describe("admin catalog management", () => {
       new URL("../supabase/migrations/20260705020250_admin_catalog_crud.sql", import.meta.url),
       "utf8"
     );
+    const displayNameMigration = await readFile(
+      new URL(
+        "../supabase/migrations/20260718143000_product_display_name_slug.sql",
+        import.meta.url
+      ),
+      "utf8"
+    );
     const action = await readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8");
     const skuErrorPage = await readFile(
       new URL("../app/(shop)/control/operations/sku-error/page.tsx", import.meta.url),
@@ -160,6 +185,8 @@ describe("admin catalog management", () => {
     expect(migration).toContain("and s.active");
     expect(migration).toContain("from public, anon, authenticated");
     expect(migration).toContain("to service_role");
+    expect(displayNameMigration).toContain("'name', v_name");
+    expect(displayNameMigration).toContain("'slug', v_product_slug");
     expect(action).toContain("catalog.sku_save_rejected");
     expect(action).toContain("/control/operations/sku-error?code=${errorCode}");
     expect(skuErrorPage).toContain("SKU could not be saved");
