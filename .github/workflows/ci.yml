@@ -72,18 +72,23 @@ jobs:
     if: needs.changes.outputs.app == 'true'
     uses: ./.github/workflows/app-checks.yml
     with:
+      app_name: ${{ vars.APP_NAME }}
       run_e2e: true
 
   config-contract:
     needs: changes
     if: needs.changes.outputs.config == 'true'
     runs-on: ubuntu-latest
+    env:
+      APP_NAME: ${{ vars.APP_NAME }}
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Require configured app name
+        run: node -e 'if (!process.env.APP_NAME?.trim()) throw new Error("GitHub variable APP_NAME is required")'
       - run: npm ci
       - name: Validate workflow YAML
         run: |
