@@ -101,7 +101,7 @@ describe("control console", () => {
     expect(notifications).toContain('requireApiPermission(request, "manage_full_operations")');
   });
 
-  it("adds relational safeguards, managed product types, and protected administrator grants", async () => {
+  it("adds relational safeguards, canonical product types, and protected administrator grants", async () => {
     const [controlMigration, hardeningMigration, productIdentityMigration] = await Promise.all([
       readFile(
         new URL("../supabase/migrations/20260717090000_control_console.sql", import.meta.url),
@@ -130,15 +130,18 @@ describe("control console", () => {
     expect(controlMigration).toContain("grant execute on function public.admin_upsert_access_grant");
     expect(hardeningMigration).toContain("accepted administrator email cannot be changed");
     expect(hardeningMigration).toContain("synchronize_admin_grant_staff");
-    expect(productIdentityMigration).toContain("create table if not exists public.product_types");
+    expect(productIdentityMigration).toContain("create table public.product_types");
     expect(productIdentityMigration).toContain("alter table public.products alter column set_id set not null");
-    expect(productIdentityMigration).toContain("create or replace function public.set_catalog_product_identity");
+    expect(productIdentityMigration).toContain("create function public.set_catalog_product_identity");
     expect(productIdentityMigration).toContain(
       "new.slug := concat_ws('-', v_category_slug, v_set_segment, v_type_segment, lower(v_language))"
     );
     expect(productIdentityMigration).toContain(
       "product already exists for this category, set, type, and language"
     );
+    expect(productIdentityMigration).not.toContain("create table if not exists public.product_types");
+    expect(productIdentityMigration).not.toContain("where product.set_id is null");
+    expect(productIdentityMigration).not.toContain("'General'");
   });
 });
 
