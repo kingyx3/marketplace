@@ -9,21 +9,29 @@ insert into public.sets_releases (category_id, name, code, release_date, status)
 select id, 'Sample Standard Set', 'SMP', date '2026-08-01', 'preorder_open'
 from public.tcg_categories where slug = 'mtg';
 
-insert into public.products (category_id, set_id, product_type, description, language)
-select c.id, s.id, 'booster_box', '36-pack sealed play booster display box.', 'EN'
+insert into public.products (name, category_id, set_id, product_type, description, language)
+select
+  'Magic: The Gathering Sample Standard Set Booster Box',
+  c.id,
+  s.id,
+  'booster_box',
+  '36-pack sealed play booster display box.',
+  'EN'
 from public.tcg_categories c
 join public.sets_releases s on s.category_id = c.id and s.code = 'SMP'
 where c.slug = 'mtg';
 
 insert into public.product_variants (product_id, name)
-select id, 'default' from public.products where slug = 'mtg-smp-booster-box-en';
+select id, 'default'
+from public.products
+where slug = 'magic-the-gathering-sample-standard-set-booster-box';
 
 insert into public.booster_box_skus
   (product_variant_id, sku, packs_per_box, cards_per_pack, msrp_cents, price_cents, currency, weight_grams)
 select v.id, 'MTG-SMP-PBB-EN', 36, 14, 22000, 19900, 'SGD', 950
 from public.product_variants v
 join public.products p on p.id = v.product_id
-where p.slug = 'mtg-smp-booster-box-en';
+where p.slug = 'magic-the-gathering-sample-standard-set-booster-box';
 
 insert into public.inventory (sku_id, location, on_hand, allocated, incoming, safety_stock)
 select id, 'main', 0, 0, 24, 2
