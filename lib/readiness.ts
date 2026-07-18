@@ -88,17 +88,26 @@ async function checkSupabase(
   }
 
   try {
-    const supabase = injectedClient ?? createSecretClient(env);
-    const { error } = await supabase.from("customers").select("id", { head: true, count: "exact" }).limit(1);
-    return error ? { status: "fail", reason: "query_failed" } : { status: "ok" };
+    const client = injectedClient ?? createSecretClient();
+    const { error } = await client
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .limit(1);
+    if (error) {
+      return { status: "fail", reason: "query_failed" };
+    }
+    return { status: "ok" };
   } catch {
-    return { status: "fail", reason: "client_failed" };
+    return { status: "fail", reason: "client_error" };
   }
 }
 
 function checkStripe(env: EnvLike): ReadinessResponse["checks"]["stripe"] {
-  const secretKey = env.STRIPE_SECRET_KEY?.startsWith("sk_") ? "configured" : "fail";
-  const webhookSecret = env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_") ? "configured" : "fail";
+  const secretKey: CheckStatus = env.STRIPE_SECRET_KEY?.startsWith("sk_") ? "configured" : "fail";
+  const webhookSecret: CheckStatus = env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_")
+    ? "configured"
+    : "fail";
+
   return {
     status: secretKey === "configured" && webhookSecret === "configured" ? "ok" : "fail",
     secretKey,
@@ -113,10 +122,4 @@ function checkNotifications(env: EnvLike): ReadinessResponse["checks"]["notifica
     email: channels.includes("email") ? "configured" : "disabled",
     configuredChannels: channels,
   };
-}
-
-export function aggregateCheckStatus(statuses: CheckStatus[]): "ok" | "degraded" {
-  return statuses.every((status) => status === "ok" || status === "configured" || status === "disabled")
-    ? "ok"
-    : "degraded";
 }
