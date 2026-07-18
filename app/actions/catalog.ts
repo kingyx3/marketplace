@@ -38,6 +38,7 @@ export async function createCatalogProduct(
       p_product_type: input.productType,
       p_new_product_type_name: input.newProductTypeName,
       p_new_product_type_code: input.newProductTypeCode,
+      p_name: input.name,
       p_description: input.description,
       p_language: input.language,
       p_image_url: input.imageUrl,
@@ -102,6 +103,7 @@ export async function upsertCatalogProduct(formData: FormData) {
 
   const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
     p_product_id: input.productId,
+    p_name: input.name,
     p_category_id: input.categoryId,
     p_set_id: input.setId,
     p_product_type: input.productType,
@@ -114,7 +116,7 @@ export async function upsertCatalogProduct(formData: FormData) {
 
   if (error?.code === "23505") {
     throw new Error(
-      "Product save failed: a product already exists for this category, set, type, and language"
+      "Product save failed: the display name generates a slug already used by another product, or this category, set, type, and language combination already exists"
     );
   }
   if (error) throw new Error(`Product save failed: ${error.message}`);
@@ -239,12 +241,27 @@ function revalidateCatalogPaths() {
 
 function catalogProductError(error: { code?: string; message: string }): CatalogProductActionState {
   const message = error.message.toLowerCase();
+  if (message.includes("display name") && message.includes("slug")) {
+    return {
+      status: "error",
+      field: "name",
+      message:
+        "This display name generates a slug already used by another product. Choose a distinct display name; the other product details are preserved.",
+    };
+  }
   if (message.includes("product already exists") || message.includes("product identity already exists")) {
     return {
       status: "error",
       field: "productIdentity",
       message:
         "A product already exists for this category, set, type, and language. Edit that product or change one of those selections; the other product details are preserved.",
+    };
+  }
+  if (message.includes("product name") || message.includes("name required")) {
+    return {
+      status: "error",
+      field: "name",
+      message: error.message,
     };
   }
   if (message.includes("archived product type")) {
@@ -298,7 +315,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "productIdentity",
       message:
-        "A category, set, type, or product already uses the generated identifier. Select the existing record or change the conflicting selection; the product details are preserved.",
+        "A category, set, type, product identity, or generated product slug is already in use. Select the existing record or change the conflicting value; the product details are preserved.",
     };
   }
   if (message.includes("category")) {
