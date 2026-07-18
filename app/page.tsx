@@ -7,6 +7,7 @@ import { getCurrentViewer } from "@/lib/auth";
 import { getCatalogProducts, type CatalogProduct } from "@/lib/catalog";
 import { getStorefrontDeals } from "@/lib/deals";
 import { formatMoney } from "@/lib/money";
+import { indexBestDealsBySku } from "@/lib/storefront-deals";
 
 export const dynamic = "force-dynamic";
 
@@ -20,14 +21,22 @@ export default async function HomePage({
   const signedIn = Boolean(viewer.user);
   const [catalog, deals] = await Promise.all([
     getCatalogProducts(),
-    getStorefrontDeals({ signedIn, limit: 3 }),
+    getStorefrontDeals({ signedIn, limit: 100 }),
   ]);
-  const featuredProducts = (catalog ?? []).filter((product) => product.skus.length > 0).slice(0, 3);
+  const dealsBySku = indexBestDealsBySku(deals);
+  const productsWithSkus = (catalog ?? []).filter((product) => product.skus.length > 0);
+  const featuredProducts = [
+    ...productsWithSkus.filter((product) => dealsBySku.has(product.skus[0]?.sku ?? "")),
+    ...productsWithSkus.filter((product) => !dealsBySku.has(product.skus[0]?.sku ?? "")),
+  ].slice(0, 3);
 
   return (
     <div className="space-y-10 sm:space-y-14">
       {params.account === "deleted" ? (
-        <div className="rounded-md border border-zinc-200 bg-white p-4 text-sm text-zinc-700 shadow-sm" role="status">
+        <div
+          className="rounded-md border border-zinc-200 bg-white p-4 text-sm text-zinc-700 shadow-sm"
+          role="status"
+        >
           Account deleted.
         </div>
       ) : null}
@@ -49,7 +58,8 @@ export default async function HomePage({
               Sealed products, clear prices, no guesswork.
             </h1>
             <p className="mt-4 max-w-xl text-base leading-7 text-zinc-100 sm:mt-5 sm:text-lg">
-              Shop current stock, reserve upcoming releases, and find limited-time deals.
+              Shop current stock, reserve upcoming releases, and find sale prices directly on
+              products.
             </p>
             <div className="mt-7 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap">
               <Link
@@ -59,10 +69,10 @@ export default async function HomePage({
                 Browse products
               </Link>
               <Link
-                href={signedIn ? "/account" : "/products?view=deals"}
+                href={signedIn ? "/account" : "/sign-in"}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-white/60 px-5 text-sm font-semibold text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:w-auto"
               >
-                {signedIn ? "Open account" : "View deals"}
+                {signedIn ? "Open account" : "Sign in"}
               </Link>
             </div>
           </div>
@@ -80,43 +90,24 @@ export default async function HomePage({
           eyebrow="Products"
           title="Featured products"
           href="/products"
-          linkLabel="View products"
+          linkLabel="View all products"
         />
 
         {featuredProducts.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-            {featuredProducts.map((product) => (
-              <FeaturedProductCard key={product.id} product={product} />
-            ))}
+            {featuredProducts.map((product) => {
+              const sku = product.skus[0];
+              const deal = sku ? dealsBySku.get(sku.sku) : undefined;
+              return deal ? (
+                <DealCard key={product.id} deal={deal} />
+              ) : (
+                <FeaturedProductCard key={product.id} product={product} />
+              );
+            })}
           </div>
         ) : (
           <EmptyState text="Products are temporarily unavailable. Try the products page again shortly." />
         )}
-      </section>
-
-      <section>
-        <SectionHeading
-          eyebrow="Deals"
-          title={signedIn ? "Your eligible deals" : "Current offers"}
-          href="/products?view=deals"
-          linkLabel="View deals"
-        />
-
-        {deals.length > 0 ? (
-          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {deals.map((deal) => (
-              <DealCard deal={deal} key={deal.id} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState text="No active deals right now." />
-        )}
-      </section>
-
-      <section aria-label="Customer information" className="grid gap-4 md:grid-cols-3">
-        <InfoCard title="Delivery" href="/shipping" text="Rates and service are shown before payment." />
-        <InfoCard title="Returns" href="/returns" text="Review sealed-product and preorder policies." />
-        <InfoCard title="Privacy" href="/privacy" text="See how account and payment data is handled." />
       </section>
     </div>
   );
@@ -200,20 +191,5 @@ function TrustPoint({ title, children }: { title: string; children: ReactNode })
       <p className="font-semibold text-white">{title}</p>
       <p className="mt-2 text-sm leading-6 text-zinc-200">{children}</p>
     </div>
-  );
-}
-
-function InfoCard({ title, text, href }: { title: string; text: string; href: string }) {
-  return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-zinc-600">{text}</p>
-      <Link
-        className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700 hover:text-emerald-900"
-        href={href}
-      >
-        Read policy
-      </Link>
-    </article>
   );
 }

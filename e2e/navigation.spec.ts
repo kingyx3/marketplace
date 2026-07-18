@@ -33,13 +33,17 @@ test.describe("storefront navigation", () => {
     await expect(navigation.getByRole("link", { name: "Admin" })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: "Control" })).toHaveCount(0);
 
+    const main = page.getByRole("main");
+    await expect(main.getByRole("heading", { name: "Current offers" })).toHaveCount(0);
+    await expect(main.getByRole("heading", { name: "Delivery" })).toHaveCount(0);
+    await expect(main.getByRole("heading", { name: "Returns" })).toHaveCount(0);
+    await expect(main.getByRole("heading", { name: "Privacy" })).toHaveCount(0);
+
     await page.getByRole("link", { name: "Browse products" }).first().click();
     await expect(page).toHaveURL(/\/products$/);
     await expect(page.getByRole("heading", { name: "Sealed products" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Deals" })).toHaveAttribute(
-      "href",
-      "/products?view=deals"
-    );
+    await expect(page.getByRole("navigation", { name: "Product sections" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Deals" })).toHaveCount(0);
   });
 
   test("keeps mobile navigation compact and expandable", async ({ page }) => {

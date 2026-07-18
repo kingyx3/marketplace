@@ -4,8 +4,7 @@ A retail marketplace for sealed trading-card products, limited-time deals, preor
 
 ## Product structure
 
-- `/products` — products, filters, stock, and preorders
-- `/products?view=deals` — current public and member-eligible deals
+- `/products` — products, filters, stock, preorders, and eligible sale prices
 - `/cart` — retail checkout with server-verified totals and shipping
 - `/account`, `/orders`, `/preorders` — authenticated customer activity
 - `/control` — unlinked, role-scoped operations console for authorized administrators
