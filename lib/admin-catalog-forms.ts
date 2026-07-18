@@ -7,6 +7,7 @@ import {
 
 export interface AdminCatalogProductInput {
   productId: string | null;
+  name: string;
   categoryId: string;
   setId: string;
   productType: string;
@@ -61,6 +62,7 @@ const PRODUCT_TYPE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const LANGUAGE_PATTERN = /^[A-Z]{2,8}$/;
+const SKU_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const SET_STATUSES = [
   "announced",
   "preorder_open",
@@ -100,6 +102,9 @@ export function adminCatalogProductCreateFromForm(
   if (!categoryId && !newCategoryName) {
     throw badRequest("Select a category or add a new category");
   }
+  if (newCategoryName && newCategoryName.length > 160) {
+    throw badRequest("New category name must be 160 characters or fewer");
+  }
   if (newCategoryName && (!newCategorySlug || !SLUG_PATTERN.test(newCategorySlug))) {
     throw badRequest("New category name must contain letters or numbers for its generated slug");
   }
@@ -125,6 +130,7 @@ export function adminCatalogProductCreateFromForm(
     newSetStatus = parseSetStatus(optionalString(formData, "newSetStatus") ?? "announced");
 
     if (!newSetName) throw badRequest("New set name is required");
+    if (newSetName.length > 160) throw badRequest("New set name must be 160 characters or fewer");
     if (!newSetCode || !SET_CODE_PATTERN.test(newSetCode)) {
       throw badRequest("New set name must contain letters or numbers for its generated code");
     }
@@ -148,6 +154,9 @@ export function adminCatalogProductCreateFromForm(
       ? productTypeCodeFromName(newProductTypeName)
       : null;
     if (!newProductTypeName) throw badRequest("New product type name is required");
+    if (newProductTypeName.length > 160) {
+      throw badRequest("New product type name must be 160 characters or fewer");
+    }
     if (!newProductTypeCode || !PRODUCT_TYPE_PATTERN.test(newProductTypeCode)) {
       throw badRequest("New product type name must contain letters or numbers");
     }
@@ -196,16 +205,32 @@ function parseSetStatus(value: string): SetStatus {
 
 function commonProductFieldsFromForm(
   formData: FormData
-): Pick<AdminCatalogProductInput, "description" | "language" | "imageUrl" | "active"> {
+): Pick<AdminCatalogProductInput, "name" | "description" | "language" | "imageUrl" | "active"> {
+  const name = requiredString(formData, "name");
+  const generatedSlug = slugFromName(name);
+  if (name.length > 160) throw badRequest("Display name must be 160 characters or fewer");
+  if (!generatedSlug || !SLUG_PATTERN.test(generatedSlug)) {
+    throw badRequest("Display name must contain letters or numbers for its generated slug");
+  }
+
+  const description = optionalString(formData, "description") ?? null;
+  if (description && description.length > 2000) {
+    throw badRequest("Description must be 2000 characters or fewer");
+  }
+
   const language = (optionalString(formData, "language") ?? "EN").toUpperCase();
   if (!LANGUAGE_PATTERN.test(language)) {
     throw badRequest("language must be 2-8 uppercase letters");
   }
 
+  const imageUrl = optionalString(formData, "imageUrl") ?? null;
+  if (imageUrl) assertHttpUrl(imageUrl, "Image URL");
+
   return {
-    description: optionalString(formData, "description") ?? null,
+    name,
+    description,
     language,
-    imageUrl: optionalString(formData, "imageUrl") ?? null,
+    imageUrl,
     active: booleanField(formData, "active", true),
   };
 }
@@ -216,11 +241,19 @@ export function adminCatalogSkuFromForm(formData: FormData): AdminCatalogSkuInpu
     throw badRequest("currency must be a 3-letter code");
   }
 
+  const sku = requiredString(formData, "sku").toUpperCase();
+  if (!SKU_PATTERN.test(sku)) {
+    throw badRequest("SKU must be 1-64 characters using letters, numbers, dots, hyphens, or underscores");
+  }
+
+  const barcode = optionalString(formData, "barcode") ?? null;
+  if (barcode && barcode.length > 64) throw badRequest("Barcode must be 64 characters or fewer");
+
   return {
     skuId: optionalString(formData, "skuId") ?? null,
     productId: requiredString(formData, "productId"),
-    sku: requiredString(formData, "sku").toUpperCase(),
-    barcode: optionalString(formData, "barcode") ?? null,
+    sku,
+    barcode,
     packsPerBox: optionalNonNegativeInteger(formData, "packsPerBox"),
     cardsPerPack: optionalNonNegativeInteger(formData, "cardsPerPack"),
     msrpCents: optionalNonNegativeInteger(formData, "msrpCents"),
@@ -247,6 +280,18 @@ export function adminInventoryAdjustmentFromForm(
     reasonCode,
     reasonNote: optionalString(formData, "reasonNote") ?? null,
   };
+}
+
+function assertHttpUrl(value: string, label: string) {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw badRequest(`${label} must be a valid URL`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw badRequest(`${label} must use http or https`);
+  }
 }
 
 function requiredString(formData: FormData, key: string): string {
