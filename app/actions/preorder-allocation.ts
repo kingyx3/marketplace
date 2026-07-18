@@ -18,6 +18,7 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
     redirect(`/control/preorders?sku=${encodeURIComponent(skuId)}&error=confirmation-required`);
   }
 
+  let summary: string;
   try {
     const result = await executePreorderAllocationForSku(
       createServiceClient(),
@@ -34,13 +35,13 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
     revalidatePath("/control/operations");
     revalidatePath("/preorders");
     revalidatePath("/orders");
-
-    const summary = `${result.finalized}-${result.refundsCreated}-${result.refundCents}`;
-    redirect(`/control/preorders?success=${encodeURIComponent(summary)}`);
+    summary = `${result.finalized}-${result.refundsCreated}-${result.refundCents}`;
   } catch (error) {
     const code = allocationErrorCode(error);
     redirect(`/control/preorders?sku=${encodeURIComponent(skuId)}&error=${code}`);
   }
+
+  redirect(`/control/preorders?success=${encodeURIComponent(summary)}`);
 }
 
 function allocationErrorCode(error: unknown): string {
