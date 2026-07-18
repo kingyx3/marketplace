@@ -3,15 +3,15 @@ name: ZZZ-App checks (reusable)
 on:
   workflow_call:
     inputs:
+      environment:
+        description: GitHub Environment that owns the APP_NAME variable
+        required: true
+        type: string
       run_e2e:
         description: Run the Playwright smoke suite
         required: false
         default: false
         type: boolean
-      app_name:
-        description: Application display name from the GitHub APP_NAME variable
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -20,8 +20,9 @@ jobs:
   checks:
     name: ${{ matrix.check }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     env:
-      APP_NAME: ${{ inputs.app_name }}
+      APP_NAME: ${{ vars.APP_NAME }}
     strategy:
       fail-fast: false
       matrix:
@@ -59,8 +60,9 @@ jobs:
   e2e:
     if: inputs.run_e2e
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     env:
-      APP_NAME: ${{ inputs.app_name }}
+      APP_NAME: ${{ vars.APP_NAME }}
       MARKETPLACE_PREVIEW_FIXTURES: "true"
     steps:
       - uses: actions/checkout@v7.0.0
