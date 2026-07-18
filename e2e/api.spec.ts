@@ -7,7 +7,7 @@ test.describe("public API", () => {
     expect(response.ok()).toBe(true);
     await expect(response.json()).resolves.toMatchObject({
       status: "ok",
-      service: "Marketplace",
+      service: process.env.APP_NAME?.trim() || "Store",
     });
   });
 
