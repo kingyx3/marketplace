@@ -48,7 +48,6 @@ export default async function PreordersPage({
   return (
     <div className="space-y-8">
       <PageHeader
-        action={<StatusBadge tone="warning">Manual capture flow</StatusBadge>}
         description="Preorders keep deposits, balance due, allocation quantity, and release timing visible from the customer dashboard."
         eyebrow="Preorders"
         title="Deposit now, balance after allocation"
