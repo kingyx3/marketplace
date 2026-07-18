@@ -19,6 +19,7 @@ jobs:
     environment: staging
     env:
       TARGET_ENV: staging
+      APP_NAME: ${{ vars.APP_NAME }}
       STAGING_APP_URL: ${{ inputs.staging_app_url }}
       GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
