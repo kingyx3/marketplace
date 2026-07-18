@@ -8,11 +8,10 @@ import {
 } from "@/lib/admin-catalog-forms";
 
 describe("admin catalog management", () => {
-  it("generates product slugs from names and normalizes language", () => {
+  it("parses relational product identity fields and normalizes language", () => {
     const form = new FormData();
     form.set("categoryId", "22222222-2222-4222-8222-222222222222");
     form.set("setId", "33333333-3333-4333-8333-333333333333");
-    form.set("name", "Pokémon   Sample Box");
     form.set("productType", "booster_box");
     form.set("description", "A sealed display box");
     form.set("language", "en");
@@ -22,15 +21,13 @@ describe("admin catalog management", () => {
     expect(adminCatalogProductFromForm(form)).toMatchObject({
       categoryId: "22222222-2222-4222-8222-222222222222",
       setId: "33333333-3333-4333-8333-333333333333",
-      slug: "pokemon-sample-box",
-      name: "Pokémon   Sample Box",
       productType: "booster_box",
       language: "EN",
       active: true,
     });
   });
 
-  it("generates identifiers during atomic category and set creation", () => {
+  it("generates identifiers for new hierarchy and product type options", () => {
     const form = new FormData();
     form.set("categoryMode", "new");
     form.set("newCategoryName", "Example Game");
@@ -39,8 +36,8 @@ describe("admin catalog management", () => {
     form.set("newSetName", "First Release");
     form.set("newSetReleaseDate", "2026-08-01");
     form.set("newSetStatus", "preorder_open");
-    form.set("name", "First Release Booster Box");
-    form.set("productType", "booster_box");
+    form.set("productTypeMode", "new");
+    form.set("newProductTypeName", "Premium Collection Box");
     form.set("language", "en");
     form.set("active", "true");
 
@@ -54,34 +51,33 @@ describe("admin catalog management", () => {
       newSetCode: "FIRST-RELEASE",
       newSetReleaseDate: "2026-08-01",
       newSetStatus: "preorder_open",
-      slug: "first-release-booster-box",
+      productType: null,
+      newProductTypeName: "Premium Collection Box",
+      newProductTypeCode: "premium_collection_box",
       language: "EN",
     });
   });
 
-  it("requires an existing set to follow an existing category", () => {
+  it("requires a new set when creating a new category", () => {
     const form = new FormData();
     form.set("categoryMode", "new");
     form.set("newCategoryName", "Example Game");
     form.set("setMode", "existing");
     form.set("setId", "33333333-3333-4333-8333-333333333333");
-    form.set("name", "Sample Box");
     form.set("productType", "booster_box");
 
     expect(() => adminCatalogProductCreateFromForm(form)).toThrow(
-      "Create or select the category before choosing an existing set"
+      "Add a set for the new category before creating its product"
     );
   });
 
-  it("rejects names that cannot generate identifiers and malformed SKU currency", () => {
+  it("rejects invalid product types and malformed SKU currency", () => {
     const product = new FormData();
     product.set("categoryId", "22222222-2222-4222-8222-222222222222");
-    product.set("name", "🎴✨");
-    product.set("productType", "booster_box");
+    product.set("setId", "33333333-3333-4333-8333-333333333333");
+    product.set("productType", "not valid");
 
-    expect(() => adminCatalogProductFromForm(product)).toThrow(
-      "Product name must contain letters or numbers for its generated slug"
-    );
+    expect(() => adminCatalogProductFromForm(product)).toThrow("Select a valid product type");
 
     const sku = new FormData();
     sku.set("productId", "11111111-1111-4111-8111-111111111111");

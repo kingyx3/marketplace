@@ -32,9 +32,9 @@ export async function createCatalogProduct(
       p_new_set_code: input.newSetCode,
       p_new_set_release_date: input.newSetReleaseDate,
       p_new_set_status: input.newSetStatus,
-      p_slug: input.slug,
-      p_name: input.name,
       p_product_type: input.productType,
+      p_new_product_type_name: input.newProductTypeName,
+      p_new_product_type_code: input.newProductTypeCode,
       p_description: input.description,
       p_language: input.language,
       p_image_url: input.imageUrl,
@@ -50,6 +50,9 @@ export async function createCatalogProduct(
           category_created?: boolean;
           set_name?: string;
           set_created?: boolean;
+          product_type_name?: string;
+          product_type_created?: boolean;
+          product_slug?: string;
         }
       | null;
     const messages: string[] = [];
@@ -62,6 +65,14 @@ export async function createCatalogProduct(
 
     if (result?.set_created && result.set_name) {
       messages.push(`A new ${result.set_name} set was created.`);
+    }
+
+    if (result?.product_type_created && result.product_type_name) {
+      messages.push(`${result.product_type_name} was added to the product type list.`);
+    }
+
+    if (result?.product_slug) {
+      messages.push(`Slug: ${result.product_slug}.`);
     }
 
     revalidateCatalogPaths();
@@ -90,8 +101,6 @@ export async function upsertCatalogProduct(formData: FormData) {
     p_product_id: input.productId,
     p_category_id: input.categoryId,
     p_set_id: input.setId,
-    p_slug: input.slug,
-    p_name: input.name,
     p_product_type: input.productType,
     p_description: input.description,
     p_language: input.language,
@@ -101,7 +110,9 @@ export async function upsertCatalogProduct(formData: FormData) {
   });
 
   if (error?.code === "23505") {
-    throw new Error("Product save failed: another product uses the slug generated from this name; rename the product");
+    throw new Error(
+      "Product save failed: a product already exists for this category, set, type, and language"
+    );
   }
   if (error) throw new Error(`Product save failed: ${error.message}`);
   revalidateCatalogPaths();
@@ -199,12 +210,27 @@ function revalidateCatalogPaths() {
 
 function catalogProductError(error: { code?: string; message: string }): CatalogProductActionState {
   const message = error.message.toLowerCase();
-  if (message.includes("product slug already exists")) {
+  if (message.includes("product already exists") || message.includes("product identity already exists")) {
     return {
       status: "error",
-      field: "productSlug",
+      field: "productIdentity",
       message:
-        "Another product already uses the slug generated from this name. Rename the product and submit again; the other product details are preserved.",
+        "A product already exists for this category, set, type, and language. Edit that product or change one of those selections; the other product details are preserved.",
+    };
+  }
+  if (message.includes("archived product type")) {
+    return {
+      status: "error",
+      field: "productType",
+      message:
+        "The generated product type belongs to an archived option. Restore that type or use a different name; the other product details are preserved.",
+    };
+  }
+  if (message.includes("product type")) {
+    return {
+      status: "error",
+      field: "productType",
+      message: error.message,
     };
   }
   if (message.includes("archived category")) {
@@ -241,9 +267,9 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
   if (error.code === "23505" || message.includes("duplicate")) {
     return {
       status: "error",
-      field: "categorySlug",
+      field: "productIdentity",
       message:
-        "A category, set, or product already uses the identifier generated from that name. Select the existing record or rename the new one; the product details are preserved.",
+        "A category, set, type, or product already uses the generated identifier. Select the existing record or change the conflicting selection; the product details are preserved.",
     };
   }
   if (message.includes("category")) {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ProductIntakeForm,
   type CatalogCategoryOption,
+  type CatalogProductTypeOption,
   type CatalogSetOption,
 } from "@/app/(shop)/control/_components/product-intake-form";
 import { MetricCard } from "@/app/_components/metric-card";
@@ -49,7 +50,7 @@ interface InventoryRow {
 interface ProductRow {
   id: string;
   categoryId: string;
-  setId: string | null;
+  setId: string;
   slug: string;
   name: string;
   productType: string;
@@ -65,6 +66,10 @@ interface CategoryOption extends CatalogCategoryOption {
 }
 
 interface SetOption extends CatalogSetOption {
+  active: boolean;
+}
+
+interface ProductTypeOption extends CatalogProductTypeOption {
   active: boolean;
 }
 
@@ -91,24 +96,33 @@ export default async function ControlOperationsPage() {
   const canManageFullOperations = hasControlPermission(staff, "manage_full_operations");
   const supabase = createServiceClient();
 
-  const [products, categories, sets, inventory, exceptions, purchaseOrders, suppliers] =
-    await Promise.all([
-      fetchProducts(supabase),
-      fetchCategories(supabase),
-      fetchSets(supabase),
-      canManageFullOperations
-        ? fetchInventoryRows(supabase)
-        : Promise.resolve([] as InventoryRow[]),
-      canManageFullOperations
-        ? listAdminOrderExceptions(supabase)
-        : Promise.resolve([] as AdminOrderException[]),
-      canManageFullOperations
-        ? fetchPurchaseOrders(supabase)
-        : Promise.resolve([] as PurchaseOrderRow[]),
-      canManageFullOperations
-        ? fetchSuppliers(supabase)
-        : Promise.resolve([] as SupplierOption[]),
-    ]);
+  const [
+    products,
+    categories,
+    sets,
+    productTypes,
+    inventory,
+    exceptions,
+    purchaseOrders,
+    suppliers,
+  ] = await Promise.all([
+    fetchProducts(supabase),
+    fetchCategories(supabase),
+    fetchSets(supabase),
+    fetchProductTypes(supabase),
+    canManageFullOperations
+      ? fetchInventoryRows(supabase)
+      : Promise.resolve([] as InventoryRow[]),
+    canManageFullOperations
+      ? listAdminOrderExceptions(supabase)
+      : Promise.resolve([] as AdminOrderException[]),
+    canManageFullOperations
+      ? fetchPurchaseOrders(supabase)
+      : Promise.resolve([] as PurchaseOrderRow[]),
+    canManageFullOperations
+      ? fetchSuppliers(supabase)
+      : Promise.resolve([] as SupplierOption[]),
+  ]);
 
   const activeProducts = products.filter((product) => product.active).length;
   const activeCategories = categories.filter((category) => category.active).length;
@@ -154,7 +168,13 @@ export default async function ControlOperationsPage() {
         />
       </section>
 
-      <CatalogSection categories={categories} products={products} sets={sets} skus={inventory} />
+      <CatalogSection
+        categories={categories}
+        productTypes={productTypes}
+        products={products}
+        sets={sets}
+        skus={inventory}
+      />
 
       {canManageFullOperations ? (
         <>
@@ -206,17 +226,20 @@ function ControlLink({ href, children }: { href: string; children: React.ReactNo
 
 function CatalogSection({
   categories,
+  productTypes,
   products,
   sets,
   skus,
 }: {
   categories: CategoryOption[];
+  productTypes: ProductTypeOption[];
   products: ProductRow[];
   sets: SetOption[];
   skus: InventoryRow[];
 }) {
   const intakeCategories = categories.filter((category) => category.active);
   const intakeSets = sets.filter((set) => set.active);
+  const intakeProductTypes = productTypes.filter((productType) => productType.active);
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
@@ -224,7 +247,7 @@ function CatalogSection({
         <div>
           <h2 className="text-xl font-semibold text-zinc-950">Products and SKUs</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            Select or create the category first, then select, create, or skip its set.
+            Category, set, type, and language generate each product name and slug automatically.
           </p>
         </div>
         <StatusBadge tone="info">{products.length} products</StatusBadge>
@@ -232,7 +255,11 @@ function CatalogSection({
 
       <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 sm:p-5">
         <h3 className="mb-5 font-semibold text-zinc-950">Create product</h3>
-        <ProductIntakeForm categories={intakeCategories} sets={intakeSets} />
+        <ProductIntakeForm
+          categories={intakeCategories}
+          productTypes={intakeProductTypes}
+          sets={intakeSets}
+        />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
@@ -250,7 +277,12 @@ function CatalogSection({
                 />
                 <form action={upsertCatalogProduct} className="grid gap-3">
                   <input name="productId" type="hidden" value={product.id} />
-                  <ProductFields categories={categories} product={product} sets={sets} />
+                  <ProductFields
+                    categories={categories}
+                    product={product}
+                    productTypes={productTypes}
+                    sets={sets}
+                  />
                   <SecondaryButton>Save product</SecondaryButton>
                 </form>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -320,18 +352,16 @@ function CatalogSection({
 function ProductFields({
   categories,
   product,
+  productTypes,
   sets,
 }: {
   categories: CategoryOption[];
   product: ProductRow;
+  productTypes: ProductTypeOption[];
   sets: SetOption[];
 }) {
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label="Name" name="name" value={product.name} required />
-        <TextField label="Slug" name="slug" value={product.slug} required />
-      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <SelectField
           label="Category"
@@ -342,17 +372,24 @@ function ProductFields({
         <SelectField
           label="Set"
           name="setId"
-          optional
           options={sets.map((item) => ({ value: item.id, label: `${item.name} (${item.code})` }))}
-          value={product.setId ?? ""}
+          value={product.setId}
         />
-        <TextField label="Type" name="productType" value={product.productType} required />
+        <SelectField
+          label="Type"
+          name="productType"
+          options={productTypes.map((item) => ({ value: item.code, label: item.name }))}
+          value={product.productType}
+        />
       </div>
       <div className="grid gap-3 sm:grid-cols-[7rem_1fr_auto]">
         <TextField label="Language" name="language" value={product.language} required />
         <TextField label="Image URL" name="imageUrl" value={product.imageUrl ?? ""} />
         <BooleanField label="Active" name="active" checked={product.active} />
       </div>
+      <p className="text-xs text-zinc-500">
+        Saving recalculates the display name and slug from category, set, type, and language.
+      </p>
       <label className={labelClass}>
         Description
         <textarea
@@ -810,7 +847,7 @@ async function fetchProducts(supabase = createServiceClient()): Promise<ProductR
     (data ?? []) as unknown as Array<{
       id: string;
       category_id: string;
-      set_id: string | null;
+      set_id: string;
       slug: string;
       name: string;
       product_type: string;
@@ -867,6 +904,22 @@ async function fetchSets(supabase = createServiceClient()): Promise<SetOption[]>
     categoryId: row.category_id,
     name: row.name,
     code: row.code,
+    active: row.active,
+  }));
+}
+
+async function fetchProductTypes(
+  supabase = createServiceClient()
+): Promise<ProductTypeOption[]> {
+  const { data, error } = await supabase
+    .from("product_types")
+    .select("code, name, active")
+    .order("sort_order")
+    .order("name");
+  if (error) throw new Error(`Product type option query failed: ${error.message}`);
+  return ((data ?? []) as Array<{ code: string; name: string; active: boolean }>).map((row) => ({
+    code: row.code,
+    name: row.name,
     active: row.active,
   }));
 }
