@@ -1,4 +1,10 @@
 import {
+  AdminNumberField,
+  AdminSelectField,
+  AdminTextField,
+  AdminTextareaField,
+} from "@/app/(shop)/control/_components/admin-form-fields";
+import {
   setControlCategoryActive,
   upsertControlCategory,
 } from "@/app/actions/control";
@@ -134,50 +140,56 @@ function CategoryForm({
     <form action={upsertControlCategory} className="mt-4 grid gap-4">
       {category ? <input name="categoryId" type="hidden" value={category.id} /> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Field
-          hint="Slug is generated automatically from the category name."
+        <AdminTextField
+          defaultValue={category?.name}
+          example="Pokémon"
+          hint="The category slug is generated automatically from this name."
           label="Name"
+          maxLength={160}
+          minLength={2}
           name="name"
           required
-          value={category?.name}
         />
-        <Field label="Publisher" name="publisher" value={category?.publisher ?? ""} />
-        <Field
+        <AdminTextField
+          defaultValue={category?.publisher ?? ""}
+          example="The Pokémon Company"
+          hint="Optional publisher or rights holder."
+          label="Publisher"
+          maxLength={160}
+          name="publisher"
+        />
+        <AdminNumberField
+          defaultValue={category?.sort_order ?? 0}
+          example="10"
+          hint="Lower values appear first."
           label="Sort order"
           min={0}
           name="sortOrder"
           required
-          type="number"
-          value={String(category?.sort_order ?? 0)}
         />
       </div>
-      <label className="grid gap-1 text-sm font-medium text-zinc-700">
-        Parent category
-        <select
-          className="min-h-11 rounded-md border border-zinc-300 px-3 text-base sm:text-sm"
-          defaultValue={category?.parent_id ?? ""}
-          name="parentId"
-        >
-          <option value="">Top level</option>
-          {categories
-            .filter((candidate) => candidate.id !== category?.id)
-            .map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.name}
-                {candidate.active ? "" : " (archived)"}
-              </option>
-            ))}
-        </select>
-      </label>
-      <label className="grid gap-1 text-sm font-medium text-zinc-700">
-        Description
-        <textarea
-          className="min-h-24 rounded-md border border-zinc-300 px-3 py-2 text-base sm:text-sm"
-          defaultValue={category?.description ?? ""}
-          maxLength={2000}
-          name="description"
-        />
-      </label>
+      <AdminSelectField
+        defaultValue={category?.parent_id ?? ""}
+        example="Trading card games"
+        hint="Optional parent used to build the category hierarchy."
+        label="Parent category"
+        name="parentId"
+        optionalLabel="Top level"
+        options={categories
+          .filter((candidate) => candidate.id !== category?.id)
+          .map((candidate) => ({
+            value: candidate.id,
+            label: `${candidate.name}${candidate.active ? "" : " (archived)"}`,
+          }))}
+      />
+      <AdminTextareaField
+        defaultValue={category?.description ?? ""}
+        example="Sealed Pokémon Trading Card Game products."
+        hint="Optional internal or storefront category context."
+        label="Description"
+        maxLength={2000}
+        name="description"
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
           <input name="active" type="hidden" value="false" />
@@ -214,39 +226,6 @@ function countByCategory(rows: Array<{ category_id?: string | null }>) {
     counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
   }
   return counts;
-}
-
-function Field({
-  label,
-  name,
-  value,
-  required = false,
-  type = "text",
-  min,
-  hint,
-}: {
-  label: string;
-  name: string;
-  value?: string;
-  required?: boolean;
-  type?: string;
-  min?: number;
-  hint?: string;
-}) {
-  return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <input
-        className="min-h-11 rounded-md border border-zinc-300 px-3 text-base sm:text-sm"
-        defaultValue={value}
-        min={min}
-        name={name}
-        required={required}
-        type={type}
-      />
-      {hint ? <span className="text-xs font-normal text-zinc-500">{hint}</span> : null}
-    </label>
-  );
 }
 
 function PageHeading({ title, description }: { title: string; description: string }) {
