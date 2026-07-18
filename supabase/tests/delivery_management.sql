@@ -3,6 +3,7 @@ begin;
 do $$
 declare
   v_category_id uuid := gen_random_uuid();
+  v_set_id uuid := gen_random_uuid();
   v_product_id uuid := gen_random_uuid();
   v_variant_id uuid := gen_random_uuid();
   v_sku_id uuid := gen_random_uuid();
@@ -17,8 +18,11 @@ begin
   insert into public.tcg_categories (id, slug, name)
   values (v_category_id, 'delivery-test', 'Delivery Test');
 
-  insert into public.products (id, category_id, slug, name, product_type)
-  values (v_product_id, v_category_id, 'delivery-test-box', 'Delivery Test Box', 'booster_box');
+  insert into public.sets_releases (id, category_id, name, code, status)
+  values (v_set_id, v_category_id, 'Delivery Test Set', 'DELIVERY', 'released');
+
+  insert into public.products (id, category_id, set_id, product_type, language)
+  values (v_product_id, v_category_id, v_set_id, 'booster_box', 'EN');
 
   insert into public.product_variants (id, product_id, name)
   values (v_variant_id, v_product_id, 'default');

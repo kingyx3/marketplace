@@ -62,15 +62,7 @@ export default async function AccountPage({
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        action={
-          <StatusBadge tone={provisioningTone(customer.provisioning_state)}>
-            {formatStatus(customer.provisioning_state)}
-          </StatusBadge>
-        }
-        eyebrow="Account"
-        title={accountName}
-      />
+      <PageHeader eyebrow="Account" title={accountName} />
 
       {dataError ? (
         <Notice tone="danger">Account activity could not be loaded right now.</Notice>
@@ -129,15 +121,8 @@ export default async function AccountPage({
 
         <aside className="space-y-5">
           <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-zinc-500">Profile</p>
-                <p className="mt-1 truncate font-semibold text-zinc-950">{customer.email}</p>
-              </div>
-              <StatusBadge tone={provisioningTone(customer.provisioning_state)}>
-                {formatStatus(customer.provisioning_state)}
-              </StatusBadge>
-            </div>
+            <p className="text-sm font-medium text-zinc-500">Profile</p>
+            <p className="mt-1 truncate font-semibold text-zinc-950">{customer.email}</p>
             {customer.provisioning_error ? (
               <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
                 Account setup needs support review.
@@ -295,12 +280,6 @@ function preorderTone(status: string) {
 function waitlistTone(status: string) {
   if (status === "notified") return "success" as const;
   if (status === "cancelled") return "danger" as const;
-  return "info" as const;
-}
-
-function provisioningTone(status: string) {
-  if (status === "active") return "success" as const;
-  if (status === "error") return "danger" as const;
   return "info" as const;
 }
 

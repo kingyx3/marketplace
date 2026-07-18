@@ -140,8 +140,6 @@ export async function upsertCatalogProduct(formData: FormData) {
     p_product_id: input.productId,
     p_category_id: input.categoryId,
     p_set_id: input.setId,
-    p_slug: input.slug,
-    p_name: input.name,
     p_product_type: input.productType,
     p_description: input.description,
     p_language: input.language,

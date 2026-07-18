@@ -74,3 +74,4 @@ Pull-request CI also applies every database migration in order, loads seed data,
 - [`docs/security.md`](docs/security.md) — RLS, secrets, and administrator access
 - [`docs/data-model.md`](docs/data-model.md) — active application data model
 - [`docs/admin-operations.md`](docs/admin-operations.md) — control-console workflows
+- [`docs/storefront-ui.md`](docs/storefront-ui.md) — customer-visible status and implementation-detail boundaries
