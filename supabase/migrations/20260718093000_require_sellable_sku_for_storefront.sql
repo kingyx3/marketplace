@@ -2,6 +2,26 @@
 
 begin;
 
+do $$
+begin
+  if exists (
+    select 1
+    from public.booster_box_skus
+    where price_cents <= 0
+  ) then
+    raise exception 'SKU prices must be positive; reset non-canonical development data before applying this migration'
+      using errcode = '23514';
+  end if;
+end;
+$$;
+
+alter table public.booster_box_skus
+  drop constraint booster_box_skus_price_cents_check;
+
+alter table public.booster_box_skus
+  add constraint booster_box_skus_price_cents_check
+  check (price_cents > 0);
+
 create index idx_skus_sellable_variant
   on public.booster_box_skus(product_variant_id)
   where active and price_cents > 0;
