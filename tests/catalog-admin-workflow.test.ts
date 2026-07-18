@@ -12,6 +12,7 @@ describe("catalog administration workflow", () => {
       hierarchyMigration,
       identityMigration,
       displayNameMigration,
+      normalizationMigration,
     ] = await Promise.all([
       readFile(
         new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
@@ -44,6 +45,13 @@ describe("catalog administration workflow", () => {
       readFile(
         new URL(
           "../supabase/migrations/20260718143000_product_display_name_slug.sql",
+          import.meta.url
+        ),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../supabase/migrations/20260718143100_align_product_slug_normalization.sql",
           import.meta.url
         ),
         "utf8"
@@ -116,6 +124,9 @@ describe("catalog administration workflow", () => {
       "drop trigger if exists refresh_product_identity_from_category"
     );
     expect(displayNameMigration).toContain("p_name text");
+    expect(normalizationMigration).toContain("create extension if not exists unaccent");
+    expect(normalizationMigration).toContain("set search_path = public, extensions");
+    expect(normalizationMigration).toContain("unaccent(trim(p_value))");
   });
 
   it("standardizes catalog admin input guidance and validation", async () => {
