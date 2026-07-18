@@ -71,7 +71,12 @@ describe("catalog administration workflow", () => {
     expect(identityMigration).toContain("CONTROL_SET_CREATE_INLINE");
     expect(identityMigration).toContain("CONTROL_PRODUCT_TYPE_CREATE_INLINE");
     expect(identityMigration).toContain("active set not found for category");
-    expect(identityMigration).toContain("create table if not exists public.product_types");
+    expect(identityMigration).toContain("create table public.product_types");
+    expect(identityMigration).toContain("alter column set_id set not null");
+    expect(identityMigration).not.toContain("General");
+    expect(identityMigration).not.toContain("where product.set_id is null");
+    expect(identityMigration).not.toContain("select distinct\n  lower(trim(product.product_type))");
+    expect(identityMigration).not.toContain("create table if not exists public.product_types");
   });
 
   it("removes the standalone control catalog route", async () => {
