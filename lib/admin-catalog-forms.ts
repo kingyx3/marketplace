@@ -224,7 +224,7 @@ export function adminCatalogSkuFromForm(formData: FormData): AdminCatalogSkuInpu
     packsPerBox: optionalNonNegativeInteger(formData, "packsPerBox"),
     cardsPerPack: optionalNonNegativeInteger(formData, "cardsPerPack"),
     msrpCents: optionalNonNegativeInteger(formData, "msrpCents"),
-    priceCents: requiredNonNegativeInteger(formData, "priceCents"),
+    priceCents: requiredPositiveInteger(formData, "priceCents"),
     currency,
     weightGrams: optionalNonNegativeInteger(formData, "weightGrams"),
     active: booleanField(formData, "active", true),
@@ -268,6 +268,14 @@ function requiredNonNegativeInteger(formData: FormData, key: string): number {
   const value = requiredInteger(formData, key);
   if (value < 0) {
     throw badRequest(`${key} must be non-negative`);
+  }
+  return value;
+}
+
+function requiredPositiveInteger(formData: FormData, key: string): number {
+  const value = requiredInteger(formData, key);
+  if (value <= 0) {
+    throw badRequest(`${key} must be positive`);
   }
   return value;
 }
