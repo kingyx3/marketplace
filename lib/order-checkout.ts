@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
 import type { ApiCustomerContext } from "@/lib/api/auth";
-import { badRequest, internalError } from "@/lib/api/errors";
+import { badRequest, conflict, internalError } from "@/lib/api/errors";
 import {
   checkoutRequestSchema,
   quoteCheckout,
@@ -10,24 +10,15 @@ import {
   type CheckoutRequest,
 } from "@/lib/commerce";
 import {
-  createCheckoutPayment as createLegacyCheckoutPayment,
+  checkoutResponseBody as baseCheckoutResponseBody,
+  createCheckoutPayment as createPreorderCheckoutPayment,
   type CheckoutResult,
 } from "@/lib/checkout";
 import { shippingAddressSchema, type ShippingAddress } from "@/lib/shipping";
 import { createStripeClient } from "@/lib/stripe";
 
 export function checkoutResponseBody(result: CheckoutResult) {
-  return {
-    mode: result.mode,
-    orderId: result.orderId,
-    preorderId: result.preorderId,
-    paymentId: result.paymentId,
-    paymentIntentId: result.paymentIntentId,
-    clientSecret: result.clientSecret,
-    amountCents: result.amountCents,
-    currency: result.publishableCurrency,
-    quote: result.quote,
-  };
+  return baseCheckoutResponseBody(result);
 }
 
 export async function createCheckoutPayment(
@@ -37,14 +28,12 @@ export async function createCheckoutPayment(
 ): Promise<CheckoutResult> {
   const request = checkoutRequestSchema.parse(body) as CheckoutRequest;
   if (request.mode === "preorder") {
-    return createLegacyCheckoutPayment(auth, request, stripe);
+    return createPreorderCheckoutPayment(auth, request, stripe);
   }
 
   const shippingAddress = shippingAddressSchema.parse(request.shippingAddress);
   const quote = await quoteCheckout(auth.supabase, request, auth.customer);
-  if (quote.totalCents <= 0) {
-    throw badRequest("Checkout total must be greater than zero");
-  }
+  if (quote.totalCents <= 0) throw badRequest("Checkout total must be greater than zero");
 
   let orderId: string | null = null;
   let paymentIntentId: string | null = null;
@@ -57,22 +46,33 @@ export async function createCheckoutPayment(
       )
       .single();
     if (order.error || !order.data) {
-      throw new Error(order.error?.message ?? "order creation failed");
+      throw checkoutConflict(order.error?.message ?? "order creation failed");
     }
-    orderId = (order.data as { order_id: string }).order_id;
 
-    const intent = await stripe.paymentIntents.create({
-      amount: quote.totalCents,
-      currency: quote.currency.toLowerCase(),
-      automatic_payment_methods: { enabled: true },
-      receipt_email: auth.customer.email,
-      shipping: stripeShippingAddress(shippingAddress),
-      metadata: {
-        kind: "full",
-        order_id: orderId,
-        customer_id: auth.customer.id,
+    const orderData = order.data as {
+      order_id: string;
+      reservation_expires_at?: string | null;
+    };
+    orderId = orderData.order_id;
+    const reservationExpiresAt =
+      orderData.reservation_expires_at ?? new Date(Date.now() + 15 * 60_000).toISOString();
+
+    const intent = await stripe.paymentIntents.create(
+      {
+        amount: quote.totalCents,
+        currency: quote.currency.toLowerCase(),
+        automatic_payment_methods: { enabled: true },
+        receipt_email: auth.customer.email,
+        shipping: stripeShippingAddress(shippingAddress),
+        metadata: {
+          kind: "full",
+          order_id: orderId,
+          customer_id: auth.customer.id,
+          reservation_expires_at: reservationExpiresAt,
+        },
       },
-    });
+      { idempotencyKey: `order-checkout:${orderId}` }
+    );
     paymentIntentId = intent.id;
 
     const payment = await insertPayment(auth.supabase, {
@@ -95,6 +95,7 @@ export async function createCheckoutPayment(
       publishableCurrency: quote.currency,
       amountCents: quote.totalCents,
       quote,
+      reservationExpiresAt,
     };
   } catch (error) {
     await rollbackFailedOrderCheckout(auth.supabase, { orderId, paymentIntentId, stripe });
@@ -120,6 +121,26 @@ export function checkoutOrderRpcParams(
     p_discount_bps: quote.discountBps,
     p_expected_total_cents: quote.totalCents,
   };
+}
+
+function checkoutConflict(message: string): Error {
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("stock is reserved") ||
+    normalized.includes("insufficient inventory") ||
+    normalized.includes("no longer available")
+  ) {
+    return conflict(
+      "Some stock is currently reserved by another checkout or has sold out. Refresh your cart before trying again."
+    );
+  }
+  if (
+    normalized.includes("checkout subtotal changed") ||
+    normalized.includes("checkout total changed")
+  ) {
+    return conflict("Prices or availability changed. Review the refreshed cart before payment.");
+  }
+  return new Error(message);
 }
 
 function stripeShippingAddress(
@@ -161,10 +182,7 @@ async function insertPayment(
     .select("id")
     .single();
 
-  if (error || !data) {
-    throw new Error(error?.message ?? "payment insert failed");
-  }
-
+  if (error || !data) throw new Error(error?.message ?? "payment insert failed");
   return { id: data.id };
 }
 
@@ -179,21 +197,17 @@ async function rollbackFailedOrderCheckout(
   if (input.paymentIntentId) {
     try {
       await input.stripe.paymentIntents.cancel(input.paymentIntentId);
-    } catch (error) {
-      console.error(
-        "Stripe payment intent cancellation failed:",
-        error instanceof Error ? error.message : "unknown"
-      );
+    } catch {
+      // The reservation expiry and webhook reconciliation remain authoritative.
     }
   }
 
   if (input.orderId) {
-    await rollbackAllocatedOrder(supabase, input.orderId);
+    await supabase.rpc("release_order_allocation", { p_order_id: input.orderId });
+    await supabase.from("payments").update({ status: "cancelled" }).eq("order_id", input.orderId);
+    await supabase
+      .from("orders")
+      .update({ status: "cancelled", checkout_reserved_until: null })
+      .eq("id", input.orderId);
   }
-}
-
-async function rollbackAllocatedOrder(supabase: SupabaseClient, orderId: string): Promise<void> {
-  await supabase.rpc("release_order_allocation", { p_order_id: orderId });
-  await supabase.from("payments").update({ status: "cancelled" }).eq("order_id", orderId);
-  await supabase.from("orders").update({ status: "cancelled" }).eq("id", orderId);
 }
