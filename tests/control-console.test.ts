@@ -54,6 +54,9 @@ describe("control console", () => {
     expect(operations).toContain('requireControlPermission("manage_catalog", "/control/operations")');
     expect(operations).toContain('hasControlPermission(staff, "manage_full_operations")');
     expect(operations).toContain("ProductIntakeForm");
+    expect(operations).toContain('from("product_types")');
+    expect(operations).not.toContain('label="Name" name="name"');
+    expect(operations).not.toContain('label="Slug" name="slug"');
   });
 
   it("keeps every control mutation server-authorized and database-backed", async () => {
@@ -76,6 +79,8 @@ describe("control console", () => {
     expect(catalogActions).toContain('rpc("admin_create_catalog_product_hierarchy"');
     expect(catalogActions).toContain('rpc("admin_upsert_catalog_product"');
     expect(catalogActions).toContain('rpc("admin_upsert_booster_box_sku"');
+    expect(catalogActions).not.toContain("p_name: input.name");
+    expect(catalogActions).not.toContain("p_slug: input.slug");
     expect(customerActions).toContain('"manage_customers"');
     expect(customerActions).toContain("setCustomerAccountDeleted");
     expect(operationalActions).toContain('requireControlPermission("manage_full_operations"');
@@ -96,14 +101,21 @@ describe("control console", () => {
     expect(notifications).toContain('requireApiPermission(request, "manage_full_operations")');
   });
 
-  it("adds relational safeguards and protected administrator grants in migrations", async () => {
-    const [controlMigration, hardeningMigration] = await Promise.all([
+  it("adds relational safeguards, canonical product types, and protected administrator grants", async () => {
+    const [controlMigration, hardeningMigration, productIdentityMigration] = await Promise.all([
       readFile(
         new URL("../supabase/migrations/20260717090000_control_console.sql", import.meta.url),
         "utf8"
       ),
       readFile(
         new URL("../supabase/migrations/20260717091000_harden_control_grants.sql", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../supabase/migrations/20260717223000_product_types_and_derived_product_identity.sql",
+          import.meta.url
+        ),
         "utf8"
       ),
     ]);
@@ -118,6 +130,18 @@ describe("control console", () => {
     expect(controlMigration).toContain("grant execute on function public.admin_upsert_access_grant");
     expect(hardeningMigration).toContain("accepted administrator email cannot be changed");
     expect(hardeningMigration).toContain("synchronize_admin_grant_staff");
+    expect(productIdentityMigration).toContain("create table public.product_types");
+    expect(productIdentityMigration).toContain("alter table public.products alter column set_id set not null");
+    expect(productIdentityMigration).toContain("create function public.set_catalog_product_identity");
+    expect(productIdentityMigration).toContain(
+      "new.slug := concat_ws('-', v_category_slug, v_set_segment, v_type_segment, lower(v_language))"
+    );
+    expect(productIdentityMigration).toContain(
+      "product already exists for this category, set, type, and language"
+    );
+    expect(productIdentityMigration).not.toContain("create table if not exists public.product_types");
+    expect(productIdentityMigration).not.toContain("where product.set_id is null");
+    expect(productIdentityMigration).not.toContain("'General'");
   });
 });
 
