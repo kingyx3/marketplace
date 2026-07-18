@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
+
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
 import { requireCustomer } from "@/lib/auth";
 import { getCatalogProducts } from "@/lib/catalog";
-import { createServiceClient } from "@/lib/supabase";
-import { listCustomerPreorders } from "@/lib/orders";
 import { formatMoney } from "@/lib/money";
 import {
   formatDate,
@@ -17,8 +15,12 @@ import {
   skuForItem,
   type LivePreorder,
 } from "@/lib/order-display";
+import { createServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
+
+const preorderSelect =
+  "id, sku_id, channel, quantity, unit_price_cents, deposit_cents, balance_cents, allocation_refund_cents, allocation_confirmed_at, currency, status, allocated_qty, order_id, created_at, updated_at, booster_box_skus(sku, product_variants(products(slug, name))), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at)";
 
 export default async function PreordersPage({
   searchParams,
@@ -31,14 +33,17 @@ export default async function PreordersPage({
   let preorders: LivePreorder[] = [];
   let dataError = false;
 
-  try {
-    preorders = (await listCustomerPreorders(supabase, customer, 50)) as LivePreorder[];
-  } catch (error) {
+  const { data, error } = await supabase
+    .from("preorders")
+    .select(preorderSelect)
+    .eq("customer_id", customer.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) {
     dataError = true;
-    console.error(
-      "preorders page query failed:",
-      error instanceof Error ? error.message : "unknown"
-    );
+    console.error("preorders page query failed:", error.message);
+  } else {
+    preorders = (data ?? []) as unknown as LivePreorder[];
   }
 
   const preorderProducts = ((await getCatalogProducts()) ?? []).filter(
@@ -48,9 +53,9 @@ export default async function PreordersPage({
   return (
     <div className="space-y-8">
       <PageHeader
-        description="Preorders keep deposits, balance due, allocation quantity, and release timing visible from the customer dashboard."
+        description="Preorders are paid in full at checkout. After supplier stock is confirmed, allocation is applied and any unallocated amount is refunded through Stripe."
         eyebrow="Preorders"
-        title="Deposit now, balance after allocation"
+        title="Paid upfront, refunded for shortfalls"
       />
 
       {dataError ? (
@@ -60,7 +65,7 @@ export default async function PreordersPage({
       ) : null}
       {params.checkout === "processing" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Payment is processing. Your preorder will update after Stripe confirms it.
+          Payment is processing. Your fully paid preorder will appear after Stripe confirms it.
         </div>
       ) : null}
 
@@ -70,7 +75,7 @@ export default async function PreordersPage({
             <div className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
               <h2 className="text-xl font-semibold text-zinc-950">No preorders yet</h2>
               <p className="mt-3 text-sm text-zinc-600">
-                Deposit-backed preorders appear here after payment starts.
+                Fully paid preorders appear here after Stripe confirms payment.
               </p>
               <Link
                 className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
@@ -82,6 +87,7 @@ export default async function PreordersPage({
           ) : (
             preorders.map((preorder) => {
               const href = productHrefForItem(preorder);
+              const refundCents = Number(preorder.allocation_refund_cents ?? 0);
               return (
                 <article
                   className="grid gap-5 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm lg:grid-cols-[1fr_18rem]"
@@ -93,37 +99,35 @@ export default async function PreordersPage({
                       <StatusBadge tone={preorderTone(preorder.status)}>
                         {formatStatus(preorder.status)}
                       </StatusBadge>
-                      <StatusBadge tone="neutral">{preorder.channel.toUpperCase()}</StatusBadge>
                     </div>
                     <p className="mt-3 text-zinc-700">{productNameForItem(preorder)}</p>
                     <p className="mt-1 text-sm text-zinc-500">
-                      {skuForItem(preorder) ?? preorder.sku_id} / Created {" "}
-                      {formatDate(preorder.created_at)}
+                      {skuForItem(preorder) ?? preorder.sku_id} · Created {formatDate(preorder.created_at)}
                     </p>
                     <dl className="mt-5 grid gap-4 sm:grid-cols-4">
-                      <div>
-                        <dt className="text-sm text-zinc-500">Quantity</dt>
-                        <dd className="mt-1 font-semibold text-zinc-950">{preorder.quantity}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-sm text-zinc-500">Allocated</dt>
-                        <dd className="mt-1 font-semibold text-zinc-950">
-                          {preorder.allocated_qty}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-sm text-zinc-500">Deposit</dt>
-                        <dd className="mt-1 font-semibold text-zinc-950">
-                          {formatMoney(preorder.deposit_cents, preorder.currency)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-sm text-zinc-500">Balance</dt>
-                        <dd className="mt-1 font-semibold text-zinc-950">
-                          {formatMoney(preorder.balance_cents, preorder.currency)}
-                        </dd>
-                      </div>
+                      <Value label="Requested" value={String(preorder.quantity)} />
+                      <Value label="Allocated" value={String(preorder.allocated_qty)} />
+                      <Value
+                        label="Paid upfront"
+                        value={formatMoney(preorder.deposit_cents, preorder.currency)}
+                      />
+                      <Value
+                        label={refundCents > 0 ? "Allocation refund" : "Refund"}
+                        value={
+                          refundCents > 0
+                            ? formatMoney(refundCents, preorder.currency)
+                            : "Not required"
+                        }
+                        warning={refundCents > 0 && preorder.status === "refund_pending"}
+                      />
                     </dl>
+                    {refundCents > 0 ? (
+                      <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                        {preorder.status === "refund_pending"
+                          ? "Stripe is processing the refund for the unallocated quantity."
+                          : "The unallocated amount was submitted to Stripe for refund when allocation was confirmed."}
+                      </p>
+                    ) : null}
                     <div className="mt-5 flex flex-wrap gap-2">
                       <Link
                         className="inline-flex min-h-10 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
@@ -136,27 +140,10 @@ export default async function PreordersPage({
                           className="inline-flex min-h-10 items-center justify-center rounded-md border border-emerald-200 px-4 text-sm font-semibold text-emerald-800 hover:border-emerald-500"
                           href={`/orders/${preorder.order_id}`}
                         >
-                          View order
+                          View allocated order
                         </Link>
                       ) : null}
                     </div>
-                    {preorder.status === "balance_due" ? (
-                      <div className="mt-5 max-w-md">
-                        <CartCheckoutPanel
-                          authRedirectPath="/preorders"
-                          clearCartOnSuccess={false}
-                          items={[{ skuId: preorder.sku_id, quantity: preorder.allocated_qty }]}
-                          paymentEndpoint={`/api/preorders/${preorder.id}/balance`}
-                          publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                          returnPath="/preorders?checkout=processing"
-                          startLabel="Pay preorder balance"
-                          successHref="/preorders"
-                          successLabel="Refresh preorder status"
-                          supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
-                          supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
-                        />
-                      </div>
-                    ) : null}
                   </div>
                   <div className="rounded-md bg-zinc-50 p-4">
                     <Timeline items={preorderTimeline(preorder)} />
@@ -169,6 +156,9 @@ export default async function PreordersPage({
 
         <aside className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-zinc-950">Open preorder drops</h2>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            The displayed price is charged in full. Allocation shortfalls are refunded automatically after admin confirmation.
+          </p>
           <div className="mt-5 grid gap-4">
             {preorderProducts.length === 0 ? (
               <p className="text-sm text-zinc-600">No preorder drops are open.</p>
@@ -201,9 +191,28 @@ export default async function PreordersPage({
   );
 }
 
+function Value({
+  label,
+  value,
+  warning = false,
+}: {
+  label: string;
+  value: string;
+  warning?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="text-sm text-zinc-500">{label}</dt>
+      <dd className={`mt-1 font-semibold ${warning ? "text-amber-800" : "text-zinc-950"}`}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 function preorderTone(status: string) {
-  if (status === "balance_due") return "warning" as const;
-  if (["allocated", "paid", "converted"].includes(status)) return "success" as const;
+  if (status === "refund_pending") return "warning" as const;
+  if (["paid", "allocated", "converted"].includes(status)) return "success" as const;
   if (["cancelled", "refunded"].includes(status)) return "danger" as const;
   return "info" as const;
 }

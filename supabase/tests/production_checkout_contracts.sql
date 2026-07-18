@@ -24,6 +24,8 @@ declare
   v_sku_id uuid;
   v_order record;
   v_allocated integer;
+  v_reserved_until timestamptz;
+  v_order_status public.order_status;
 begin
   insert into auth.users (id, email)
   values (v_auth_user_id, 'checkout-contract@example.test');
@@ -81,11 +83,23 @@ begin
     raise exception 'shipping-aware total mismatch: %', v_order.total_cents;
   end if;
 
+  select o.checkout_reserved_until
+    into v_reserved_until
+  from public.orders o
+  where o.id = v_order.order_id;
+
+  if v_reserved_until is null
+     or v_reserved_until < now() + interval '14 minutes'
+     or v_reserved_until > now() + interval '16 minutes' then
+    raise exception 'checkout reservation is not approximately 15 minutes: %', v_reserved_until;
+  end if;
+
   if not exists (
     select 1
     from public.orders o
     where o.id = v_order.order_id
       and o.channel::text = 'b2c'
+      and o.status = 'pending_payment'
       and o.shipping_cents = 800
       and o.shipping_service = 'CI tracked delivery'
       and o.shipping_address->>'countryCode' = 'SG'
@@ -94,14 +108,25 @@ begin
     raise exception 'retail order snapshot was not persisted';
   end if;
 
-  perform public.release_order_allocation(v_order.order_id);
+  update public.orders
+     set checkout_reserved_until = now() - interval '1 second'
+   where id = v_order.order_id;
+
+  perform * from public.expire_checkout_reservations(10);
+
+  select o.status into v_order_status
+  from public.orders o
+  where o.id = v_order.order_id;
+  if v_order_status <> 'cancelled' then
+    raise exception 'expired checkout was not cancelled: %', v_order_status;
+  end if;
 
   select i.allocated into v_allocated
   from public.inventory i
   where i.sku_id = v_sku_id
     and i.location = 'main';
   if v_allocated <> 0 then
-    raise exception 'retail allocation was not released: %', v_allocated;
+    raise exception 'expired retail allocation was not released: %', v_allocated;
   end if;
 
   if to_regclass('public.b2b_accounts') is not null

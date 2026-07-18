@@ -54,9 +54,13 @@ describe("checkout PaymentIntent flow", () => {
     mockedQuoteCheckout.mockResolvedValue(quote);
   });
 
-  it("creates a shipping-aware PaymentIntent without trusting client totals", async () => {
+  it("creates an idempotent shipping-aware PaymentIntent with a stock deadline", async () => {
+    const reservationExpiresAt = "2026-07-18T07:15:00.000Z";
     const { auth, supabase } = fakeAuthContext({
-      rpcSingle: { data: { order_id: "order-123" }, error: null },
+      rpcSingle: {
+        data: { order_id: "order-123", reservation_expires_at: reservationExpiresAt },
+        error: null,
+      },
       paymentInsert: { data: { id: "payment-123" }, error: null },
     });
     const stripe = fakeStripe({
@@ -99,8 +103,10 @@ describe("checkout PaymentIntent flow", () => {
           kind: "full",
           order_id: "order-123",
           customer_id: auth.customer.id,
+          reservation_expires_at: reservationExpiresAt,
         }),
-      })
+      }),
+      { idempotencyKey: "order-checkout:order-123" }
     );
     expect(checkoutResponseBody(result)).toEqual(
       expect.objectContaining({
@@ -111,9 +117,35 @@ describe("checkout PaymentIntent flow", () => {
         clientSecret: "pi_123_secret_abc",
         amountCents: 20700,
         currency: "SGD",
+        reservationExpiresAt,
         quote: expect.objectContaining({ shippingCents: 800, totalCents: 20700 }),
       })
     );
+  });
+
+  it("returns actionable stock conflict feedback before Stripe is called", async () => {
+    const { auth } = fakeAuthContext({
+      rpcSingle: {
+        data: null,
+        error: { message: "insufficient inventory for sku" },
+      },
+    });
+    const stripe = fakeStripe();
+
+    await expect(
+      createCheckoutPayment(
+        auth as never,
+        {
+          mode: "order",
+          channel: "b2c",
+          shippingAddress,
+          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+        },
+        stripe as never
+      )
+    ).rejects.toThrow("currently reserved by another checkout or has sold out");
+
+    expect(stripe.paymentIntents.create).not.toHaveBeenCalled();
   });
 
   it("rolls back allocation when Stripe returns an unusable PaymentIntent", async () => {

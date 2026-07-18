@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { allocate } from "@/lib/allocation";
@@ -65,22 +65,64 @@ describe("retail preorder flow", () => {
     expect(allocations).toEqual([{ preorderId: "pre-1", allocated: 1 }]);
   });
 
-  it("keeps the server allocation query retail-only", async () => {
+  it("keeps the server allocation query retail-only and fully paid", async () => {
     const source = await readFile(new URL("../lib/preorders.ts", import.meta.url), "utf8");
 
     expect(source).toContain('.eq("channel", "b2c")');
+    expect(source).toContain('.eq("status", "paid")');
+    expect(source).toContain('.eq("kind", "full")');
     expect(source).not.toContain('channel: "b2b"');
   });
 
-  it("keeps checkout and preorder balance flows free of invoice checkout", async () => {
-    const [checkout, orderCheckout] = await Promise.all([
-      readFile(new URL("../lib/checkout.ts", import.meta.url), "utf8"),
-      readFile(new URL("../lib/order-checkout.ts", import.meta.url), "utf8"),
+  it("requires a reviewed allocation fingerprint and explicit confirmation", async () => {
+    const [page, action, api] = await Promise.all([
+      readFile(
+        new URL("../app/(shop)/control/preorders/page.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(new URL("../app/actions/preorder-allocation.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/api/admin/preorders/allocate/route.ts", import.meta.url),
+        "utf8"
+      ),
     ]);
 
-    expect(checkout).not.toContain("manual_invoice");
-    expect(checkout).not.toContain("createInvoiceCheckout");
-    expect(orderCheckout).not.toContain("manual_invoice");
-    expect(orderCheckout).not.toContain("createInvoiceCheckout");
+    expect(page).toContain("Confirm allocation and refunds");
+    expect(page).toContain('name="confirm"');
+    expect(page).toContain('name="fingerprint"');
+    expect(action).toContain('String(formData.get("confirm")');
+    expect(action).toContain("executePreorderAllocationForSku");
+    expect(api).toContain("preorderAllocationRequestSchema");
+    expect(api).toContain("fingerprint: input.fingerprint");
+  });
+
+  it("creates idempotent Stripe refunds for allocation shortfalls", async () => {
+    const [source, migration] = await Promise.all([
+      readFile(new URL("../lib/preorders.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL(
+          "../supabase/migrations/20260718150200_preorder_allocation_refunds.sql",
+          import.meta.url
+        ),
+        "utf8"
+      ),
+    ]);
+
+    expect(source).toContain("preorder-allocation-refund:");
+    expect(source).toContain("amount: row.refund_cents");
+    expect(migration).toContain("Stripe refund confirmation required");
+    expect(migration).toContain("preorder_allocation_shortfall");
+    expect(migration).toContain("allocation preview is stale");
+  });
+
+  it("removes the legacy preorder balance collection endpoint", async () => {
+    const checkout = await readFile(new URL("../lib/checkout.ts", import.meta.url), "utf8");
+    const balanceRoute = new URL(
+      "../app/api/preorders/[id]/balance/route.ts",
+      import.meta.url
+    );
+
+    expect(checkout).not.toContain("createPreorderBalancePayment");
+    await expect(access(balanceRoute)).rejects.toThrow();
   });
 });

@@ -69,6 +69,8 @@ export interface LivePreorder {
   unit_price_cents: number;
   deposit_cents: number;
   balance_cents: number;
+  allocation_refund_cents?: number | null;
+  allocation_confirmed_at?: string | null;
   currency: string;
   status: string;
   allocated_qty: number;
@@ -122,13 +124,19 @@ export function paymentSummary(order: LiveOrder): LivePayment | null {
   );
 }
 
-export function preorderDeposit(preorder: LivePreorder): LivePayment | null {
+export function preorderPayment(preorder: LivePreorder): LivePayment | null {
   return (
-    (preorder.payments ?? []).find((payment) => payment.kind === "deposit") ??
+    (preorder.payments ?? []).find(
+      (payment) => payment.kind === "full" && payment.status === "captured"
+    ) ??
+    (preorder.payments ?? []).find((payment) => payment.kind === "full") ??
     (preorder.payments ?? [])[0] ??
     null
   );
 }
+
+/** @deprecated Preorders are paid in full; retained for compatible callers. */
+export const preorderDeposit = preorderPayment;
 
 export function orderTimeline(order: LiveOrder): TimelineItem[] {
   const payment = paymentSummary(order);
@@ -165,35 +173,48 @@ export function orderTimeline(order: LiveOrder): TimelineItem[] {
 }
 
 export function preorderTimeline(preorder: LivePreorder): TimelineItem[] {
-  const deposit = preorderDeposit(preorder);
-  const cancelled = ["cancelled", "refunded"].includes(preorder.status);
-  const deposited = ["deposited", "allocated", "balance_due", "paid", "converted"].includes(
+  const payment = preorderPayment(preorder);
+  const cancelled = preorder.status === "cancelled";
+  const paid = ["paid", "allocated", "refund_pending", "converted", "refunded"].includes(
     preorder.status
   );
-  const allocated = ["allocated", "balance_due", "paid", "converted"].includes(preorder.status);
-  const balancePaid = ["paid", "converted"].includes(preorder.status);
+  const allocationConfirmed = ["allocated", "refund_pending", "converted", "refunded"].includes(
+    preorder.status
+  );
+  const refundRequired = Number(preorder.allocation_refund_cents ?? 0) > 0;
+  const refundComplete = preorder.status === "refunded" || preorder.status === "converted";
   const converted = preorder.status === "converted";
 
   return [
     {
-      label: cancelled ? "Deposit stopped" : "Deposit",
-      date: formatDate(deposit?.captured_at ?? deposit?.created_at ?? preorder.created_at),
-      state: cancelled ? "error" : deposited ? "complete" : "current",
+      label: cancelled ? "Payment cancelled" : "Paid in full",
+      date: formatDate(payment?.captured_at ?? payment?.created_at ?? preorder.created_at),
+      state: cancelled ? "error" : paid ? "complete" : "current",
     },
     {
-      label: "Allocated",
-      date: allocated ? formatDate(preorder.updated_at) : "Pending",
-      state: allocated ? "complete" : deposited ? "current" : "upcoming",
+      label: "Allocation",
+      date: allocationConfirmed
+        ? formatDate(preorder.allocation_confirmed_at ?? preorder.updated_at)
+        : "Pending",
+      state: allocationConfirmed ? "complete" : paid ? "current" : "upcoming",
     },
     {
-      label: "Balance",
-      date: balancePaid ? formatDate(preorder.updated_at) : "Pending",
-      state: balancePaid ? "complete" : preorder.status === "balance_due" ? "current" : "upcoming",
+      label: refundRequired ? "Shortfall refund" : "Allocation confirmed",
+      date: refundRequired && refundComplete ? formatDate(preorder.updated_at) : refundRequired ? "Pending" : allocationConfirmed ? "Not required" : "Pending",
+      state: refundRequired
+        ? refundComplete
+          ? "complete"
+          : preorder.status === "refund_pending"
+            ? "current"
+            : "upcoming"
+        : allocationConfirmed
+          ? "complete"
+          : "upcoming",
     },
     {
-      label: "Converted",
+      label: "Order created",
       date: converted ? formatDate(preorder.updated_at) : "Pending",
-      state: converted ? "complete" : "upcoming",
+      state: converted ? "complete" : preorder.status === "refunded" ? "upcoming" : "upcoming",
     },
   ];
 }

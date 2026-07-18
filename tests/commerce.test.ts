@@ -33,11 +33,11 @@ describe("commerce helpers", () => {
     ]);
   });
 
-  it("calculates integer-cent discounts and bounded preorder deposits", () => {
+  it("calculates integer-cent discounts and full upfront preorder payment", () => {
     expect(calculateDiscountCents(19900, 800)).toBe(1592);
     expect(calculateDiscountCents(19900, 0)).toBe(0);
-    expect(calculateDepositCents(19900)).toBe(3980);
-    expect(calculateDepositCents(1)).toBe(100);
+    expect(calculateDepositCents(19900)).toBe(19900);
+    expect(calculateDepositCents(1)).toBe(1);
     expect(calculateDepositCents(0)).toBe(0);
   });
 
@@ -117,6 +117,26 @@ describe("commerce helpers", () => {
       discountCents: 1990,
       shippingCents: 800,
       totalCents: 18710,
+    });
+  });
+
+  it("quotes preorders at 100% upfront with no balance due", async () => {
+    const supabase = fakeQuoteSupabase({});
+
+    await expect(
+      quoteCheckout(
+        supabase as never,
+        {
+          mode: "preorder",
+          channel: "b2c",
+          items: [{ skuId, quantity: 2 }],
+        },
+        customerRecord()
+      )
+    ).resolves.toMatchObject({
+      totalCents: 39800,
+      depositCents: 39800,
+      balanceCents: 0,
     });
   });
 
@@ -202,7 +222,7 @@ function tableBuilder(
     maybeSingle: async () => {
       if (table === "inventory") {
         return {
-          data: { on_hand: 10, allocated: 0, incoming: 0, safety_stock: 0, available: 10 },
+          data: { on_hand: 10, allocated: 0, incoming: 10, safety_stock: 0, available: 10 },
           error: null,
         };
       }
