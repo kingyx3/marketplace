@@ -67,8 +67,8 @@ export default async function ControlDealsPage() {
         <Link className="text-emerald-700 hover:text-emerald-900" href="/control/operations">
           Back to operations
         </Link>
-        <Link className="text-emerald-700 hover:text-emerald-900" href="/products?view=deals">
-          View storefront deals
+        <Link className="text-emerald-700 hover:text-emerald-900" href="/products">
+          View storefront products
         </Link>
       </div>
 
