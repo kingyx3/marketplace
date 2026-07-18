@@ -1,6 +1,13 @@
 import Link from "next/link";
 
 import {
+  AdminFileField,
+  AdminNumberField,
+  AdminSelectField,
+  AdminTextField,
+  AdminTextareaField,
+} from "@/app/(shop)/control/_components/admin-form-fields";
+import {
   ProductIntakeForm,
   type CatalogCategoryOption,
   type CatalogProductTypeOption,
@@ -247,7 +254,7 @@ function CatalogSection({
         <div>
           <h2 className="text-xl font-semibold text-zinc-950">Products and SKUs</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            Category, set, type, and language generate each product name and slug automatically.
+            Display names are managed explicitly and generate product slugs. Category, set, type, and language remain structured attributes.
           </p>
         </div>
         <StatusBadge tone="info">{products.length} products</StatusBadge>
@@ -257,6 +264,7 @@ function CatalogSection({
         <h3 className="mb-5 font-semibold text-zinc-950">Create product</h3>
         <ProductIntakeForm
           categories={intakeCategories}
+          existingSlugs={products.map((product) => product.slug)}
           productTypes={intakeProductTypes}
           sets={intakeSets}
         />
@@ -286,14 +294,15 @@ function CatalogSection({
                   <SecondaryButton>Save product</SecondaryButton>
                 </form>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <form action={uploadCatalogProductImage} className="flex gap-2">
+                  <form action={uploadCatalogProductImage} className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
                     <input name="productId" type="hidden" value={product.id} />
-                    <input
+                    <AdminFileField
                       accept="image/*"
-                      className="min-h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-2 py-2 text-xs"
+                      example="destined-rivals-booster-box.jpg"
+                      hint="Choose a JPG, PNG, WebP, or other supported image file."
+                      label="Product image"
                       name="image"
                       required
-                      type="file"
                     />
                     <SecondaryButton>Upload</SecondaryButton>
                   </form>
@@ -362,6 +371,16 @@ function ProductFields({
 }) {
   return (
     <>
+      <AdminTextField
+        defaultValue={product.name}
+        example="Pokémon Destined Rivals Booster Box"
+        hint="Changing this value regenerates the product slug when saved."
+        label="Display name"
+        maxLength={160}
+        minLength={2}
+        name="name"
+        required
+      />
       <div className="grid gap-3 sm:grid-cols-3">
         <SelectField
           label="Category"
@@ -383,22 +402,27 @@ function ProductFields({
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-[7rem_1fr_auto]">
-        <TextField label="Language" name="language" value={product.language} required />
-        <TextField label="Image URL" name="imageUrl" value={product.imageUrl ?? ""} />
+        <TextField
+          label="Language"
+          maxLength={8}
+          minLength={2}
+          name="language"
+          pattern="[A-Za-z]{2,8}"
+          patternMessage="Language must contain 2–8 letters, such as EN or JP."
+          required
+          value={product.language}
+        />
+        <TextField label="Image URL" name="imageUrl" type="url" value={product.imageUrl ?? ""} />
         <BooleanField label="Active" name="active" checked={product.active} />
       </div>
-      <p className="text-xs text-zinc-500">
-        Saving recalculates the display name and slug from category, set, type, and language.
-      </p>
-      <label className={labelClass}>
-        Description
-        <textarea
-          className="min-h-20 rounded-md border border-zinc-300 px-2 py-2 text-sm"
-          defaultValue={product.description ?? ""}
-          maxLength={2000}
-          name="description"
-        />
-      </label>
+      <AdminTextareaField
+        defaultValue={product.description ?? ""}
+        example="English booster box containing 36 packs."
+        hint="Optional customer-facing product details."
+        label="Description"
+        maxLength={2000}
+        name="description"
+      />
     </>
   );
 }
@@ -413,13 +437,30 @@ function SkuFields({ products, sku }: { products: ProductRow[]; sku?: InventoryR
         value={sku?.productId}
       />
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label="SKU" name="sku" value={sku?.sku} required />
-        <TextField label="Barcode" name="barcode" value={sku?.barcode ?? ""} />
+        <TextField
+          label="SKU"
+          maxLength={64}
+          name="sku"
+          pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
+          patternMessage="SKU may use letters, numbers, dots, hyphens, and underscores."
+          required
+          value={sku?.sku}
+        />
+        <TextField label="Barcode" maxLength={64} name="barcode" value={sku?.barcode ?? ""} />
       </div>
       <div className="grid gap-3 sm:grid-cols-4">
-        <NumberField label="Price cents" name="priceCents" value={sku?.priceCents} required />
+        <NumberField label="Price cents" min={1} name="priceCents" value={sku?.priceCents} required />
         <NumberField label="MSRP cents" name="msrpCents" value={sku?.msrpCents ?? undefined} />
-        <TextField label="Currency" name="currency" value={sku?.currency ?? "SGD"} required />
+        <TextField
+          label="Currency"
+          maxLength={3}
+          minLength={3}
+          name="currency"
+          pattern="[A-Za-z]{3}"
+          patternMessage="Currency must be a 3-letter code, such as SGD."
+          value={sku?.currency ?? "SGD"}
+          required
+        />
         <BooleanField label="Active" name="active" checked={sku?.skuActive ?? true} />
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
@@ -506,20 +547,21 @@ function PurchaseOrdersSection({
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-4">
-          <NumberField label="Quantity" name="quantity" required />
+          <NumberField label="Quantity" min={1} name="quantity" required />
           <NumberField label="Unit cost cents" name="unitCostCents" required />
           <TextField
             label="Currency"
+            maxLength={3}
+            minLength={3}
             name="currency"
+            pattern="[A-Za-z]{3}"
+            patternMessage="Currency must be a 3-letter code, such as SGD."
             value={suppliers[0]?.currency ?? "SGD"}
             required
           />
-          <label className={labelClass}>
-            Expected
-            <input className={inputClass} name="expectedAt" type="date" />
-          </label>
+          <TextField label="Expected" name="expectedAt" type="date" />
         </div>
-        <TextField label="Notes" name="notes" />
+        <TextField label="Notes" maxLength={500} name="notes" />
         <PrimaryButton disabled={disabled}>Record purchase order</PrimaryButton>
       </form>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -592,10 +634,19 @@ function ManualReconciliationForm() {
       <input name="provider" type="hidden" value="stripe" />
       <TextField label="Payment reference" name="providerPaymentId" required />
       <div className="grid gap-2 sm:grid-cols-2">
-        <NumberField label="Amount cents" name="amountCents" required />
-        <TextField label="Currency" name="currency" value="SGD" required />
+        <NumberField label="Amount cents" min={1} name="amountCents" required />
+        <TextField
+          label="Currency"
+          maxLength={3}
+          minLength={3}
+          name="currency"
+          pattern="[A-Za-z]{3}"
+          patternMessage="Currency must be a 3-letter code, such as SGD."
+          value="SGD"
+          required
+        />
       </div>
-      <TextField label="Reason" name="reason" required />
+      <TextField label="Reason" maxLength={500} name="reason" required />
       <PrimaryButton>Record reconciliation</PrimaryButton>
     </form>
   );
@@ -642,17 +693,36 @@ function TextField({
   name,
   value,
   required = false,
+  type = "text",
+  pattern,
+  patternMessage,
+  maxLength,
+  minLength,
 }: {
   label: string;
   name: string;
   value?: string;
   required?: boolean;
+  type?: React.HTMLInputTypeAttribute;
+  pattern?: string;
+  patternMessage?: string;
+  maxLength?: number;
+  minLength?: number;
 }) {
   return (
-    <label className={labelClass}>
-      {label}
-      <input className={inputClass} defaultValue={value} name={name} required={required} />
-    </label>
+    <AdminTextField
+      defaultValue={value}
+      example={textExample(name)}
+      hint={textHint(name)}
+      label={label}
+      maxLength={maxLength}
+      minLength={minLength}
+      name={name}
+      pattern={pattern}
+      patternMessage={patternMessage}
+      required={required}
+      type={type}
+    />
   );
 }
 
@@ -661,24 +731,23 @@ function NumberField({
   name,
   value,
   required = false,
+  min = 0,
 }: {
   label: string;
   name: string;
   value?: number;
   required?: boolean;
+  min?: number;
 }) {
   return (
-    <label className={labelClass}>
-      {label}
-      <input
-        className={inputClass}
-        defaultValue={value}
-        min={0}
-        name={name}
-        required={required}
-        type="number"
-      />
-    </label>
+    <AdminNumberField
+      defaultValue={value}
+      example={numberExample(name)}
+      label={label}
+      min={min}
+      name={name}
+      required={required}
+    />
   );
 }
 
@@ -692,21 +761,19 @@ function SelectField({
   label: string;
   name: string;
   value?: string;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; disabled?: boolean }>;
   optional?: boolean;
 }) {
   return (
-    <label className={labelClass}>
-      {label}
-      <select className={inputClass} defaultValue={value} name={name} required={!optional}>
-        {optional ? <option value="">None</option> : null}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <AdminSelectField
+      defaultValue={value}
+      example={options[0]?.label ?? "Select an option"}
+      label={label}
+      name={name}
+      optionalLabel={optional ? "None" : undefined}
+      options={options}
+      required={!optional}
+    />
   );
 }
 
@@ -775,6 +842,52 @@ function exceptionTone(severity: AdminOrderException["severity"]) {
   if (severity === "critical") return "danger" as const;
   if (severity === "warning") return "warning" as const;
   return "info" as const;
+}
+
+function textExample(name: string) {
+  const examples: Record<string, string> = {
+    language: "EN",
+    imageUrl: "https://cdn.example.com/products/destined-rivals.jpg",
+    sku: "DRI-BBX-EN",
+    barcode: "01987654321098",
+    currency: "SGD",
+    expectedAt: "2026-08-15",
+    notes: "Initial supplier allocation for the August release.",
+    orderId: "9c219c03-52ee-4f37-aec1-7e2fc241d56a",
+    providerPaymentId: "pi_3Example123",
+    reason: "Confirmed against the Stripe payment record.",
+  };
+  return examples[name] ?? "Enter a value";
+}
+
+function textHint(name: string) {
+  const hints: Record<string, string> = {
+    language: "Use a 2–8 letter language code.",
+    currency: "Use a three-letter ISO currency code.",
+    sku: "Use a stable internal identifier; it is normalized to uppercase.",
+    barcode: "Optional supplier or retail barcode.",
+    notes: "Optional internal purchasing context.",
+    orderId: "Use the marketplace order UUID.",
+    providerPaymentId: "Use the exact Stripe payment identifier.",
+  };
+  return hints[name];
+}
+
+function numberExample(name: string) {
+  const examples: Record<string, string> = {
+    priceCents: "18900",
+    msrpCents: "19900",
+    packsPerBox: "36",
+    cardsPerPack: "10",
+    weightGrams: "720",
+    onHand: "24",
+    incoming: "48",
+    safetyStock: "2",
+    quantity: "12",
+    unitCostCents: "14500",
+    amountCents: "18900",
+  };
+  return examples[name] ?? "0";
 }
 
 async function fetchInventoryRows(
@@ -968,6 +1081,4 @@ async function fetchPurchaseOrders(
   }));
 }
 
-const labelClass = "grid gap-1 text-xs font-medium text-zinc-600";
-const inputClass = "min-h-10 rounded-md border border-zinc-300 px-2 text-sm";
 const editorClass = "grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4";

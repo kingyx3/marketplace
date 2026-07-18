@@ -1,3 +1,9 @@
+import {
+  AdminNumberField,
+  AdminSelectField,
+  AdminTextField,
+  AdminTextareaField,
+} from "@/app/(shop)/control/_components/admin-form-fields";
 import { setControlSetActive, upsertControlSet } from "@/app/actions/control";
 import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
@@ -133,75 +139,88 @@ function SetForm({ categories, set }: { categories: CategoryOption[]; set?: SetR
     <form action={upsertControlSet} className="mt-4 grid gap-4">
       {set ? <input name="setId" type="hidden" value={set.id} /> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Field
-          hint="Code is generated automatically from the set name."
+        <AdminTextField
+          defaultValue={set?.name}
+          example="Destined Rivals"
+          hint="The set code is generated automatically from this name."
           label="Name"
+          maxLength={160}
+          minLength={2}
           name="name"
           required
-          value={set?.name}
         />
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
-          Category
-          <select
-            className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
-            defaultValue={set?.category_id ?? categories.find((category) => category.active)?.id}
-            name="categoryId"
-            required
-          >
-            {categories.map((category) => (
-              <option key={category.id} disabled={!category.active && category.id !== set?.category_id} value={category.id}>
-                {category.name}{category.active ? "" : " (archived)"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-700">
-          Status
-          <select
-            className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
-            defaultValue={set?.status ?? "announced"}
-            name="status"
-          >
-            <option value="announced">Announced</option>
-            <option value="preorder_open">Preorder open</option>
-            <option value="preorder_closed">Preorder closed</option>
-            <option value="released">Released</option>
-            <option value="out_of_print">Out of print</option>
-          </select>
-        </label>
+        <AdminSelectField
+          defaultValue={set?.category_id ?? categories.find((category) => category.active)?.id}
+          example="Pokémon"
+          hint="Archived categories remain available only for their existing sets."
+          label="Category"
+          name="categoryId"
+          options={categories.map((category) => ({
+            value: category.id,
+            label: `${category.name}${category.active ? "" : " (archived)"}`,
+            disabled: !category.active && category.id !== set?.category_id,
+          }))}
+          required
+        />
+        <AdminSelectField
+          defaultValue={set?.status ?? "announced"}
+          example="Announced"
+          hint="Controls the release lifecycle shown to operations staff."
+          label="Status"
+          name="status"
+          options={[
+            { value: "announced", label: "Announced" },
+            { value: "preorder_open", label: "Preorder open" },
+            { value: "preorder_closed", label: "Preorder closed" },
+            { value: "released", label: "Released" },
+            { value: "out_of_print", label: "Out of print" },
+          ]}
+          required
+        />
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Field label="Release date" name="releaseDate" type="date" value={set?.release_date ?? ""} />
-        <Field
+        <AdminTextField
+          defaultValue={set?.release_date ?? ""}
+          example="2026-08-15"
+          hint="Optional official or planned release date."
+          label="Release date"
+          name="releaseDate"
+          type="date"
+        />
+        <AdminTextField
+          defaultValue={toLocalDateTime(set?.preorder_open_at)}
+          example="2026-07-20 09:00"
+          hint="Optional local date and time when preorders open."
           label="Preorder opens"
           name="preorderOpenAt"
           type="datetime-local"
-          value={toLocalDateTime(set?.preorder_open_at)}
         />
-        <Field
+        <AdminTextField
+          defaultValue={toLocalDateTime(set?.preorder_close_at)}
+          example="2026-08-10 23:59"
+          hint="Optional local date and time when preorders close."
           label="Preorder closes"
           name="preorderCloseAt"
           type="datetime-local"
-          value={toLocalDateTime(set?.preorder_close_at)}
         />
-        <Field
+        <AdminNumberField
+          defaultValue={set?.sort_order ?? 0}
+          example="10"
+          hint="Lower values appear first."
           label="Sort order"
           min={0}
           name="sortOrder"
           required
-          type="number"
-          value={String(set?.sort_order ?? 0)}
         />
       </div>
-      <label className="grid gap-1 text-sm font-medium text-zinc-700">
-        Description
-        <textarea
-          className="min-h-24 rounded-md border border-zinc-300 px-3 py-2 text-sm"
-          defaultValue={set?.description ?? ""}
-          maxLength={2000}
-          name="description"
-        />
-      </label>
+      <AdminTextareaField
+        defaultValue={set?.description ?? ""}
+        example="Scarlet & Violet expansion featuring Team Rocket."
+        hint="Optional set or release notes."
+        label="Description"
+        maxLength={2000}
+        name="description"
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
           <input name="active" type="hidden" value="false" />
@@ -222,39 +241,6 @@ function toLocalDateTime(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return "";
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
-}
-
-function Field({
-  label,
-  name,
-  value,
-  required = false,
-  type = "text",
-  min,
-  hint,
-}: {
-  label: string;
-  name: string;
-  value?: string;
-  required?: boolean;
-  type?: string;
-  min?: number;
-  hint?: string;
-}) {
-  return (
-    <label className="grid gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <input
-        className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
-        defaultValue={value}
-        min={min}
-        name={name}
-        required={required}
-        type={type}
-      />
-      {hint ? <span className="text-xs font-normal text-zinc-500">{hint}</span> : null}
-    </label>
-  );
 }
 
 function PageHeading({ title, description }: { title: string; description: string }) {

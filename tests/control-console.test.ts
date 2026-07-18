@@ -55,7 +55,7 @@ describe("control console", () => {
     expect(operations).toContain('hasControlPermission(staff, "manage_full_operations")');
     expect(operations).toContain("ProductIntakeForm");
     expect(operations).toContain('from("product_types")');
-    expect(operations).not.toContain('label="Name" name="name"');
+    expect(operations).toContain('label="Display name"');
     expect(operations).not.toContain('label="Slug" name="slug"');
   });
 
@@ -79,7 +79,7 @@ describe("control console", () => {
     expect(catalogActions).toContain('rpc("admin_create_catalog_product_hierarchy"');
     expect(catalogActions).toContain('rpc("admin_upsert_catalog_product"');
     expect(catalogActions).toContain('rpc("admin_upsert_booster_box_sku"');
-    expect(catalogActions).not.toContain("p_name: input.name");
+    expect(catalogActions).toContain("p_name: input.name");
     expect(catalogActions).not.toContain("p_slug: input.slug");
     expect(customerActions).toContain('"manage_customers"');
     expect(customerActions).toContain("setCustomerAccountDeleted");
@@ -101,8 +101,13 @@ describe("control console", () => {
     expect(notifications).toContain('requireApiPermission(request, "manage_full_operations")');
   });
 
-  it("adds relational safeguards, canonical product types, and protected administrator grants", async () => {
-    const [controlMigration, hardeningMigration, productIdentityMigration] = await Promise.all([
+  it("adds relational safeguards, canonical product types, and explicit product display names", async () => {
+    const [
+      controlMigration,
+      hardeningMigration,
+      productIdentityMigration,
+      displayNameMigration,
+    ] = await Promise.all([
       readFile(
         new URL("../supabase/migrations/20260717090000_control_console.sql", import.meta.url),
         "utf8"
@@ -114,6 +119,13 @@ describe("control console", () => {
       readFile(
         new URL(
           "../supabase/migrations/20260717223000_product_types_and_derived_product_identity.sql",
+          import.meta.url
+        ),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../supabase/migrations/20260718143000_product_display_name_slug.sql",
           import.meta.url
         ),
         "utf8"
@@ -132,12 +144,14 @@ describe("control console", () => {
     expect(hardeningMigration).toContain("synchronize_admin_grant_staff");
     expect(productIdentityMigration).toContain("create table public.product_types");
     expect(productIdentityMigration).toContain("alter table public.products alter column set_id set not null");
-    expect(productIdentityMigration).toContain("create function public.set_catalog_product_identity");
-    expect(productIdentityMigration).toContain(
-      "new.slug := concat_ws('-', v_category_slug, v_set_segment, v_type_segment, lower(v_language))"
-    );
-    expect(productIdentityMigration).toContain(
+    expect(displayNameMigration).toContain("create or replace function public.set_catalog_product_identity");
+    expect(displayNameMigration).toContain("new.name := v_name");
+    expect(displayNameMigration).toContain("new.slug := v_slug");
+    expect(displayNameMigration).toContain(
       "product already exists for this category, set, type, and language"
+    );
+    expect(displayNameMigration).toContain(
+      "drop trigger if exists refresh_product_identity_from_category"
     );
     expect(productIdentityMigration).not.toContain("create table if not exists public.product_types");
     expect(productIdentityMigration).not.toContain("where product.set_id is null");

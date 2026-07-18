@@ -3,8 +3,14 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
+import {
+  AdminSelectField,
+  AdminTextField,
+  AdminTextareaField,
+} from "@/app/(shop)/control/_components/admin-form-fields";
 import { createCatalogProduct } from "@/app/actions/catalog";
 import { initialCatalogProductActionState } from "@/lib/catalog-product-action-state";
+import { slugFromName } from "@/lib/catalog-identifiers";
 
 export interface CatalogCategoryOption {
   id: string;
@@ -32,14 +38,17 @@ export function ProductIntakeForm({
   categories,
   productTypes,
   sets,
+  existingSlugs = [],
 }: {
   categories: CatalogCategoryOption[];
   productTypes: CatalogProductTypeOption[];
   sets: CatalogSetOption[];
+  existingSlugs?: string[];
 }) {
   const [state, action] = useActionState(createCatalogProduct, initialCatalogProductActionState);
   const initialCategoryId = categories[0]?.id ?? "";
   const initialCategoryHasSets = sets.some((set) => set.categoryId === initialCategoryId);
+  const [displayName, setDisplayName] = useState("");
   const [categoryMode, setCategoryMode] = useState<CategoryMode>(
     categories.length === 0 ? "new" : "existing"
   );
@@ -51,6 +60,8 @@ export function ProductIntakeForm({
   );
   const [productType, setProductType] = useState(productTypes[0]?.code ?? "");
   const visibleSets = sets.filter((set) => set.categoryId === categoryId);
+  const generatedSlug = slugFromName(displayName);
+  const duplicateSlug = generatedSlug !== "" && existingSlugs.includes(generatedSlug);
 
   function selectCategoryMode(mode: CategoryMode) {
     setCategoryMode(mode);
@@ -78,14 +89,39 @@ export function ProductIntakeForm({
       ) : null}
 
       <section className="grid gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-semibold text-zinc-950">Product</h3>
-            <p className="mt-1 text-xs text-zinc-500">
-              The display name and slug are generated from category, set, type, and language.
-            </p>
-          </div>
-          <span className="text-xs text-zinc-500">No product name required</span>
+        <div>
+          <h3 className="font-semibold text-zinc-950">Product</h3>
+          <p className="mt-1 text-xs text-zinc-500">
+            The display name is customer-facing. Its URL slug is generated automatically and cannot duplicate another product slug.
+          </p>
+        </div>
+
+        <AdminTextField
+          example="Pokémon Destined Rivals Booster Box"
+          externalError={
+            state.field === "name" || state.field === "productIdentity" ? state.message : undefined
+          }
+          hint="Use the exact customer-facing title. The slug updates below as you type."
+          label="Display name"
+          maxLength={160}
+          minLength={2}
+          name="name"
+          onValueChange={setDisplayName}
+          required
+          value={displayName}
+        />
+
+        <div
+          className={`rounded-md border px-3 py-2 text-xs ${
+            duplicateSlug
+              ? "border-rose-200 bg-rose-50 text-rose-800"
+              : "border-zinc-200 bg-zinc-50 text-zinc-600"
+          }`}
+          role={duplicateSlug ? "alert" : "status"}
+        >
+          <span className="font-semibold">Generated slug:</span>{" "}
+          {generatedSlug ? `/${generatedSlug}` : "Enter a display name to preview the slug."}
+          {duplicateSlug ? " This slug is already in use; choose a distinct display name." : ""}
         </div>
 
         <div className="grid gap-4 rounded-lg border border-zinc-200 bg-white p-4">
@@ -112,42 +148,60 @@ export function ProductIntakeForm({
           </div>
           <input name="productTypeMode" type="hidden" value={productTypeMode} />
           {productTypeMode === "existing" ? (
-            <Field label="Type" error={state.field === "productType"}>
-              <select
-                className={inputClass}
-                name="productType"
-                onChange={(event) => setProductType(event.target.value)}
-                required
-                value={productType}
-              >
-                {productTypes.map((type) => (
-                  <option key={type.code} value={type.code}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <AdminSelectField
+              example="Booster box"
+              externalError={state.field === "productType" ? state.message : undefined}
+              label="Type"
+              name="productType"
+              onValueChange={setProductType}
+              options={productTypes.map((type) => ({ value: type.code, label: type.name }))}
+              required
+              value={productType}
+            />
           ) : (
-            <Field label="New type name" error={state.field === "productType"}>
-              <input className={inputClass} maxLength={160} name="newProductTypeName" required />
-              <IdentifierHint>
-                A reusable dropdown code is generated automatically from this name.
-              </IdentifierHint>
-            </Field>
+            <AdminTextField
+              example="Premium collection"
+              externalError={state.field === "productType" ? state.message : undefined}
+              hint="A reusable dropdown code is generated automatically from this name."
+              label="New type name"
+              maxLength={160}
+              minLength={2}
+              name="newProductTypeName"
+              required
+            />
           )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Language" error={state.field === "productIdentity"}>
-            <input className={inputClass} defaultValue="EN" maxLength={8} name="language" required />
-          </Field>
-          <Field label="Image URL">
-            <input className={inputClass} name="imageUrl" type="url" />
-          </Field>
+          <AdminTextField
+            autoCapitalize="characters"
+            example="EN"
+            externalError={state.field === "productIdentity" ? state.message : undefined}
+            hint="Use a 2–8 letter language code."
+            label="Language"
+            maxLength={8}
+            minLength={2}
+            name="language"
+            pattern="[A-Za-z]{2,8}"
+            patternMessage="Language must contain 2–8 letters, such as EN or JP."
+            required
+            defaultValue="EN"
+          />
+          <AdminTextField
+            example="https://cdn.example.com/products/destined-rivals.jpg"
+            hint="Optional. You can also upload an image after creating the product."
+            label="Image URL"
+            name="imageUrl"
+            type="url"
+          />
         </div>
-        <Field label="Description">
-          <textarea className={`${inputClass} min-h-24 py-2`} maxLength={2000} name="description" />
-        </Field>
+        <AdminTextareaField
+          example="English booster box containing 36 packs."
+          hint="Optional customer-facing product details."
+          label="Description"
+          maxLength={2000}
+          name="description"
+        />
       </section>
 
       <section className="grid gap-5 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
@@ -158,57 +212,59 @@ export function ProductIntakeForm({
               <h3 className="font-semibold text-zinc-950">Category</h3>
             </div>
             <div className="flex rounded-md border border-zinc-300 bg-white p-1 text-xs font-semibold">
-              <button
-                className={`min-h-9 rounded px-3 ${categoryMode === "existing" ? "bg-zinc-950 text-white" : "text-zinc-600"}`}
+              <ModeButton
+                active={categoryMode === "existing"}
                 disabled={categories.length === 0}
                 onClick={() => selectCategoryMode("existing")}
-                type="button"
               >
                 Existing
-              </button>
-              <button
-                className={`min-h-9 rounded px-3 ${categoryMode === "new" ? "bg-zinc-950 text-white" : "text-zinc-600"}`}
-                onClick={() => selectCategoryMode("new")}
-                type="button"
-              >
+              </ModeButton>
+              <ModeButton active={categoryMode === "new"} onClick={() => selectCategoryMode("new")}>
                 Add category
-              </button>
+              </ModeButton>
             </div>
           </div>
 
           <input name="categoryMode" type="hidden" value={categoryMode} />
           {categoryMode === "existing" ? (
-            <Field label="Category" error={state.field === "category"}>
-              <select
-                className={inputClass}
-                name="categoryId"
-                onChange={(event) => {
-                  const nextCategoryId = event.target.value;
-                  setCategoryId(nextCategoryId);
-                  setSetId("");
-                  setSetMode(
-                    sets.some((set) => set.categoryId === nextCategoryId) ? "existing" : "new"
-                  );
-                }}
-                required
-                value={categoryId}
-              >
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <AdminSelectField
+              example="Pokémon"
+              externalError={state.field === "category" ? state.message : undefined}
+              label="Category"
+              name="categoryId"
+              onValueChange={(nextCategoryId) => {
+                setCategoryId(nextCategoryId);
+                setSetId("");
+                setSetMode(
+                  sets.some((set) => set.categoryId === nextCategoryId) ? "existing" : "new"
+                );
+              }}
+              options={categories.map((category) => ({
+                value: category.id,
+                label: category.name,
+              }))}
+              required
+              value={categoryId}
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Category name" error={state.field === "categorySlug"}>
-                <input className={inputClass} maxLength={160} name="newCategoryName" required />
-                <IdentifierHint>Slug is generated automatically from the category name.</IdentifierHint>
-              </Field>
-              <Field label="Publisher">
-                <input className={inputClass} maxLength={160} name="newCategoryPublisher" />
-              </Field>
+              <AdminTextField
+                example="Pokémon"
+                externalError={state.field === "categorySlug" ? state.message : undefined}
+                hint="The category slug is generated automatically from this name."
+                label="Category name"
+                maxLength={160}
+                minLength={2}
+                name="newCategoryName"
+                required
+              />
+              <AdminTextField
+                example="The Pokémon Company"
+                hint="Optional organization that publishes the category."
+                label="Publisher"
+                maxLength={160}
+                name="newCategoryPublisher"
+              />
             </div>
           )}
         </div>
@@ -219,7 +275,7 @@ export function ProductIntakeForm({
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Step 2</p>
               <h3 className="font-semibold text-zinc-950">Set</h3>
               <p className="mt-1 text-xs text-zinc-500">
-                Required. Products are identified by their set, type, and language.
+                Required. The set remains a structured relationship and does not overwrite the display name.
               </p>
             </div>
             <div className="flex flex-wrap rounded-md border border-zinc-300 bg-white p-1 text-xs font-semibold">
@@ -244,42 +300,55 @@ export function ProductIntakeForm({
 
           <input name="setMode" type="hidden" value={setMode} />
           {setMode === "existing" ? (
-            <Field label="Set" error={state.field === "set"}>
-              <select
-                className={inputClass}
-                name="setId"
-                onChange={(event) => setSetId(event.target.value)}
-                required
-                value={setId}
-              >
-                <option value="">Select a set</option>
-                {visibleSets.map((set) => (
-                  <option key={set.id} value={set.id}>
-                    {set.name} ({set.code})
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <AdminSelectField
+              example="Destined Rivals (DRI)"
+              externalError={state.field === "set" ? state.message : undefined}
+              label="Set"
+              name="setId"
+              onValueChange={setSetId}
+              optionalLabel="Select a set"
+              options={visibleSets.map((set) => ({
+                value: set.id,
+                label: `${set.name} (${set.code})`,
+              }))}
+              required
+              value={setId}
+            />
           ) : null}
 
           {setMode === "new" ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Set name" error={state.field === "setCode"}>
-                <input className={inputClass} maxLength={160} name="newSetName" required />
-                <IdentifierHint>Code is generated automatically from the set name.</IdentifierHint>
-              </Field>
-              <Field label="Release date">
-                <input className={inputClass} name="newSetReleaseDate" type="date" />
-              </Field>
-              <Field label="Status">
-                <select className={inputClass} defaultValue="announced" name="newSetStatus">
-                  <option value="announced">Announced</option>
-                  <option value="preorder_open">Preorder open</option>
-                  <option value="preorder_closed">Preorder closed</option>
-                  <option value="released">Released</option>
-                  <option value="out_of_print">Out of print</option>
-                </select>
-              </Field>
+              <AdminTextField
+                example="Destined Rivals"
+                externalError={state.field === "setCode" ? state.message : undefined}
+                hint="The reusable set code is generated automatically from this name."
+                label="Set name"
+                maxLength={160}
+                minLength={2}
+                name="newSetName"
+                required
+              />
+              <AdminTextField
+                example="2026-08-15"
+                hint="Optional planned or confirmed release date."
+                label="Release date"
+                name="newSetReleaseDate"
+                type="date"
+              />
+              <AdminSelectField
+                defaultValue="announced"
+                example="Announced"
+                label="Status"
+                name="newSetStatus"
+                options={[
+                  { value: "announced", label: "Announced" },
+                  { value: "preorder_open", label: "Preorder open" },
+                  { value: "preorder_closed", label: "Preorder closed" },
+                  { value: "released", label: "Released" },
+                  { value: "out_of_print", label: "Out of print" },
+                ]}
+                required
+              />
             </div>
           ) : null}
         </div>
@@ -291,7 +360,7 @@ export function ProductIntakeForm({
           <input defaultChecked name="active" type="checkbox" value="true" />
           Active
         </label>
-        <SubmitButton />
+        <SubmitButton disabled={duplicateSlug || generatedSlug === ""} />
       </div>
     </form>
   );
@@ -320,38 +389,14 @@ function ModeButton({
   );
 }
 
-function SubmitButton() {
+function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
-      className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:bg-zinc-400"
-      disabled={pending}
+      className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+      disabled={pending || disabled}
     >
       {pending ? "Creating…" : "Create product"}
     </button>
   );
 }
-
-function Field({
-  children,
-  label,
-  error = false,
-}: {
-  children: React.ReactNode;
-  label: string;
-  error?: boolean;
-}) {
-  return (
-    <label className={`grid gap-1 text-sm font-medium ${error ? "text-rose-700" : "text-zinc-700"}`}>
-      {label}
-      {children}
-    </label>
-  );
-}
-
-function IdentifierHint({ children }: { children: React.ReactNode }) {
-  return <span className="text-xs font-normal text-zinc-500">{children}</span>;
-}
-
-const inputClass =
-  "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-base text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:text-sm";

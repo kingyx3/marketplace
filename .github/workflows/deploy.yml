@@ -135,7 +135,7 @@ jobs:
           SUPABASE_CLI=$(node -e 'const v=require("./config/tool-versions.json"); process.stdout.write(v.supabaseCli)')
           {
             npx --yes "supabase@$SUPABASE_CLI" link --project-ref "$SUPABASE_PROJECT_REF"
-            npx --yes "supabase@$SUPABASE_CLI" db push
+            npx --yes "supabase@$SUPABASE_CLI" db push --include-all
           } 2>&1 | tee -a hosted-migration.log
       - uses: actions/upload-artifact@v7.0.1
         if: always()

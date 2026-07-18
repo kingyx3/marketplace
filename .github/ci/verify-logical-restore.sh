@@ -56,7 +56,8 @@ begin
   if not exists (
     select 1
     from public.products
-    where slug = 'mtg-smp-booster-box-en'
+    where slug = 'magic-the-gathering-sample-standard-set-booster-box'
+      and name = 'Magic: The Gathering Sample Standard Set Booster Box'
       and product_type = 'booster_box'
       and language = 'EN'
       and active
