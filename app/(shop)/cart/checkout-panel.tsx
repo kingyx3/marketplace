@@ -1,11 +1,19 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import {
   ShippingAddressFields,
@@ -105,7 +113,7 @@ export function CartCheckoutPanel({
     [supabaseUrl, supabaseKey]
   );
 
-  async function accessToken(): Promise<string> {
+  const accessToken = useCallback(async (): Promise<string> => {
     if (!supabase) throw new Error("Authentication is not configured");
 
     const { data, error } = await supabase.auth.getSession();
@@ -114,30 +122,33 @@ export function CartCheckoutPanel({
       throw new Error("Sign in is required before checkout");
     }
     return data.session.access_token;
-  }
+  }, [authRedirectPath, router, supabase]);
 
-  async function authenticatedJson<T>(url: string, init: RequestInit = {}): Promise<T> {
-    const token = await accessToken();
-    const response = await fetch(url, {
-      ...init,
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...init.headers,
-      },
-    });
-    const payload = (await response.json().catch(() => ({}))) as ApiErrorResponse;
+  const authenticatedJson = useCallback(
+    async <T,>(url: string, init: RequestInit = {}): Promise<T> => {
+      const token = await accessToken();
+      const response = await fetch(url, {
+        ...init,
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...init.headers,
+        },
+      });
+      const payload = (await response.json().catch(() => ({}))) as ApiErrorResponse;
 
-    if (response.status === 401) {
-      router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
-    }
-    if (!response.ok) {
-      throw new Error(payload.error?.message ?? "Checkout request failed");
-    }
+      if (response.status === 401) {
+        router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
+      }
+      if (!response.ok) {
+        throw new Error(payload.error?.message ?? "Checkout request failed");
+      }
 
-    return payload as T;
-  }
+      return payload as T;
+    },
+    [accessToken, authRedirectPath, router]
+  );
 
   async function beginCheckout() {
     if (disabled || items.length === 0 || phase === "creating") return;
@@ -154,6 +165,7 @@ export function CartCheckoutPanel({
 
     setPhase("creating");
     setMessage(null);
+    setRemainingSeconds(null);
     expiryHandled.current = false;
 
     try {
@@ -165,7 +177,11 @@ export function CartCheckoutPanel({
         method: "POST",
         body: JSON.stringify(requestBody),
       });
+
       setCheckout(result);
+      setRemainingSeconds(
+        result.reservationExpiresAt ? secondsUntil(result.reservationExpiresAt) : null
+      );
       setPhase("ready");
       setMessage(
         result.mode === "order"
@@ -180,7 +196,8 @@ export function CartCheckoutPanel({
     }
   }
 
-  async function clearCartAfterSuccess() {
+  const clearCartAfterSuccess = useCallback(async () => {
+    setRemainingSeconds(null);
     if (!clearCartOnSuccess) {
       router.refresh();
       setMessage("Payment confirmed");
@@ -194,62 +211,59 @@ export function CartCheckoutPanel({
     } catch {
       setMessage("Payment confirmed. Refresh the cart after the order appears.");
     }
-  }
+  }, [authenticatedJson, clearCartOnSuccess, router]);
 
-  async function cancelCheckout(options: { expired?: boolean } = {}) {
-    if (!checkout || ["confirming", "processing", "succeeded"].includes(phase)) return;
+  const cancelCheckout = useCallback(
+    async (options: { expired?: boolean } = {}) => {
+      if (!checkout || ["confirming", "processing", "succeeded"].includes(phase)) return;
 
-    if (!options.expired) {
-      setPhase("canceling");
-      setMessage(null);
-    }
-
-    try {
-      await authenticatedJson<{ cancelled: true }>("/api/checkout/cancel", {
-        method: "POST",
-        body: JSON.stringify({ paymentIntentId: checkout.paymentIntentId }),
-      });
-    } catch (error) {
       if (!options.expired) {
-        setPhase("failed");
-        setMessage(messageFromError(error, "Payment attempt could not be cancelled"));
-        return;
+        setPhase("canceling");
+        setMessage(null);
       }
-    }
 
-    setCheckout(null);
-    setRemainingSeconds(null);
-    setPhase(options.expired ? "failed" : "cancelled");
-    setMessage(
-      options.expired
-        ? "The 15-minute stock reservation expired. Your cart has been refreshed; start checkout again to reserve available stock."
-        : "Payment attempt cancelled and reserved stock released"
-    );
-    router.refresh();
-  }
+      try {
+        await authenticatedJson<{ cancelled: true }>("/api/checkout/cancel", {
+          method: "POST",
+          body: JSON.stringify({ paymentIntentId: checkout.paymentIntentId }),
+        });
+      } catch (error) {
+        if (!options.expired) {
+          setPhase("failed");
+          setMessage(messageFromError(error, "Payment attempt could not be cancelled"));
+          return;
+        }
+      }
+
+      setCheckout(null);
+      setRemainingSeconds(null);
+      setPhase(options.expired ? "failed" : "cancelled");
+      setMessage(
+        options.expired
+          ? "The 15-minute stock reservation expired. Your cart has been refreshed; start checkout again to reserve available stock."
+          : "Payment attempt cancelled and reserved stock released"
+      );
+      router.refresh();
+    },
+    [authenticatedJson, checkout, phase, router]
+  );
 
   useEffect(() => {
     const expiresAt = checkout?.reservationExpiresAt;
-    if (!expiresAt || phase === "succeeded") {
-      setRemainingSeconds(null);
-      return;
-    }
+    if (!expiresAt || phase === "succeeded") return;
 
-    function updateCountdown() {
-      const remaining = Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    const expiresAtMs = Date.parse(expiresAt);
+    const timer = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
       setRemainingSeconds(remaining);
       if (remaining === 0 && !expiryHandled.current) {
         expiryHandled.current = true;
         void cancelCheckout({ expired: true });
       }
-    }
+    }, 1000);
 
-    updateCountdown();
-    const timer = window.setInterval(updateCountdown, 1000);
     return () => window.clearInterval(timer);
-    // cancelCheckout intentionally reads current checkout/phase state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkout?.reservationExpiresAt, phase]);
+  }, [cancelCheckout, checkout?.reservationExpiresAt, phase]);
 
   const elementsOptions: StripeElementsOptions | undefined = checkout
     ? {
@@ -327,9 +341,7 @@ export function CartCheckoutPanel({
               setPhase("processing");
               setMessage(text);
             }}
-            onReady={() => {
-              setPhase("ready");
-            }}
+            onReady={() => setPhase("ready")}
             onStartConfirm={() => {
               setPhase("confirming");
               setMessage(null);
@@ -382,7 +394,9 @@ function ReservationNotice({ remainingSeconds }: { remainingSeconds: number }) {
       }`}
     >
       <p className="font-semibold">
-        {expired ? "Reservation expired" : `Stock reserved for ${minutes}:${seconds.toString().padStart(2, "0")}`}
+        {expired
+          ? "Reservation expired"
+          : `Stock reserved for ${minutes}:${seconds.toString().padStart(2, "0")}`}
       </p>
       <p className="mt-1 text-xs">
         Payment must complete before the timer ends. Unpaid stock is then released automatically.
@@ -480,7 +494,9 @@ function PaymentForm({
         await onSuccess();
         return;
       case "processing":
-        onProcessing("Payment is processing. The final order state will update after Stripe confirms it.");
+        onProcessing(
+          "Payment is processing. The final order state will update after Stripe confirms it."
+        );
         return;
       case "requires_payment_method":
         onFailure("Payment was not completed. Try another payment method.");
@@ -504,7 +520,13 @@ function PaymentForm({
           disabled={!stripe || !elements || confirming || disabled}
           type="submit"
         >
-          {disabled ? "Reservation expired" : confirming ? "Confirming" : phase === "failed" ? "Retry payment" : "Confirm payment"}
+          {disabled
+            ? "Reservation expired"
+            : confirming
+              ? "Confirming"
+              : phase === "failed"
+                ? "Retry payment"
+                : "Confirm payment"}
         </button>
         <button
           className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500 disabled:cursor-not-allowed disabled:text-zinc-400"
@@ -534,6 +556,10 @@ function StatusMessage({ children, phase }: { children: ReactNode; phase: Checko
       {children}
     </div>
   );
+}
+
+function secondsUntil(value: string): number {
+  return Math.max(0, Math.ceil((Date.parse(value) - Date.now()) / 1000));
 }
 
 function messageFromError(error: unknown, fallback: string): string {
