@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import {
   adminCatalogProductFromForm,
@@ -18,7 +19,6 @@ import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
 import { adminPurchaseOrderFromForm } from "@/lib/admin-purchase-order-forms";
 import { requireControlPermission } from "@/lib/control-access";
 import { performAdminOrderAction } from "@/lib/orders";
-import { runPreorderAllocationForSku } from "@/lib/preorders";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function upsertLimitedTimeDeal(formData: FormData) {
@@ -41,7 +41,6 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
   });
 
   if (error) throw new Error(`Limited-time deal save failed: ${error.message}`);
-
   revalidateDealPaths();
 }
 
@@ -56,7 +55,6 @@ export async function setLimitedTimeDealActive(formData: FormData) {
   });
 
   if (error) throw new Error(`Limited-time deal status update failed: ${error.message}`);
-
   revalidateDealPaths();
 }
 
@@ -305,13 +303,7 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
 }
 
 export async function runPreorderAllocation(formData: FormData) {
-  const { user } = await requireControlPermission("manage_full_operations", "/control/operations");
+  await requireControlPermission("manage_full_operations", "/control/preorders");
   const skuId = String(formData.get("skuId") ?? "");
-
-  await runPreorderAllocationForSku(createServiceClient(), skuId, `staff:${user.id}`);
-
-  revalidatePath("/control");
-  revalidatePath("/control/operations");
-  revalidatePath("/preorders");
-  revalidatePath("/products");
+  redirect(`/control/preorders?sku=${encodeURIComponent(skuId)}`);
 }
