@@ -82,7 +82,7 @@ jobs:
     if: ${{ !inputs.skip_app_checks }}
     uses: ./.github/workflows/app-checks.yml
     with:
-      app_name: ${{ vars.APP_NAME }}
+      environment: ${{ inputs.environment }}
       run_e2e: false
 
   migration-check:
