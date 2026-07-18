@@ -8,6 +8,10 @@ on:
         required: false
         default: false
         type: boolean
+      app_name:
+        description: Application display name from the GitHub APP_NAME variable
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -16,6 +20,8 @@ jobs:
   checks:
     name: ${{ matrix.check }}
     runs-on: ubuntu-latest
+    env:
+      APP_NAME: ${{ inputs.app_name }}
     strategy:
       fail-fast: false
       matrix:
@@ -34,6 +40,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Require configured app name
+        run: node -e 'if (!process.env.APP_NAME?.trim()) throw new Error("GitHub variable APP_NAME is required")'
       - run: npm ci
       - name: Run ${{ matrix.check }}
         shell: bash
@@ -52,6 +60,7 @@ jobs:
     if: inputs.run_e2e
     runs-on: ubuntu-latest
     env:
+      APP_NAME: ${{ inputs.app_name }}
       MARKETPLACE_PREVIEW_FIXTURES: "true"
     steps:
       - uses: actions/checkout@v7.0.0
@@ -59,6 +68,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Require configured app name
+        run: node -e 'if (!process.env.APP_NAME?.trim()) throw new Error("GitHub variable APP_NAME is required")'
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Build and run E2E
