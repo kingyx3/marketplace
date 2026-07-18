@@ -58,7 +58,9 @@ test.describe("storefront navigation", () => {
     const mobileNavigation = page.getByRole("navigation", { name: "Mobile primary navigation" });
     await expect(drawer).toBeVisible();
     await expect(drawer).toHaveAttribute("aria-modal", "true");
-    await expect(page.getByRole("button", { name: "Close navigation" })).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: "Close navigation", exact: true })
+    ).toBeFocused();
     await expect(page.locator("html")).toHaveCSS("overflow", "hidden");
     await expect(mobileNavigation).toBeVisible();
     await expect(mobileNavigation.getByRole("link", { name: "Products" })).toBeVisible();
