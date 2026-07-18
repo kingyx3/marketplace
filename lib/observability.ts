@@ -122,7 +122,7 @@ function attachScopeContext(scope: TelemetryScope, context: LogContext): void {
   if (context.status !== undefined) scope.setTag("http.response.status_code", String(context.status));
 }
 
-function safeError(error: unknown): Record<string, unknown> {
+function safeError(error: unknown): ErrorDetails {
   return errorDetails(error);
 }
 
