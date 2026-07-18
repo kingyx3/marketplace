@@ -29,12 +29,12 @@ describe("catalog product action", () => {
     mocks.requireControlPermission.mockResolvedValue({ user: { id: "staff-user-123" } });
   });
 
-  it("creates a product and missing hierarchy atomically without a product name", async () => {
+  it("creates a named product and missing hierarchy atomically", async () => {
     const rpc = vi.fn(async () => ({
       data: [
         {
           product_id: "product-123",
-          product_slug: "pokemon-base-set-booster-box-en",
+          product_slug: "pokemon-base-set-booster-box",
           category_id: "category-123",
           category_name: "Pokémon",
           category_created: true,
@@ -53,6 +53,7 @@ describe("catalog product action", () => {
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
       productForm({
+        name: "Pokémon Base Set Booster Box",
         categoryMode: "new",
         newCategoryName: "Pokémon",
         newCategoryPublisher: "The Pokémon Company",
@@ -64,7 +65,7 @@ describe("catalog product action", () => {
     expect(result).toEqual({
       status: "success",
       message:
-        "Product created. A new Pokémon category was created. A new Base Set set was created. Slug: pokemon-base-set-booster-box-en.",
+        "Product created. A new Pokémon category was created. A new Base Set set was created. Slug: pokemon-base-set-booster-box.",
     });
     expect(rpc).toHaveBeenCalledWith("admin_create_catalog_product_hierarchy", {
       p_category_id: null,
@@ -79,6 +80,7 @@ describe("catalog product action", () => {
       p_product_type: "booster_box",
       p_new_product_type_name: null,
       p_new_product_type_code: null,
+      p_name: "Pokémon Base Set Booster Box",
       p_description: null,
       p_language: "EN",
       p_image_url: null,
@@ -94,7 +96,7 @@ describe("catalog product action", () => {
       data: [
         {
           product_id: "product-123",
-          product_slug: "pokemon-destined-rivals-booster-box-en",
+          product_slug: "pokemon-destined-rivals-booster-box",
           category_id: "category-123",
           category_name: "Pokémon",
           category_created: false,
@@ -124,11 +126,12 @@ describe("catalog product action", () => {
     expect(result).toEqual({
       status: "success",
       message:
-        "Product created. A new Destined Rivals set was created. Slug: pokemon-destined-rivals-booster-box-en.",
+        "Product created. A new Destined Rivals set was created. Slug: pokemon-destined-rivals-booster-box.",
     });
     expect(rpc).toHaveBeenCalledWith(
       "admin_create_catalog_product_hierarchy",
       expect.objectContaining({
+        p_name: "Pokémon Destined Rivals Booster Box",
         p_category_id: "category-123",
         p_set_id: null,
         p_new_set_name: "Destined Rivals",
@@ -139,12 +142,12 @@ describe("catalog product action", () => {
     );
   });
 
-  it("adds a new reusable product type inline", async () => {
+  it("adds a new reusable product type inline without deriving the display name from it", async () => {
     const rpc = vi.fn(async () => ({
       data: [
         {
           product_id: "product-123",
-          product_slug: "pokemon-destined-rivals-premium-collection-box-en",
+          product_slug: "pokemon-destined-rivals-premium-collection-box",
           category_id: "category-123",
           category_name: "Pokémon",
           category_created: false,
@@ -163,6 +166,7 @@ describe("catalog product action", () => {
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
       productForm({
+        name: "Pokémon Destined Rivals Premium Collection Box",
         productTypeMode: "new",
         productType: "",
         newProductTypeName: "Premium Collection Box",
@@ -172,11 +176,12 @@ describe("catalog product action", () => {
     expect(result).toEqual({
       status: "success",
       message:
-        "Product created. Premium Collection Box was added to the product type list. Slug: pokemon-destined-rivals-premium-collection-box-en.",
+        "Product created. Premium Collection Box was added to the product type list. Slug: pokemon-destined-rivals-premium-collection-box.",
     });
     expect(rpc).toHaveBeenCalledWith(
       "admin_create_catalog_product_hierarchy",
       expect.objectContaining({
+        p_name: "Pokémon Destined Rivals Premium Collection Box",
         p_product_type: null,
         p_new_product_type_name: "Premium Collection Box",
         p_new_product_type_code: "premium_collection_box",
@@ -184,7 +189,7 @@ describe("catalog product action", () => {
     );
   });
 
-  it("keeps product input recoverable when the generated identity conflicts", async () => {
+  it("keeps product input recoverable when the structured identity conflicts", async () => {
     const rpc = vi.fn(async () => ({
       data: null,
       error: {
@@ -205,7 +210,27 @@ describe("catalog product action", () => {
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("surfaces a generated category slug conflict as a name-level correction", async () => {
+  it("surfaces a display-name slug conflict on the display-name field", async () => {
+    const rpc = vi.fn(async () => ({
+      data: null,
+      error: {
+        code: "23505",
+        message: "product display name generates a slug already used by another product",
+      },
+    }));
+    mocks.createServiceClient.mockReturnValue({ rpc });
+
+    const result = await createCatalogProduct(
+      initialCatalogProductActionState,
+      productForm()
+    );
+
+    expect(result).toMatchObject({ status: "error", field: "name" });
+    expect(result.message).toContain("Choose a distinct display name");
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a generated category slug conflict without discarding product input", async () => {
     const rpc = vi.fn(async () => ({
       data: null,
       error: {
@@ -228,7 +253,7 @@ describe("catalog product action", () => {
     );
 
     expect(result).toMatchObject({ status: "error", field: "productIdentity" });
-    expect(result.message).toContain("Select the existing record or change the conflicting selection");
+    expect(result.message).toContain("Select the existing record or change the conflicting value");
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -291,6 +316,7 @@ describe("catalog product action", () => {
 
 function productForm(overrides: Record<string, string> = {}): FormData {
   const values: Record<string, string> = {
+    name: "Pokémon Destined Rivals Booster Box",
     categoryMode: "existing",
     categoryId: "category-123",
     setMode: "existing",
