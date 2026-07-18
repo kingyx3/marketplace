@@ -1,7 +1,7 @@
--- Managed product types and database-derived product identity.
--- Product display names and slugs are generated from category, set, type, and language.
+-- Canonical managed product types and database-derived product identity.
+-- This project is pre-production: invalid historical catalog rows are rejected instead of migrated.
 
-create table if not exists public.product_types (
+create table public.product_types (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
   name text not null,
@@ -12,7 +12,7 @@ create table if not exists public.product_types (
   constraint product_types_code_format check (code ~ '^[a-z][a-z0-9_]{0,63}$')
 );
 
-create unique index if not exists product_types_name_ci_key
+create unique index product_types_name_ci_key
   on public.product_types (lower(name));
 
 alter table public.product_types enable row level security;
@@ -25,61 +25,16 @@ values
   ('collector_box', 'Collector box', 20),
   ('bundle', 'Bundle', 30),
   ('case', 'Case', 40),
-  ('other', 'Other', 100)
-on conflict (code) do nothing;
+  ('other', 'Other', 100);
 
-insert into public.product_types (code, name, sort_order)
-select distinct
-  lower(trim(product.product_type)),
-  initcap(replace(lower(trim(product.product_type)), '_', ' ')),
-  90
-from public.products product
-where lower(trim(product.product_type)) ~ '^[a-z][a-z0-9_]{0,63}$'
-on conflict (code) do nothing;
-
-alter table public.products
-  drop constraint if exists products_product_type_fkey;
+-- Products always belong to a real set and a managed product type.
+-- Existing development data that violates these canonical constraints must be reset or corrected.
+alter table public.products alter column set_id set not null;
 alter table public.products
   add constraint products_product_type_fkey
-  foreign key (product_type) references public.product_types(code)
-  not valid;
-alter table public.products validate constraint products_product_type_fkey;
+  foreign key (product_type) references public.product_types(code);
 
--- Products require a set. Preserve any legacy set-less records by assigning them
--- to an explicit General set under their existing category before enforcing it.
-insert into public.sets_releases (
-  category_id,
-  name,
-  code,
-  release_date,
-  status,
-  active,
-  sort_order
-)
-select distinct
-  product.category_id,
-  'General',
-  'GENERAL',
-  null::date,
-  'released'::public.set_status,
-  true,
-  0
-from public.products product
-where product.set_id is null
-on conflict (category_id, code) do update
-  set active = true,
-      updated_at = now();
-
-update public.products product
-set set_id = release.id
-from public.sets_releases release
-where product.set_id is null
-  and release.category_id = product.category_id
-  and release.code = 'GENERAL';
-
-alter table public.products alter column set_id set not null;
-
-create or replace function public.set_catalog_product_identity()
+create function public.set_catalog_product_identity()
 returns trigger
 language plpgsql
 set search_path = public
@@ -129,15 +84,14 @@ $$;
 
 revoke all on function public.set_catalog_product_identity() from public, anon, authenticated;
 
-drop trigger if exists set_catalog_product_identity on public.products;
 create trigger set_catalog_product_identity
 before insert or update on public.products
 for each row execute function public.set_catalog_product_identity();
 
--- Recalculate existing names/slugs using the canonical relationship.
+-- Normalize any valid development rows to the canonical generated identity.
 update public.products set updated_at = now();
 
-create or replace function public.refresh_catalog_product_identity_from_parent()
+create function public.refresh_catalog_product_identity_from_parent()
 returns trigger
 language plpgsql
 set search_path = public
@@ -157,33 +111,30 @@ $$;
 revoke all on function public.refresh_catalog_product_identity_from_parent()
   from public, anon, authenticated;
 
-drop trigger if exists refresh_product_identity_from_category on public.tcg_categories;
 create trigger refresh_product_identity_from_category
 after update of name, slug on public.tcg_categories
 for each row
 when (old.name is distinct from new.name or old.slug is distinct from new.slug)
 execute function public.refresh_catalog_product_identity_from_parent();
 
-drop trigger if exists refresh_product_identity_from_set on public.sets_releases;
 create trigger refresh_product_identity_from_set
 after update of name, code on public.sets_releases
 for each row
 when (old.name is distinct from new.name or old.code is distinct from new.code)
 execute function public.refresh_catalog_product_identity_from_parent();
 
-drop trigger if exists refresh_product_identity_from_type on public.product_types;
 create trigger refresh_product_identity_from_type
 after update of name on public.product_types
 for each row
 when (old.name is distinct from new.name)
 execute function public.refresh_catalog_product_identity_from_parent();
 
-drop trigger if exists set_updated_at on public.product_types;
 create trigger set_updated_at
 before update on public.product_types
 for each row execute function public.set_updated_at();
 
-drop function if exists public.admin_create_catalog_product_hierarchy(
+-- Remove the superseded product-creation contract before defining the canonical one.
+drop function public.admin_create_catalog_product_hierarchy(
   uuid, text, text, text, uuid, text, text, date, public.set_status,
   text, text, text, text, text, text, boolean, uuid
 );
@@ -528,7 +479,8 @@ grant execute on function public.admin_create_catalog_product_hierarchy(
   text, text, text, text, text, text, boolean, uuid
 ) to service_role;
 
-drop function if exists public.admin_upsert_catalog_product(
+-- Remove the obsolete manual-name/manual-slug upsert contract.
+drop function public.admin_upsert_catalog_product(
   uuid, uuid, uuid, text, text, text, text, text, text, boolean, text
 );
 
