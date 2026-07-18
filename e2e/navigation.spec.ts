@@ -48,17 +48,28 @@ test.describe("storefront navigation", () => {
 
     const banner = page.getByRole("banner");
     const homeLink = banner.locator('a[href="/"]').first();
+    const openNavigation = banner.getByRole("button", { name: "Open navigation" });
     await expect(homeLink).toBeVisible();
     await expect(banner.getByRole("link", { name: "Cart", exact: true })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Mobile primary navigation" })).toHaveCount(0);
 
-    await banner.getByRole("button", { name: "Open navigation" }).click();
+    await openNavigation.click();
+    const drawer = page.getByRole("dialog");
     const mobileNavigation = page.getByRole("navigation", { name: "Mobile primary navigation" });
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toHaveAttribute("aria-modal", "true");
+    await expect(page.getByRole("button", { name: "Close navigation" })).toBeFocused();
+    await expect(page.locator("html")).toHaveCSS("overflow", "hidden");
     await expect(mobileNavigation).toBeVisible();
     await expect(mobileNavigation.getByRole("link", { name: "Products" })).toBeVisible();
     await expect(mobileNavigation.getByRole("link", { name: "Sign in" })).toBeVisible();
     await expect(mobileNavigation.getByRole("link", { name: "Home" })).toHaveCount(0);
 
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await expect(openNavigation).toBeFocused();
+
+    await openNavigation.click();
     await mobileNavigation.getByRole("link", { name: "Products" }).click();
     await expect(page).toHaveURL(/\/products$/);
     await expect(page.getByRole("navigation", { name: "Mobile primary navigation" })).toHaveCount(0);
