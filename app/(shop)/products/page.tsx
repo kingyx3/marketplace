@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { CatalogBrowser } from "@/app/(shop)/catalog/catalog-browser";
 import { createCatalogFilterProduct } from "@/app/(shop)/catalog/catalog-filters";
@@ -17,13 +16,14 @@ import { getCurrentViewer } from "@/lib/auth";
 import { getStorefrontDeals } from "@/lib/deals";
 import { hasSupabasePublicEnv } from "@/lib/env";
 import { previewFixturesEnabled } from "@/lib/preview-fixtures";
+import { indexBestDealsBySku } from "@/lib/storefront-deals";
 import { createAnonClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Products",
-  description: "Browse sealed products, preorders, and current marketplace deals.",
+  description: "Browse sealed products, preorders, and current sale prices.",
 };
 
 interface ListingItemRow {
@@ -83,7 +83,6 @@ interface CatalogRow {
 }
 
 type CatalogSource = "live" | "preview" | "unavailable";
-type ProductView = "products" | "deals";
 
 function isSetStatus(value: string | undefined): value is SetStatus {
   return (
@@ -200,44 +199,24 @@ async function fetchProducts(): Promise<{
   };
 }
 
-export default async function ProductsPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ view?: string }>;
-}) {
-  const params = (await searchParams) ?? {};
-  const view: ProductView = params.view === "deals" ? "deals" : "products";
+export default async function ProductsPage() {
   const viewer = await getCurrentViewer();
+  const signedIn = Boolean(viewer.user);
   const [{ products, source }, deals] = await Promise.all([
     fetchProducts(),
-    view === "deals"
-      ? getStorefrontDeals({ signedIn: Boolean(viewer.user) })
-      : Promise.resolve([]),
+    getStorefrontDeals({ signedIn, limit: 100 }),
   ]);
+  const dealsBySku = indexBestDealsBySku(deals);
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Products"
         title="Sealed products"
-        description="Browse current stock, preorders, and offers."
+        description="Browse current stock, preorders, and sale prices in one place."
       />
 
-      <nav
-        aria-label="Product sections"
-        className="inline-flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm"
-      >
-        <Link className={sectionLinkClass(view === "products")} href="/products">
-          All products
-        </Link>
-        <Link className={sectionLinkClass(view === "deals")} href="/products?view=deals">
-          Deals
-        </Link>
-      </nav>
-
-      {view === "deals" ? (
-        <DealsSection deals={deals} signedIn={Boolean(viewer.user)} />
-      ) : source === "unavailable" ? (
+      {source === "unavailable" ? (
         <section
           aria-live="polite"
           className="rounded-lg border border-amber-200 bg-amber-50 p-8 text-center shadow-sm"
@@ -252,61 +231,18 @@ export default async function ProductsPage({
         </section>
       ) : (
         <CatalogBrowser products={products.map(createCatalogFilterProduct)}>
-          {products.map((product) => (
-            <ProductCard key={product.slug} product={product} />
-          ))}
+          {products.map((product) => {
+            const deal = dealsBySku.get(product.sku);
+            return deal ? (
+              <DealCard key={product.slug} deal={deal} />
+            ) : (
+              <ProductCard key={product.slug} product={product} />
+            );
+          })}
         </CatalogBrowser>
       )}
     </div>
   );
-}
-
-function DealsSection({
-  deals,
-  signedIn,
-}: {
-  deals: Awaited<ReturnType<typeof getStorefrontDeals>>;
-  signedIn: boolean;
-}) {
-  return (
-    <section aria-labelledby="product-deals-heading" className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 id="product-deals-heading" className="text-2xl font-semibold text-zinc-950">
-            Current deals
-          </h2>
-          <p className="mt-1 text-sm text-zinc-600">Limited-time prices on selected products.</p>
-        </div>
-        {!signedIn ? (
-          <Link
-            className="text-sm font-semibold text-emerald-700 hover:text-emerald-900"
-            href="/sign-in?next=/products?view=deals"
-          >
-            Sign in for all eligible deals
-          </Link>
-        ) : null}
-      </div>
-
-      {deals.length > 0 ? (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {deals.map((deal) => (
-            <DealCard deal={deal} key={deal.id} />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
-          <h3 className="text-xl font-semibold text-zinc-950">No active deals</h3>
-          <p className="mt-2 text-sm text-zinc-600">Browse all products for current stock.</p>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function sectionLinkClass(active: boolean): string {
-  return active
-    ? "inline-flex min-h-10 items-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white"
-    : "inline-flex min-h-10 items-center rounded-md px-4 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950";
 }
 
 function listingForRow(row: CatalogRow): ListingItemRow | null {
