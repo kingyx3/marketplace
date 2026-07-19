@@ -159,7 +159,7 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
   const { data, error } = await supabase
     .from("booster_box_skus")
     .select(
-      "id, sku, active, price_cents, currency, product_variants(products(name, slug, image_url, active)), inventory(available, incoming)"
+      "id, sku, active, price_cents, currency, product_variants(products(name, slug, image_url, active)), inventory(available, incoming, safety_stock)"
     )
     .in("id", skuIds);
 
@@ -174,7 +174,7 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
     product_variants: {
       products: { name: string; slug: string; image_url: string | null; active: boolean } | null;
     } | null;
-    inventory: Array<{ available: number; incoming: number }>;
+    inventory: Array<{ available: number; incoming: number; safety_stock: number }>;
   }>;
   const bySku = new Map(rows.map((row) => [row.id, row]));
   const lines = items.map((item) => {
@@ -190,7 +190,10 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
       slug: product.slug,
       imageUrl: product.image_url,
       quantity: item.quantity,
-      available: row.inventory.reduce((sum, inventory) => sum + inventory.available + inventory.incoming, 0),
+      available: row.inventory.reduce(
+        (sum, inventory) => sum + Math.max(0, inventory.available - inventory.safety_stock),
+        0
+      ),
       unitPriceCents: row.price_cents,
       lineTotalCents: row.price_cents * item.quantity,
       currency: row.currency,

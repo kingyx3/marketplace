@@ -67,7 +67,7 @@ describe("catalog product action", () => {
       message:
         "Product created. A new Pokémon category was created. A new Base Set set was created. Slug: pokemon-base-set-booster-box.",
     });
-    expect(rpc).toHaveBeenCalledWith("admin_create_catalog_product_hierarchy", {
+    expect(rpc).toHaveBeenCalledWith("admin_create_catalog_product_with_publication", {
       p_category_id: null,
       p_new_category_slug: "pokemon",
       p_new_category_name: "Pokémon",
@@ -85,10 +85,29 @@ describe("catalog product action", () => {
       p_language: "EN",
       p_image_url: null,
       p_active: true,
+      p_published: true,
       p_actor_auth_user_id: "staff-user-123",
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/operations");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/products");
+  });
+
+  it("creates an unpublished product when publication is unticked", async () => {
+    const rpc = vi.fn(async () => ({
+      data: [{ product_id: "product-123", product_slug: "hidden-product" }],
+      error: null,
+    }));
+    mocks.createServiceClient.mockReturnValue({ rpc });
+
+    await createCatalogProduct(
+      initialCatalogProductActionState,
+      productForm({ name: "Hidden Product", published: "false" })
+    );
+
+    expect(rpc).toHaveBeenCalledWith(
+      "admin_create_catalog_product_with_publication",
+      expect.objectContaining({ p_published: false })
+    );
   });
 
   it("creates a missing set under the selected category in the same mutation", async () => {
@@ -129,7 +148,7 @@ describe("catalog product action", () => {
         "Product created. A new Destined Rivals set was created. Slug: pokemon-destined-rivals-booster-box.",
     });
     expect(rpc).toHaveBeenCalledWith(
-      "admin_create_catalog_product_hierarchy",
+      "admin_create_catalog_product_with_publication",
       expect.objectContaining({
         p_name: "Pokémon Destined Rivals Booster Box",
         p_category_id: "category-123",
@@ -138,6 +157,7 @@ describe("catalog product action", () => {
         p_new_set_code: "DESTINED-RIVALS",
         p_new_set_release_date: "2026-08-01",
         p_new_set_status: "preorder_open",
+        p_published: true,
       })
     );
   });
@@ -179,12 +199,13 @@ describe("catalog product action", () => {
         "Product created. Premium Collection Box was added to the product type list. Slug: pokemon-destined-rivals-premium-collection-box.",
     });
     expect(rpc).toHaveBeenCalledWith(
-      "admin_create_catalog_product_hierarchy",
+      "admin_create_catalog_product_with_publication",
       expect.objectContaining({
         p_name: "Pokémon Destined Rivals Premium Collection Box",
         p_product_type: null,
         p_new_product_type_name: "Premium Collection Box",
         p_new_product_type_code: "premium_collection_box",
+        p_published: true,
       })
     );
   });
@@ -328,6 +349,7 @@ function productForm(overrides: Record<string, string> = {}): FormData {
     language: "EN",
     imageUrl: "",
     active: "true",
+    published: "true",
     newCategoryName: "",
     newCategoryPublisher: "",
     newSetName: "",

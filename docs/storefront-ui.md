@@ -11,6 +11,7 @@ Do not render badges, banners, helper copy, or labels that describe how the appl
 - rollout phases, migration states, or temporary implementation constraints
 - customer provisioning state or other internal account lifecycle fields
 - integration, webhook, reconciliation, or back-office processing modes
+- raw on-hand, incoming, allocated, or safety-stock inventory figures
 
 Keep those details in repository documentation, logs, observability, and the role-restricted `/control` console when administrators need them.
 
@@ -26,6 +27,19 @@ Status treatments are appropriate when the state directly affects the customer. 
 - errors or confirmations that tell the customer what happened and what to do next
 
 Use plain language and avoid implementation terminology. A customer should not need to understand the system architecture to understand the page.
+
+## Out-of-stock and preorder behaviour
+
+Published products remain discoverable when they sell out so customers can review the product and subscribe to an availability alert. Use these rules consistently across the home page, product list, product detail, cart, and checkout:
+
+1. Normal orders use physically sellable stock only: on-hand stock after active allocations and safety stock. Incoming purchase orders are not treated as available for normal checkout.
+2. Incoming inventory may support a preorder only while the product is explicitly in `preorder_open` status.
+3. Announced, preorder-closed, out-of-print, and sold-out products do not show an enabled purchase action.
+4. Sold-out and coming-soon products offer an availability alert where future supply is plausible.
+5. Use `In stock` for healthy availability and show an exact quantity only for genuinely low stock. Do not expose warehouse-level figures.
+6. Cart lines that become unavailable remain visible so the customer can remove them or reduce the quantity. Checkout is disabled until every line is valid.
+7. Adding to cart and starting checkout recheck stock server-side. Starting payment atomically reserves normal-order stock for 15 minutes; expiry or cancellation releases it.
+8. If stock changes concurrently, explain that the item sold out or is temporarily reserved and ask the customer to refresh or adjust the cart. Never accept a normal order against incoming inventory.
 
 ## Review checklist
 

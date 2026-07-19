@@ -4,15 +4,24 @@ import Link from "next/link";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { formatDealDiscount, type LimitedTimeDeal } from "@/lib/deals";
 import { formatMoney } from "@/lib/money";
+import type { StorefrontAvailability } from "@/lib/storefront-availability";
 
-export function DealCard({ deal }: { deal: LimitedTimeDeal }) {
+export function DealCard({
+  availability,
+  deal,
+}: {
+  availability: StorefrontAvailability;
+  deal: LimitedTimeDeal;
+}) {
   return (
     <article className="group grid overflow-hidden rounded-xl border border-emerald-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <Link href={`/products/${deal.productSlug}`} className="block">
         <div className="relative aspect-[16/9] overflow-hidden bg-zinc-100">
           <Image
             alt={`${deal.productName} sealed product`}
-            className="object-cover transition duration-300 group-hover:scale-[1.03]"
+            className={`object-cover transition duration-300 group-hover:scale-[1.03] ${
+              availability.purchasable ? "" : "opacity-80"
+            }`}
             fill
             sizes="(min-width: 1024px) 32vw, (min-width: 640px) 50vw, 100vw"
             src={deal.productImageUrl ?? "/images/sealed-tcg-hero.png"}
@@ -20,6 +29,11 @@ export function DealCard({ deal }: { deal: LimitedTimeDeal }) {
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
             <StatusBadge tone="success">Save {formatDealDiscount(deal.discountBps)}</StatusBadge>
             {deal.visibility === "members" ? <StatusBadge tone="dark">Members</StatusBadge> : null}
+          </div>
+          <div className="absolute right-3 top-3">
+            <StatusBadge tone={availability.purchasable ? "success" : "danger"}>
+              {availability.label}
+            </StatusBadge>
           </div>
         </div>
       </Link>
@@ -42,7 +56,10 @@ export function DealCard({ deal }: { deal: LimitedTimeDeal }) {
             {formatMoney(deal.regularPriceCents, deal.currency)}
           </p>
         </div>
-        <p className="text-xs text-zinc-500">Ends {formatDealExpiry(deal.endsAt)}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+          <span>Ends {formatDealExpiry(deal.endsAt)}</span>
+          <span className="font-semibold text-zinc-700">{availability.label}</span>
+        </div>
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
           href={`/products/${deal.productSlug}`}

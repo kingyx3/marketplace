@@ -5,9 +5,12 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import {
   formatMoney,
   formatStatus,
-  getAvailable,
   type MarketplaceProduct,
 } from "@/app/_data/marketplace-fixtures";
+import {
+  getStorefrontAvailability,
+  type StorefrontAvailabilityKind,
+} from "@/lib/storefront-availability";
 
 function getStatusTone(status: MarketplaceProduct["setStatus"]) {
   if (status === "preorder_open") return "success";
@@ -17,8 +20,15 @@ function getStatusTone(status: MarketplaceProduct["setStatus"]) {
   return "neutral";
 }
 
+function getAvailabilityTone(kind: StorefrontAvailabilityKind) {
+  if (kind === "in_stock" || kind === "preorder_available") return "success";
+  if (kind === "low_stock") return "warning";
+  if (kind === "out_of_stock" || kind === "preorder_sold_out") return "danger";
+  return "neutral";
+}
+
 export function ProductCard({ product }: { product: MarketplaceProduct }) {
-  const available = getAvailable(product);
+  const availability = getStorefrontAvailability(product);
 
   return (
     <article className="group grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -28,12 +38,19 @@ export function ProductCard({ product }: { product: MarketplaceProduct }) {
             src={product.image}
             alt={`${product.name} sealed product display`}
             fill
-            className="object-cover transition duration-300 group-hover:scale-[1.03]"
+            className={`object-cover transition duration-300 group-hover:scale-[1.03] ${
+              availability.purchasable ? "" : "opacity-80"
+            }`}
             sizes="(min-width: 1024px) 32vw, (min-width: 640px) 50vw, 100vw"
           />
           <div className="absolute left-3 top-3">
             <StatusBadge tone={getStatusTone(product.setStatus)}>
               {formatStatus(product.setStatus)}
+            </StatusBadge>
+          </div>
+          <div className="absolute right-3 top-3">
+            <StatusBadge tone={getAvailabilityTone(availability.kind)}>
+              {availability.label}
             </StatusBadge>
           </div>
         </div>
@@ -58,10 +75,7 @@ export function ProductCard({ product }: { product: MarketplaceProduct }) {
             </p>
             <p className="mt-1 text-xs text-zinc-500">GST included where applicable</p>
           </div>
-          <p className="text-right text-sm text-zinc-600">
-            <span className="block font-semibold text-zinc-950">{available}</span>
-            available
-          </p>
+          <p className="text-right text-sm font-semibold text-zinc-700">{availability.label}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">

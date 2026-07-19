@@ -95,6 +95,7 @@ describe("catalog administration workflow", () => {
     expect(productDetail).toContain("CatalogProductEditor");
     expect(productDetail).toContain("CatalogSkuManager");
     expect(productEditor).toContain('label="Display name"');
+    expect(productEditor).toContain('checked={product.published} label="Published" name="published"');
     expect(productEditor).toContain("Add SKU");
     expect(productEditor).not.toContain("Quick add category");
     expect(productEditor).not.toContain("Quick add set");
@@ -104,6 +105,8 @@ describe("catalog administration workflow", () => {
     expect(form).toContain("Add set");
     expect(form).toContain("Add type");
     expect(form).toContain('name="name"');
+    expect(form).toContain('name="published"');
+    expect(form).toContain("Published is selected by default");
     expect(form).not.toContain('name="slug"');
     expect(form).not.toContain('name="newCategorySlug"');
     expect(form).not.toContain('name="newSetCode"');
@@ -126,12 +129,13 @@ describe("catalog administration workflow", () => {
     expect(fields).toContain("validity.patternMismatch");
     expect(fields).toContain("validity.rangeUnderflow");
     expect(action).toContain('requireControlPermission("manage_catalog", "/control/operations")');
-    expect(action).toContain('rpc("admin_create_catalog_product_hierarchy"');
-    expect(action).toContain('rpc("admin_upsert_catalog_product"');
+    expect(action).toContain('rpc("admin_create_catalog_product_with_publication"');
+    expect(action).toContain('rpc("admin_upsert_catalog_product_with_publication"');
     expect(action).toContain('rpc("admin_upsert_booster_box_sku"');
     expect(action).toContain("product_id?: string");
     expect(action).toContain('redirect(`/control/operations/products/${createdProductId}`)');
     expect(action).toContain("p_name: input.name");
+    expect(action).toContain("p_published: published");
     expect(action).toContain("the other product details are preserved");
     expect(hierarchyMigration).toContain("category_created boolean");
     expect(hierarchyMigration).toContain("set_created boolean");

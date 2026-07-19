@@ -39,12 +39,17 @@ export function CatalogProductEditor({
         <div>
           <h2 className="text-xl font-semibold text-zinc-950">Product details</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            Update the customer-facing product, its structured catalog relationships, image, and availability.
+            Update the customer-facing product, its structured catalog relationships, image, publication, and availability.
           </p>
         </div>
-        <StatusBadge tone={product.active ? "success" : "warning"}>
-          {product.active ? "Active" : "Archived"}
-        </StatusBadge>
+        <div className="flex flex-wrap gap-2">
+          <StatusBadge tone={product.active ? "success" : "warning"}>
+            {product.active ? "Active" : "Archived"}
+          </StatusBadge>
+          <StatusBadge tone={product.published ? "success" : "neutral"}>
+            {product.published ? "Published" : "Not published"}
+          </StatusBadge>
+        </div>
       </div>
 
       <form action={upsertCatalogProduct} className="grid gap-4">
@@ -97,7 +102,7 @@ export function CatalogProductEditor({
             required
           />
         </div>
-        <div className="grid gap-4 sm:grid-cols-[7rem_1fr_auto]">
+        <div className="grid gap-4 sm:grid-cols-[7rem_1fr_auto_auto]">
           <AdminTextField
             defaultValue={product.language}
             example="EN"
@@ -119,7 +124,11 @@ export function CatalogProductEditor({
             type="url"
           />
           <BooleanField checked={product.active} label="Active" name="active" />
+          <BooleanField checked={product.published} label="Published" name="published" />
         </div>
+        <p className="text-xs text-zinc-500">
+          A published product appears on the storefront only while it has an active SKU with a positive price.
+        </p>
         <AdminTextareaField
           defaultValue={product.description ?? ""}
           example="English booster box containing 36 packs."

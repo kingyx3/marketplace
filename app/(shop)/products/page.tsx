@@ -16,6 +16,7 @@ import { getCurrentViewer } from "@/lib/auth";
 import { getStorefrontDeals } from "@/lib/deals";
 import { hasSupabasePublicEnv } from "@/lib/env";
 import { previewFixturesEnabled } from "@/lib/preview-fixtures";
+import { getStorefrontAvailability } from "@/lib/storefront-availability";
 import { indexBestDealsBySku } from "@/lib/storefront-deals";
 import { createAnonClient } from "@/lib/supabase";
 
@@ -98,7 +99,8 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
   const fixture = previewFixturesEnabled() ? getProduct(row.slug) : undefined;
   const listing = listingForRow(row);
   const sku = row.product_variants?.[0]?.booster_box_skus?.find((candidate) => candidate.active);
-  const inventory = sku?.inventory?.[0];
+  const inventory = sku?.inventory ?? [];
+  const hasLiveInventory = inventory.length > 0;
 
   return {
     slug: row.slug,
@@ -119,10 +121,18 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
     currency: sku?.currency ?? fixture?.currency ?? "SGD",
     packsPerBox: sku?.packs_per_box ?? fixture?.packsPerBox ?? 0,
     cardsPerPack: sku?.cards_per_pack ?? fixture?.cardsPerPack ?? 0,
-    onHand: inventory?.on_hand ?? fixture?.onHand ?? 0,
-    incoming: inventory?.incoming ?? fixture?.incoming ?? 0,
-    allocated: inventory?.allocated ?? fixture?.allocated ?? 0,
-    safetyStock: inventory?.safety_stock ?? fixture?.safetyStock ?? 0,
+    onHand: hasLiveInventory
+      ? inventory.reduce((sum, item) => sum + item.on_hand, 0)
+      : (fixture?.onHand ?? 0),
+    incoming: hasLiveInventory
+      ? inventory.reduce((sum, item) => sum + item.incoming, 0)
+      : (fixture?.incoming ?? 0),
+    allocated: hasLiveInventory
+      ? inventory.reduce((sum, item) => sum + item.allocated, 0)
+      : (fixture?.allocated ?? 0),
+    safetyStock: hasLiveInventory
+      ? inventory.reduce((sum, item) => sum + item.safety_stock, 0)
+      : (fixture?.safetyStock ?? 0),
     preorderReserve: listing?.preorder_reserve ?? fixture?.preorderReserve ?? 0,
     maxPerCustomer: listing?.max_per_customer ?? fixture?.maxPerCustomer ?? null,
     image: row.image_url ?? fixture?.image ?? "/images/sealed-tcg-hero.png",
@@ -213,7 +223,7 @@ export default async function ProductsPage() {
       <PageHeader
         eyebrow="Products"
         title="Sealed products"
-        description="Browse current stock, preorders, and sale prices in one place."
+        description="Browse current stock, preorders, and sale prices in one place. Sold-out products remain visible for restock alerts."
       />
 
       {source === "unavailable" ? (
@@ -233,8 +243,9 @@ export default async function ProductsPage() {
         <CatalogBrowser products={products.map(createCatalogFilterProduct)}>
           {products.map((product) => {
             const deal = dealsBySku.get(product.sku);
+            const availability = getStorefrontAvailability(product);
             return deal ? (
-              <DealCard key={product.slug} deal={deal} />
+              <DealCard availability={availability} key={product.slug} deal={deal} />
             ) : (
               <ProductCard key={product.slug} product={product} />
             );

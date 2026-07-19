@@ -80,6 +80,7 @@ describe("control console", () => {
     expect(productDetail).toContain("CatalogProductEditor");
     expect(productDetail).toContain("CatalogSkuManager");
     expect(productEditor).toContain('label="Display name"');
+    expect(productEditor).toContain('checked={product.published} label="Published" name="published"');
     expect(productEditor).not.toContain('label="Slug" name="slug"');
     expect(controlCatalog).toContain('from("product_types")');
     expect(controlCatalog).toContain("booster_box_skus");
@@ -102,10 +103,11 @@ describe("control console", () => {
     expect(controlActions).toContain('rpc("admin_upsert_set_release"');
     expect(controlActions).toContain('rpc("admin_upsert_access_grant"');
     expect(catalogActions).toContain('requireControlPermission("manage_catalog", "/control/operations")');
-    expect(catalogActions).toContain('rpc("admin_create_catalog_product_hierarchy"');
-    expect(catalogActions).toContain('rpc("admin_upsert_catalog_product"');
+    expect(catalogActions).toContain('rpc("admin_create_catalog_product_with_publication"');
+    expect(catalogActions).toContain('rpc("admin_upsert_catalog_product_with_publication"');
     expect(catalogActions).toContain('rpc("admin_upsert_booster_box_sku"');
     expect(catalogActions).toContain("p_name: input.name");
+    expect(catalogActions).toContain("p_published: published");
     expect(catalogActions).not.toContain("p_slug: input.slug");
     expect(customerActions).toContain('"manage_customers"');
     expect(customerActions).toContain("setCustomerAccountDeleted");
