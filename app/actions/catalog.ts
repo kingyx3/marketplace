@@ -82,7 +82,7 @@ export async function createCatalogProduct(
       messages.push(`Slug: ${result.product_slug}.`);
     }
 
-    createdProductId = result?.product_id;
+    createdProductId = result?.product_id ?? undefined;
     successMessage = ["Product created.", ...messages].join(" ");
     revalidateCatalogPaths(createdProductId);
     revalidatePath("/control/categories");
@@ -96,7 +96,9 @@ export async function createCatalogProduct(
     };
   }
 
-  if (createdProductId) redirect(`/control/operations/products/${createdProductId}`);
+  if (validProductId(createdProductId ?? "")) {
+    redirect(`/control/operations/products/${createdProductId}`);
+  }
 
   return {
     status: "success",
@@ -127,7 +129,7 @@ export async function upsertCatalogProduct(formData: FormData) {
     );
   }
   if (error) throw new Error(`Product save failed: ${error.message}`);
-  revalidateCatalogPaths(input.productId);
+  revalidateCatalogPaths(input.productId ?? undefined);
 }
 
 export async function setCatalogProductActive(formData: FormData) {
@@ -335,7 +337,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "productIdentity",
       message:
-        "A category, set, type, product identity, or generated product slug is already in use. Select the existing record or change the conflicting value; the product details are preserved.",
+        "A category, set, type, product identity, or generated product slug is already in use. Select the existing record or change the conflicting value; the other product details are preserved.",
     };
   }
   if (message.includes("category")) {
