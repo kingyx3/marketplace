@@ -22,7 +22,7 @@ export interface ApiFieldError {
 
 export interface ApiErrorPayload {
   error: {
-    code: ApiErrorCode | (string & {});
+    code: string;
     message: string;
     requestId: string;
     retryable: boolean;
