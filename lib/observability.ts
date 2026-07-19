@@ -103,6 +103,14 @@ interface TelemetryScope {
   setTag(key: string, value: string): void;
 }
 
+interface ErrorDetails {
+  name: string;
+  message: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+}
+
 function attachScopeContext(scope: TelemetryScope, context: LogContext): void {
   const sanitized = sanitizeTelemetryValue(context);
   if (sanitized && typeof sanitized === "object" && !Array.isArray(sanitized)) {
@@ -114,22 +122,56 @@ function attachScopeContext(scope: TelemetryScope, context: LogContext): void {
   if (context.status !== undefined) scope.setTag("http.response.status_code", String(context.status));
 }
 
-function safeError(error: unknown): Record<string, unknown> {
-  if (error instanceof Error) {
-    return {
-      name: error.name,
-      message: error.message,
-      code:
-        "code" in error && typeof (error as { code?: unknown }).code === "string"
-          ? (error as { code: string }).code
-          : undefined,
-    };
-  }
-
-  return { message: typeof error === "string" ? error : "unknown error" };
+function safeError(error: unknown): ErrorDetails {
+  return errorDetails(error);
 }
 
 function normalizeError(error: unknown): Error {
   if (error instanceof Error) return error;
-  return new Error(typeof error === "string" ? error : "Unknown application error");
+
+  const details = errorDetails(error);
+  const normalized = new Error(details.message);
+  normalized.name = details.name;
+  Object.assign(normalized, {
+    code: details.code,
+    details: details.details,
+    hint: details.hint,
+  });
+  return normalized;
+}
+
+function errorDetails(error: unknown): ErrorDetails {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      code: stringProperty(error, "code"),
+      details: stringProperty(error, "details"),
+      hint: stringProperty(error, "hint"),
+    };
+  }
+
+  if (typeof error === "string") {
+    return { name: "Error", message: error };
+  }
+
+  if (error && typeof error === "object") {
+    return {
+      name: stringProperty(error, "name") ?? "Error",
+      message:
+        stringProperty(error, "message") ??
+        stringProperty(error, "error") ??
+        "Unknown application error",
+      code: stringProperty(error, "code"),
+      details: stringProperty(error, "details"),
+      hint: stringProperty(error, "hint"),
+    };
+  }
+
+  return { name: "Error", message: "Unknown application error" };
+}
+
+function stringProperty(value: object, key: string): string | undefined {
+  const property = (value as Record<string, unknown>)[key];
+  return typeof property === "string" && property.trim() ? property : undefined;
 }
