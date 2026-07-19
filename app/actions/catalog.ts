@@ -25,9 +25,10 @@ export async function createCatalogProduct(
 
   try {
     const input = adminCatalogProductCreateFromForm(formData);
+    const published = booleanFormValue(formData, "published", true);
     const supabase = createServiceClient();
 
-    const { data, error } = await supabase.rpc("admin_create_catalog_product_hierarchy", {
+    const { data, error } = await supabase.rpc("admin_create_catalog_product_with_publication", {
       p_category_id: input.categoryId,
       p_new_category_slug: input.newCategorySlug,
       p_new_category_name: input.newCategoryName,
@@ -45,6 +46,7 @@ export async function createCatalogProduct(
       p_language: input.language,
       p_image_url: input.imageUrl,
       p_active: input.active,
+      p_published: published,
       p_actor_auth_user_id: user.id,
     });
 
@@ -87,7 +89,6 @@ export async function createCatalogProduct(
     revalidateCatalogPaths(createdProductId);
     revalidatePath("/control/categories");
     revalidatePath("/control/sets");
-    revalidatePath("/control/listings");
     revalidatePath("/preorders");
   } catch (error) {
     return {
@@ -109,8 +110,9 @@ export async function createCatalogProduct(
 export async function upsertCatalogProduct(formData: FormData) {
   const { user } = await requireControlPermission("manage_catalog", "/control/operations");
   const input = adminCatalogProductFromForm(formData);
+  const published = booleanFormValue(formData, "published", true);
 
-  const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
+  const { error } = await createServiceClient().rpc("admin_upsert_catalog_product_with_publication", {
     p_product_id: input.productId,
     p_name: input.name,
     p_category_id: input.categoryId,
@@ -120,6 +122,7 @@ export async function upsertCatalogProduct(formData: FormData) {
     p_language: input.language,
     p_image_url: input.imageUrl,
     p_active: input.active,
+    p_published: published,
     p_actor: `staff:${user.id}`,
   });
 
@@ -251,8 +254,16 @@ export async function setCatalogSkuActive(formData: FormData) {
 function revalidateCatalogPaths(productId?: string) {
   revalidatePath("/control");
   revalidatePath("/control/operations");
+  revalidatePath("/control/listings");
   if (productId) revalidatePath(`/control/operations/products/${productId}`);
   revalidatePath("/products");
+}
+
+function booleanFormValue(formData: FormData, key: string, defaultValue: boolean): boolean {
+  const values = formData.getAll(key);
+  const selected = [...values].reverse().find((value): value is string => typeof value === "string");
+  if (selected === undefined) return defaultValue;
+  return selected === "true";
 }
 
 function validProductId(value: string) {
