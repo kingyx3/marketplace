@@ -1,6 +1,5 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import Link from "next/link";
@@ -21,6 +20,8 @@ import {
   isShippingAddressComplete,
   shippingAddressPayload,
 } from "@/app/(shop)/cart/shipping-address-fields";
+import { createApiClient } from "@/lib/api/client";
+import { createBrowserSessionProvider } from "@/lib/auth/browser-session";
 
 type CheckoutPhase =
   | "idle"
@@ -55,10 +56,6 @@ interface CheckoutResponse {
     taxCents?: number;
     totalCents: number;
   };
-}
-
-interface ApiErrorResponse {
-  error?: { message?: string };
 }
 
 interface CartCheckoutPanelProps {
@@ -101,6 +98,7 @@ export function CartCheckoutPanel({
   const [shippingAddress, setShippingAddress] = useState(emptyShippingAddress);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const expiryHandled = useRef(false);
+  const checkoutIdempotencyKey = useRef<string | null>(null);
   const requiresShipping = mode === "order";
   const supabaseKey = supabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
 
@@ -108,46 +106,20 @@ export function CartCheckoutPanel({
     () => (publishableKey ? loadStripe(publishableKey) : null),
     [publishableKey]
   );
-  const supabase = useMemo(
-    () => (supabaseUrl && supabaseKey ? createBrowserClient(supabaseUrl, supabaseKey) : null),
+  const session = useMemo(
+    () => createBrowserSessionProvider(supabaseUrl, supabaseKey),
     [supabaseUrl, supabaseKey]
   );
-
-  const accessToken = useCallback(async (): Promise<string> => {
-    if (!supabase) throw new Error("Authentication is not configured");
-
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.access_token) {
-      router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
-      throw new Error("Sign in is required before checkout");
-    }
-    return data.session.access_token;
-  }, [authRedirectPath, router, supabase]);
-
-  const authenticatedJson = useCallback(
-    async <T,>(url: string, init: RequestInit = {}): Promise<T> => {
-      const token = await accessToken();
-      const response = await fetch(url, {
-        ...init,
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          ...init.headers,
+  const api = useMemo(
+    () =>
+      createApiClient({
+        getAccessToken: () => session.getAccessToken(),
+        onUnauthorized: () => {
+          router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
         },
-      });
-      const payload = (await response.json().catch(() => ({}))) as ApiErrorResponse;
-
-      if (response.status === 401) {
-        router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
-      }
-      if (!response.ok) {
-        throw new Error(payload.error?.message ?? "Checkout request failed");
-      }
-
-      return payload as T;
-    },
-    [accessToken, authRedirectPath, router]
+        timeoutMs: 30_000,
+      }),
+    [authRedirectPath, router, session]
   );
 
   async function beginCheckout() {
@@ -167,15 +139,17 @@ export function CartCheckoutPanel({
     setMessage(null);
     setRemainingSeconds(null);
     expiryHandled.current = false;
+    checkoutIdempotencyKey.current ??= createIdempotencyKey();
 
     try {
       const baseBody = paymentBody ?? { mode, channel: "b2c", items };
       const requestBody = requiresShipping
         ? { ...baseBody, shippingAddress: shippingAddressPayload(shippingAddress) }
         : baseBody;
-      const result = await authenticatedJson<CheckoutResponse>(paymentEndpoint, {
+      const result = await api.request<CheckoutResponse>(paymentEndpoint, {
         method: "POST",
-        body: JSON.stringify(requestBody),
+        body: requestBody,
+        idempotencyKey: checkoutIdempotencyKey.current,
       });
 
       setCheckout(result);
@@ -198,6 +172,7 @@ export function CartCheckoutPanel({
 
   const clearCartAfterSuccess = useCallback(async () => {
     setRemainingSeconds(null);
+    checkoutIdempotencyKey.current = null;
     if (!clearCartOnSuccess) {
       router.refresh();
       setMessage("Payment confirmed");
@@ -205,13 +180,13 @@ export function CartCheckoutPanel({
     }
 
     try {
-      await authenticatedJson<{ cleared: true }>("/api/cart/clear", { method: "POST" });
+      await api.request<{ cleared: true }>("/api/cart/clear", { method: "POST" });
       router.refresh();
       setMessage("Payment confirmed");
     } catch {
       setMessage("Payment confirmed. Refresh the cart after the order appears.");
     }
-  }, [authenticatedJson, clearCartOnSuccess, router]);
+  }, [api, clearCartOnSuccess, router]);
 
   const cancelCheckout = useCallback(
     async (options: { expired?: boolean } = {}) => {
@@ -223,9 +198,9 @@ export function CartCheckoutPanel({
       }
 
       try {
-        await authenticatedJson<{ cancelled: true }>("/api/checkout/cancel", {
+        await api.request<{ cancelled: true }>("/api/checkout/cancel", {
           method: "POST",
-          body: JSON.stringify({ paymentIntentId: checkout.paymentIntentId }),
+          body: { paymentIntentId: checkout.paymentIntentId },
         });
       } catch (error) {
         if (!options.expired) {
@@ -235,6 +210,7 @@ export function CartCheckoutPanel({
         }
       }
 
+      checkoutIdempotencyKey.current = null;
       setCheckout(null);
       setRemainingSeconds(null);
       setPhase(options.expired ? "failed" : "cancelled");
@@ -245,7 +221,7 @@ export function CartCheckoutPanel({
       );
       router.refresh();
     },
-    [authenticatedJson, checkout, phase, router]
+    [api, checkout, phase, router]
   );
 
   useEffect(() => {
@@ -570,4 +546,10 @@ function formatMoney(amountCents: number, currency: string): string {
   return new Intl.NumberFormat("en-SG", { style: "currency", currency }).format(
     amountCents / 100
   );
+}
+
+function createIdempotencyKey(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? `checkout-${crypto.randomUUID()}`
+    : `checkout-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
