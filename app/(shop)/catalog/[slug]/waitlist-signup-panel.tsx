@@ -2,15 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+
+import { createApiClient } from "@/lib/api/client";
+import { createBrowserSessionProvider } from "@/lib/auth/browser-session";
 
 type AlertChannel = "email" | "telegram" | "whatsapp";
-
-interface ApiErrorResponse {
-  error?: {
-    message?: string;
-  };
-}
 
 export function WaitlistSignupPanel({
   authRedirectPath,
@@ -30,24 +26,20 @@ export function WaitlistSignupPanel({
   const [contact, setContact] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const supabase = useMemo(
-    () =>
-      supabaseUrl && supabaseAnonKey ? createBrowserClient(supabaseUrl, supabaseAnonKey) : null,
+  const session = useMemo(
+    () => createBrowserSessionProvider(supabaseUrl, supabaseAnonKey),
     [supabaseUrl, supabaseAnonKey]
   );
-
-  async function accessToken(): Promise<string> {
-    if (!supabase) {
-      throw new Error("Authentication is not configured");
-    }
-
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.access_token) {
-      router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
-      throw new Error("Sign in is required before joining drop alerts");
-    }
-    return data.session.access_token;
-  }
+  const api = useMemo(
+    () =>
+      createApiClient({
+        getAccessToken: () => session.getAccessToken(),
+        onUnauthorized: () => {
+          router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
+        },
+      }),
+    [authRedirectPath, router, session]
+  );
 
   async function joinWaitlist() {
     if (saving) return;
@@ -55,27 +47,14 @@ export function WaitlistSignupPanel({
     setMessage(null);
 
     try {
-      const token = await accessToken();
-      const response = await fetch("/api/waitlist", {
+      await api.request<{ entry: unknown }>("/api/waitlist", {
         method: "POST",
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+        body: {
           skuId,
           channel,
           contact: channel === "email" ? undefined : contact,
-        }),
+        },
       });
-      const payload = (await response.json().catch(() => ({}))) as ApiErrorResponse;
-      if (response.status === 401) {
-        router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
-      }
-      if (!response.ok) {
-        throw new Error(payload.error?.message ?? "Drop alert could not be saved");
-      }
       setMessage("Drop alert saved");
       router.refresh();
     } catch (error) {
