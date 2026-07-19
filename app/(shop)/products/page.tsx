@@ -100,6 +100,7 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
   const listing = listingForRow(row);
   const sku = row.product_variants?.[0]?.booster_box_skus?.find((candidate) => candidate.active);
   const inventory = sku?.inventory ?? [];
+  const hasLiveInventory = inventory.length > 0;
 
   return {
     slug: row.slug,
@@ -120,11 +121,18 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
     currency: sku?.currency ?? fixture?.currency ?? "SGD",
     packsPerBox: sku?.packs_per_box ?? fixture?.packsPerBox ?? 0,
     cardsPerPack: sku?.cards_per_pack ?? fixture?.cardsPerPack ?? 0,
-    onHand: inventory.reduce((sum, item) => sum + item.on_hand, 0) || fixture?.onHand || 0,
-    incoming: inventory.reduce((sum, item) => sum + item.incoming, 0) || fixture?.incoming || 0,
-    allocated: inventory.reduce((sum, item) => sum + item.allocated, 0) || fixture?.allocated || 0,
-    safetyStock:
-      inventory.reduce((sum, item) => sum + item.safety_stock, 0) || fixture?.safetyStock || 0,
+    onHand: hasLiveInventory
+      ? inventory.reduce((sum, item) => sum + item.on_hand, 0)
+      : (fixture?.onHand ?? 0),
+    incoming: hasLiveInventory
+      ? inventory.reduce((sum, item) => sum + item.incoming, 0)
+      : (fixture?.incoming ?? 0),
+    allocated: hasLiveInventory
+      ? inventory.reduce((sum, item) => sum + item.allocated, 0)
+      : (fixture?.allocated ?? 0),
+    safetyStock: hasLiveInventory
+      ? inventory.reduce((sum, item) => sum + item.safety_stock, 0)
+      : (fixture?.safetyStock ?? 0),
     preorderReserve: listing?.preorder_reserve ?? fixture?.preorderReserve ?? 0,
     maxPerCustomer: listing?.max_per_customer ?? fixture?.maxPerCustomer ?? null,
     image: row.image_url ?? fixture?.image ?? "/images/sealed-tcg-hero.png",
