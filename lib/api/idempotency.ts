@@ -86,22 +86,9 @@ export async function runIdempotentJsonOperation<T>(
     };
   }
 
+  let result: { status: number; body: T };
   try {
-    const result = await operation();
-    const completed = await supabase.rpc("complete_api_idempotency", {
-      ...rpcContext,
-      p_response_status: result.status,
-      p_response_body: result.body,
-    });
-    if (completed.error) {
-      logError("api.idempotency.complete_failed", completed.error, {
-        requestId: options.requestId,
-        scope: options.scope,
-        actorId: options.actorId,
-      });
-      throw serviceUnavailable("The request completed but its replay record could not be saved");
-    }
-    return { ...result, replayed: false };
+    result = await operation();
   } catch (error) {
     const released = await supabase.rpc("release_api_idempotency", rpcContext);
     if (released.error) {
@@ -113,10 +100,28 @@ export async function runIdempotentJsonOperation<T>(
     }
     throw error;
   }
+
+  const completed = await supabase.rpc("complete_api_idempotency", {
+    ...rpcContext,
+    p_response_status: result.status,
+    p_response_body: result.body,
+  });
+  if (completed.error) {
+    logError("api.idempotency.complete_failed", completed.error, {
+      requestId: options.requestId,
+      scope: options.scope,
+      actorId: options.actorId,
+    });
+    // Keep the processing claim in place. Releasing it after the side effect
+    // succeeded could allow a duplicate financial or inventory operation.
+    throw serviceUnavailable("The request completed but its replay record could not be saved");
+  }
+
+  return { ...result, replayed: false };
 }
 
 function stableJson(value: unknown): string {
-  return JSON.stringify(sortValue(value));
+  return JSON.stringify(sortValue(value)) ?? "null";
 }
 
 function sortValue(value: unknown): unknown {
