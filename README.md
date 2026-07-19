@@ -55,6 +55,7 @@ Without `--apply`, bootstrap is plan-only. Granular Terraform, provider, environ
 npm run config:check
 npm run lint
 npm run typecheck
+npm run test:architecture
 npm test
 npm run build
 npm run test:e2e
@@ -71,6 +72,7 @@ Pull-request CI also applies every database migration in order, loads seed data,
 - [`docs/provisioning.md`](docs/provisioning.md) — Terraform and provider ownership
 - [`docs/local-dev.md`](docs/local-dev.md) — local development
 - [`docs/security.md`](docs/security.md) — RLS, secrets, and administrator access
+- [`docs/api-architecture.md`](docs/api-architecture.md) — server API boundaries, contracts, authorization, idempotency, and endpoint rules
 - [`docs/data-model.md`](docs/data-model.md) — active application data model
 - [`docs/admin-operations.md`](docs/admin-operations.md) — control-console workflows
 - [`docs/storefront-ui.md`](docs/storefront-ui.md) — customer-visible status and implementation-detail boundaries
