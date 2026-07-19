@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import {
-  CatalogProductEditor,
-  CatalogSkuManager,
-} from "@/app/(shop)/control/_components/catalog-product-editor";
+import { CatalogProductDetailsEditor as CatalogProductEditor } from "@/app/(shop)/control/_components/catalog-product-details-editor";
+import { CatalogSkuManager } from "@/app/(shop)/control/_components/catalog-product-editor";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import {
