@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { requireApiCustomer } from "@/lib/api/auth";
 import { withApiHandler } from "@/lib/api/handler";
+import {
+  requireIdempotencyKey,
+  runIdempotentJsonOperation,
+} from "@/lib/api/idempotency";
 import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { readJsonBody } from "@/lib/api/request";
 import { checkoutResponseBody, createCheckoutPayment } from "@/lib/order-checkout";
@@ -22,20 +26,40 @@ export const POST = withApiHandler(
       requestId: context.requestId,
     });
 
-    const result = await createCheckoutPayment(
-      auth,
-      await readJsonBody(request, { maxBytes: 32 * 1024 })
+    const body = await readJsonBody(request, { maxBytes: 32 * 1024 });
+    const operation = await runIdempotentJsonOperation(
+      auth.supabase,
+      {
+        scope: "checkout.create",
+        actorId: auth.user.id,
+        key: requireIdempotencyKey(request),
+        requestBody: body,
+        requestId: context.requestId,
+        ttlSeconds: 60 * 60,
+      },
+      async () => {
+        const result = await createCheckoutPayment(auth, body);
+        logInfo("checkout.payment_created", {
+          ...context,
+          orderId: result.orderId,
+          preorderId: result.preorderId,
+          paymentId: result.paymentId,
+          mode: result.mode,
+          amountCents: result.amountCents,
+          currency: result.publishableCurrency,
+        });
+        return { status: 201, body: checkoutResponseBody(result) };
+      }
     );
-    logInfo("checkout.payment_created", {
-      ...context,
-      orderId: result.orderId,
-      preorderId: result.preorderId,
-      paymentId: result.paymentId,
-      mode: result.mode,
-      amountCents: result.amountCents,
-      currency: result.publishableCurrency,
-    });
-    return NextResponse.json(checkoutResponseBody(result), { status: 201 });
+
+    if (operation.replayed) {
+      logInfo("api.idempotency.replayed", {
+        ...context,
+        scope: "checkout.create",
+      });
+    }
+
+    return NextResponse.json(operation.body, { status: operation.status });
   },
   { timeoutMs: 25_000 }
 );
