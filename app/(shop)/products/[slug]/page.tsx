@@ -11,7 +11,6 @@ import { addToCart } from "@/app/actions/cart";
 import {
   formatMoney,
   formatStatus,
-  getAvailable,
   getProduct,
   type MarketplaceProduct,
 } from "@/app/_data/marketplace-fixtures";
@@ -19,9 +18,15 @@ import { getCurrentViewer } from "@/lib/auth";
 import { getCatalogProduct, type CatalogProduct } from "@/lib/catalog";
 import { formatDealDiscount, getStorefrontDealForSku } from "@/lib/deals";
 import { previewFixturesEnabled } from "@/lib/preview-fixtures";
+import {
+  getStorefrontAvailability,
+  type StorefrontAvailability,
+  type StorefrontAvailabilityKind,
+} from "@/lib/storefront-availability";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ cart?: string }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -38,8 +43,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
   };
 }
 
-export default async function ProductPage({ params }: ProductPageProps) {
+export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const { slug } = await params;
+  const query = (await searchParams) ?? {};
   const liveProduct = await getCatalogProduct(slug);
   const product = mergeProduct(
     liveProduct,
@@ -52,7 +58,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const activeDeal = skuId
     ? await getStorefrontDealForSku({ signedIn: Boolean(viewer.user), skuId })
     : null;
-  const available = getAvailable(product);
+  const availability = getStorefrontAvailability(product);
+  const maxPurchaseQuantity = Math.min(
+    availability.available,
+    product.maxPerCustomer ?? 24,
+    24
+  );
   const preorderTimeline = [
     { label: "Paid in full", date: "Today", state: "current" as const },
     { label: "Allocation", date: "After supplier confirmation", state: "upcoming" as const },
@@ -67,11 +78,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
         title={product.name}
         description={product.description}
         action={
-          <StatusBadge tone={product.setStatus === "preorder_open" ? "success" : "neutral"}>
-            {formatStatus(product.setStatus)}
-          </StatusBadge>
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge tone={product.setStatus === "preorder_open" ? "success" : "neutral"}>
+              {formatStatus(product.setStatus)}
+            </StatusBadge>
+            <StatusBadge tone={availabilityTone(availability.kind)}>
+              {availability.label}
+            </StatusBadge>
+          </div>
         }
       />
+
+      {query.cart === "unavailable" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          This item is no longer available in the requested quantity. Stock is confirmed again at checkout.
+        </div>
+      ) : null}
 
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
@@ -80,7 +102,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               src={product.image}
               alt={`${product.name} sealed product display`}
               fill
-              className="object-cover"
+              className={`object-cover ${availability.purchasable ? "" : "opacity-85"}`}
               sizes="(min-width: 1024px) 60vw, 100vw"
               priority
             />
@@ -94,11 +116,27 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </section>
 
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-semibold text-zinc-950">Availability</h2>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-zinc-950">Availability</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+                  {availabilityMessage(availability)}
+                </p>
+              </div>
+              <StatusBadge tone={availabilityTone(availability.kind)}>
+                {availability.label}
+              </StatusBadge>
+            </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              <Metric value={product.preorderReserve} label="Reserved for preorders" />
-              <Metric value={product.maxPerCustomer ?? "Open"} label="Per-customer limit" />
-              <Metric value={available} label="Available" />
+              <Metric
+                value={product.maxPerCustomer ?? "No fixed limit"}
+                label="Per-customer limit"
+              />
+              <Metric
+                value={availability.mode === "preorder" ? "After release" : availability.mode === "order" ? "Ready to ship" : "Unavailable"}
+                label="Fulfilment"
+              />
+              <Metric value={product.releaseDate} label="Release date" />
             </div>
           </section>
         </div>
@@ -123,17 +161,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <p className="mt-1 text-xs">Save {formatDealDiscount(activeDeal.discountBps)}</p>
               </div>
             ) : null}
-            <div className="mt-5 grid gap-2">
-              {skuId ? (
+
+            <div className="mt-5 grid gap-3">
+              {skuId && availability.mode === "order" && availability.purchasable ? (
                 <form action={addToCart} className="grid gap-3">
                   <input type="hidden" name="skuId" value={skuId} />
+                  <input type="hidden" name="returnPath" value={`/products/${product.slug}`} />
                   <label className="grid gap-2 text-sm font-medium text-zinc-700">
                     Quantity
                     <input
                       className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm"
                       defaultValue={1}
                       min={1}
-                      max={product.maxPerCustomer ?? 24}
+                      max={maxPurchaseQuantity}
                       name="quantity"
                       type="number"
                     />
@@ -142,15 +182,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
                     Add to cart
                   </button>
                 </form>
-              ) : (
-                <Link
-                  href="/products"
-                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-5 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
-                >
-                  Back to products
-                </Link>
-              )}
-              {product.setStatus === "preorder_open" && skuId ? (
+              ) : null}
+
+              {skuId && availability.mode === "preorder" && availability.purchasable ? (
                 <>
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
                     Preorders are charged 100% upfront. If confirmed supplier allocation is lower than your requested quantity, the difference is refunded through Stripe.
@@ -170,10 +204,27 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   />
                 </>
               ) : null}
-              {skuId ? (
+
+              {!availability.purchasable ? (
+                <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+                  <p className="font-semibold text-zinc-950">{availability.label}</p>
+                  <p className="mt-1 text-xs leading-5">{availabilityMessage(availability)}</p>
+                </div>
+              ) : null}
+
+              {!skuId ? (
+                <Link
+                  href="/products"
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-5 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
+                >
+                  Back to products
+                </Link>
+              ) : null}
+
+              {skuId && availability.showWaitlist ? (
                 <WaitlistSignupPanel
                   authRedirectPath={`/products/${product.slug}`}
-                  inStock={available > 0}
+                  inStock={false}
                   skuId={skuId}
                   supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
                   supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
@@ -190,15 +241,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
             </section>
           ) : null}
-
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-950">Stock</h2>
-            <dl className="mt-4 grid gap-3 text-sm">
-              <StockRow label="On hand" value={product.onHand} />
-              <StockRow label="Incoming" value={product.incoming} />
-              <StockRow label="Allocated" value={product.allocated} />
-            </dl>
-          </section>
         </aside>
       </section>
     </div>
@@ -217,19 +259,42 @@ function ProductFact({ label, value }: { label: string; value: string }) {
 function Metric({ value, label }: { value: string | number; label: string }) {
   return (
     <div>
-      <p className="text-3xl font-bold text-zinc-950">{value}</p>
+      <p className="text-lg font-bold text-zinc-950">{value}</p>
       <p className="mt-1 text-sm text-zinc-600">{label}</p>
     </div>
   );
 }
 
-function StockRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-zinc-500">{label}</dt>
-      <dd className="font-semibold text-zinc-950">{value}</dd>
-    </div>
-  );
+function availabilityTone(kind: StorefrontAvailabilityKind) {
+  if (kind === "in_stock" || kind === "preorder_available") return "success" as const;
+  if (kind === "low_stock") return "warning" as const;
+  if (kind === "out_of_stock" || kind === "preorder_sold_out") return "danger" as const;
+  return "neutral" as const;
+}
+
+function availabilityMessage(availability: StorefrontAvailability): string {
+  if (availability.kind === "in_stock") {
+    return "Available for normal checkout. Stock is reserved for 15 minutes once payment begins.";
+  }
+  if (availability.kind === "low_stock") {
+    return "Limited stock remains. The final quantity is confirmed and reserved when payment begins.";
+  }
+  if (availability.kind === "preorder_available") {
+    return "Available to preorder while confirmed incoming allocation remains.";
+  }
+  if (availability.kind === "preorder_sold_out") {
+    return "The confirmed preorder allocation has been fully claimed. Join the alert list for reopened allocation or restocks.";
+  }
+  if (availability.kind === "coming_soon") {
+    return "This product has been announced but ordering has not opened yet.";
+  }
+  if (availability.kind === "preorder_closed") {
+    return "The preorder window is closed. Join the alert list for release stock or reopened allocation.";
+  }
+  if (availability.kind === "out_of_print") {
+    return "This product is no longer expected to receive regular supply.";
+  }
+  return "This product is sold out. Join the restock alert list to be notified when stock returns.";
 }
 
 function mergeProduct(
