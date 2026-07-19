@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | Lint | `npm run lint` | `lint` |
 | Strict TypeScript | `npm run typecheck` | `typecheck` |
+| API architecture boundary | `npm run test:architecture` | included in `test` |
 | Unit and contract tests | `npm test` | `test` |
 | Production build | `npm run build` | `build` |
 | Browser smoke | `npm run build && npm run test:e2e` | `e2e-smoke` |
@@ -32,6 +33,10 @@ Pull-request CI runs independent checks in parallel without production secrets. 
 - `tests/preorder-flow.test.ts` — retail allocation queries, Stripe deposit/balance behavior, and removal of invoice checkout.
 - `tests/live-customer-pages.test.ts` — live customer page data and guards against fixture-backed authenticated flows.
 - `tests/frontend-access.test.tsx` — anonymous, customer, and staff navigation visibility.
+- `tests/api-architecture.test.ts` — prevents Client Components from importing database clients or issuing direct Supabase data operations.
+- `tests/api-protections.test.ts` — JSON media/size limits and idempotency claim, replay, release, and fail-safe completion behavior.
+- `tests/api-protection-migrations.test.ts` — private durable rate-limit and idempotency database contracts.
+- `tests/observability.test.ts` — request IDs, safe structured errors, retry metadata, redaction, and Sentry details.
 - `e2e/navigation.spec.ts` — primary navigation, Catalog Deals subsection, removed Wholesale route, protected pages, and 404 behavior.
 - `e2e/public-smoke.spec.ts` — built storefront, catalog fallback, product detail, empty cart, and shallow health smoke coverage.
 - `supabase/tests/*.sql` — RLS, checkout, deals, admin, waitlist, preorder, and schema contracts.
@@ -40,10 +45,12 @@ Pull-request CI runs independent checks in parallel without production secrets. 
 
 Place `*.test.ts` or `*.test.tsx` under `tests/`; `@/` resolves to the repository root. Keep business logic in focused `lib/` modules so it can be tested without browser or provider dependencies.
 
+Any new Client Component that needs application data must use `lib/api/client.ts`. The architecture suite intentionally fails when client code imports `lib/supabase.ts`, a general Supabase database client, or direct `.from()`, `.rpc()`, or Storage access. Only `lib/auth/browser-session.ts` may use the browser SDK, and only for session establishment.
+
 Run before pushing:
 
 ```bash
-npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e
+npm run lint && npm run typecheck && npm run test:architecture && npm test && npm run build && npm run test:e2e
 ```
 
 Authenticated provider flows and hosted restore drills are covered by deployment verification rather than anonymous pull-request jobs.
