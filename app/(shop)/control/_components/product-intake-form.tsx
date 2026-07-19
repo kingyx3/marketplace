@@ -354,12 +354,24 @@ export function ProductIntakeForm({
         </div>
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700">
-          <input name="active" type="hidden" value="false" />
-          <input defaultChecked name="active" type="checkbox" value="true" />
-          Active
-        </label>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="grid gap-2">
+          <div className="flex flex-wrap gap-5">
+            <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700">
+              <input name="active" type="hidden" value="false" />
+              <input defaultChecked name="active" type="checkbox" value="true" />
+              Active
+            </label>
+            <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700">
+              <input name="published" type="hidden" value="false" />
+              <input defaultChecked name="published" type="checkbox" value="true" />
+              Published
+            </label>
+          </div>
+          <p className="max-w-2xl text-xs text-zinc-500">
+            Published is selected by default. The product becomes visible only after it has an active SKU with a positive price.
+          </p>
+        </div>
         <SubmitButton disabled={duplicateSlug || generatedSlug === ""} />
       </div>
     </form>
