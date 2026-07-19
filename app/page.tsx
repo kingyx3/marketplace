@@ -3,10 +3,16 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { DealCard } from "@/app/_components/deal-card";
+import { StatusBadge } from "@/app/_components/status-badge";
 import { getCurrentViewer } from "@/lib/auth";
 import { getCatalogProducts, type CatalogProduct } from "@/lib/catalog";
 import { getStorefrontDeals } from "@/lib/deals";
 import { formatMoney } from "@/lib/money";
+import {
+  getStorefrontAvailability,
+  type StorefrontAvailability,
+  type StorefrontSetStatus,
+} from "@/lib/storefront-availability";
 import { indexBestDealsBySku } from "@/lib/storefront-deals";
 
 export const dynamic = "force-dynamic";
@@ -98,10 +104,15 @@ export default async function HomePage({
             {featuredProducts.map((product) => {
               const sku = product.skus[0];
               const deal = sku ? dealsBySku.get(sku.sku) : undefined;
+              const availability = catalogAvailability(product);
               return deal ? (
-                <DealCard key={product.id} deal={deal} />
+                <DealCard availability={availability} key={product.id} deal={deal} />
               ) : (
-                <FeaturedProductCard key={product.id} product={product} />
+                <FeaturedProductCard
+                  availability={availability}
+                  key={product.id}
+                  product={product}
+                />
               );
             })}
           </div>
@@ -148,7 +159,13 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function FeaturedProductCard({ product }: { product: CatalogProduct }) {
+function FeaturedProductCard({
+  availability,
+  product,
+}: {
+  availability: StorefrontAvailability;
+  product: CatalogProduct;
+}) {
   const sku = product.skus[0];
   if (!sku) return null;
 
@@ -158,11 +175,18 @@ function FeaturedProductCard({ product }: { product: CatalogProduct }) {
         <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
           <Image
             alt={`${product.name} sealed product`}
-            className="object-cover transition duration-300 group-hover:scale-[1.03]"
+            className={`object-cover transition duration-300 group-hover:scale-[1.03] ${
+              availability.purchasable ? "" : "opacity-80"
+            }`}
             fill
             sizes="(min-width: 768px) 33vw, 100vw"
             src={product.imageUrl ?? "/images/sealed-tcg-hero.png"}
           />
+          <div className="absolute right-3 top-3">
+            <StatusBadge tone={availability.purchasable ? "success" : "danger"}>
+              {availability.label}
+            </StatusBadge>
+          </div>
         </div>
       </Link>
       <div className="grid gap-3 p-4 sm:p-5">
@@ -178,11 +202,35 @@ function FeaturedProductCard({ product }: { product: CatalogProduct }) {
           <p className="text-2xl font-bold text-zinc-950">
             {formatMoney(sku.priceCents, sku.currency)}
           </p>
-          <p className="mt-1 text-xs text-zinc-500">{sku.available} available</p>
+          <p className="mt-1 text-xs font-semibold text-zinc-600">{availability.label}</p>
         </div>
       </div>
     </article>
   );
+}
+
+function catalogAvailability(product: CatalogProduct): StorefrontAvailability {
+  const sku = product.skus[0];
+  return getStorefrontAvailability({
+    setStatus: validSetStatus(product.setStatus),
+    onHand: sku?.onHand ?? 0,
+    incoming: sku?.incoming ?? 0,
+    allocated: sku?.allocated ?? 0,
+    safetyStock: sku?.safetyStock ?? 0,
+  });
+}
+
+function validSetStatus(value: string | null): StorefrontSetStatus {
+  if (
+    value === "announced" ||
+    value === "preorder_open" ||
+    value === "preorder_closed" ||
+    value === "released" ||
+    value === "out_of_print"
+  ) {
+    return value;
+  }
+  return "announced";
 }
 
 function TrustPoint({ title, children }: { title: string; children: ReactNode }) {
