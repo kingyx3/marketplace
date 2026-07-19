@@ -41,7 +41,10 @@ export function getStorefrontAvailability(
     0,
     inventory.onHand - inventory.allocated - inventory.safetyStock
   );
-  const preorderAvailable = Math.max(0, physicalAvailable + inventory.incoming);
+  const preorderAvailable = Math.max(
+    0,
+    inventory.onHand + inventory.incoming - inventory.allocated - inventory.safetyStock
+  );
 
   if (inventory.setStatus === "announced") {
     return unavailable("coming_soon", "Coming soon", true);
