@@ -47,6 +47,7 @@ export default async function CartPage({
   );
   const merchandiseTotalCents = quote.subtotalCents - discountCents;
   const gst = Math.round((merchandiseTotalCents * 9) / 109);
+  const hasAvailabilityIssue = quote.lines.some((line) => line.available < line.quantity);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -77,6 +78,11 @@ export default async function CartPage({
           {quoteError}
         </div>
       ) : null}
+      {hasAvailabilityIssue ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          One or more items are sold out or exceed current stock. Remove them or reduce the quantity before checkout.
+        </div>
+      ) : null}
 
       {quote.lines.length === 0 ? (
         <section className="rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm sm:p-8">
@@ -94,21 +100,46 @@ export default async function CartPage({
           <div className="min-w-0 space-y-4">
             {quote.lines.map((line) => {
               const lineDealDiscountBps = dealDiscounts.get(line.skuId) ?? 0;
+              const outOfStock = line.available <= 0;
+              const shortStock = !outOfStock && line.available < line.quantity;
+              const lowStock = !shortStock && line.available <= 5;
+              const availabilityLabel = outOfStock
+                ? "Out of stock"
+                : shortStock
+                  ? `Only ${line.available} available`
+                  : lowStock
+                    ? `Only ${line.available} left`
+                    : "In stock";
+              const availabilityTone = outOfStock
+                ? "danger"
+                : shortStock || lowStock
+                  ? "warning"
+                  : "success";
+
               return (
                 <article
                   key={line.skuId}
-                  className="grid min-w-0 gap-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5"
+                  className={`grid min-w-0 gap-4 rounded-lg border bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5 ${
+                    outOfStock || shortStock ? "border-amber-300" : "border-zinc-200"
+                  }`}
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="min-w-0 break-words text-lg font-semibold text-zinc-950">
                         {line.name}
                       </h2>
-                      <StatusBadge tone={line.available >= line.quantity ? "success" : "warning"}>
-                        {line.available} available
-                      </StatusBadge>
+                      <StatusBadge tone={availabilityTone}>{availabilityLabel}</StatusBadge>
                     </div>
                     <p className="mt-2 break-all text-sm text-zinc-500">{line.sku}</p>
+                    {outOfStock ? (
+                      <p className="mt-3 text-sm font-medium text-amber-800">
+                        Remove this item to continue checkout. It will remain in your cart until you decide.
+                      </p>
+                    ) : shortStock ? (
+                      <p className="mt-3 text-sm font-medium text-amber-800">
+                        Reduce the quantity to {line.available} or fewer to continue checkout.
+                      </p>
+                    ) : null}
                     <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
                       <form
                         action={updateCartQuantity}
@@ -118,15 +149,19 @@ export default async function CartPage({
                         <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-700">
                           Quantity
                           <input
-                            className="min-h-11 w-full min-w-0 rounded-md border border-zinc-300 px-3 text-sm sm:w-24"
+                            className="min-h-11 w-full min-w-0 rounded-md border border-zinc-300 px-3 text-sm disabled:cursor-not-allowed disabled:bg-zinc-100 sm:w-24"
                             defaultValue={line.quantity}
+                            disabled={outOfStock}
                             min={1}
-                            max={24}
+                            max={Math.min(24, line.available)}
                             name="quantity"
                             type="number"
                           />
                         </label>
-                        <button className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-zinc-500 sm:px-4">
+                        <button
+                          className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-zinc-500 disabled:cursor-not-allowed disabled:text-zinc-400 sm:px-4"
+                          disabled={outOfStock}
+                        >
                           Update
                         </button>
                       </form>
@@ -191,8 +226,14 @@ export default async function CartPage({
               </div>
             </dl>
 
+            {hasAvailabilityIssue ? (
+              <p className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                Checkout is disabled until unavailable quantities are corrected.
+              </p>
+            ) : null}
+
             <CartCheckoutPanel
-              disabled={Boolean(quoteError)}
+              disabled={Boolean(quoteError) || hasAvailabilityIssue}
               items={cartItems}
               publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
               supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
