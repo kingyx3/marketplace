@@ -44,7 +44,7 @@ export function getStorefrontAvailability(
   const preorderAvailable = Math.max(0, physicalAvailable + inventory.incoming);
 
   if (inventory.setStatus === "announced") {
-    return unavailable("coming_soon", "Coming soon", false);
+    return unavailable("coming_soon", "Coming soon", true);
   }
 
   if (inventory.setStatus === "preorder_closed") {
