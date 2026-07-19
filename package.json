@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:architecture": "vitest run tests/api-architecture.test.ts",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "format": "prettier --write .",

@@ -31,7 +31,7 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 import { NextResponse } from "next/server";
-import { badRequest, toErrorResponse } from "@/lib/api/errors";
+import { badRequest, rateLimited, toErrorResponse } from "@/lib/api/errors";
 import {
   logError,
   requestIdFrom,
@@ -104,8 +104,32 @@ describe("observability helpers", () => {
 
     expect(response.status).toBe(400);
     expect(response.headers.get("x-request-id")).toBe("request-12345678");
+    expect(response.headers.get("cache-control")).toBe("no-store");
     await expect(response.json()).resolves.toEqual({
-      error: { code: "bad_request", message: "Invalid order" },
+      error: {
+        code: "bad_request",
+        message: "Invalid order",
+        requestId: "request-12345678",
+        retryable: false,
+      },
+    });
+  });
+
+  it("marks rate limits as retryable and publishes Retry-After", async () => {
+    const response = toErrorResponse(rateLimited("Slow down", 30), {
+      requestId: "request-12345678",
+      route: "/api/waitlist",
+      method: "POST",
+    });
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("30");
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "rate_limited",
+        requestId: "request-12345678",
+        retryable: true,
+      },
     });
   });
 

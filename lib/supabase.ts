@@ -2,11 +2,18 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+const nonPersistentAuth = {
+  persistSession: false,
+  autoRefreshToken: false,
+  detectSessionInUrl: false,
+} as const;
+
 /**
- * Publishable-key client for public catalog reads and user-scoped queries.
- * Safe to use in Server Components because access is still RLS-enforced.
+ * Publishable-key database client for server-side public and RLS-scoped reads.
+ * Browser code must use the same-origin application API instead of importing this module.
  */
 export function createPublishableClient(): SupabaseClient {
+  assertServerOnly("createPublishableClient");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
@@ -14,34 +21,36 @@ export function createPublishableClient(): SupabaseClient {
       "Supabase is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)"
     );
   }
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, key, { auth: nonPersistentAuth });
 }
 
 /**
- * Secret-key client. Bypasses RLS — server-side only, never import from
- * client components. Used by webhooks and admin operations.
+ * Secret-key database client. This bypasses RLS and is restricted to trusted
+ * server-side repositories, services, route handlers, jobs, and webhooks.
  */
 export function createSecretClient(): SupabaseClient {
+  assertServerOnly("createSecretClient");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
     throw new Error("Supabase secret key is not configured (SUPABASE_SECRET_KEY)");
   }
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, key, { auth: nonPersistentAuth });
 }
 
-/** Backwards-compatible alias for older imports. Prefer createPublishableClient. */
+/** Server-only compatibility name used by existing application services. */
 export const createAnonClient = createPublishableClient;
 
-/** Backwards-compatible alias for older imports. Prefer createSecretClient. */
+/** Server-only compatibility name used by existing privileged application services. */
 export const createServiceClient = createSecretClient;
 
 /**
- * Cookie-backed Supabase client for Server Components, Route Handlers,
- * and Server Actions. Uses the publishable key plus httpOnly auth cookies,
- * so RLS still applies for user-scoped reads.
+ * Cookie-backed client for Server Components, Route Handlers, and Server Actions.
+ * It uses the publishable key and the authenticated user's cookie session, so RLS
+ * remains active for user-scoped operations.
  */
 export async function createUserClient(): Promise<SupabaseClient> {
+  assertServerOnly("createUserClient");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
@@ -63,10 +72,16 @@ export async function createUserClient(): Promise<SupabaseClient> {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Server Components cannot set cookies. Middleware refreshes
-          // sessions for normal page traffic; Route Handlers can set them.
+          // Server Components cannot set cookies. Middleware refreshes sessions
+          // for normal page traffic; Route Handlers can set them.
         }
       },
     },
   }) as unknown as SupabaseClient;
+}
+
+function assertServerOnly(operation: string): void {
+  if (typeof window !== "undefined") {
+    throw new Error(`${operation} is server-only; browser data access must use /api endpoints`);
+  }
 }

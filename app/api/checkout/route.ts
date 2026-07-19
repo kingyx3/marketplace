@@ -1,39 +1,65 @@
 import { NextResponse } from "next/server";
-import { toErrorResponse } from "@/lib/api/errors";
+
 import { requireApiCustomer } from "@/lib/api/auth";
+import { withApiHandler } from "@/lib/api/handler";
+import {
+  requireIdempotencyKey,
+  runIdempotentJsonOperation,
+} from "@/lib/api/idempotency";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { readJsonBody } from "@/lib/api/request";
 import { checkoutResponseBody, createCheckoutPayment } from "@/lib/order-checkout";
-import { logInfo, requestIdFrom, withRequestId } from "@/lib/observability";
+import { logInfo } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
-  const requestId = requestIdFrom(request);
-  const startedAt = Date.now();
-  const context = { requestId, route: "/api/checkout", method: "POST" };
-
-  try {
+export const POST = withApiHandler(
+  "/api/checkout",
+  async (request, context) => {
     const auth = await requireApiCustomer(request);
-    const result = await createCheckoutPayment(auth, await readJsonBody(request));
-    logInfo("checkout.payment_created", {
-      ...context,
-      userId: auth.user.id,
-      orderId: result.orderId,
-      preorderId: result.preorderId,
-      paymentId: result.paymentId,
-      mode: result.mode,
-      amountCents: result.amountCents,
-      currency: result.publishableCurrency,
-      durationMs: Date.now() - startedAt,
+    context.setActor(auth.user.id);
+    await enforceRateLimit(auth.supabase, {
+      scope: "checkout.create",
+      identifier: auth.customer.id,
+      limit: 8,
+      windowSeconds: 5 * 60,
+      requestId: context.requestId,
     });
-    return withRequestId(
-      NextResponse.json(checkoutResponseBody(result), { status: 201 }),
-      requestId
+
+    const body = await readJsonBody(request, { maxBytes: 32 * 1024 });
+    const operation = await runIdempotentJsonOperation(
+      auth.supabase,
+      {
+        scope: "checkout.create",
+        actorId: auth.user.id,
+        key: requireIdempotencyKey(request),
+        requestBody: body,
+        requestId: context.requestId,
+        ttlSeconds: 60 * 60,
+      },
+      async () => {
+        const result = await createCheckoutPayment(auth, body);
+        logInfo("checkout.payment_created", {
+          ...context,
+          orderId: result.orderId,
+          preorderId: result.preorderId,
+          paymentId: result.paymentId,
+          mode: result.mode,
+          amountCents: result.amountCents,
+          currency: result.publishableCurrency,
+        });
+        return { status: 201, body: checkoutResponseBody(result) };
+      }
     );
-  } catch (error) {
-    return toErrorResponse(error, {
-      ...context,
-      durationMs: Date.now() - startedAt,
-    });
-  }
-}
+
+    if (operation.replayed) {
+      logInfo("api.idempotency.replayed", {
+        ...context,
+        scope: "checkout.create",
+      });
+    }
+
+    return NextResponse.json(operation.body, { status: operation.status });
+  },
+  { timeoutMs: 25_000 }
+);
