@@ -47,7 +47,7 @@ describe("product image upload flow", () => {
     expect(uploader).toContain('"/api/control/product-image-upload"');
     expect(uploader).toContain('method: "PUT"');
     expect(uploader).toContain("uploadToSignedUrl");
-    expect(uploader).not.toContain("new FormData(form).get(\"image\")");
+    expect(route).not.toContain("request.formData()");
 
     expect(route).toContain('requireApiPermission(request, "manage_catalog")');
     expect(route).toContain("createSignedUploadUrl");
