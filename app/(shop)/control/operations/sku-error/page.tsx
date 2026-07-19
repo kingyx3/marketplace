@@ -13,10 +13,13 @@ export const metadata: Metadata = {
 export default async function CatalogSkuErrorPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ code?: string }>;
+  searchParams?: Promise<{ code?: string; productId?: string }>;
 }) {
   await requireControlPermission("manage_catalog", "/control/operations/sku-error");
   const params = (await searchParams) ?? {};
+  const productHref = validProductId(params.productId)
+    ? `/control/operations/products/${params.productId}`
+    : "/control/operations";
 
   return (
     <div className="space-y-6">
@@ -33,9 +36,9 @@ export default async function CatalogSkuErrorPage({
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
             className="inline-flex min-h-10 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
-            href="/control/operations"
+            href={productHref}
           >
-            Return to Operations
+            {productHref === "/control/operations" ? "Return to Operations" : "Return to product"}
           </Link>
           <Link
             className="inline-flex min-h-10 items-center justify-center rounded-md border border-amber-300 bg-white px-4 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700"
@@ -46,5 +49,14 @@ export default async function CatalogSkuErrorPage({
         </div>
       </section>
     </div>
+  );
+}
+
+function validProductId(value: string | undefined) {
+  return Boolean(
+    value &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value
+      )
   );
 }

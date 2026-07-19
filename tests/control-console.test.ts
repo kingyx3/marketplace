@@ -35,6 +35,8 @@ describe("control console", () => {
   it("ships one operations workspace and focused administrative screens", async () => {
     for (const path of [
       "../app/(shop)/control/operations/page.tsx",
+      "../app/(shop)/control/operations/products/new/page.tsx",
+      "../app/(shop)/control/operations/products/[productId]/page.tsx",
       "../app/(shop)/control/customers/page.tsx",
       "../app/(shop)/control/suppliers/page.tsx",
       "../app/(shop)/control/categories/page.tsx",
@@ -47,16 +49,40 @@ describe("control console", () => {
       expect(source.length).toBeGreaterThan(1000);
     }
 
-    const operations = await readFile(
-      new URL("../app/(shop)/control/operations/page.tsx", import.meta.url),
-      "utf8"
-    );
+    const [operations, newProduct, productDetail, productEditor, controlCatalog] =
+      await Promise.all([
+        readFile(new URL("../app/(shop)/control/operations/page.tsx", import.meta.url), "utf8"),
+        readFile(
+          new URL("../app/(shop)/control/operations/products/new/page.tsx", import.meta.url),
+          "utf8"
+        ),
+        readFile(
+          new URL(
+            "../app/(shop)/control/operations/products/[productId]/page.tsx",
+            import.meta.url
+          ),
+          "utf8"
+        ),
+        readFile(
+          new URL(
+            "../app/(shop)/control/_components/catalog-product-editor.tsx",
+            import.meta.url
+          ),
+          "utf8"
+        ),
+        readFile(new URL("../lib/control-catalog.ts", import.meta.url), "utf8"),
+      ]);
     expect(operations).toContain('requireControlPermission("manage_catalog", "/control/operations")');
     expect(operations).toContain('hasControlPermission(staff, "manage_full_operations")');
-    expect(operations).toContain("ProductIntakeForm");
-    expect(operations).toContain('from("product_types")');
-    expect(operations).toContain('label="Display name"');
-    expect(operations).not.toContain('label="Slug" name="slug"');
+    expect(operations).toContain("ProductListSection");
+    expect(operations).not.toContain("ProductIntakeForm");
+    expect(newProduct).toContain("ProductIntakeForm");
+    expect(productDetail).toContain("CatalogProductEditor");
+    expect(productDetail).toContain("CatalogSkuManager");
+    expect(productEditor).toContain('label="Display name"');
+    expect(productEditor).not.toContain('label="Slug" name="slug"');
+    expect(controlCatalog).toContain('from("product_types")');
+    expect(controlCatalog).toContain("booster_box_skus");
   });
 
   it("keeps every control mutation server-authorized and database-backed", async () => {

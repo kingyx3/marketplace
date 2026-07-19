@@ -20,6 +20,8 @@ export async function createCatalogProduct(
   formData: FormData
 ): Promise<CatalogProductActionState> {
   const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  let createdProductId: string | undefined;
+  let successMessage = "Product created.";
 
   try {
     const input = adminCatalogProductCreateFromForm(formData);
@@ -50,6 +52,7 @@ export async function createCatalogProduct(
 
     const result = (data?.[0] ?? null) as
       | {
+          product_id?: string;
           category_name?: string;
           category_created?: boolean;
           set_name?: string;
@@ -79,22 +82,28 @@ export async function createCatalogProduct(
       messages.push(`Slug: ${result.product_slug}.`);
     }
 
-    revalidateCatalogPaths();
+    createdProductId = result?.product_id ?? undefined;
+    successMessage = ["Product created.", ...messages].join(" ");
+    revalidateCatalogPaths(createdProductId);
     revalidatePath("/control/categories");
     revalidatePath("/control/sets");
     revalidatePath("/control/listings");
     revalidatePath("/preorders");
-
-    return {
-      status: "success",
-      message: ["Product created.", ...messages].join(" "),
-    };
   } catch (error) {
     return {
       status: "error",
       message: safeError(error),
     };
   }
+
+  if (validProductId(createdProductId ?? "")) {
+    redirect(`/control/operations/products/${createdProductId}`);
+  }
+
+  return {
+    status: "success",
+    message: successMessage,
+  };
 }
 
 export async function upsertCatalogProduct(formData: FormData) {
@@ -120,7 +129,7 @@ export async function upsertCatalogProduct(formData: FormData) {
     );
   }
   if (error) throw new Error(`Product save failed: ${error.message}`);
-  revalidateCatalogPaths();
+  revalidateCatalogPaths(input.productId ?? undefined);
 }
 
 export async function setCatalogProductActive(formData: FormData) {
@@ -135,7 +144,7 @@ export async function setCatalogProductActive(formData: FormData) {
   });
 
   if (error) throw new Error(`Product ${active ? "restore" : "archive"} failed: ${error.message}`);
-  revalidateCatalogPaths();
+  revalidateCatalogPaths(productId);
 }
 
 export async function uploadCatalogProductImage(formData: FormData) {
@@ -166,12 +175,13 @@ export async function uploadCatalogProductImage(formData: FormData) {
   });
 
   if (error) throw new Error(`Product image assignment failed: ${error.message}`);
-  revalidateCatalogPaths();
+  revalidateCatalogPaths(productId);
 }
 
 export async function upsertCatalogSku(formData: FormData) {
   const { user } = await requireControlPermission("manage_catalog", "/control/operations");
   const operation = formData.get("skuId") ? "update" : "create";
+  const productId = String(formData.get("productId") ?? "");
   let failure: unknown = null;
 
   try {
@@ -194,7 +204,7 @@ export async function upsertCatalogSku(formData: FormData) {
     if (error) {
       failure = error;
     } else {
-      revalidateCatalogPaths();
+      revalidateCatalogPaths(input.productId);
       return;
     }
   } catch (error) {
@@ -202,8 +212,11 @@ export async function upsertCatalogSku(formData: FormData) {
   }
 
   const errorCode = catalogSkuErrorCode(failure);
+  const detailRoute = validProductId(productId)
+    ? `/control/operations/products/${productId}`
+    : "/control/operations";
   const context = {
-    route: "/control/operations",
+    route: detailRoute,
     userId: user.id,
     operation,
     errorCode,
@@ -215,12 +228,14 @@ export async function upsertCatalogSku(formData: FormData) {
     logWarn("catalog.sku_save_rejected", context);
   }
 
-  redirect(`/control/operations/sku-error?code=${errorCode}`);
+  const productQuery = validProductId(productId) ? `&productId=${encodeURIComponent(productId)}` : "";
+  redirect(`/control/operations/sku-error?code=${errorCode}${productQuery}`);
 }
 
 export async function setCatalogSkuActive(formData: FormData) {
   const { user } = await requireControlPermission("manage_catalog", "/control/operations");
   const skuId = String(formData.get("skuId") ?? "");
+  const productId = String(formData.get("productId") ?? "");
   const active = String(formData.get("active") ?? "false") === "true";
 
   const { error } = await createServiceClient().rpc("admin_set_booster_box_sku_active", {
@@ -230,13 +245,20 @@ export async function setCatalogSkuActive(formData: FormData) {
   });
 
   if (error) throw new Error(`SKU ${active ? "restore" : "archive"} failed: ${error.message}`);
-  revalidateCatalogPaths();
+  revalidateCatalogPaths(validProductId(productId) ? productId : undefined);
 }
 
-function revalidateCatalogPaths() {
+function revalidateCatalogPaths(productId?: string) {
   revalidatePath("/control");
   revalidatePath("/control/operations");
+  if (productId) revalidatePath(`/control/operations/products/${productId}`);
   revalidatePath("/products");
+}
+
+function validProductId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
 }
 
 function catalogProductError(error: { code?: string; message: string }): CatalogProductActionState {
@@ -315,7 +337,7 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
       status: "error",
       field: "productIdentity",
       message:
-        "A category, set, type, product identity, or generated product slug is already in use. Select the existing record or change the conflicting value; the product details are preserved.",
+        "A category, set, type, product identity, or generated product slug is already in use. Select the existing record or change the conflicting value; the other product details are preserved.",
     };
   }
   if (message.includes("category")) {

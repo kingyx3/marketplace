@@ -2,10 +2,13 @@ import { access, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("catalog administration workflow", () => {
-  it("consolidates hierarchical product intake into operations", async () => {
+  it("routes hierarchical product intake through focused operations pages", async () => {
     const [
       shell,
-      page,
+      operations,
+      newProduct,
+      productDetail,
+      productEditor,
       form,
       fields,
       action,
@@ -19,6 +22,24 @@ describe("catalog administration workflow", () => {
         "utf8"
       ),
       readFile(new URL("../app/(shop)/control/operations/page.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/operations/products/new/page.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../app/(shop)/control/operations/products/[productId]/page.tsx",
+          import.meta.url
+        ),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../app/(shop)/control/_components/catalog-product-editor.tsx",
+          import.meta.url
+        ),
+        "utf8"
+      ),
       readFile(
         new URL("../app/(shop)/control/_components/product-intake-form.tsx", import.meta.url),
         "utf8"
@@ -63,14 +84,20 @@ describe("catalog administration workflow", () => {
     expect(shell).toContain('permission: "manage_catalog"');
     expect(shell).not.toContain('href: "/control/categories"');
     expect(shell).not.toContain('href: "/control/sets"');
-    expect(page).toContain("ProductIntakeForm");
-    expect(page).toContain("Products and SKUs");
-    expect(page).toContain("canManageFullOperations");
-    expect(page).toContain('from("product_types")');
-    expect(page).toContain('existingSlugs={products.map((product) => product.slug)}');
-    expect(page).toContain('label="Display name"');
-    expect(page).not.toContain("Quick add category");
-    expect(page).not.toContain("Quick add set");
+    expect(operations).toContain("ProductListSection");
+    expect(operations).toContain('href="/control/operations/products/new"');
+    expect(operations).not.toContain("ProductIntakeForm");
+    expect(operations).not.toContain("upsertCatalogSku");
+    expect(operations).toContain("canManageFullOperations");
+    expect(newProduct).toContain("ProductIntakeForm");
+    expect(newProduct).toContain("fetchControlProductTypes");
+    expect(newProduct).toContain('existingSlugs={products.map((product) => product.slug)}');
+    expect(productDetail).toContain("CatalogProductEditor");
+    expect(productDetail).toContain("CatalogSkuManager");
+    expect(productEditor).toContain('label="Display name"');
+    expect(productEditor).toContain("Add SKU");
+    expect(productEditor).not.toContain("Quick add category");
+    expect(productEditor).not.toContain("Quick add set");
     expect(form).toContain("Step 1");
     expect(form).toContain("Step 2");
     expect(form).toContain("Add category");
@@ -102,6 +129,8 @@ describe("catalog administration workflow", () => {
     expect(action).toContain('rpc("admin_create_catalog_product_hierarchy"');
     expect(action).toContain('rpc("admin_upsert_catalog_product"');
     expect(action).toContain('rpc("admin_upsert_booster_box_sku"');
+    expect(action).toContain("product_id?: string");
+    expect(action).toContain('redirect(`/control/operations/products/${createdProductId}`)');
     expect(action).toContain("p_name: input.name");
     expect(action).toContain("the other product details are preserved");
     expect(hierarchyMigration).toContain("category_created boolean");
@@ -130,20 +159,34 @@ describe("catalog administration workflow", () => {
   });
 
   it("standardizes catalog admin input guidance and validation", async () => {
-    const [operations, categories, sets] = await Promise.all([
+    const [operations, newProduct, productEditor, categories, sets] = await Promise.all([
       readFile(new URL("../app/(shop)/control/operations/page.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/operations/products/new/page.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../app/(shop)/control/_components/catalog-product-editor.tsx",
+          import.meta.url
+        ),
+        "utf8"
+      ),
       readFile(new URL("../app/(shop)/control/categories/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/(shop)/control/sets/page.tsx", import.meta.url), "utf8"),
     ]);
 
-    for (const page of [operations, categories, sets]) {
+    for (const page of [operations, productEditor, categories, sets]) {
       expect(page).toContain("AdminTextField");
       expect(page).toContain("example=");
       expect(page).toContain("required");
     }
+    expect(newProduct).toContain("ProductIntakeForm");
     expect(operations).toContain("AdminNumberField");
     expect(operations).toContain("AdminSelectField");
-    expect(operations).toContain("AdminFileField");
+    expect(productEditor).toContain("AdminNumberField");
+    expect(productEditor).toContain("AdminSelectField");
+    expect(productEditor).toContain("AdminFileField");
     expect(categories).toContain("AdminTextareaField");
     expect(sets).toContain('type="datetime-local"');
   });
