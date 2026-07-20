@@ -3,7 +3,10 @@
 import { useState } from "react";
 
 import { AdminTextField } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlSaveButton } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { upsertControlAccessGrant } from "@/app/actions/control";
 import type { StaffRole } from "@/lib/admin-staff";
 import {
@@ -125,7 +128,24 @@ export function AdministratorGrantForm({ grant }: { grant?: GrantRecord }) {
   }
 
   return (
-    <form action={upsertControlAccessGrant} className="grid gap-6">
+    <ControlActionForm
+      action={upsertControlAccessGrant}
+      className="grid gap-6"
+      confirmation={
+        template === "owner"
+          ? {
+              title: "Confirm owner access",
+              description:
+                "Owner access can manage every administrative domain, including other administrators. Verify the email and coverage before continuing.",
+              confirmLabel: grant ? "Save owner access" : "Provision owner",
+              tone: "danger",
+            }
+          : undefined
+      }
+      errorMessage="Administrator access could not be saved. The selected coverage has been preserved."
+      successHref="/control/governance/administrators"
+      successMessage={grant ? "Administrator access updated." : "Administrator access provisioned."}
+    >
       {grant ? <input name="grantId" type="hidden" value={grant.id} /> : null}
       {template === "owner" ? (
         <input name="permissions" type="hidden" value="governance.manage" />
@@ -257,6 +277,6 @@ export function AdministratorGrantForm({ grant }: { grant?: GrantRecord }) {
           </ControlSaveButton>
         </div>
       </div>
-    </form>
+    </ControlActionForm>
   );
 }

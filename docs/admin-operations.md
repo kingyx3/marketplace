@@ -31,6 +31,37 @@ Every control centre opens on its record list, queue, or dashboard. Administrato
 
 This model applies to products, categories, sets, SKU prices, promotions, listings, storefront configurations, inventory, suppliers, purchase orders, orders, preorders, allocation queues, deliveries, customers, payment exceptions, reconciliation, and administrator grants. Audit evidence remains a read-only table because it has no create or edit workflow.
 
+## Form, modal, and confirmation contract
+
+All standard control mutations use the shared action-form layer. Product intake, product-detail save, and direct-to-storage image upload keep their specialized state machines but participate in the same dirty-form contract.
+
+- A submit validates native constraints and cross-field relationships, focuses the first invalid control, announces a global summary, and applies field-level red error treatment. Server validation remains authoritative.
+- While a request is in flight, the form exposes `aria-busy`, its submit control is disabled, and its label describes the operation. Repeated submits are ignored.
+- A failed request leaves the modal and every entered value in place. Safe actionable errors are announced; unexpected server errors use generic retry guidance rather than exposing database or provider details.
+- Success clears the dirty marker, refreshes server-rendered data, announces completion when the form remains open, and returns to the canonical list when the workflow is complete. Product creation continues to product/SKU readiness because it is a multi-domain flow.
+- Closing a dirty modal by Close, backdrop, `Escape`, or browser back opens the same accessible discard dialog. Focus is trapped inside both modal layers and restored to the launching control on close. Page unload also receives the browser's unsaved-change safeguard.
+- Lifecycle and customer-facing state changes use an explicit confirmation. High-risk actions—customer disable, order cancellation, manual reconciliation, and preorder allocation/refunds—also require typed confirmation.
+- Search and filter forms are read-only navigation controls and intentionally do not use mutation confirmations or dirty-state tracking.
+- The console exposes archive/restore and audited customer disable/restore instead of hard-delete controls. Permanent record deletion is intentionally unavailable from administrator workflows.
+
+## Reviewed workflow inventory
+
+The following inventory is the required regression scope for changes to `/control`:
+
+| Domain     | Workflows reviewed                                                                                                                                                       | Consequential safeguards and failure behavior                                                                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Catalog    | Product intake and hierarchy creation; product identity/media update; SKU create/update; product/SKU archive and restore; category and set create/update/archive/restore | Generated identifier collisions remain on the active form; product/SKU/category/set lifecycle changes are confirmed; active relationships and UUID/value constraints are rechecked server-side |
+| Pricing    | SKU price version creation; promotion create/update; promotion activate/deactivate                                                                                       | New prices and promotion activation are confirmed; compare-at price and promotion windows are validated on client and server; pricing approval remains distinct from editing                   |
+| Storefront | Listing content, limits, availability mode/windows, configuration JSON, publish/unpublish                                                                                | JSON, tags, and date relationships receive field errors; customer-facing configuration and publication are confirmed; publish readiness is transactionally rechecked                           |
+| Supply     | Inventory adjustment; supplier create/update/archive/restore; purchase-order intake                                                                                      | Stock adjustments and supplier commitments are confirmed and audited; open dependants prevent archive; failed submissions preserve counts, costs, and notes                                    |
+| Orders     | Normal order review, unpaid cancellation, payment-exception flagging; preorder review; allocation preview/finalization                                                   | Cancellation requires `CANCEL`; allocation requires the reviewed fingerprint, refund permission, checkbox, and typed `ALLOCATE`; stale previews and provider failures remain reviewable        |
+| Fulfilment | Mark packing; arrange/update carrier and recipient address; update shipment status                                                                                       | Every customer-visible transition is confirmed; paid-state and status transitions are rechecked server-side; address and carrier values remain on failure                                      |
+| Customers  | Search/view retained records; disable/restore account                                                                                                                    | Disable requires `DISABLE`; self-disable, active staff, missing linked identity, and rollback paths fail safely; auth/customer changes and restoration are audited                             |
+| Finance    | Exception review; manual Stripe reconciliation                                                                                                                           | Reconciliation requires `RECONCILE`, a provider reference, amount, currency, and reason; permission and order/payment consistency are checked before mutation                                  |
+| Governance | Administrator create/update/activate/revoke coverage; audit search/view                                                                                                  | Owner provisioning receives an elevated confirmation; accepted email identity and owner-only coverage are enforced in parser, action, and database; audit is read-only                         |
+
+Each record-list route includes permission-aware empty and read-only states. All detail and creation routes remain addressable both directly and through the intercepted modal routes under `control/@modal`.
+
 ## Access provisioning
 
 - `ADMIN_EMAIL_ALLOWLIST` is authoritative for protected environment owners.

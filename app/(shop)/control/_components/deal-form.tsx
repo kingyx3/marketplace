@@ -4,7 +4,10 @@ import {
   AdminTextField,
   AdminTextareaField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlSaveButton } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { upsertLimitedTimeDeal } from "@/app/actions/admin";
 
 export interface DealRecord {
@@ -39,7 +42,13 @@ export function DealForm({
   error?: string;
 }) {
   return (
-    <form action={upsertLimitedTimeDeal} className="grid gap-5">
+    <ControlActionForm
+      action={upsertLimitedTimeDeal}
+      className="grid gap-5"
+      errorMessage="The promotion could not be saved. Your entries are still here; review them and try again."
+      successHref="/control/pricing/deals"
+      successMessage={deal ? "Promotion updated." : "Promotion created as a draft."}
+    >
       {deal ? <input name="dealId" type="hidden" value={deal.id} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -152,7 +161,7 @@ export function DealForm({
         </p>
         <ControlSaveButton>{deal ? "Save deal" : "Create deal"}</ControlSaveButton>
       </div>
-    </form>
+    </ControlActionForm>
   );
 }
 

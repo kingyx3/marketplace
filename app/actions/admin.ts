@@ -41,7 +41,11 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
   });
 
   if (error?.code === "23505") {
-    redirect(`${returnPath}?error=duplicate-deal`);
+    return {
+      status: "error" as const,
+      message: "Another promotion already uses this code. Choose a unique code.",
+      fieldErrors: { code: "Promotion code must be unique." },
+    };
   }
   if (error) throw new Error(`Limited-time deal save failed: ${error.message}`);
 

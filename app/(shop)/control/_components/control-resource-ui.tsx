@@ -1,5 +1,13 @@
 import Link from "next/link";
 
+import {
+  AdminActionForm,
+  AdminSubmitButton,
+} from "@/app/(shop)/control/_components/admin-action-form";
+import { ControlGuardedLink } from "@/app/(shop)/control/_components/control-guarded-link";
+
+export { AdminActionForm as ControlActionForm };
+
 export function ControlPrimaryLink({
   href,
   children,
@@ -25,12 +33,12 @@ export function ControlBackLink({
   children?: React.ReactNode;
 }) {
   return (
-    <Link
+    <ControlGuardedLink
       className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700"
       href={href}
     >
       {children}
-    </Link>
+    </ControlGuardedLink>
   );
 }
 
@@ -61,18 +69,36 @@ export function ControlData({ label, value }: { label: string; value: React.Reac
   );
 }
 
-export function ControlSaveButton({ children }: { children: React.ReactNode }) {
+export function ControlSaveButton({
+  children,
+  pendingLabel = "Saving…",
+}: {
+  children: React.ReactNode;
+  pendingLabel?: string;
+}) {
   return (
-    <button className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
+    <AdminSubmitButton
+      className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+      pendingLabel={pendingLabel}
+    >
       {children}
-    </button>
+    </AdminSubmitButton>
   );
 }
 
-export function ControlDangerButton({ children }: { children: React.ReactNode }) {
+export function ControlDangerButton({
+  children,
+  pendingLabel = "Working…",
+}: {
+  children: React.ReactNode;
+  pendingLabel?: string;
+}) {
   return (
-    <button className="min-h-11 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50">
+    <AdminSubmitButton
+      className="min-h-11 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+      pendingLabel={pendingLabel}
+    >
       {children}
-    </button>
+    </AdminSubmitButton>
   );
 }

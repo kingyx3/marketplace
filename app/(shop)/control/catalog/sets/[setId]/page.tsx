@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import {
   ControlBackLink,
+  ControlActionForm,
   ControlDangerButton,
   ControlData,
 } from "@/app/(shop)/control/_components/control-resource-ui";
@@ -106,11 +107,24 @@ export default async function SetDetailPage({
       <section className="rounded-xl border border-rose-100 bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-zinc-950">Lifecycle</h2>
         <p className="mt-1 text-sm text-zinc-600">Sets with active products cannot be archived.</p>
-        <form action={setControlSetActive} className="mt-4">
+        <ControlActionForm
+          action={setControlSetActive}
+          className="mt-4"
+          confirmation={{
+            title: `${set.active ? "Archive" : "Restore"} set?`,
+            description: set.active
+              ? "Archiving removes this set from active catalog choices. The server will reject the change while active products remain."
+              : "Restoring makes this set available to catalog workflows again.",
+            confirmLabel: set.active ? "Archive set" : "Restore set",
+            tone: set.active ? "danger" : "default",
+          }}
+          errorMessage="The set status could not be changed. Resolve any active products and try again."
+          successMessage={`Set ${set.active ? "archived" : "restored"}.`}
+        >
           <input name="id" type="hidden" value={set.id} />
           <input name="active" type="hidden" value={set.active ? "false" : "true"} />
           <ControlDangerButton>{set.active ? "Archive set" : "Restore set"}</ControlDangerButton>
-        </form>
+        </ControlActionForm>
       </section>
     </div>
   );

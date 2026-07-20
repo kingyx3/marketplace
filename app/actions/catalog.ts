@@ -16,7 +16,7 @@ import {
   isProductImageContentType,
   productImageExtension,
 } from "@/lib/catalog-product-images";
-import { catalogSkuErrorCode } from "@/lib/catalog-sku-errors";
+import { catalogSkuErrorCode, catalogSkuErrorMessage } from "@/lib/catalog-sku-errors";
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
 import { logError, logWarn } from "@/lib/observability";
@@ -238,10 +238,17 @@ export async function upsertCatalogSku(formData: FormData) {
     logWarn("catalog.sku_save_rejected", context);
   }
 
-  const productQuery = validProductId(productId)
-    ? `&productId=${encodeURIComponent(productId)}`
-    : "";
-  redirect(`/control/catalog/sku-error?code=${errorCode}${productQuery}`);
+  const field =
+    errorCode === "duplicate-barcode"
+      ? "barcode"
+      : ["duplicate-sku", "sku-required"].includes(errorCode)
+        ? "sku"
+        : undefined;
+  return {
+    status: "error" as const,
+    message: catalogSkuErrorMessage(errorCode),
+    fieldErrors: field ? { [field]: catalogSkuErrorMessage(errorCode) } : undefined,
+  };
 }
 
 export async function setCatalogSkuActive(formData: FormData) {

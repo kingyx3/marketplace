@@ -180,7 +180,8 @@ describe("admin catalog management", () => {
     expect(displayNameMigration).toContain("'name', v_name");
     expect(displayNameMigration).toContain("'slug', v_product_slug");
     expect(action).toContain("catalog.sku_save_rejected");
-    expect(action).toContain("/control/catalog/sku-error?code=${errorCode}");
+    expect(action).toContain("catalogSkuErrorMessage(errorCode)");
+    expect(action).toContain("fieldErrors: field ?");
     expect(skuErrorPage).toContain("SKU could not be saved");
   });
 });

@@ -2,7 +2,13 @@ import {
   AdminSelectField,
   AdminTextField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlBackLink,
+  ControlDangerButton,
+  ControlData,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { runAdminOrderAction } from "@/app/actions/admin";
@@ -62,9 +68,19 @@ export default async function NormalOrderPage({
       </section>
       {canManage ? (
         <section className="grid gap-4 lg:grid-cols-2">
-          <form
+          <ControlActionForm
             action={runAdminOrderAction}
             className="rounded-xl border border-rose-100 bg-white p-5 shadow-sm"
+            confirmation={{
+              title: "Cancel unpaid order?",
+              description:
+                "This releases its reserved stock and closes the order. The action is audited and cannot be reversed from this screen.",
+              confirmLabel: "Cancel order",
+              requireText: "CANCEL",
+              tone: "danger",
+            }}
+            errorMessage="The order could not be cancelled. The reason has been preserved; refresh the order status before retrying."
+            successMessage="Unpaid order cancelled and reserved stock released."
           >
             <input name="action" type="hidden" value="cancel_unpaid" />
             <input name="orderId" type="hidden" value={order.id} />
@@ -78,13 +94,23 @@ export default async function NormalOrderPage({
                 required
               />
             </div>
-            <button className="mt-4 min-h-11 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50">
-              Cancel unpaid order
-            </button>
-          </form>
-          <form
+            <div className="mt-4">
+              <ControlDangerButton pendingLabel="Cancelling order…">
+                Cancel unpaid order
+              </ControlDangerButton>
+            </div>
+          </ControlActionForm>
+          <ControlActionForm
             action={runAdminOrderAction}
             className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm"
+            confirmation={{
+              title: "Create finance exception?",
+              description:
+                "This adds an audited exception to the finance review queue. Confirm the severity and details are accurate.",
+              confirmLabel: "Create exception",
+            }}
+            errorMessage="The finance exception could not be created. Your severity and details have been preserved."
+            successMessage="Finance exception created."
           >
             <input name="action" type="hidden" value="flag_payment_exception" />
             <input name="orderId" type="hidden" value={order.id} />
@@ -110,10 +136,12 @@ export default async function NormalOrderPage({
                 required
               />
             </div>
-            <button className="mt-4 min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white">
-              Create finance exception
-            </button>
-          </form>
+            <div className="mt-4">
+              <ControlSaveButton pendingLabel="Creating exception…">
+                Create finance exception
+              </ControlSaveButton>
+            </div>
+          </ControlActionForm>
         </section>
       ) : null}
     </div>

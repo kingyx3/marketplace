@@ -4,7 +4,10 @@ import {
   AdminTextField,
   AdminTextareaField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlSaveButton } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { upsertControlCategory } from "@/app/actions/control";
 
 export interface CategoryRecord {
@@ -38,7 +41,13 @@ export function CategoryForm({
   error?: string;
 }) {
   return (
-    <form action={upsertControlCategory} className="grid gap-5">
+    <ControlActionForm
+      action={upsertControlCategory}
+      className="grid gap-5"
+      errorMessage="The category could not be saved. Your entries are still here; review them and try again."
+      successHref="/control/catalog/categories"
+      successMessage={category ? "Category updated." : "Category created."}
+    >
       {category ? <input name="categoryId" type="hidden" value={category.id} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -110,6 +119,6 @@ export function CategoryForm({
         </label>
         <ControlSaveButton>{category ? "Save category" : "Create category"}</ControlSaveButton>
       </div>
-    </form>
+    </ControlActionForm>
   );
 }

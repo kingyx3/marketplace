@@ -1,4 +1,8 @@
 import { CatalogProductSaveForm } from "@/app/(shop)/control/_components/catalog-product-save-form";
+import {
+  ControlActionForm,
+  ControlDangerButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { ProductImageUploader } from "@/app/(shop)/control/_components/product-image-uploader";
 import { setCatalogProductActive } from "@/app/actions/catalog";
 import { StatusBadge } from "@/app/_components/status-badge";
@@ -75,18 +79,24 @@ function ToggleForm({
   noun: string;
 }) {
   return (
-    <form action={action}>
+    <ControlActionForm
+      action={action}
+      confirmation={{
+        title: `${active ? "Archive" : "Restore"} ${noun}?`,
+        description: active
+          ? `Archiving this ${noun} removes it from active administrative choices and may affect customer availability.`
+          : `Restoring this ${noun} makes it available to downstream administrative workflows again.`,
+        confirmLabel: active ? `Archive ${noun}` : `Restore ${noun}`,
+        tone: active ? "danger" : "default",
+      }}
+      errorMessage={`The ${noun} status could not be changed. Please try again.`}
+      successMessage={`${noun[0].toUpperCase()}${noun.slice(1)} ${active ? "archived" : "restored"}.`}
+    >
       <input name={idName} type="hidden" value={id} />
       <input name="active" type="hidden" value={active ? "false" : "true"} />
-      <DangerButton>{active ? `Archive ${noun}` : `Restore ${noun}`}</DangerButton>
-    </form>
-  );
-}
-
-function DangerButton({ children }: { children: React.ReactNode }) {
-  return (
-    <button className="min-h-10 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700">
-      {children}
-    </button>
+      <ControlDangerButton pendingLabel={active ? "Archiving…" : "Restoring…"}>
+        {active ? `Archive ${noun}` : `Restore ${noun}`}
+      </ControlDangerButton>
+    </ControlActionForm>
   );
 }

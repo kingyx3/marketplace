@@ -12,6 +12,7 @@ import {
 } from "@/lib/control-forms";
 import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
+import type { AdminActionResult } from "@/lib/admin-action-state";
 
 export async function upsertControlSupplier(formData: FormData) {
   const sourceId = optionalFormId(formData, "supplierId");
@@ -85,7 +86,7 @@ export async function upsertControlCategory(formData: FormData) {
   if (input.categoryId) duplicateQuery = duplicateQuery.neq("id", input.categoryId);
   const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
   if (duplicateError) throw new Error(`Category duplicate check failed: ${duplicateError.message}`);
-  if (duplicate) redirectToCategoryConflict(input, duplicate.name);
+  if (duplicate) return categoryConflictResult(duplicate.name);
 
   const { data, error } = await supabase.rpc("admin_upsert_category", {
     p_category_id: input.categoryId,
@@ -99,7 +100,7 @@ export async function upsertControlCategory(formData: FormData) {
     p_actor_auth_user_id: user.id,
   });
 
-  if (error?.code === "23505") redirectToCategoryConflict(input, "another category");
+  if (error?.code === "23505") return categoryConflictResult("another category");
   if (error) throw new Error(`Category save failed: ${error.message}`);
 
   const categoryId = readRpcId(data, "category_id") ?? input.categoryId;
@@ -155,7 +156,7 @@ export async function upsertControlSet(formData: FormData) {
     p_actor_auth_user_id: user.id,
   });
 
-  if (error?.code === "23505") redirectToSetConflict(input);
+  if (error?.code === "23505") return setConflictResult();
   if (error) throw new Error(`Set save failed: ${error.message}`);
 
   const setId = readRpcId(data, "set_id") ?? input.setId;
@@ -220,44 +221,25 @@ export async function upsertControlAccessGrant(formData: FormData) {
   redirect(`/control/governance/administrators/${grantId}?saved=1`);
 }
 
-function redirectToCategoryConflict(
-  input: {
-    categoryId: string | null;
-    name: string;
-    publisher: string | null;
-    parentId: string | null;
-    sortOrder: number;
-    active: boolean;
-  },
-  existingName: string
-): never {
-  const search = new URLSearchParams({
-    error: "duplicate-category",
-    name: input.name,
-    existing: existingName,
-    sortOrder: String(input.sortOrder),
-    active: String(input.active),
-  });
-  if (input.publisher) search.set("publisher", input.publisher);
-  if (input.parentId) search.set("parentId", input.parentId);
-  const path = input.categoryId
-    ? `/control/catalog/categories/${input.categoryId}`
-    : "/control/catalog/categories/new";
-  redirect(`${path}?${search.toString()}`);
+function categoryConflictResult(existingName: string): AdminActionResult {
+  return {
+    status: "error",
+    message: `This name conflicts with ${existingName}. Rename it or edit the existing category.`,
+    fieldErrors: {
+      name: "This name generates a slug already used by another category.",
+    },
+  };
 }
 
-function redirectToSetConflict(input: {
-  setId: string | null;
-  name: string;
-  categoryId: string;
-}): never {
-  const search = new URLSearchParams({
-    error: "duplicate-set",
-    name: input.name,
-    categoryId: input.categoryId,
-  });
-  const path = input.setId ? `/control/catalog/sets/${input.setId}` : "/control/catalog/sets/new";
-  redirect(`${path}?${search.toString()}`);
+function setConflictResult(): AdminActionResult {
+  return {
+    status: "error",
+    message:
+      "Another set in this category uses the generated code. Rename this set or edit the existing record.",
+    fieldErrors: {
+      name: "This name generates a set code already used in the selected category.",
+    },
+  };
 }
 
 function readRpcId(data: unknown, key: string): string | null {

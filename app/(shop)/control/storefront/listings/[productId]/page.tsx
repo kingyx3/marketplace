@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlBackLink,
+  ControlData,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import {
   ListingItemForm,
   type ListingItemRecord,
@@ -133,13 +138,26 @@ export default async function ListingDetailPage({
           <Readiness label="Sellable stock" ready={stockReady} />
         </div>
         {hasControlPermission(staff, "storefront.publish") ? (
-          <form action={setListingPublished} className="mt-5">
+          <ControlActionForm
+            action={setListingPublished}
+            className="mt-5"
+            confirmation={{
+              title: listing?.published ? "Unpublish listing?" : "Publish listing?",
+              description: listing?.published
+                ? "Customers will no longer be able to discover or order this listing. Existing orders are unaffected."
+                : "This makes the listing customer-facing. Product, SKU, price, supply, and availability readiness will be checked again on the server.",
+              confirmLabel: listing?.published ? "Unpublish listing" : "Approve and publish",
+              tone: listing?.published ? "danger" : "default",
+            }}
+            errorMessage="Publication could not be changed. Review every readiness requirement and try again."
+            successMessage={listing?.published ? "Listing unpublished." : "Listing published."}
+          >
             <input name="productId" type="hidden" value={product.id} />
             <input name="published" type="hidden" value={listing?.published ? "false" : "true"} />
-            <button className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
+            <ControlSaveButton pendingLabel={listing?.published ? "Unpublishing…" : "Publishing…"}>
               {listing?.published ? "Unpublish listing" : "Approve and publish"}
-            </button>
-          </form>
+            </ControlSaveButton>
+          </ControlActionForm>
         ) : (
           <p className="mt-5 text-sm text-zinc-500">
             Final publication requires the Publish listings permission.
