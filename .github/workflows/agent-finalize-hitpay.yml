@@ -39,7 +39,12 @@ jobs:
           files = set(explicit)
           for root in roots:
             if root.exists():
-              files.update(p for p in root.rglob('*') if p.is_file() and p.suffix in {'.ts','.tsx','.js','.mjs','.json','.yml','.yaml','.md'})
+              files.update(
+                path for path in root.rglob('*')
+                if path.is_file()
+                and 'node_modules' not in path.parts
+                and path.suffix in {'.ts', '.tsx', '.js', '.mjs', '.json', '.yml', '.yaml', '.md'}
+              )
 
           replacements = [
             ('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'HITPAY_API_URL'),
@@ -62,14 +67,17 @@ jobs:
             ('whsec_123', 'hitpay_test_webhook_salt'),
           ]
           for path in sorted(files):
-            if not path.exists() or 'node_modules' in path.parts:
+            if not path.exists():
               continue
             text = path.read_text()
             updated = text
             for old, new in replacements:
               updated = updated.replace(old, new)
             if path == Path('lib/orders.ts'):
-              updated = updated.replace('paymentIntentIdFromWebhookPayload', 'paymentRequestIdFromWebhookPayload')
+              updated = updated.replace(
+                'paymentIntentIdFromWebhookPayload',
+                'paymentRequestIdFromWebhookPayload',
+              )
               updated = re.sub(
                 r'function paymentRequestIdFromWebhookPayload\(payload: unknown\): string \| null \{.*?\n\}',
                 '''function paymentRequestIdFromWebhookPayload(payload: unknown): string | null {\n  if (!payload || typeof payload !== "object") return null;\n  const id = "id" in payload ? payload.id : null;\n  return typeof id === "string" ? id : null;\n}''',
@@ -85,11 +93,12 @@ jobs:
             package.get('dependencies', {}).pop(dependency, None)
           package_path.write_text(json.dumps(package, indent=2) + '\n')
           PY
-      - name: Regenerate lockfile and canonical environment artifacts
-        run: |
-          npm install --package-lock-only --ignore-scripts
-          npm run env:artifacts:write
-          npm run format
+      - name: Regenerate package lockfile
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Regenerate canonical environment artifacts
+        run: npm run env:artifacts:write
+      - name: Format migration changes
+        run: npm run format
       - name: Remove one-shot migration helpers
         run: |
           rm -f scripts/agent-migrate-hitpay.mjs
