@@ -22,7 +22,7 @@ export function ManualReconciliationForm({
       confirmation={{
         title: "Record manual payment reconciliation?",
         description:
-          "This writes an audited payment reconciliation against the order. Verify the Stripe reference, amount, currency, and reason against the provider dashboard.",
+          "This writes an audited payment reconciliation against the order. Verify the HitPay payment-request reference, amount, currency, and reason against the provider dashboard.",
         confirmLabel: "Record reconciliation",
         requireText: "RECONCILE",
         tone: "danger",
@@ -32,7 +32,7 @@ export function ManualReconciliationForm({
       successMessage="Audited payment reconciliation recorded."
     >
       <input name="action" type="hidden" value="record_manual_reconciliation" />
-      <input name="provider" type="hidden" value="stripe" />
+      <input name="provider" type="hidden" value="hitpay" />
       <AdminTextField
         defaultValue={orderId ?? undefined}
         example="Order UUID"
@@ -46,14 +46,20 @@ export function ManualReconciliationForm({
       />
       <AdminTextField
         defaultValue={providerPaymentId ?? undefined}
-        example="pi_..."
-        label="Stripe payment reference"
+        example="Payment Request UUID"
+        label="HitPay payment-request reference"
         maxLength={200}
         minLength={3}
         name="providerPaymentId"
         required
       />
-      <AdminNumberField example="18900" label="Amount cents" min={1} name="amountCents" required />
+      <AdminNumberField
+        example="18900"
+        label="Amount cents"
+        min={1}
+        name="amountCents"
+        required
+      />
       <AdminTextField
         defaultValue="SGD"
         example="SGD"
@@ -67,7 +73,7 @@ export function ManualReconciliationForm({
       />
       <div className="sm:col-span-2">
         <AdminTextField
-          example="Verified against Stripe dashboard and webhook event"
+          example="Verified against HitPay dashboard and signed webhook event"
           label="Reason"
           maxLength={500}
           name="reason"
