@@ -6,7 +6,9 @@ const mode = process.argv[2];
 const githubEnv = process.env.GITHUB_ENV;
 
 if (!githubEnv) fail("GITHUB_ENV is required");
-if (!mode || !["state", "platform"].includes(mode)) fail("Usage: resolve-terraform-inputs.mjs <state|platform>");
+if (!mode || !["state", "platform", "bootstrap"].includes(mode)) {
+  fail("Usage: resolve-terraform-inputs.mjs <state|platform|bootstrap>");
+}
 
 const googleCredentials = required("GCP_TERRAFORM_CREDENTIALS_JSON");
 const gcpProjectId = optional("GCP_PROJECT_ID") || readGoogleProjectId(googleCredentials);
@@ -36,15 +38,27 @@ if (mode === "platform") {
   values.TF_VAR_vercel_team_id = optional("VERCEL_TEAM_ID");
   values.TF_VAR_vercel_project_name = optional("VERCEL_PROJECT_NAME");
   values.TF_VAR_vercel_root_directory = optional("VERCEL_ROOT_DIRECTORY");
-  values.TF_VAR_supabase_organization_id = optional("SUPABASE_ORGANIZATION_ID") || await resolveSingleSupabaseOrganizationId();
+  values.TF_VAR_supabase_organization_id =
+    optional("SUPABASE_ORGANIZATION_ID") || (await resolveSingleSupabaseOrganizationId());
   values.TF_VAR_supabase_region = optional("SUPABASE_REGION") || "ap-southeast-1";
   values.TF_VAR_enable_release_topology = String(enableReleaseTopology);
   values.TERRAFORM_BOOTSTRAP_SUPABASE_ENVIRONMENTS = enableReleaseTopology
     ? "development,staging,recovery,production"
     : "development,production";
+} else if (mode === "bootstrap") {
+  // Database smoke fixtures only need read access to the already-provisioned
+  // platform state. Provider configuration and Vercel credentials are not
+  // required because CI/CD passes the immutable deployment URL directly.
+  values.TF_STATE_PREFIX = "marketplace/platform";
 }
 
-await appendFile(githubEnv, Object.entries(values).map(([key, value]) => formatGithubEnvLine(key, value)).join(""), "utf8");
+await appendFile(
+  githubEnv,
+  Object.entries(values)
+    .map(([key, value]) => formatGithubEnvLine(key, value))
+    .join(""),
+  "utf8"
+);
 
 function optional(key) {
   return process.env[key]?.trim() || "";
@@ -96,7 +110,9 @@ async function resolveSingleSupabaseOrganizationId() {
   if (!response.ok) fail(`Could not list Supabase organizations: HTTP ${response.status}`);
   const organizations = await response.json();
   if (!Array.isArray(organizations)) fail("Unexpected Supabase organizations response");
-  if (organizations.length !== 1) fail("Set SUPABASE_ORGANIZATION_ID when the Supabase token can access zero or multiple organizations");
+  if (organizations.length !== 1) {
+    fail("Set SUPABASE_ORGANIZATION_ID when the Supabase token can access zero or multiple organizations");
+  }
   return organizations[0].id || organizations[0].slug || fail("Supabase organization response did not include an id or slug");
 }
 
