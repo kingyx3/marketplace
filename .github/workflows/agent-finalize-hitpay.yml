@@ -21,7 +21,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
+      - run: npm ci --silent
       - name: Replace remaining active Stripe references
         run: |
           python3 - <<'PY'
@@ -94,11 +94,21 @@ jobs:
           package_path.write_text(json.dumps(package, indent=2) + '\n')
           PY
       - name: Regenerate package lockfile
-        run: npm install --package-lock-only --ignore-scripts
+        run: npm install --package-lock-only --ignore-scripts --silent
       - name: Regenerate canonical environment artifacts
-        run: npm run env:artifacts:write
-      - name: Format migration changes
-        run: npm run format
+        run: npm run env:artifacts:write --silent
+      - name: Format application source
+        run: npx prettier --write app --log-level silent
+      - name: Format library source
+        run: npx prettier --write lib --log-level silent
+      - name: Format scripts
+        run: npx prettier --write scripts --log-level silent
+      - name: Format tests
+        run: npx prettier --write tests --log-level silent
+      - name: Format workflows and configuration
+        run: npx prettier --write .github package.json package-lock.json config .env.example --log-level silent
+      - name: Format active documentation
+        run: npx prettier --write AGENTS.md README.md docs/security.md docs/local-dev.md docs/bootstrap.md docs/environments.md docs/architecture.md docs/data-model.md docs/provisioning.md docs/cost-controls.md docs/observability.md docs/testing.md docs/generated --log-level silent
       - name: Remove one-shot migration helpers
         run: |
           rm -f scripts/agent-migrate-hitpay.mjs
