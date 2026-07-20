@@ -176,7 +176,7 @@ async function fetchProducts(): Promise<{
           featured,
           published
         ),
-        sets_releases(name, code, status, release_date),
+        sets_releases!products_set_belongs_to_category(name, code, status, release_date),
         tcg_categories(name, publisher),
         product_variants(
           booster_box_skus(
