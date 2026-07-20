@@ -1,0 +1,9 @@
+
+> marketplace@0.1.0 typecheck
+> tsc --noEmit
+
+lib/checkout.ts(162,34): error TS2339: Property 'name' does not exist on type 'CheckoutLine'.
+tests/hitpay.test.ts(20,28): error TS2352: Conversion of type '{ HITPAY_PAYMENT_METHODS: string; }' to type 'ProcessEnv' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'NODE_ENV' is missing in type '{ HITPAY_PAYMENT_METHODS: string; }' but required in type 'ProcessEnv'.
+tests/hitpay.test.ts(64,39): error TS2352: Conversion of type '{ HITPAY_API_KEY: string; HITPAY_API_URL: string; HITPAY_PAYMENT_METHODS: string; }' to type 'ProcessEnv' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'NODE_ENV' is missing in type '{ HITPAY_API_KEY: string; HITPAY_API_URL: string; HITPAY_PAYMENT_METHODS: string; }' but required in type 'ProcessEnv'.

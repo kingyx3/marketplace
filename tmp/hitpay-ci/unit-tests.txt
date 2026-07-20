@@ -1,0 +1,1577 @@
+
+> marketplace@0.1.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/marketplace/marketplace[39m
+
+ [31m❯[39m tests/vercel-sensitive-environment.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 432[2mms[22m[39m
+     [32m✓[39m filters target and branch records while distinguishing unreadable values[32m 41[2mms[22m[39m
+     [32m✓[39m requests decrypted target-scoped values from the authoritative Vercel API[32m 46[2mms[22m[39m
+     [32m✓[39m rejects encrypted ciphertext as a readable runtime value[32m 44[2mms[22m[39m
+     [32m✓[39m creates readable encrypted records, uses the documented edit endpoint, and refuses cross-target mutations[32m 46[2mms[22m[39m
+     [32m✓[39m uses only decrypted Vercel values as fallback and disables local dotenv loading[32m 72[2mms[22m[39m
+     [32m✓[39m does not load dotenv files in authoritative hosted child processes[32m 58[2mms[22m[39m
+     [32m✓[39m shares conditional requiredness between validation and Vercel reconciliation[32m 49[2mms[22m[39m
+[31m     [31m×[31m does not replace a matching HitPay webhook when Vercel stores an unreadable signing secret[39m[32m 43[2mms[22m[39m
+[31m     [31m×[31m uses authoritative API reads and avoids vercel env run precedence[39m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/deploy-workflow.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [31m❯[39m tests/env.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[33m 750[2mms[22m[39m
+[31m     [31m×[31m accepts a minimal valid runtime/deploy environment[39m[32m 71[2mms[22m[39m
+     [32m✓[39m requires OAuth credentials only when the capability is enabled[32m 39[2mms[22m[39m
+     [32m✓[39m requires a valid admin email allowlist for production[32m 111[2mms[22m[39m
+[31m     [31m×[31m allows the generated HitPay signing secret to be absent only during pre-provision checks[39m[32m 108[2mms[22m[39m
+     [32m✓[39m never writes deploy-only keys into runtime dotenv[32m 43[2mms[22m[39m
+     [32m✓[39m loads local dotenv without overriding exported values[32m 67[2mms[22m[39m
+[31m     [31m×[31m resolves Terraform outputs without overriding explicit environment values[39m[32m 41[2mms[22m[39m
+     [32m✓[39m reconciles Supabase keys against the Terraform-selected project for every target[32m 55[2mms[22m[39m
+[31m     [31m×[31m reconciles stale Supabase keys from the selected project, including legacy service_role keys[39m[32m 60[2mms[22m[39m
+[31m     [31m×[31m rejects a Supabase key that does not authenticate against the selected project[39m[32m 55[2mms[22m[39m
+[31m     [31m×[31m keeps generated artifacts in sync with every contract key[39m[32m 91[2mms[22m[39m
+ [32m✓[39m tests/control-resource-navigation.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m tests/notifications.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+ [32m✓[39m tests/auth.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+ [31m❯[39m tests/config-contract.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 58[2mms[22m[39m
+     [32m✓[39m defines production-safe Vercel headers and API no-store caching[32m 5[2mms[22m[39m
+     [32m✓[39m keeps database/storage/admin state in migrations[32m 18[2mms[22m[39m
+     [32m✓[39m uses one machine-readable environment contract and generated mirrors[32m 7[2mms[22m[39m
+[31m     [31m×[31m exposes development-default hosted bootstrap plus staging and recovery commands[39m[32m 23[2mms[22m[39m
+     [32m✓[39m pins Terraform core/providers and enforces committed lockfiles[32m 2[2mms[22m[39m
+ [32m✓[39m tests/catalog-action.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [31m❯[39m tests/bootstrap-convergence.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 235[2mms[22m[39m
+     [32m✓[39m uses one HitPay desired-state implementation from every entry point[32m 5[2mms[22m[39m
+     [32m✓[39m lets Vercel populate values masked by empty GitHub placeholders[32m 35[2mms[22m[39m
+     [32m✓[39m hydrates hosted child processes without vercel env run precedence[32m 4[2mms[22m[39m
+[31m     [31m×[31m performs zero provider writes when the HitPay endpoint already matches[39m[32m 38[2mms[22m[39m
+[31m     [31m×[31m binds HitPay config before constructing the default client[39m[32m 78[2mms[22m[39m
+     [32m✓[39m fails closed on Terraform state errors that are not explicit absence[32m 43[2mms[22m[39m
+     [32m✓[39m exports the derived state bucket for both Terraform resources and backend initialization[32m 31[2mms[22m[39m
+ [32m✓[39m tests/checkout.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/customer-lifecycle-actions.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m tests/admin-catalog.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/control-console.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/waitlist.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m tests/admin-staff.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/commerce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/frontend-access.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [31m❯[39m tests/admin-orders.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 37[2mms[22m[39m
+     [32m✓[39m rejects arbitrary direct paid status updates[32m 7[2mms[22m[39m
+     [32m✓[39m routes manual reconciliation through the audited database function[32m 4[2mms[22m[39m
+     [32m✓[39m routes cancellation through the audited allocation-release function[32m 1[2mms[22m[39m
+[31m     [31m×[31m identifies manual, stale, failed-allocation, and orphan-provider exceptions[39m[32m 19[2mms[22m[39m
+     [32m✓[39m keeps manual reconciliation from reusing another record's payment reference[32m 1[2mms[22m[39m
+     [32m✓[39m builds manual reconciliation actions from required admin form fields[32m 2[2mms[22m[39m
+     [32m✓[39m rejects reconciliation forms without a positive integer amount[32m 1[2mms[22m[39m
+ [32m✓[39m tests/customer-provisioning.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/account-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/admin-workflow-production-readiness.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 62[2mms[22m[39m
+[90mstderr[2m | tests/api-protections.test.ts[2m > [22m[2mAPI request protections[2m > [22m[2mkeeps the claim when completion persistence fails after the side effect
+[22m[39m{"timestamp":"2026-07-20T17:57:37.038Z","level":"error","event":"api.idempotency.complete_failed","service":"marketplace","environment":"development","scope":"checkout.create","actorId":"00000000-0000-4000-8000-000000000001","error":{"name":"Error","message":"database unavailable"}}
+
+ [32m✓[39m tests/api-protections.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 71[2mms[22m[39m
+[90mstderr[2m | tests/observability.test.ts[2m > [22m[2mobservability helpers[2m > [22m[2mcorrelates API error responses without exposing internals
+[22m[39m{"timestamp":"2026-07-20T17:57:37.102Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/checkout","method":"POST","status":400,"errorCode":"bad_request","retryable":false}
+
+[90mstderr[2m | tests/observability.test.ts[2m > [22m[2mobservability helpers[2m > [22m[2mmarks rate limits as retryable and publishes Retry-After
+[22m[39m{"timestamp":"2026-07-20T17:57:37.108Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/waitlist","method":"POST","status":429,"errorCode":"rate_limited","retryable":true}
+
+ [32m✓[39m tests/observability.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/tcgplayer-catalog.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m tests/live-customer-pages.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m tests/admin-value-validation.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m tests/delivery-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/catalog-product-save-action.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [31m❯[39m tests/preorder-flow.test.ts [2m([22m[2m6 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 70[2mms[22m[39m
+     [32m✓[39m allocates retail preorders FIFO while respecting customer caps[32m 4[2mms[22m[39m
+     [32m✓[39m does not allocate more than the available quantity[32m 1[2mms[22m[39m
+     [32m✓[39m keeps the server allocation query retail-only and fully paid[32m 2[2mms[22m[39m
+     [32m✓[39m requires a reviewed allocation fingerprint and explicit confirmation[32m 12[2mms[22m[39m
+[31m     [31m×[31m creates idempotent HitPay refunds for allocation shortfalls[39m[32m 47[2mms[22m[39m
+     [32m✓[39m removes the legacy preorder balance collection endpoint[32m 3[2mms[22m[39m
+ [32m✓[39m tests/database-bootstrap.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m tests/hosted-release-gates.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/api-architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 100[2mms[22m[39m
+ [31m❯[39m tests/deployment-idempotency.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 75[2mms[22m[39m
+     [32m✓[39m serializes shared infrastructure and target deployments[32m 8[2mms[22m[39m
+     [32m✓[39m uses one convergent infrastructure path and applies the exact generated plan[32m 2[2mms[22m[39m
+     [32m✓[39m keeps only one code-change deployment workflow[32m 2[2mms[22m[39m
+     [32m✓[39m turns unchanged Vercel configuration and deployments into no-ops[32m 22[2mms[22m[39m
+[31m     [31m×[31m keeps HitPay checkout and webhooks limited to PayNow lifecycle events[39m[32m 40[2mms[22m[39m
+ [32m✓[39m tests/out-of-stock-behaviour.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/catalog-admin-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/control-operations-surface.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/vercel-preview-auth.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 63[2mms[22m[39m
+ [32m✓[39m tests/catalog-filters.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m tests/telemetry.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/database-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/hitpay.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m tests/api-protection-migrations.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/deals.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+[90mstdout[2m | tests/operational-alerts.test.ts[2m > [22m[2moperational alert delivery[2m > [22m[2msigns privacy-safe alert payloads
+[22m[39m{"timestamp":"2026-07-20T17:57:40.664Z","level":"info","event":"operational_alert.delivered","service":"marketplace","environment":"production","alertEvent":"hitpay.webhook.processing_failed","severity":"critical","status":200}
+
+[90mstdout[2m | tests/operational-alerts.test.ts[2m > [22m[2moperational alert delivery[2m > [22m[2mallows local development without an external alert provider
+[22m[39m{"timestamp":"2026-07-20T17:57:40.671Z","level":"info","event":"operational_alert.skipped","service":"marketplace","environment":"development","alertEvent":"test","reason":"not_configured_outside_production"}
+
+ [32m✓[39m tests/operational-alerts.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m tests/storefront-ui.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m tests/control-audit-history.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/purchase-orders.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/vercel-protection-bypass.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m tests/sentry-config-contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [31m❯[39m tests/health.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 24[2mms[22m[39m
+     [32m✓[39m keeps shallow health dependency-free[32m 4[2mms[22m[39m
+[31m     [31m×[31m fails deep readiness safely when critical dependencies are missing[39m[32m 14[2mms[22m[39m
+[31m     [31m×[31m passes deep readiness with configured HitPay and a successful Supabase probe[39m[32m 3[2mms[22m[39m
+ [32m✓[39m tests/product-image-upload-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/product-publication-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/tcgplayer-catalog-admin-flow.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/products-route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+ [32m✓[39m tests/allocation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [31m❯[39m tests/vercel-provisioned-secret-safety.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 56[2mms[22m[39m
+     [32m✓[39m preserves an unreadable one-time secret unless rotation is explicit[32m 4[2mms[22m[39m
+[31m     [31m×[31m removes stale workflow webhook secrets and rotates only newly issued credentials[39m[32m 23[2mms[22m[39m
+[31m     [31m×[31m keeps readiness checks non-mutating for optional and provisioned sensitive values[39m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/catalog-readiness.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/storefront-deals.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/production-payment-guards.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/supabase-relations.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/catalog-identifiers.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/docs-release-topology.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/catalog-duplicate-migration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/preview-fixtures.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/product-publication-save-feedback.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/shipping.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/product-publication-save-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/storefront-product-relationships.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/deploy-migration-ordering.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/app-config.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 18 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/admin-orders.test.ts[2m > [22madmin order actions[2m > [22midentifies manual, stale, failed-allocation, and orphan-provider exceptions
+[31m[1mAssertionError[22m: expected [ 'failed_payment_allocation', …(2) ] to deeply equal [ 'failed_payment_allocation', …(3) ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "failed_payment_allocation",[22m
+[2m    "manual_flag",[22m
+[32m-   "orphan_provider_payment",[39m
+[2m    "stale_pending_payment",[22m
+[2m  ][22m
+
+[36m [2m❯[22m tests/admin-orders.test.ts:[2m127:75[22m[39m
+    [90m125|[39m     })[33m;[39m
+    [90m126|[39m
+    [90m127|[39m     expect(exceptions.map((exception) => exception.exceptionType).sort…
+    [90m   |[39m                                                                           [31m^[39m
+    [90m128|[39m       [32m"failed_payment_allocation"[39m[33m,[39m
+    [90m129|[39m       [32m"manual_flag"[39m[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/bootstrap-convergence.test.ts[2m > [22mbootstrap convergence[2m > [22mperforms zero provider writes when the HitPay endpoint already matches
+[31m[1mError[22m: file:///home/runner/work/marketplace/marketplace/[eval1]:2
+      import { buildHitPayWebhookConfig, desiredHitPayWebhookMetadata, reconcileHitPayWebhook } from './scripts/lib/hitpay-webhook.mjs';
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module './scripts/lib/hitpay-webhook.mjs' does not provide an export named 'desiredHitPayWebhookMetadata'
+    at ModuleJob._instantiate (node:internal/modules/esm/module_job:220:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:321:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:268:26)
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:264:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.17.0
+[39m
+[36m [2m❯[22m runModule tests/bootstrap-convergence.test.ts:[2m177:34[22m[39m
+    [90m175|[39m     encoding[33m:[39m [32m"utf8"[39m[33m,[39m
+    [90m176|[39m   })[33m;[39m
+    [90m177|[39m   if (result.status !== 0) throw new Error(result.stderr || result.std…
+    [90m   |[39m                                  [31m^[39m
+    [90m178|[39m   [35mreturn[39m [33mJSON[39m[33m.[39m[34mparse[39m(result[33m.[39mstdout)[33m;[39m
+    [90m179|[39m }
+[90m [2m❯[22m tests/bootstrap-convergence.test.ts:[2m57:20[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/bootstrap-convergence.test.ts[2m > [22mbootstrap convergence[2m > [22mbinds HitPay config before constructing the default client
+[31m[1mAssertionError[22m: expected { …(2) } to deeply equal { …(2) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "reconcile": "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",[39m
+[32m-   "verify": "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",[39m
+[31m+   "reconcile": "Failed to parse URL from undefined/v1/webhook-events",[39m
+[31m+   "verify": "Failed to parse URL from undefined/v1/webhook-events",[39m
+[2m  }[22m
+
+[36m [2m❯[22m tests/bootstrap-convergence.test.ts:[2m107:20[22m[39m
+    [90m105|[39m       console.log(JSON.stringify(errors));
+    [90m106|[39m     `[39m)[33m;[39m
+    [90m107|[39m     [34mexpect[39m(result)[33m.[39m[34mtoEqual[39m({
+    [90m   |[39m                    [31m^[39m
+    [90m108|[39m       reconcile: "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLI…
+    [90m109|[39m       verify: "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_S…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/config-contract.test.ts[2m > [22mplatform config contract[2m > [22mexposes development-default hosted bootstrap plus staging and recovery commands
+[31m[1mAssertionError[22m: expected '#!/usr/bin/env node\nimport { spawnSy…' to contain 'configure-hitpay.mjs'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- configure-hitpay.mjs[39m
+[31m+ #!/usr/bin/env node[39m
+[31m+ import { spawnSync } from "node:child_process";[39m
+[31m+ import { rm } from "node:fs/promises";[39m
+[31m+[39m
+[31m+ import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";[39m
+[31m+ import { ENV_CONTRACT, loadLocalDotenv } from "./generate-env.mjs";[39m
+[31m+ import {[39m
+[31m+   buildEnvironmentWithVercelFallback,[39m
+[31m+   fetchVercelEnvironmentRecords,[39m
+[31m+   resolveVercelProjectContext,[39m
+[31m+ } from "./lib/vercel-environment.mjs";[39m
+[31m+[39m
+[31m+ try {[39m
+[31m+   await main();[39m
+[31m+ } catch (error) {[39m
+[31m+   fail(error?.message || String(error));[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function main() {[39m
+[31m+   await loadLocalDotenv(process.env);[39m
+[31m+   await applyVersionedEnvironmentConfig(process.env);[39m
+[31m+[39m
+[31m+   const providerMode = argumentValue("--providers") || "apply-if-configured";[39m
+[31m+   if (!["skip", "plan", "apply", "apply-if-configured", "verify"].includes(providerMode)) {[39m
+[31m+     fail(`Unsupported --providers mode: ${providerMode}`);[39m
+[31m+   }[39m
+[31m+   if (!/^(development|staging|production)$/.test(process.env.TARGET_ENV || "")) {[39m
+[31m+     fail("TARGET_ENV must be development, staging, or production");[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   const vercelEnvironment = process.env.TARGET_ENV === "development" ? "preview" : "production";[39m
+[31m+   const runtimePath = `.env.deploy-${process.pid}`;[39m
+[31m+   const context = await resolveVercelProjectContext(process.env);[39m
+[31m+   const records = await fetchVercelEnvironmentRecords({[39m
+[31m+     ...context,[39m
+[31m+     target: vercelEnvironment,[39m
+[31m+     decrypt: true,[39m
+[31m+   });[39m
+[31m+   const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);[39m
+[31m+   const provisionEnvironment = buildEnvironmentWithVercelFallback({[39m
+[31m+     records,[39m
+[31m+     runtimeKeys,[39m
+[31m+     baseEnv: process.env,[39m
+[31m+     target: vercelEnvironment,[39m
+[31m+   });[39m
+[31m+   for (const [key, value] of Object.entries(provisionEnvironment)) {[39m
+[31m+     process.env[key] = value;[39m
+[31m+   }[39m
+[31m+   process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";[39m
+[31m+[39m
+[31m+   try {[39m
+[31m+     if (providerMode !== "skip") {[39m
+[31m+       run(process.execPath, ["scripts/configure-providers.mjs", `--${providerMode}`]);[39m
+[31m+     }[39m
+[31m+[39m
+[31m+     run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);[39m
+[31m+     run(process.execPath, [[39m
+[31m+       "scripts/generate-env.mjs",[39m
+[31m+       "--write",[39m
+[31m+       runtimePath,[39m
+[31m+       "--allow-missing-provisioned",[39m
+[31m+     ]);[39m
+[31m+     run(process.execPath, [[39m
+[31m+       "scripts/sync-vercel-env.mjs",[39m
+[31m+       runtimePath,[39m
+[31m+       "--preserve-unset-optional",[39m
+[31m+     ]);[39m
+[31m+     console.log(`Runtime environment ${process.env.TARGET_ENV} reconciled successfully.`);[39m
+[31m+   } finally {[39m
+[31m+     await rm(runtimePath, { force: true });[39m
+[31m+   }[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function argumentValue(flag) {[39m
+[31m+   const index = process.argv.indexOf(flag);[39m
+[31m+   return index >= 0 ? process.argv[index + 1] || "" : "";[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function run(command, args, options = {}) {[39m
+[31m+   const printable = [command, ...args].map(redactArgument).join(" ");[39m
+[31m+   console.log(`\n$ ${printable}`);[39m
+[31m+   const result = spawnSync(command, args, {[39m
+[31m+     env: options.env || process.env,[39m
+[31m+     stdio: "inherit",[39m
+[31m+   });[39m
+[31m+   if (result.error) fail(`${printable} failed to start: ${result.error.message}`);[39m
+[31m+   if (result.status !== 0) fail(`${printable} failed with exit code ${result.status}`);[39m
+[31m+   return result;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function redactArgument(value) {[39m
+[31m+   return value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function fail(message) {[39m
+[31m+   console.error(message);[39m
+[31m+   process.exit(1);[39m
+[31m+ }[39m
+[31m+[39m
+
+[36m [2m❯[22m tests/config-contract.test.ts:[2m132:21[22m[39m
+    [90m130|[39m     [34mexpect[39m(hostedBootstrap)[33m.[39m[34mtoContain[39m([32m"--exit-status"[39m)[33m;[39m
+    [90m131|[39m     [34mexpect[39m(bootstrap)[33m.[39m[34mtoContain[39m([32m"reconcile-runtime-environment.mjs"[39m)[33m;[39m
+    [90m132|[39m     [34mexpect[39m(runtime)[33m.[39m[34mtoContain[39m([32m"configure-hitpay.mjs"[39m)[33m;[39m
+    [90m   |[39m                     [31m^[39m
+    [90m133|[39m     [34mexpect[39m(runtime)[33m.[39m[34mtoContain[39m([32m"sync-vercel-env.mjs"[39m)[33m;[39m
+    [90m134|[39m     [34mexpect[39m(github)[33m.[39m[34mtoContain[39m([32m'|| "development"'[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/deployment-idempotency.test.ts[2m > [22mdeployment idempotency contract[2m > [22mkeeps HitPay checkout and webhooks limited to PayNow lifecycle events
+[31m[1mAssertionError[22m: expected 'import { z } from "zod";\n\nconst hit…' to contain 'normalized.payment_method_types = ["p…'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- normalized.payment_method_types = ["paynow"][39m
+[31m+ import { z } from "zod";[39m
+[31m+[39m
+[31m+ const hitPayChargeSchema = z.object({[39m
+[31m+   id: z.string().uuid(),[39m
+[31m+   status: z.string(),[39m
+[31m+   amount: z.union([z.string(), z.number()]),[39m
+[31m+   currency: z.string(),[39m
+[31m+   refunded_amount: z.union([z.string(), z.number()]).optional(),[39m
+[31m+   payment_type: z.string().optional(),[39m
+[31m+ });[39m
+[31m+[39m
+[31m+ const hitPayPaymentRequestSchema = z.object({[39m
+[31m+   id: z.string().uuid(),[39m
+[31m+   status: z.string(),[39m
+[31m+   amount: z.union([z.string(), z.number()]),[39m
+[31m+   currency: z.string(),[39m
+[31m+   url: z.string().url(),[39m
+[31m+   reference_number: z.string().nullish(),[39m
+[31m+   payments: z.array(hitPayChargeSchema).optional(),[39m
+[31m+ });[39m
+[31m+[39m
+[31m+ const hitPayRefundSchema = z.object({[39m
+[31m+   id: z.string().uuid(),[39m
+[31m+   payment_id: z.string().uuid().optional(),[39m
+[31m+   status: z.string(),[39m
+[31m+   currency: z.string().optional(),[39m
+[31m+   amount_refunded: z.union([z.string(), z.number()]).optional(),[39m
+[31m+   amount: z.union([z.string(), z.number()]).optional(),[39m
+[31m+ });[39m
+[31m+[39m
+[31m+ export type HitPayCharge = z.infer<typeof hitPayChargeSchema>;[39m
+[31m+ export type HitPayPaymentRequest = z.infer<typeof hitPayPaymentRequestSchema>;[39m
+[31m+ export type HitPayRefund = z.infer<typeof hitPayRefundSchema>;[39m
+[31m+[39m
+[31m+ export interface CreateHitPayPaymentRequestInput {[39m
+[31m+   amountCents: number;[39m
+[31m+   currency: string;[39m
+[31m+   email?: string | null;[39m
+[31m+   name?: string | null;[39m
+[31m+   phone?: string | null;[39m
+[31m+   purpose: string;[39m
+[31m+   referenceNumber: string;[39m
+[31m+   redirectUrl: string;[39m
+[31m+   expiresAfter?: string;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export interface HitPayClient {[39m
+[31m+   createPaymentRequest(input: CreateHitPayPaymentRequestInput): Promise<HitPayPaymentRequest>;[39m
+[31m+   getPaymentRequest(id: string): Promise<HitPayPaymentRequest>;[39m
+[31m+   cancelPaymentRequest(id: string): Promise<void>;[39m
+[31m+   createRefund(input: { paymentId: string; amountCents: number }): Promise<HitPayRefund>;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPayClient {[39m
+[31m+   const apiKey = env.HITPAY_API_KEY?.trim();[39m
+[31m+   const apiUrl = (env.HITPAY_API_URL || "https://api.sandbox.hit-pay.com").replace(/\/$/, "");[39m
+[31m+   if (!apiKey) throw new Error("HitPay is not configured (HITPAY_API_KEY)");[39m
+[31m+   if (!/^https:\/\//i.test(apiUrl)) throw new Error("HITPAY_API_URL must use HTTPS");[39m
+[31m+[39m
+[31m+   const request = async <T>(path: string, init: RequestInit, schema?: z.ZodType<T>): Promise<T> => {[39m
+[31m+     const response = await fetch(`${apiUrl}${path}`, {[39m
+[31m+       ...init,[39m
+[31m+       cache: "no-store",[39m
+[31m+       headers: {[39m
+[31m+         "Content-Type": "application/json",[39m
+[31m+         "X-BUSINESS-API-KEY": apiKey,[39m
+[31m+         "X-Requested-With": "XMLHttpRequest",[39m
+[31m+         ...init.headers,[39m
+[31m+       },[39m
+[31m+       signal: init.signal ?? AbortSignal.timeout(15_000),[39m
+[31m+     });[39m
+[31m+     const text = await response.text();[39m
+[31m+     const payload = text ? safeJson(text) : {};[39m
+[31m+     if (!response.ok) {[39m
+[31m+       const detail = providerErrorMessage(payload);[39m
+[31m+       throw new Error(`HitPay request failed (${response.status})${detail ? `: ${detail}` : ""}`);[39m
+[31m+     }[39m
+[31m+     return schema ? schema.parse(payload) : (payload as T);[39m
+[31m+   };[39m
+[31m+[39m
+[31m+   return {[39m
+[31m+     createPaymentRequest: (input) =>[39m
+[31m+       request([39m
+[31m+         "/v1/payment-requests",[39m
+[31m+         {[39m
+[31m+           method: "POST",[39m
+[31m+           body: JSON.stringify({[39m
+[31m+             amount: formatHitPayAmount(input.amountCents),[39m
+[31m+             currency: input.currency.toUpperCase(),[39m
+[31m+             payment_methods: hitPayPaymentMethods(env),[39m
+[31m+             email: input.email || undefined,[39m
+[31m+             name: input.name || undefined,[39m
+[31m+             phone: input.phone || undefined,[39m
+[31m+             purpose: input.purpose.slice(0, 255),[39m
+[31m+             reference_number: input.referenceNumber.slice(0, 255),[39m
+[31m+             redirect_url: input.redirectUrl,[39m
+[31m+             allow_repeated_payments: false,[39m
+[31m+             expires_after: input.expiresAfter ?? "15 minutes",[39m
+[31m+             send_email: false,[39m
+[31m+             send_sms: false,[39m
+[31m+           }),[39m
+[31m+         },[39m
+[31m+         hitPayPaymentRequestSchema[39m
+[31m+       ),[39m
+[31m+     getPaymentRequest: (id) =>[39m
+[31m+       request([39m
+[31m+         `/v1/payment-requests/${encodeURIComponent(id)}`,[39m
+[31m+         { method: "GET" },[39m
+[31m+         hitPayPaymentRequestSchema[39m
+[31m+       ),[39m
+[31m+     cancelPaymentRequest: async (id) => {[39m
+[31m+       await request(`/v1/payment-requests/${encodeURIComponent(id)}`, { method: "DELETE" });[39m
+[31m+     },[39m
+[31m+     createRefund: (input) =>[39m
+[31m+       request([39m
+[31m+         "/v1/refund",[39m
+[31m+         {[39m
+[31m+           method: "POST",[39m
+[31m+           body: JSON.stringify({[39m
+[31m+             payment_id: input.paymentId,[39m
+[31m+             amount: formatHitPayAmount(input.amountCents),[39m
+[31m+           }),[39m
+[31m+         },[39m
+[31m+         hitPayRefundSchema[39m
+[31m+       ),[39m
+[31m+   };[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function hitPayPaymentMethods(env: NodeJS.ProcessEnv = process.env): string[] {[39m
+[31m+   const methods = (env.HITPAY_PAYMENT_METHODS || "paynow_online")[39m
+[31m+     .split(",")[39m
+[31m+     .map((value) => value.trim())[39m
+[31m+     .filter(Boolean);[39m
+[31m+   if (methods.length === 0) {[39m
+[31m+     throw new Error("HITPAY_PAYMENT_METHODS must include at least one method");[39m
+[31m+   }[39m
+[31m+   return [...new Set(methods)];[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function hitPayAmountToCents(value: string | number): number {[39m
+[31m+   const amount = typeof value === "number" ? value : Number(value);[39m
+[31m+   if (!Number.isFinite(amount) || amount < 0) {[39m
+[31m+     throw new Error("HitPay returned an invalid amount");[39m
+[31m+   }[39m
+[31m+   return Math.round(amount * 100);[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function hitPayRefundStatus(status: string): "pending" | "succeeded" | "failed" {[39m
+[31m+   const normalized = status.toLowerCase();[39m
+[31m+   if (["succeeded", "completed", "refunded"].includes(normalized)) return "succeeded";[39m
+[31m+   if (["failed", "cancelled", "canceled", "rejected"].includes(normalized)) return "failed";[39m
+[31m+   return "pending";[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function successfulHitPayChargeId(payload: Record<string, unknown>): string | null {[39m
+[31m+   if (!Array.isArray(payload.payments)) return null;[39m
+[31m+   for (const raw of payload.payments) {[39m
+[31m+     const result = hitPayChargeSchema.safeParse(raw);[39m
+[31m+     if (result.success && result.data.status.toLowerCase() === "succeeded") {[39m
+[31m+       return result.data.id;[39m
+[31m+     }[39m
+[31m+   }[39m
+[31m+   return null;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function applicationUrl(path: string, env: NodeJS.ProcessEnv = process.env): string {[39m
+[31m+   const configured = env.NEXT_PUBLIC_SITE_URL?.trim();[39m
+[31m+   const vercel = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();[39m
+[31m+   const base = configured || (vercel ? `https://${vercel}` : "http://localhost:3000");[39m
+[31m+   return new URL(path, base.endsWith("/") ? base : `${base}/`).toString();[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function formatHitPayAmount(amountCents: number): string {[39m
+[31m+   if (!Number.isInteger(amountCents) || amountCents <= 0) {[39m
+[31m+     throw new Error("HitPay amount must be a positive integer number of cents");[39m
+[31m+   }[39m
+[31m+   return (amountCents / 100).toFixed(2);[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function safeJson(value: string): unknown {[39m
+[31m+   try {[39m
+[31m+     return JSON.parse(value);[39m
+[31m+   } catch {[39m
+[31m+     return { message: value.slice(0, 500) };[39m
+[31m+   }[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function providerErrorMessage(payload: unknown): string {[39m
+[31m+   if (!payload || typeof payload !== "object") return "";[39m
+[31m+   const record = payload as Record<string, unknown>;[39m
+[31m+   for (const key of ["message", "error", "detail"]) {[39m
+[31m+     if (typeof record[key] === "string") return String(record[key]).slice(0, 500);[39m
+[31m+   }[39m
+[31m+   return "";[39m
+[31m+ }[39m
+[31m+[39m
+
+[36m [2m❯[22m tests/deployment-idempotency.test.ts:[2m77:20[22m[39m
+    [90m 75|[39m     [35mconst[39m hitpay [33m=[39m [35mawait[39m [34mrepoFile[39m([32m"lib/hitpay.ts"[39m)[33m;[39m
+    [90m 76|[39m     const config = JSON.parse(await repoFile("config/environments.json…
+    [90m 77|[39m     expect(hitpay).toContain('normalized.payment_method_types = ["payn…
+    [90m   |[39m                    [31m^[39m
+    [90m 78|[39m     expect(hitpay).toContain("delete normalized.automatic_payment_meth…
+    [90m 79|[39m     [34mexpect[39m(config[33m.[39mshared[33m.[39m[33mHITPAY_WEBHOOK_ENABLED_EVENTS[39m)[33m.[39m[34mtoEqual[39m([
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/env.test.ts[2m > [22menvironment contract[2m > [22maccepts a minimal valid runtime/deploy environment
+[31m[1mAssertionError[22m: expected { ok: false, …(1) } to deeply equal { ok: true, errors: [] }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "errors": [],[39m
+[32m-   "ok": true,[39m
+[31m+   "errors": [[39m
+[31m+     "missing required: HITPAY_PAYMENT_METHODS (Comma-separated HitPay online payment method codes)",[39m
+[31m+   ],[39m
+[31m+   "ok": false,[39m
+[2m  }[22m
+
+[36m [2m❯[22m tests/env.test.ts:[2m27:20[22m[39m
+    [90m 25|[39m       [32m`console.log(JSON.stringify(validateEnv([39m[36m${[39m[34mliteral[39m(validEnv)[36m}[39m[32m)));`[39m
+    [90m 26|[39m     )[33m;[39m
+    [90m 27|[39m     [34mexpect[39m(result)[33m.[39m[34mtoEqual[39m({ ok[33m:[39m [35mtrue[39m[33m,[39m errors[33m:[39m [] })[33m;[39m
+    [90m   |[39m                    [31m^[39m
+    [90m 28|[39m   })[33m;[39m
+    [90m 29|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/env.test.ts[2m > [22menvironment contract[2m > [22mallows the generated HitPay signing secret to be absent only during pre-provision checks
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/env.test.ts:[2m67:29[22m[39m
+    [90m 65|[39m     )[33m;[39m
+    [90m 66|[39m     [34mexpect[39m(strict[33m.[39mok)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m 67|[39m     [34mexpect[39m(preProvision[33m.[39mok)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                             [31m^[39m
+    [90m 68|[39m   })[33m;[39m
+    [90m 69|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/env.test.ts[2m > [22menvironment contract[2m > [22mresolves Terraform outputs without overriding explicit environment values
+[31m[1mError[22m: file:///home/runner/work/marketplace/marketplace/scripts/resolve-environment.mjs:66
+    throw new Error(`Could not resolve required environment value(s): ${missing.join(", ")}`);
+          ^
+
+Error: Could not resolve required environment value(s): HITPAY_API_KEY, HITPAY_WEBHOOK_SALT
+    at resolveEnvironment (file:///home/runner/work/marketplace/marketplace/scripts/resolve-environment.mjs:66:11)
+    at async file:///home/runner/work/marketplace/marketplace/[eval1]:3:16
+
+Node.js v22.17.0
+[39m
+[90m [2m❯[22m resolveEnvironment scripts/resolve-environment.mjs:[2m66:11[22m[39m
+[90m [2m❯[22m [eval1]:[2m3:16[22m[39m
+[36m [2m❯[22m runNodeModule tests/env.test.ts:[2m304:34[22m[39m
+    [90m302|[39m     encoding[33m:[39m [32m"utf8"[39m[33m,[39m
+    [90m303|[39m   })[33m;[39m
+    [90m304|[39m   if (result.status !== 0) throw new Error(result.stderr || result.std…
+    [90m   |[39m                                  [31m^[39m
+    [90m305|[39m   [35mreturn[39m [33mJSON[39m[33m.[39m[34mparse[39m(result[33m.[39mstdout)[33m;[39m
+    [90m306|[39m }
+[90m [2m❯[22m runResolveEnvironment tests/env.test.ts:[2m295:10[22m[39m
+[90m [2m❯[22m tests/env.test.ts:[2m118:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/env.test.ts[2m > [22menvironment contract[2m > [22mreconciles stale Supabase keys from the selected project, including legacy service_role keys
+[31m[1mError[22m: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY did not match; using an active project key for Supabase project abcdefghijklmnopq.
+SUPABASE_SECRET_KEY did not match; using an active project key for Supabase project abcdefghijklmnopq.
+file:///home/runner/work/marketplace/marketplace/scripts/resolve-environment.mjs:66
+    throw new Error(`Could not resolve required environment value(s): ${missing.join(", ")}`);
+          ^
+
+Error: Could not resolve required environment value(s): HITPAY_API_KEY, HITPAY_WEBHOOK_SALT
+    at resolveEnvironment (file:///home/runner/work/marketplace/marketplace/scripts/resolve-environment.mjs:66:11)
+    at async file:///home/runner/work/marketplace/marketplace/[eval1]:10:1
+
+Node.js v22.17.0
+[39m
+[90m [2m❯[22m resolveEnvironment scripts/resolve-environment.mjs:[2m66:11[22m[39m
+[90m [2m❯[22m [eval1]:[2m10:1[22m[39m
+[36m [2m❯[22m runNodeModule tests/env.test.ts:[2m304:34[22m[39m
+    [90m302|[39m     encoding[33m:[39m [32m"utf8"[39m[33m,[39m
+    [90m303|[39m   })[33m;[39m
+    [90m304|[39m   if (result.status !== 0) throw new Error(result.stderr || result.std…
+    [90m   |[39m                                  [31m^[39m
+    [90m305|[39m   [35mreturn[39m [33mJSON[39m[33m.[39m[34mparse[39m(result[33m.[39mstdout)[33m;[39m
+    [90m306|[39m }
+[90m [2m❯[22m runResolveEnvironment tests/env.test.ts:[2m295:10[22m[39m
+[90m [2m❯[22m tests/env.test.ts:[2m218:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/env.test.ts[2m > [22menvironment contract[2m > [22mrejects a Supabase key that does not authenticate against the selected project
+[31m[1mAssertionError[22m: expected 'Could not resolve required environmen…' to contain 'SUPABASE_SECRET_KEY is not valid for …'[39m
+
+Expected: [32m"SUPABASE_SECRET_KEY is not valid for Supabase project abcdefghijklmnopq"[39m
+Received: [31m"Could not resolve required environment value(s): HITPAY_API_KEY, HITPAY_WEBHOOK_SALT"[39m
+
+[36m [2m❯[22m tests/env.test.ts:[2m268:28[22m[39m
+    [90m266|[39m     )[33m;[39m
+    [90m267|[39m     [34mexpect[39m(result[33m.[39mok)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m268|[39m     [34mexpect[39m(result[33m.[39mmessage)[33m.[39m[34mtoContain[39m(
+    [90m   |[39m                            [31m^[39m
+    [90m269|[39m       "SUPABASE_SECRET_KEY is not valid for Supabase project abcdefghi…
+    [90m270|[39m     )[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/env.test.ts[2m > [22menvironment contract[2m > [22mkeeps generated artifacts in sync with every contract key
+[31m[1mAssertionError[22m: marketplace/lib/env-contract.generated.ts is out of date; run npm run env:artifacts:write
+docs/generated/environment-reference.md is out of date; run npm run env:artifacts:write
+: expected 1 to be +0 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/env.test.ts:[2m285:59[22m[39m
+    [90m283|[39m       { cwd[33m:[39m repoRoot[33m,[39m encoding[33m:[39m [32m"utf8"[39m }
+    [90m284|[39m     )[33m;[39m
+    [90m285|[39m     [34mexpect[39m(result[33m.[39mstatus[33m,[39m result[33m.[39mstderr [33m||[39m result[33m.[39mstdout)[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
+    [90m   |[39m                                                           [31m^[39m
+    [90m286|[39m   })[33m;[39m
+    [90m287|[39m })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/health.test.ts[2m > [22mhealth and readiness[2m > [22mfails deep readiness safely when critical dependencies are missing
+[31m[1mAssertionError[22m: expected { Object (status, apiKey, ...) } to match object { status: 'fail', …(2) }
+(3 matching properties omitted from actual)[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "secretKey": "fail",[39m
+[2m    "status": "fail",[22m
+[32m-   "webhookSecret": "fail",[39m
+[2m  }[22m
+
+[36m [2m❯[22m tests/health.test.ts:[2m26:37[22m[39m
+    [90m 24|[39m       reason[33m:[39m [32m"missing_config"[39m[33m,[39m
+    [90m 25|[39m     })[33m;[39m
+    [90m 26|[39m     [34mexpect[39m(readiness[33m.[39mchecks[33m.[39mhitpay)[33m.[39m[34mtoMatchObject[39m({
+    [90m   |[39m                                     [31m^[39m
+    [90m 27|[39m       status[33m:[39m [32m"fail"[39m[33m,[39m
+    [90m 28|[39m       secretKey[33m:[39m [32m"fail"[39m[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/health.test.ts[2m > [22mhealth and readiness[2m > [22mpasses deep readiness with configured HitPay and a successful Supabase probe
+[31m[1mAssertionError[22m: expected 'degraded' to be 'ok' // Object.is equality[39m
+
+Expected: [32m"ok"[39m
+Received: [31m"degraded"[39m
+
+[36m [2m❯[22m tests/health.test.ts:[2m58:30[22m[39m
+    [90m 56|[39m     })[33m;[39m
+    [90m 57|[39m
+    [90m 58|[39m     [34mexpect[39m(readiness[33m.[39mstatus)[33m.[39m[34mtoBe[39m([32m"ok"[39m)[33m;[39m
+    [90m   |[39m                              [31m^[39m
+    [90m 59|[39m     [34mexpect[39m(readiness[33m.[39mservice)[33m.[39m[34mtoBe[39m([32m"Ops Console"[39m)[33m;[39m
+    [90m 60|[39m     [34mexpect[39m(readiness[33m.[39mchecks[33m.[39msupabase)[33m.[39m[34mtoEqual[39m({ status[33m:[39m [32m"ok"[39m })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/preorder-flow.test.ts[2m > [22mretail preorder flow[2m > [22mcreates idempotent HitPay refunds for allocation shortfalls
+[31m[1mAssertionError[22m: expected 'import { createHash } from "node:cryp…' to contain 'preorder-allocation-refund:'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- preorder-allocation-refund:[39m
+[31m+ import { createHash } from "node:crypto";[39m
+[31m+[39m
+[31m+ import type { SupabaseClient } from "@supabase/supabase-js";[39m
+[31m+ import { z } from "zod";[39m
+[31m+[39m
+[31m+ import { allocate, type AllocationRule, type PendingPreorder } from "@/lib/allocation";[39m
+[31m+ import { badRequest, conflict } from "@/lib/api/errors";[39m
+[31m+ import { hitPayRefundStatus, type HitPayClient } from "@/lib/hitpay";[39m
+[31m+[39m
+[31m+ export const preorderAllocationRequestSchema = z.object({[39m
+[31m+   skuId: z.string().uuid(),[39m
+[31m+   fingerprint: z.string().trim().length(64),[39m
+[31m+ });[39m
+[31m+[39m
+[31m+ export interface PreorderAllocationSkuOption {[39m
+[31m+   skuId: string;[39m
+[31m+   sku: string;[39m
+[31m+   productName: string;[39m
+[31m+   preorderCount: number;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export interface PreorderAllocationPreviewRow {[39m
+[31m+   preorderId: string;[39m
+[31m+   customerId: string;[39m
+[31m+   customerLabel: string;[39m
+[31m+   requestedQty: number;[39m
+[31m+   allocatedQty: number;[39m
+[31m+   refundCents: number;[39m
+[31m+   unitPriceCents: number;[39m
+[31m+   currency: string;[39m
+[31m+   createdAt: string;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export interface PreorderAllocationPreview {[39m
+[31m+   skuId: string;[39m
+[31m+   sku: string;[39m
+[31m+   productName: string;[39m
+[31m+   availableQty: number;[39m
+[31m+   requestedQty: number;[39m
+[31m+   allocatedQty: number;[39m
+[31m+   refundCents: number;[39m
+[31m+   currency: string;[39m
+[31m+   fingerprint: string;[39m
+[31m+   rows: PreorderAllocationPreviewRow[];[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export interface PreorderAllocationExecution {[39m
+[31m+   finalized: number;[39m
+[31m+   refundsCreated: number;[39m
+[31m+   refundCents: number;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ interface InventoryCapacityRow {[39m
+[31m+   on_hand: number;[39m
+[31m+   incoming: number;[39m
+[31m+   allocated: number;[39m
+[31m+   safety_stock: number;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ interface AllocationRuleRow {[39m
+[31m+   priority: number;[39m
+[31m+   reserve_quantity: number;[39m
+[31m+   max_per_customer: number | null;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ interface PreorderRow {[39m
+[31m+   id: string;[39m
+[31m+   customer_id: string;[39m
+[31m+   quantity: number;[39m
+[31m+   unit_price_cents: number;[39m
+[31m+   currency: string;[39m
+[31m+   created_at: string;[39m
+[31m+   customers?: { email?: string | null; name?: string | null } | null;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ interface StagedAllocationRow {[39m
+[31m+   preorder_id: string;[39m
+[31m+   allocated_qty: number;[39m
+[31m+   refund_cents: number;[39m
+[31m+   payment_id: string;[39m
+[31m+   provider_charge_id: string;[39m
+[31m+   currency: string;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export async function listPreorderAllocationSkus([39m
+[31m+   supabase: SupabaseClient[39m
+[31m+ ): Promise<PreorderAllocationSkuOption[]> {[39m
+[31m+   const { data: preorders, error } = await supabase[39m
+[31m+     .from("preorders")[39m
+[31m+     .select("sku_id")[39m
+[31m+     .eq("channel", "b2c")[39m
+[31m+     .eq("status", "paid");[39m
+[31m+   if (error) throw new Error(error.message);[39m
+[31m+[39m
+[31m+   const countBySku = new Map<string, number>();[39m
+[31m+   for (const row of preorders ?? []) {[39m
+[31m+     const skuId = String(row.sku_id);[39m
+[31m+     countBySku.set(skuId, (countBySku.get(skuId) ?? 0) + 1);[39m
+[31m+   }[39m
+[31m+   const skuIds = [...countBySku.keys()];[39m
+[31m+   if (skuIds.length === 0) return [];[39m
+[31m+[39m
+[31m+   const { data: skus, error: skuError } = await supabase[39m
+[31m+     .from("booster_box_skus")[39m
+[31m+     .select("id, sku, product_variants(products(name))")[39m
+[31m+     .in("id", skuIds)[39m
+[31m+     .order("sku");[39m
+[31m+   if (skuError) throw new Error(skuError.message);[39m
+[31m+[39m
+[31m+   return (skus ?? []).map((row) => {[39m
+[31m+     const variant = one(row.product_variants as unknown);[39m
+[31m+     const product = one((variant as { products?: unknown } | null)?.products as unknown) as {[39m
+[31m+       name?: string;[39m
+[31m+     } | null;[39m
+[31m+     return {[39m
+[31m+       skuId: String(row.id),[39m
+[31m+       sku: String(row.sku),[39m
+[31m+       productName: product?.name ?? "Unknown product",[39m
+[31m+       preorderCount: countBySku.get(String(row.id)) ?? 0,[39m
+[31m+     };[39m
+[31m+   });[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export async function previewPreorderAllocationForSku([39m
+[31m+   supabase: SupabaseClient,[39m
+[31m+   skuId: string[39m
+[31m+ ): Promise<PreorderAllocationPreview> {[39m
+[31m+   const parsedSkuId = z.string().uuid().parse(skuId);[39m
+[31m+   const [inventory, rules, preorders, sku] = await Promise.all([[39m
+[31m+     loadInventoryCapacity(supabase, parsedSkuId),[39m
+[31m+     loadAllocationRules(supabase, parsedSkuId),[39m
+[31m+     loadPaidPreorders(supabase, parsedSkuId),[39m
+[31m+     loadSkuLabel(supabase, parsedSkuId),[39m
+[31m+   ]);[39m
+[31m+[39m
+[31m+   if (preorders.length === 0) {[39m
+[31m+     throw badRequest("No fully paid preorders are awaiting allocation");[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   const availableQty = Math.max([39m
+[31m+     0,[39m
+[31m+     inventory.on_hand + inventory.incoming - inventory.allocated - inventory.safety_stock[39m
+[31m+   );[39m
+[31m+   const pending: PendingPreorder[] = preorders.map((preorder, position) => ({[39m
+[31m+     preorderId: preorder.id,[39m
+[31m+     customerId: preorder.customer_id,[39m
+[31m+     channel: "b2c",[39m
+[31m+     quantity: preorder.quantity,[39m
+[31m+     position,[39m
+[31m+   }));[39m
+[31m+   const allocatedByPreorder = new Map([39m
+[31m+     allocate(availableQty, rules, pending).map((allocation) => [[39m
+[31m+       allocation.preorderId,[39m
+[31m+       allocation.allocated,[39m
+[31m+     ])[39m
+[31m+   );[39m
+[31m+[39m
+[31m+   const rows: PreorderAllocationPreviewRow[] = preorders.map((preorder) => {[39m
+[31m+     const allocatedQty = allocatedByPreorder.get(preorder.id) ?? 0;[39m
+[31m+     const customer = one(preorder.customers as unknown) as {[39m
+[31m+       email?: string | null;[39m
+[31m+       name?: string | null;[39m
+[31m+     } | null;[39m
+[31m+     return {[39m
+[31m+       preorderId: preorder.id,[39m
+[31m+       customerId: preorder.customer_id,[39m
+[31m+       customerLabel: customer?.name || customer?.email || preorder.customer_id,[39m
+[31m+       requestedQty: preorder.quantity,[39m
+[31m+       allocatedQty,[39m
+[31m+       refundCents: (preorder.quantity - allocatedQty) * preorder.unit_price_cents,[39m
+[31m+       unitPriceCents: preorder.unit_price_cents,[39m
+[31m+       currency: preorder.currency,[39m
+[31m+       createdAt: preorder.created_at,[39m
+[31m+     };[39m
+[31m+   });[39m
+[31m+[39m
+[31m+   const currency = rows[0]?.currency ?? "SGD";[39m
+[31m+   if (rows.some((row) => row.currency !== currency)) {[39m
+[31m+     throw conflict("Allocation queue contains mixed currencies");[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   const fingerprint = createHash("sha256")[39m
+[31m+     .update([39m
+[31m+       JSON.stringify({[39m
+[31m+         skuId: parsedSkuId,[39m
+[31m+         availableQty,[39m
+[31m+         rows: rows.map((row) => ({[39m
+[31m+           preorderId: row.preorderId,[39m
+[31m+           requestedQty: row.requestedQty,[39m
+[31m+           allocatedQty: row.allocatedQty,[39m
+[31m+           unitPriceCents: row.unitPriceCents,[39m
+[31m+           createdAt: row.createdAt,[39m
+[31m+         })),[39m
+[31m+       })[39m
+[31m+     )[39m
+[31m+     .digest("hex");[39m
+[31m+[39m
+[31m+   return {[39m
+[31m+     skuId: parsedSkuId,[39m
+[31m+     sku: sku.sku,[39m
+[31m+     productName: sku.productName,[39m
+[31m+     availableQty,[39m
+[31m+     requestedQty: rows.reduce((sum, row) => sum + row.requestedQty, 0),[39m
+[31m+     allocatedQty: rows.reduce((sum, row) => sum + row.allocatedQty, 0),[39m
+[31m+     refundCents: rows.reduce((sum, row) => sum + row.refundCents, 0),[39m
+[31m+     currency,[39m
+[31m+     fingerprint,[39m
+[31m+     rows,[39m
+[31m+   };[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export async function executePreorderAllocationForSku([39m
+[31m+   supabase: SupabaseClient,[39m
+[31m+   hitpay: HitPayClient,[39m
+[31m+   input: { skuId: string; fingerprint: string; actor: string }[39m
+[31m+ ): Promise<PreorderAllocationExecution> {[39m
+[31m+   const parsed = preorderAllocationRequestSchema.parse(input);[39m
+[31m+   let staged = await loadStagedAllocations(supabase, parsed.skuId, parsed.fingerprint);[39m
+[31m+[39m
+[31m+   if (staged.length === 0) {[39m
+[31m+     const preview = await previewPreorderAllocationForSku(supabase, parsed.skuId);[39m
+[31m+     if (preview.fingerprint !== parsed.fingerprint) {[39m
+[31m+       throw conflict([39m
+[31m+         "The preorder queue or available stock changed. Review a fresh allocation preview."[39m
+[31m+       );[39m
+[31m+     }[39m
+[31m+[39m
+[31m+     const { data, error } = await supabase.rpc("stage_preorder_allocations", {[39m
+[31m+       p_sku_id: parsed.skuId,[39m
+[31m+       p_allocations: preview.rows.map((row) => ({[39m
+[31m+         preorder_id: row.preorderId,[39m
+[31m+         allocated: row.allocatedQty,[39m
+[31m+       })),[39m
+[31m+       p_fingerprint: parsed.fingerprint,[39m
+[31m+       p_actor: input.actor,[39m
+[31m+     });[39m
+[31m+     if (error) throw new Error(error.message);[39m
+[31m+     staged = (data ?? []) as StagedAllocationRow[];[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   if (staged.length === 0) {[39m
+[31m+     throw conflict("No preorder allocation remains to be confirmed");[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   let refundsCreated = 0;[39m
+[31m+   let refundCents = 0;[39m
+[31m+   let finalized = 0;[39m
+[31m+[39m
+[31m+   for (const row of staged) {[39m
+[31m+     let refundId: string | null = null;[39m
+[31m+     let refundStatus: string | null = null;[39m
+[31m+[39m
+[31m+     if (row.refund_cents > 0) {[39m
+[31m+       if (!row.provider_charge_id) {[39m
+[31m+         throw conflict(`HitPay charge is missing for preorder ${row.preorder_id}`);[39m
+[31m+       }[39m
+[31m+       const refund = await hitpay.createRefund({[39m
+[31m+         paymentId: row.provider_charge_id,[39m
+[31m+         amountCents: row.refund_cents,[39m
+[31m+       });[39m
+[31m+       const normalizedStatus = hitPayRefundStatus(refund.status);[39m
+[31m+       if (normalizedStatus === "failed") {[39m
+[31m+         throw conflict(`HitPay rejected the allocation refund for preorder ${row.preorder_id}`);[39m
+[31m+       }[39m
+[31m+       refundId = refund.id;[39m
+[31m+       refundStatus = normalizedStatus;[39m
+[31m+       refundsCreated += 1;[39m
+[31m+       refundCents += row.refund_cents;[39m
+[31m+     }[39m
+[31m+[39m
+[31m+     const { error } = await supabase.rpc("finalize_preorder_allocation", {[39m
+[31m+       p_preorder_id: row.preorder_id,[39m
+[31m+       p_provider_refund_id: refundId,[39m
+[31m+       p_refund_status: refundStatus,[39m
+[31m+       p_actor: input.actor,[39m
+[31m+     });[39m
+[31m+     if (error) throw new Error(error.message);[39m
+[31m+     finalized += 1;[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   return { finalized, refundsCreated, refundCents };[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function loadInventoryCapacity([39m
+[31m+   supabase: SupabaseClient,[39m
+[31m+   skuId: string[39m
+[31m+ ): Promise<InventoryCapacityRow> {[39m
+[31m+   const { data, error } = await supabase[39m
+[31m+     .from("inventory")[39m
+[31m+     .select("on_hand, incoming, allocated, safety_stock")[39m
+[31m+     .eq("sku_id", skuId)[39m
+[31m+     .eq("location", "main")[39m
+[31m+     .maybeSingle();[39m
+[31m+   if (error) throw new Error(error.message);[39m
+[31m+   if (!data) throw badRequest("Inventory is not available for allocation");[39m
+[31m+   return data as InventoryCapacityRow;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function loadAllocationRules([39m
+[31m+   supabase: SupabaseClient,[39m
+[31m+   skuId: string[39m
+[31m+ ): Promise<AllocationRule[]> {[39m
+[31m+   const { data, error } = await supabase[39m
+[31m+     .from("allocation_rules")[39m
+[31m+     .select("priority, reserve_quantity, max_per_customer")[39m
+[31m+     .eq("sku_id", skuId)[39m
+[31m+     .eq("channel", "b2c")[39m
+[31m+     .eq("active", true)[39m
+[31m+     .order("priority", { ascending: true });[39m
+[31m+   if (error) throw new Error(error.message);[39m
+[31m+[39m
+[31m+   const rows = (data ?? []) as AllocationRuleRow[];[39m
+[31m+   if (rows.length === 0) {[39m
+[31m+     return [{ priority: 10, channel: "b2c", reserveQuantity: 0, maxPerCustomer: null }];[39m
+[31m+   }[39m
+[31m+   return rows.map((row) => ({[39m
+[31m+     priority: row.priority,[39m
+[31m+     channel: "b2c",[39m
+[31m+     reserveQuantity: row.reserve_quantity,[39m
+[31m+     maxPerCustomer: row.max_per_customer,[39m
+[31m+   }));[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function loadPaidPreorders(supabase: SupabaseClient, skuId: string): Promise<PreorderRow[]> {[39m
+[31m+   const { data, error } = await supabase[39m
+[31m+     .from("preorders")[39m
+[31m+     .select([39m
+[31m+       "id, customer_id, quantity, unit_price_cents, currency, created_at, customers(email, name)"[39m
+[31m+     )[39m
+[31m+     .eq("sku_id", skuId)[39m
+[31m+     .eq("channel", "b2c")[39m
+[31m+     .eq("status", "paid")[39m
+[31m+     .order("created_at", { ascending: true })[39m
+[31m+     .order("id", { ascending: true });[39m
+[31m+   if (error) throw new Error(error.message);[39m
+[31m+   return (data ?? []) as unknown as PreorderRow[];[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function loadSkuLabel([39m
+[31m+   supabase: SupabaseClient,[39m
+[31m+   skuId: string[39m
+[31m+ ): Promise<{ sku: string; productName: string }> {[39m
+[31m+   const { data, error } = await supabase[39m
+[31m+     .from("booster_box_skus")[39m
+[31m+     .select("sku, product_variants(products(name))")[39m
+[31m+     .eq("id", skuId)[39m
+[31m+     .maybeSingle();[39m
+[31m+   if (error) throw new Error(error.message);[39m
+[31m+   if (!data) throw badRequest("SKU not found");[39m
+[31m+[39m
+[31m+   const variant = one(data.product_variants as unknown) as { products?: unknown } | null;[39m
+[31m+   const product = one(variant?.products as unknown) as { name?: string } | null;[39m
+[31m+   return { sku: String(data.sku), productName: product?.name ?? "Unknown product" };[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function loadStagedAllocations([39m
+[31m+   supabase: SupabaseClient,[39m
+[31m+   skuId: string,[39m
+[31m+   fingerprint: string[39m
+[31m+ ): Promise<StagedAllocationRow[]> {[39m
+[31m+   const { data: preorders, error } = await supabase[39m
+[31m+     .from("preorders")[39m
+[31m+     .select("id, allocated_qty, allocation_refund_cents, currency")[39m
+[31m+     .eq("sku_id", skuId)[39m
+[31m+     .eq("allocation_fingerprint", fingerprint)[39m
+[31m+     .in("status", ["allocated", "refund_pending"])[39m
+[31m+     .order("created_at", { ascending: true });[39m
+[31m+   if (error) throw new Error(error.message);[39m
+[31m+   if (!preorders?.length) return [];[39m
+[31m+[39m
+[31m+   const ids = preorders.map((preorder) => String(preorder.id));[39m
+[31m+   const { data: payments, error: paymentError } = await supabase[39m
+[31m+     .from("payments")[39m
+[31m+     .select("id, preorder_id, provider_charge_id")[39m
+[31m+     .in("preorder_id", ids)[39m
+[31m+     .eq("provider", "hitpay")[39m
+[31m+     .eq("kind", "full")[39m
+[31m+     .eq("status", "captured");[39m
+[31m+   if (paymentError) throw new Error(paymentError.message);[39m
+[31m+   const paymentByPreorder = new Map([39m
+[31m+     (payments ?? []).map((payment) => [String(payment.preorder_id), payment])[39m
+[31m+   );[39m
+[31m+[39m
+[31m+   return preorders.map((preorder) => {[39m
+[31m+     const payment = paymentByPreorder.get(String(preorder.id));[39m
+[31m+     if (!payment) {[39m
+[31m+       throw conflict(`Captured HitPay payment is missing for preorder ${preorder.id}`);[39m
+[31m+     }[39m
+[31m+     if (!payment.provider_charge_id) {[39m
+[31m+       throw conflict(`HitPay charge is missing for preorder ${preorder.id}`);[39m
+[31m+     }[39m
+[31m+     return {[39m
+[31m+       preorder_id: String(preorder.id),[39m
+[31m+       allocated_qty: Number(preorder.allocated_qty),[39m
+[31m+       refund_cents: Number(preorder.allocation_refund_cents),[39m
+[31m+       payment_id: String(payment.id),[39m
+[31m+       provider_charge_id: String(payment.provider_charge_id),[39m
+[31m+       currency: String(preorder.currency),[39m
+[31m+     };[39m
+[31m+   });[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function one<T = unknown>(value: T | T[] | null | undefined): T | null {[39m
+[31m+   if (Array.isArray(value)) return value[0] ?? null;[39m
+[31m+   return value ?? null;[39m
+[31m+ }[39m
+[31m+[39m
+
+[36m [2m❯[22m tests/preorder-flow.test.ts:[2m108:20[22m[39m
+    [90m106|[39m     ])[33m;[39m
+    [90m107|[39m
+    [90m108|[39m     [34mexpect[39m(source)[33m.[39m[34mtoContain[39m([32m"preorder-allocation-refund:"[39m)[33m;[39m
+    [90m   |[39m                    [31m^[39m
+    [90m109|[39m     [34mexpect[39m(source)[33m.[39m[34mtoContain[39m([32m"amount: row.refund_cents"[39m)[33m;[39m
+    [90m110|[39m     [34mexpect[39m(migration)[33m.[39m[34mtoContain[39m([32m"HitPay refund confirmation required"[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/vercel-provisioned-secret-safety.test.ts[2m > [22mVercel provisioned secret safety[2m > [22mremoves stale workflow webhook secrets and rotates only newly issued credentials
+[31m[1mAssertionError[22m: expected '#!/usr/bin/env node\nimport { spawnSy…' to contain 'delete provisionEnvironment.HITPAY_WE…'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- delete provisionEnvironment.HITPAY_WEBHOOK_SALT[39m
+[31m+ #!/usr/bin/env node[39m
+[31m+ import { spawnSync } from "node:child_process";[39m
+[31m+ import { rm } from "node:fs/promises";[39m
+[31m+[39m
+[31m+ import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";[39m
+[31m+ import { ENV_CONTRACT, loadLocalDotenv } from "./generate-env.mjs";[39m
+[31m+ import {[39m
+[31m+   buildEnvironmentWithVercelFallback,[39m
+[31m+   fetchVercelEnvironmentRecords,[39m
+[31m+   resolveVercelProjectContext,[39m
+[31m+ } from "./lib/vercel-environment.mjs";[39m
+[31m+[39m
+[31m+ try {[39m
+[31m+   await main();[39m
+[31m+ } catch (error) {[39m
+[31m+   fail(error?.message || String(error));[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function main() {[39m
+[31m+   await loadLocalDotenv(process.env);[39m
+[31m+   await applyVersionedEnvironmentConfig(process.env);[39m
+[31m+[39m
+[31m+   const providerMode = argumentValue("--providers") || "apply-if-configured";[39m
+[31m+   if (!["skip", "plan", "apply", "apply-if-configured", "verify"].includes(providerMode)) {[39m
+[31m+     fail(`Unsupported --providers mode: ${providerMode}`);[39m
+[31m+   }[39m
+[31m+   if (!/^(development|staging|production)$/.test(process.env.TARGET_ENV || "")) {[39m
+[31m+     fail("TARGET_ENV must be development, staging, or production");[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   const vercelEnvironment = process.env.TARGET_ENV === "development" ? "preview" : "production";[39m
+[31m+   const runtimePath = `.env.deploy-${process.pid}`;[39m
+[31m+   const context = await resolveVercelProjectContext(process.env);[39m
+[31m+   const records = await fetchVercelEnvironmentRecords({[39m
+[31m+     ...context,[39m
+[31m+     target: vercelEnvironment,[39m
+[31m+     decrypt: true,[39m
+[31m+   });[39m
+[31m+   const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);[39m
+[31m+   const provisionEnvironment = buildEnvironmentWithVercelFallback({[39m
+[31m+     records,[39m
+[31m+     runtimeKeys,[39m
+[31m+     baseEnv: process.env,[39m
+[31m+     target: vercelEnvironment,[39m
+[31m+   });[39m
+[31m+   for (const [key, value] of Object.entries(provisionEnvironment)) {[39m
+[31m+     process.env[key] = value;[39m
+[31m+   }[39m
+[31m+   process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";[39m
+[31m+[39m
+[31m+   try {[39m
+[31m+     if (providerMode !== "skip") {[39m
+[31m+       run(process.execPath, ["scripts/configure-providers.mjs", `--${providerMode}`]);[39m
+[31m+     }[39m
+[31m+[39m
+[31m+     run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);[39m
+[31m+     run(process.execPath, [[39m
+[31m+       "scripts/generate-env.mjs",[39m
+[31m+       "--write",[39m
+[31m+       runtimePath,[39m
+[31m+       "--allow-missing-provisioned",[39m
+[31m+     ]);[39m
+[31m+     run(process.execPath, [[39m
+[31m+       "scripts/sync-vercel-env.mjs",[39m
+[31m+       runtimePath,[39m
+[31m+       "--preserve-unset-optional",[39m
+[31m+     ]);[39m
+[31m+     console.log(`Runtime environment ${process.env.TARGET_ENV} reconciled successfully.`);[39m
+[31m+   } finally {[39m
+[31m+     await rm(runtimePath, { force: true });[39m
+[31m+   }[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function argumentValue(flag) {[39m
+[31m+   const index = process.argv.indexOf(flag);[39m
+[31m+   return index >= 0 ? process.argv[index + 1] || "" : "";[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function run(command, args, options = {}) {[39m
+[31m+   const printable = [command, ...args].map(redactArgument).join(" ");[39m
+[31m+   console.log(`\n$ ${printable}`);[39m
+[31m+   const result = spawnSync(command, args, {[39m
+[31m+     env: options.env || process.env,[39m
+[31m+     stdio: "inherit",[39m
+[31m+   });[39m
+[31m+   if (result.error) fail(`${printable} failed to start: ${result.error.message}`);[39m
+[31m+   if (result.status !== 0) fail(`${printable} failed with exit code ${result.status}`);[39m
+[31m+   return result;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function redactArgument(value) {[39m
+[31m+   return value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function fail(message) {[39m
+[31m+   console.error(message);[39m
+[31m+   process.exit(1);[39m
+[31m+ }[39m
+[31m+[39m
+
+[36m [2m❯[22m tests/vercel-provisioned-secret-safety.test.ts:[2m24:23[22m[39m
+    [90m 22|[39m     const reconcile = await script("reconcile-runtime-environment.mjs"…
+    [90m 23|[39m
+    [90m 24|[39m     expect(reconcile).toContain("delete provisionEnvironment.HITPAY_WE…
+    [90m   |[39m                       [31m^[39m
+    [90m 25|[39m     expect(reconcile).toContain("delete process.env.HITPAY_WEBHOOK_SAL…
+    [90m 26|[39m     [34mexpect[39m(reconcile)[33m.[39m[34mtoContain[39m(
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/vercel-provisioned-secret-safety.test.ts[2m > [22mVercel provisioned secret safety[2m > [22mkeeps readiness checks non-mutating for optional and provisioned sensitive values
+[31m[1mAssertionError[22m: expected '#!/usr/bin/env node\nimport { spawnSy…' to contain 'delete verificationEnvironment.HITPAY…'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- delete verificationEnvironment.HITPAY_WEBHOOK_SALT[39m
+[31m+ #!/usr/bin/env node[39m
+[31m+ import { spawnSync } from "node:child_process";[39m
+[31m+ import { rm } from "node:fs/promises";[39m
+[31m+[39m
+[31m+ import { ENV_CONTRACT } from "./generate-env.mjs";[39m
+[31m+ import {[39m
+[31m+   buildEnvironmentWithVercelFallback,[39m
+[31m+   fetchVercelEnvironmentRecords,[39m
+[31m+   resolveVercelProjectContext,[39m
+[31m+ } from "./lib/vercel-environment.mjs";[39m
+[31m+ import { buildVercelProtectionHeaders } from "./lib/vercel-protection.mjs";[39m
+[31m+[39m
+[31m+ const targetEnv = process.env.TARGET_ENV;[39m
+[31m+ const skipHealth = process.argv.includes("--skip-health");[39m
+[31m+ const runtimePath = `.env.readiness-${process.pid}`;[39m
+[31m+ const planPath = `infra/terraform/platform/.terraform-readiness-${process.pid}.tfplan`;[39m
+[31m+[39m
+[31m+ try {[39m
+[31m+   await main();[39m
+[31m+ } catch (error) {[39m
+[31m+   console.error(error?.message || String(error));[39m
+[31m+   process.exitCode = 1;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function main() {[39m
+[31m+   if (!/^(development|staging|production)$/.test(targetEnv || "")) {[39m
+[31m+     throw new Error("TARGET_ENV must be development, staging, or production");[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   const vercelEnvironment = targetEnv === "development" ? "preview" : "production";[39m
+[31m+   const context = await resolveVercelProjectContext(process.env);[39m
+[31m+   const records = await fetchVercelEnvironmentRecords({[39m
+[31m+     ...context,[39m
+[31m+     target: vercelEnvironment,[39m
+[31m+     decrypt: true,[39m
+[31m+   });[39m
+[31m+   const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);[39m
+[31m+   const verificationEnvironment = buildEnvironmentWithVercelFallback({[39m
+[31m+     records,[39m
+[31m+     runtimeKeys,[39m
+[31m+     baseEnv: process.env,[39m
+[31m+     target: vercelEnvironment,[39m
+[31m+   });[39m
+[31m+   const siteUrl = verificationEnvironment.NEXT_PUBLIC_SITE_URL;[39m
+[31m+   if (!siteUrl && !skipHealth) {[39m
+[31m+     throw new Error("NEXT_PUBLIC_SITE_URL is required unless --skip-health is used");[39m
+[31m+   }[39m
+[31m+   process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";[39m
+[31m+[39m
+[31m+   try {[39m
+[31m+     const plan = run([39m
+[31m+       "terraform",[39m
+[31m+       [[39m
+[31m+         "-chdir=infra/terraform/platform",[39m
+[31m+         "plan",[39m
+[31m+         "-input=false",[39m
+[31m+         "-detailed-exitcode",[39m
+[31m+         `-out=.terraform-readiness-${process.pid}.tfplan`,[39m
+[31m+       ],[39m
+[31m+       { allowedStatuses: [0, 2] }[39m
+[31m+     );[39m
+[31m+     if (plan.status === 2) {[39m
+[31m+       throw new Error([39m
+[31m+         "Terraform drift detected. Reconcile and apply a reviewed exact plan before release."[39m
+[31m+       );[39m
+[31m+     }[39m
+[31m+[39m
+[31m+     run(process.execPath, ["scripts/configure-providers.mjs", "--verify"], {[39m
+[31m+       env: verificationEnvironment,[39m
+[31m+     });[39m
+[31m+     run([39m
+[31m+       process.execPath,[39m
+[31m+       ["scripts/generate-env.mjs", "--write", runtimePath, "--allow-missing-provisioned"],[39m
+[31m+       { env: verificationEnvironment }[39m
+[31m+     );[39m
+[31m+     run([39m
+[31m+       process.execPath,[39m
+[31m+       ["scripts/sync-vercel-env.mjs", runtimePath, "--check-only", "--preserve-unset-optional"],[39m
+[31m+       { env: verificationEnvironment }[39m
+[31m+     );[39m
+[31m+[39m
+[31m+     if (!skipHealth) {[39m
+[31m+       await checkHealth(new URL("/api/health", siteUrl));[39m
+[31m+       if (targetEnv !== "development") {[39m
+[31m+         await checkHealth(new URL("/api/health?deep=1", siteUrl));[39m
+[31m+       }[39m
+[31m+     }[39m
+[31m+     console.log([39m
+[31m+       `Environment ${targetEnv} is release-ready: no Terraform, HitPay, or OAuth provider drift was detected, the runtime contract is satisfied, and health checks ${skipHealth ? "were skipped" : "passed"}.`[39m
+[31m+     );[39m
+[31m+   } finally {[39m
+[31m+     await Promise.all([rm(runtimePath, { force: true }), rm(planPath, { force: true })]);[39m
+[31m+   }[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ async function checkHealth(url) {[39m
+[31m+   let lastError;[39m
+[31m+   for (let attempt = 1; attempt <= 5; attempt += 1) {[39m
+[31m+     try {[39m
+[31m+       const response = await fetch(url, {[39m
+[31m+         headers: buildVercelProtectionHeaders(),[39m
+[31m+         redirect: "manual",[39m
+[31m+       });[39m
+[31m+       if (response.ok) return;[39m
+[31m+       lastError = healthError(url, response);[39m
+[31m+     } catch (error) {[39m
+[31m+       lastError = error;[39m
+[31m+     }[39m
+[31m+     await new Promise((resolve) => setTimeout(resolve, attempt * 1000));[39m
+[31m+   }[39m
+[31m+   throw lastError || new Error(`Health check failed for ${url}`);[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function healthError(url, response) {[39m
+[31m+   if (response.status >= 300 && response.status < 400) {[39m
+[31m+     const protectionHint = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim()[39m
+[31m+       ? "Verify that VERCEL_AUTOMATION_BYPASS_SECRET matches Vercel's Protection Bypass for Automation secret."[39m
+[31m+       : "Configure the environment-scoped VERCEL_AUTOMATION_BYPASS_SECRET GitHub secret from Vercel's Protection Bypass for Automation setting.";[39m
+[31m+     return new Error([39m
+[31m+       `${url.pathname}${url.search} returned HTTP ${response.status}. Redirects are rejected so an authentication page cannot pass readiness verification. ${protectionHint}`[39m
+[31m+     );[39m
+[31m+   }[39m
+[31m+   return new Error(`${url.pathname}${url.search} returned HTTP ${response.status}`);[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function run(command, args, options = {}) {[39m
+[31m+   const printable = [command, ...args][39m
+[31m+     .map((value) => (value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value))[39m
+[31m+     .join(" ");[39m
+[31m+   console.log(`\n$ ${printable}`);[39m
+[31m+   const result = spawnSync(command, args, {[39m
+[31m+     env: options.env || process.env,[39m
+[31m+     stdio: "inherit",[39m
+[31m+   });[39m
+[31m+   if (result.error) throw new Error(`${command} failed to start: ${result.error.message}`);[39m
+[31m+   const allowedStatuses = options.allowedStatuses || [0];[39m
+[31m+   if (!allowedStatuses.includes(result.status ?? 1)) {[39m
+[31m+     throw new Error(`${command} failed with exit code ${result.status}`);[39m
+[31m+   }[39m
+[31m+   return result;[39m
+[31m+ }[39m
+[31m+[39m
+
+[36m [2m❯[22m tests/vercel-provisioned-secret-safety.test.ts:[2m34:20[22m[39m
+    [90m 32|[39m     [35mconst[39m verify [33m=[39m [35mawait[39m [34mscript[39m([32m"verify-environment.mjs"[39m)[33m;[39m
+    [90m 33|[39m
+    [90m 34|[39m     expect(verify).toContain("delete verificationEnvironment.HITPAY_WE…
+    [90m   |[39m                    [31m^[39m
+    [90m 35|[39m     [34mexpect[39m(verify)[33m.[39m[34mtoContain[39m([32m'"--check-only"'[39m)[33m;[39m
+    [90m 36|[39m     [34mexpect[39m(verify)[33m.[39m[34mtoContain[39m([32m'"--preserve-unset-optional"'[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/vercel-sensitive-environment.test.ts[2m > [22mVercel sensitive runtime environment[2m > [22mdoes not replace a matching HitPay webhook when Vercel stores an unreadable signing secret
+[31m[1mError[22m: file:///home/runner/work/marketplace/marketplace/[eval1]:4
+        desiredHitPayWebhookMetadata,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module './scripts/lib/hitpay-webhook.mjs' does not provide an export named 'desiredHitPayWebhookMetadata'
+    at ModuleJob._instantiate (node:internal/modules/esm/module_job:220:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:321:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:268:26)
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:264:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.17.0
+[39m
+[36m [2m❯[22m runModule tests/vercel-sensitive-environment.test.ts:[2m285:34[22m[39m
+    [90m283|[39m     encoding[33m:[39m [32m"utf8"[39m[33m,[39m
+    [90m284|[39m   })[33m;[39m
+    [90m285|[39m   if (result.status !== 0) throw new Error(result.stderr || result.std…
+    [90m   |[39m                                  [31m^[39m
+    [90m286|[39m   [35mreturn[39m [33mJSON[39m[33m.[39m[34mparse[39m(result[33m.[39mstdout)[33m;[39m
+    [90m287|[39m }
+[90m [2m❯[22m tests/vercel-sensitive-environment.test.ts:[2m211:20[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/18]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/vercel-sensitive-environment.test.ts[2m > [22mVercel sensitive runtime environment[2m > [22muses authoritative API reads and avoids vercel env run precedence
+[31m[1mAssertionError[22m: expected '#!/usr/bin/env node\nimport { inspect…' to contain 'requireSigningSecret: !storedSigningS…'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- requireSigningSecret: !storedSigningSecretPresent[39m
+[31m+ #!/usr/bin/env node[39m
+[31m+ import { inspect } from "node:util";[39m
+[31m+[39m
+[31m+ import {[39m
+[31m+   buildHitPayWebhookConfig,[39m
+[31m+   listHitPayWebhooks,[39m
+[31m+   reconcileHitPayWebhook,[39m
+[31m+   verifyHitPayWebhook,[39m
+[31m+ } from "./lib/hitpay-webhook.mjs";[39m
+[31m+[39m
+[31m+ const args = new Set(process.argv.slice(2));[39m
+[31m+ const mode = args.has("--apply")[39m
+[31m+   ? "apply"[39m
+[31m+   : args.has("--apply-if-configured")[39m
+[31m+     ? "apply-if-configured"[39m
+[31m+     : args.has("--verify")[39m
+[31m+       ? "verify"[39m
+[31m+       : "plan";[39m
+[31m+ const config = buildHitPayWebhookConfig(process.env);[39m
+[31m+ const missing = [[39m
+[31m+   ["HITPAY_API_KEY", config.apiKey],[39m
+[31m+   ["NEXT_PUBLIC_SITE_URL", config.siteUrl],[39m
+[31m+   ["TARGET_ENV", config.targetEnv],[39m
+[31m+ ][39m
+[31m+   .filter(([, value]) => !value)[39m
+[31m+   .map(([key]) => key);[39m
+[31m+[39m
+[31m+ try {[39m
+[31m+   if (missing.length > 0 && mode === "apply-if-configured") {[39m
+[31m+     console.log(`HitPay webhook configuration skipped. Missing: ${missing.join(", ")}`);[39m
+[31m+     process.exit(0);[39m
+[31m+   }[39m
+[31m+   if (missing.length > 0) {[39m
+[31m+     throw new Error(`HitPay webhook configuration is missing: ${missing.join(", ")}`);[39m
+[31m+   }[39m
+[31m+[39m
+[31m+   if (mode === "plan") {[39m
+[31m+     const webhooks = await listHitPayWebhooks(config);[39m
+[31m+     console.log([39m
+[31m+       inspect([39m
+[31m+         {[39m
+[31m+           webhookUrl: config.webhookUrl,[39m
+[31m+           enabledEvents: config.enabledEvents,[39m
+[31m+           existing:[39m
+[31m+             webhooks.find([39m
+[31m+               (item) => item.id === config.webhookId || item.url === config.webhookUrl[39m
+[31m+             ) || null,[39m
+[31m+         },[39m
+[31m+         { colors: false, depth: null }[39m
+[31m+       )[39m
+[31m+     );[39m
+[31m+   } else if (mode === "verify") {[39m
+[31m+     const webhook = await verifyHitPayWebhook(config);[39m
+[31m+     console.log(`HitPay webhook verified: ${webhook.id || webhook.url}`);[39m
+[31m+   } else {[39m
+[31m+     const result = await reconcileHitPayWebhook(config);[39m
+[31m+     console.log(`HitPay webhook ${result.action}: ${result.webhook.id || result.webhook.url}`);[39m
+[31m+     await verifyHitPayWebhook(config);[39m
+[31m+   }[39m
+[31m+ } catch (error) {[39m
+[31m+   const message = String(error?.message || error);[39m
+[31m+   console.error([39m
+[31m+     config.apiKey ? message.replaceAll(config.apiKey, "[redacted-hitpay-api-key]") : message[39m
+[31m+   );[39m
+[31m+   process.exit(1);[39m
+[31m+ }[39m
+[31m+[39m
+
+[36m [2m❯[22m tests/vercel-sensitive-environment.test.ts:[2m273:23[22m[39m
+    [90m271|[39m     [34mexpect[39m(reconcile)[33m.[39mnot[33m.[39m[34mtoContain[39m([32m'"env", "run"'[39m)[33m;[39m
+    [90m272|[39m     expect(reconcile).toContain('process.env.MARKETPLACE_DISABLE_LOCAL…
+    [90m273|[39m     expect(provision).toContain("requireSigningSecret: !storedSigningS…
+    [90m   |[39m                       [31m^[39m
+    [90m274|[39m     [34mexpect[39m(verify)[33m.[39m[34mtoContain[39m([32m"buildEnvironmentWithVercelFallback"[39m)[33m;[39m
+    [90m275|[39m     [34mexpect[39m(verify)[33m.[39mnot[33m.[39m[34mtoContain[39m([32m'"env", "run"'[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/18]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m9 failed[39m[22m[2m | [22m[1m[32m61 passed[39m[22m[90m (70)[39m
+[2m      Tests [22m [1m[31m18 failed[39m[22m[2m | [22m[1m[32m310 passed[39m[22m[90m (328)[39m
+[2m   Start at [22m 17:57:28
+[2m   Duration [22m 14.65s[2m (transform 1.38s, setup 0ms, import 27.16s, tests 3.26s, environment 11ms)[22m
+
+
+::error file=/home/runner/work/marketplace/marketplace/tests/admin-orders.test.ts,title=tests/admin-orders.test.ts > admin order actions > identifies manual%2C stale%2C failed-allocation%2C and orphan-provider exceptions,line=127,column=75::AssertionError: expected [ 'failed_payment_allocation', …(2) ] to deeply equal [ 'failed_payment_allocation', …(3) ]%0A%0A- Expected%0A+ Received%0A%0A  [%0A    "failed_payment_allocation",%0A    "manual_flag",%0A-   "orphan_provider_payment",%0A    "stale_pending_payment",%0A  ]%0A%0A ❯ tests/admin-orders.test.ts:127:75%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/bootstrap-convergence.test.ts,title=tests/bootstrap-convergence.test.ts > bootstrap convergence > performs zero provider writes when the HitPay endpoint already matches,line=177,column=34::Error: file:///home/runner/work/marketplace/marketplace/[eval1]:2%0A      import { buildHitPayWebhookConfig, desiredHitPayWebhookMetadata, reconcileHitPayWebhook } from './scripts/lib/hitpay-webhook.mjs';%0A                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^%0ASyntaxError: The requested module './scripts/lib/hitpay-webhook.mjs' does not provide an export named 'desiredHitPayWebhookMetadata'%0A    at ModuleJob._instantiate (node:internal/modules/esm/module_job:220:21)%0A    at async ModuleJob.run (node:internal/modules/esm/module_job:321:5)%0A    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:268:26)%0A    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:264:20)%0A    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)%0A%0ANode.js v22.17.0%0A%0A ❯ runModule tests/bootstrap-convergence.test.ts:177:34%0A ❯ tests/bootstrap-convergence.test.ts:57:20%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/bootstrap-convergence.test.ts,title=tests/bootstrap-convergence.test.ts > bootstrap convergence > binds HitPay config before constructing the default client,line=107,column=20::AssertionError: expected { …(2) } to deeply equal { …(2) }%0A%0A- Expected%0A+ Received%0A%0A  {%0A-   "reconcile": "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",%0A-   "verify": "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",%0A+   "reconcile": "Failed to parse URL from undefined/v1/webhook-events",%0A+   "verify": "Failed to parse URL from undefined/v1/webhook-events",%0A  }%0A%0A ❯ tests/bootstrap-convergence.test.ts:107:20%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/config-contract.test.ts,title=tests/config-contract.test.ts > platform config contract > exposes development-default hosted bootstrap plus staging and recovery commands,line=132,column=21::AssertionError: expected '#!/usr/bin/env node\nimport { spawnSy…' to contain 'configure-hitpay.mjs'%0A%0A- Expected%0A+ Received%0A%0A- configure-hitpay.mjs%0A+ #!/usr/bin/env node%0A+ import { spawnSync } from "node:child_process";%0A+ import { rm } from "node:fs/promises";%0A+%0A+ import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";%0A+ import { ENV_CONTRACT, loadLocalDotenv } from "./generate-env.mjs";%0A+ import {%0A+   buildEnvironmentWithVercelFallback,%0A+   fetchVercelEnvironmentRecords,%0A+   resolveVercelProjectContext,%0A+ } from "./lib/vercel-environment.mjs";%0A+%0A+ try {%0A+   await main();%0A+ } catch (error) {%0A+   fail(error?.message || String(error));%0A+ }%0A+%0A+ async function main() {%0A+   await loadLocalDotenv(process.env);%0A+   await applyVersionedEnvironmentConfig(process.env);%0A+%0A+   const providerMode = argumentValue("--providers") || "apply-if-configured";%0A+   if (!["skip", "plan", "apply", "apply-if-configured", "verify"].includes(providerMode)) {%0A+     fail(`Unsupported --providers mode: ${providerMode}`);%0A+   }%0A+   if (!/^(development|staging|production)$/.test(process.env.TARGET_ENV || "")) {%0A+     fail("TARGET_ENV must be development, staging, or production");%0A+   }%0A+%0A+   const vercelEnvironment = process.env.TARGET_ENV === "development" ? "preview" : "production";%0A+   const runtimePath = `.env.deploy-${process.pid}`;%0A+   const context = await resolveVercelProjectContext(process.env);%0A+   const records = await fetchVercelEnvironmentRecords({%0A+     ...context,%0A+     target: vercelEnvironment,%0A+     decrypt: true,%0A+   });%0A+   const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);%0A+   const provisionEnvironment = buildEnvironmentWithVercelFallback({%0A+     records,%0A+     runtimeKeys,%0A+     baseEnv: process.env,%0A+     target: vercelEnvironment,%0A+   });%0A+   for (const [key, value] of Object.entries(provisionEnvironment)) {%0A+     process.env[key] = value;%0A+   }%0A+   process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";%0A+%0A+   try {%0A+     if (providerMode !== "skip") {%0A+       run(process.execPath, ["scripts/configure-providers.mjs", `--${providerMode}`]);%0A+     }%0A+%0A+     run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);%0A+     run(process.execPath, [%0A+       "scripts/generate-env.mjs",%0A+       "--write",%0A+       runtimePath,%0A+       "--allow-missing-provisioned",%0A+     ]);%0A+     run(process.execPath, [%0A+       "scripts/sync-vercel-env.mjs",%0A+       runtimePath,%0A+       "--preserve-unset-optional",%0A+     ]);%0A+     console.log(`Runtime environment ${process.env.TARGET_ENV} reconciled successfully.`);%0A+   } finally {%0A+     await rm(runtimePath, { force: true });%0A+   }%0A+ }%0A+%0A+ function argumentValue(flag) {%0A+   const index = process.argv.indexOf(flag);%0A+   return index >= 0 ? process.argv[index + 1] || "" : "";%0A+ }%0A+%0A+ function run(command, args, options = {}) {%0A+   const printable = [command, ...args].map(redactArgument).join(" ");%0A+   console.log(`\n$ ${printable}`);%0A+   const result = spawnSync(command, args, {%0A+     env: options.env || process.env,%0A+     stdio: "inherit",%0A+   });%0A+   if (result.error) fail(`${printable} failed to start: ${result.error.message}`);%0A+   if (result.status !== 0) fail(`${printable} failed with exit code ${result.status}`);%0A+   return result;%0A+ }%0A+%0A+ function redactArgument(value) {%0A+   return value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value;%0A+ }%0A+%0A+ function fail(message) {%0A+   console.error(message);%0A+   process.exit(1);%0A+ }%0A+%0A%0A ❯ tests/config-contract.test.ts:132:21%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/deployment-idempotency.test.ts,title=tests/deployment-idempotency.test.ts > deployment idempotency contract > keeps HitPay checkout and webhooks limited to PayNow lifecycle events,line=77,column=20::AssertionError: expected 'import { z } from "zod";\n\nconst hit…' to contain 'normalized.payment_method_types = ["p…'%0A%0A- Expected%0A+ Received%0A%0A- normalized.payment_method_types = ["paynow"]%0A+ import { z } from "zod";%0A+%0A+ const hitPayChargeSchema = z.object({%0A+   id: z.string().uuid(),%0A+   status: z.string(),%0A+   amount: z.union([z.string(), z.number()]),%0A+   currency: z.string(),%0A+   refunded_amount: z.union([z.string(), z.number()]).optional(),%0A+   payment_type: z.string().optional(),%0A+ });%0A+%0A+ const hitPayPaymentRequestSchema = z.object({%0A+   id: z.string().uuid(),%0A+   status: z.string(),%0A+   amount: z.union([z.string(), z.number()]),%0A+   currency: z.string(),%0A+   url: z.string().url(),%0A+   reference_number: z.string().nullish(),%0A+   payments: z.array(hitPayChargeSchema).optional(),%0A+ });%0A+%0A+ const hitPayRefundSchema = z.object({%0A+   id: z.string().uuid(),%0A+   payment_id: z.string().uuid().optional(),%0A+   status: z.string(),%0A+   currency: z.string().optional(),%0A+   amount_refunded: z.union([z.string(), z.number()]).optional(),%0A+   amount: z.union([z.string(), z.number()]).optional(),%0A+ });%0A+%0A+ export type HitPayCharge = z.infer<typeof hitPayChargeSchema>;%0A+ export type HitPayPaymentRequest = z.infer<typeof hitPayPaymentRequestSchema>;%0A+ export type HitPayRefund = z.infer<typeof hitPayRefundSchema>;%0A+%0A+ export interface CreateHitPayPaymentRequestInput {%0A+   amountCents: number;%0A+   currency: string;%0A+   email?: string | null;%0A+   name?: string | null;%0A+   phone?: string | null;%0A+   purpose: string;%0A+   referenceNumber: string;%0A+   redirectUrl: string;%0A+   expiresAfter?: string;%0A+ }%0A+%0A+ export interface HitPayClient {%0A+   createPaymentRequest(input: CreateHitPayPaymentRequestInput): Promise<HitPayPaymentRequest>;%0A+   getPaymentRequest(id: string): Promise<HitPayPaymentRequest>;%0A+   cancelPaymentRequest(id: string): Promise<void>;%0A+   createRefund(input: { paymentId: string; amountCents: number }): Promise<HitPayRefund>;%0A+ }%0A+%0A+ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPayClient {%0A+   const apiKey = env.HITPAY_API_KEY?.trim();%0A+   const apiUrl = (env.HITPAY_API_URL || "https://api.sandbox.hit-pay.com").replace(/\/$/, "");%0A+   if (!apiKey) throw new Error("HitPay is not configured (HITPAY_API_KEY)");%0A+   if (!/^https:\/\//i.test(apiUrl)) throw new Error("HITPAY_API_URL must use HTTPS");%0A+%0A+   const request = async <T>(path: string, init: RequestInit, schema?: z.ZodType<T>): Promise<T> => {%0A+     const response = await fetch(`${apiUrl}${path}`, {%0A+       ...init,%0A+       cache: "no-store",%0A+       headers: {%0A+         "Content-Type": "application/json",%0A+         "X-BUSINESS-API-KEY": apiKey,%0A+         "X-Requested-With": "XMLHttpRequest",%0A+         ...init.headers,%0A+       },%0A+       signal: init.signal ?? AbortSignal.timeout(15_000),%0A+     });%0A+     const text = await response.text();%0A+     const payload = text ? safeJson(text) : {};%0A+     if (!response.ok) {%0A+       const detail = providerErrorMessage(payload);%0A+       throw new Error(`HitPay request failed (${response.status})${detail ? `: ${detail}` : ""}`);%0A+     }%0A+     return schema ? schema.parse(payload) : (payload as T);%0A+   };%0A+%0A+   return {%0A+     createPaymentRequest: (input) =>%0A+       request(%0A+         "/v1/payment-requests",%0A+         {%0A+           method: "POST",%0A+           body: JSON.stringify({%0A+             amount: formatHitPayAmount(input.amountCents),%0A+             currency: input.currency.toUpperCase(),%0A+             payment_methods: hitPayPaymentMethods(env),%0A+             email: input.email || undefined,%0A+             name: input.name || undefined,%0A+             phone: input.phone || undefined,%0A+             purpose: input.purpose.slice(0, 255),%0A+             reference_number: input.referenceNumber.slice(0, 255),%0A+             redirect_url: input.redirectUrl,%0A+             allow_repeated_payments: false,%0A+             expires_after: input.expiresAfter ?? "15 minutes",%0A+             send_email: false,%0A+             send_sms: false,%0A+           }),%0A+         },%0A+         hitPayPaymentRequestSchema%0A+       ),%0A+     getPaymentRequest: (id) =>%0A+       request(%0A+         `/v1/payment-requests/${encodeURIComponent(id)}`,%0A+         { method: "GET" },%0A+         hitPayPaymentRequestSchema%0A+       ),%0A+     cancelPaymentRequest: async (id) => {%0A+       await request(`/v1/payment-requests/${encodeURIComponent(id)}`, { method: "DELETE" });%0A+     },%0A+     createRefund: (input) =>%0A+       request(%0A+         "/v1/refund",%0A+         {%0A+           method: "POST",%0A+           body: JSON.stringify({%0A+             payment_id: input.paymentId,%0A+             amount: formatHitPayAmount(input.amountCents),%0A+           }),%0A+         },%0A+         hitPayRefundSchema%0A+       ),%0A+   };%0A+ }%0A+%0A+ export function hitPayPaymentMethods(env: NodeJS.ProcessEnv = process.env): string[] {%0A+   const methods = (env.HITPAY_PAYMENT_METHODS || "paynow_online")%0A+     .split(",")%0A+     .map((value) => value.trim())%0A+     .filter(Boolean);%0A+   if (methods.length === 0) {%0A+     throw new Error("HITPAY_PAYMENT_METHODS must include at least one method");%0A+   }%0A+   return [...new Set(methods)];%0A+ }%0A+%0A+ export function hitPayAmountToCents(value: string | number): number {%0A+   const amount = typeof value === "number" ? value : Number(value);%0A+   if (!Number.isFinite(amount) || amount < 0) {%0A+     throw new Error("HitPay returned an invalid amount");%0A+   }%0A+   return Math.round(amount * 100);%0A+ }%0A+%0A+ export function hitPayRefundStatus(status: string): "pending" | "succeeded" | "failed" {%0A+   const normalized = status.toLowerCase();%0A+   if (["succeeded", "completed", "refunded"].includes(normalized)) return "succeeded";%0A+   if (["failed", "cancelled", "canceled", "rejected"].includes(normalized)) return "failed";%0A+   return "pending";%0A+ }%0A+%0A+ export function successfulHitPayChargeId(payload: Record<string, unknown>): string | null {%0A+   if (!Array.isArray(payload.payments)) return null;%0A+   for (const raw of payload.payments) {%0A+     const result = hitPayChargeSchema.safeParse(raw);%0A+     if (result.success && result.data.status.toLowerCase() === "succeeded") {%0A+       return result.data.id;%0A+     }%0A+   }%0A+   return null;%0A+ }%0A+%0A+ export function applicationUrl(path: string, env: NodeJS.ProcessEnv = process.env): string {%0A+   const configured = env.NEXT_PUBLIC_SITE_URL?.trim();%0A+   const vercel = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();%0A+   const base = configured || (vercel ? `https://${vercel}` : "http://localhost:3000");%0A+   return new URL(path, base.endsWith("/") ? base : `${base}/`).toString();%0A+ }%0A+%0A+ function formatHitPayAmount(amountCents: number): string {%0A+   if (!Number.isInteger(amountCents) || amountCents <= 0) {%0A+     throw new Error("HitPay amount must be a positive integer number of cents");%0A+   }%0A+   return (amountCents / 100).toFixed(2);%0A+ }%0A+%0A+ function safeJson(value: string): unknown {%0A+   try {%0A+     return JSON.parse(value);%0A+   } catch {%0A+     return { message: value.slice(0, 500) };%0A+   }%0A+ }%0A+%0A+ function providerErrorMessage(payload: unknown): string {%0A+   if (!payload || typeof payload !== "object") return "";%0A+   const record = payload as Record<string, unknown>;%0A+   for (const key of ["message", "error", "detail"]) {%0A+     if (typeof record[key] === "string") return String(record[key]).slice(0, 500);%0A+   }%0A+   return "";%0A+ }%0A+%0A%0A ❯ tests/deployment-idempotency.test.ts:77:20%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/env.test.ts,title=tests/env.test.ts > environment contract > accepts a minimal valid runtime/deploy environment,line=27,column=20::AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true, errors: [] }%0A%0A- Expected%0A+ Received%0A%0A  {%0A-   "errors": [],%0A-   "ok": true,%0A+   "errors": [%0A+     "missing required: HITPAY_PAYMENT_METHODS (Comma-separated HitPay online payment method codes)",%0A+   ],%0A+   "ok": false,%0A  }%0A%0A ❯ tests/env.test.ts:27:20%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/env.test.ts,title=tests/env.test.ts > environment contract > allows the generated HitPay signing secret to be absent only during pre-provision checks,line=67,column=29::AssertionError: expected false to be true // Object.is equality%0A%0A- Expected%0A+ Received%0A%0A- true%0A+ false%0A%0A ❯ tests/env.test.ts:67:29%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/env.test.ts,title=tests/env.test.ts > environment contract > resolves Terraform outputs without overriding explicit environment values,line=304,column=34::Error: file:///home/runner/work/marketplace/marketplace/scripts/resolve-environment.mjs:66%0A    throw new Error(`Could not resolve required environment value(s): ${missing.join(", ")}`);%0A          ^%0A%0AError: Could not resolve required environment value(s): HITPAY_API_KEY, HITPAY_WEBHOOK_SALT%0A    at resolveEnvironment (file:///home/runner/work/marketplace/marketplace/scripts/resolve-environment.mjs:66:11)%0A    at async file:///home/runner/work/marketplace/marketplace/[eval1]:3:16%0A%0ANode.js v22.17.0%0A%0A ❯ resolveEnvironment scripts/resolve-environment.mjs:66:11%0A ❯ [eval1]:3:16%0A ❯ runNodeModule tests/env.test.ts:304:34%0A ❯ runResolveEnvironment tests/env.test.ts:295:10%0A ❯ tests/env.test.ts:118:22%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/env.test.ts,title=tests/env.test.ts > environment contract > reconciles stale Supabase keys from the selected project%2C including legacy service_role keys,line=304,column=34::Error: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY did not match; using an active project key for Supabase project abcdefghijklmnopq.%0ASUPABASE_SECRET_KEY did not match; using an active project key for Supabase project abcdefghijklmnopq.%0Afile:///home/runner/work/marketplace/marketplace/scripts/resolve-environment.mjs:66%0A    throw new Error(`Could not resolve required environment value(s): ${missing.join(", ")}`);%0A          ^%0A%0AError: Could not resolve required environment value(s): HITPAY_API_KEY, HITPAY_WEBHOOK_SALT%0A    at resolveEnvironment (file:///home/runner/work/marketplace/marketplace/scripts/resolve-environment.mjs:66:11)%0A    at async file:///home/runner/work/marketplace/marketplace/[eval1]:10:1%0A%0ANode.js v22.17.0%0A%0A ❯ resolveEnvironment scripts/resolve-environment.mjs:66:11%0A ❯ [eval1]:10:1%0A ❯ runNodeModule tests/env.test.ts:304:34%0A ❯ runResolveEnvironment tests/env.test.ts:295:10%0A ❯ tests/env.test.ts:218:22%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/env.test.ts,title=tests/env.test.ts > environment contract > rejects a Supabase key that does not authenticate against the selected project,line=268,column=28::AssertionError: expected 'Could not resolve required environmen…' to contain 'SUPABASE_SECRET_KEY is not valid for …'%0A%0AExpected: "SUPABASE_SECRET_KEY is not valid for Supabase project abcdefghijklmnopq"%0AReceived: "Could not resolve required environment value(s): HITPAY_API_KEY, HITPAY_WEBHOOK_SALT"%0A%0A ❯ tests/env.test.ts:268:28%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/env.test.ts,title=tests/env.test.ts > environment contract > keeps generated artifacts in sync with every contract key,line=285,column=59::AssertionError: marketplace/lib/env-contract.generated.ts is out of date; run npm run env:artifacts:write%0Adocs/generated/environment-reference.md is out of date; run npm run env:artifacts:write%0A: expected 1 to be +0 // Object.is equality%0A%0A- Expected%0A+ Received%0A%0A- 0%0A+ 1%0A%0A ❯ tests/env.test.ts:285:59%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/health.test.ts,title=tests/health.test.ts > health and readiness > fails deep readiness safely when critical dependencies are missing,line=26,column=37::AssertionError: expected { Object (status, apiKey, ...) } to match object { status: 'fail', …(2) }%0A(3 matching properties omitted from actual)%0A%0A- Expected%0A+ Received%0A%0A  {%0A-   "secretKey": "fail",%0A    "status": "fail",%0A-   "webhookSecret": "fail",%0A  }%0A%0A ❯ tests/health.test.ts:26:37%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/health.test.ts,title=tests/health.test.ts > health and readiness > passes deep readiness with configured HitPay and a successful Supabase probe,line=58,column=30::AssertionError: expected 'degraded' to be 'ok' // Object.is equality%0A%0AExpected: "ok"%0AReceived: "degraded"%0A%0A ❯ tests/health.test.ts:58:30%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/preorder-flow.test.ts,title=tests/preorder-flow.test.ts > retail preorder flow > creates idempotent HitPay refunds for allocation shortfalls,line=108,column=20::AssertionError: expected 'import { createHash } from "node:cryp…' to contain 'preorder-allocation-refund:'%0A%0A- Expected%0A+ Received%0A%0A- preorder-allocation-refund:%0A+ import { createHash } from "node:crypto";%0A+%0A+ import type { SupabaseClient } from "@supabase/supabase-js";%0A+ import { z } from "zod";%0A+%0A+ import { allocate, type AllocationRule, type PendingPreorder } from "@/lib/allocation";%0A+ import { badRequest, conflict } from "@/lib/api/errors";%0A+ import { hitPayRefundStatus, type HitPayClient } from "@/lib/hitpay";%0A+%0A+ export const preorderAllocationRequestSchema = z.object({%0A+   skuId: z.string().uuid(),%0A+   fingerprint: z.string().trim().length(64),%0A+ });%0A+%0A+ export interface PreorderAllocationSkuOption {%0A+   skuId: string;%0A+   sku: string;%0A+   productName: string;%0A+   preorderCount: number;%0A+ }%0A+%0A+ export interface PreorderAllocationPreviewRow {%0A+   preorderId: string;%0A+   customerId: string;%0A+   customerLabel: string;%0A+   requestedQty: number;%0A+   allocatedQty: number;%0A+   refundCents: number;%0A+   unitPriceCents: number;%0A+   currency: string;%0A+   createdAt: string;%0A+ }%0A+%0A+ export interface PreorderAllocationPreview {%0A+   skuId: string;%0A+   sku: string;%0A+   productName: string;%0A+   availableQty: number;%0A+   requestedQty: number;%0A+   allocatedQty: number;%0A+   refundCents: number;%0A+   currency: string;%0A+   fingerprint: string;%0A+   rows: PreorderAllocationPreviewRow[];%0A+ }%0A+%0A+ export interface PreorderAllocationExecution {%0A+   finalized: number;%0A+   refundsCreated: number;%0A+   refundCents: number;%0A+ }%0A+%0A+ interface InventoryCapacityRow {%0A+   on_hand: number;%0A+   incoming: number;%0A+   allocated: number;%0A+   safety_stock: number;%0A+ }%0A+%0A+ interface AllocationRuleRow {%0A+   priority: number;%0A+   reserve_quantity: number;%0A+   max_per_customer: number | null;%0A+ }%0A+%0A+ interface PreorderRow {%0A+   id: string;%0A+   customer_id: string;%0A+   quantity: number;%0A+   unit_price_cents: number;%0A+   currency: string;%0A+   created_at: string;%0A+   customers?: { email?: string | null; name?: string | null } | null;%0A+ }%0A+%0A+ interface StagedAllocationRow {%0A+   preorder_id: string;%0A+   allocated_qty: number;%0A+   refund_cents: number;%0A+   payment_id: string;%0A+   provider_charge_id: string;%0A+   currency: string;%0A+ }%0A+%0A+ export async function listPreorderAllocationSkus(%0A+   supabase: SupabaseClient%0A+ ): Promise<PreorderAllocationSkuOption[]> {%0A+   const { data: preorders, error } = await supabase%0A+     .from("preorders")%0A+     .select("sku_id")%0A+     .eq("channel", "b2c")%0A+     .eq("status", "paid");%0A+   if (error) throw new Error(error.message);%0A+%0A+   const countBySku = new Map<string, number>();%0A+   for (const row of preorders ?? []) {%0A+     const skuId = String(row.sku_id);%0A+     countBySku.set(skuId, (countBySku.get(skuId) ?? 0) + 1);%0A+   }%0A+   const skuIds = [...countBySku.keys()];%0A+   if (skuIds.length === 0) return [];%0A+%0A+   const { data: skus, error: skuError } = await supabase%0A+     .from("booster_box_skus")%0A+     .select("id, sku, product_variants(products(name))")%0A+     .in("id", skuIds)%0A+     .order("sku");%0A+   if (skuError) throw new Error(skuError.message);%0A+%0A+   return (skus ?? []).map((row) => {%0A+     const variant = one(row.product_variants as unknown);%0A+     const product = one((variant as { products?: unknown } | null)?.products as unknown) as {%0A+       name?: string;%0A+     } | null;%0A+     return {%0A+       skuId: String(row.id),%0A+       sku: String(row.sku),%0A+       productName: product?.name ?? "Unknown product",%0A+       preorderCount: countBySku.get(String(row.id)) ?? 0,%0A+     };%0A+   });%0A+ }%0A+%0A+ export async function previewPreorderAllocationForSku(%0A+   supabase: SupabaseClient,%0A+   skuId: string%0A+ ): Promise<PreorderAllocationPreview> {%0A+   const parsedSkuId = z.string().uuid().parse(skuId);%0A+   const [inventory, rules, preorders, sku] = await Promise.all([%0A+     loadInventoryCapacity(supabase, parsedSkuId),%0A+     loadAllocationRules(supabase, parsedSkuId),%0A+     loadPaidPreorders(supabase, parsedSkuId),%0A+     loadSkuLabel(supabase, parsedSkuId),%0A+   ]);%0A+%0A+   if (preorders.length === 0) {%0A+     throw badRequest("No fully paid preorders are awaiting allocation");%0A+   }%0A+%0A+   const availableQty = Math.max(%0A+     0,%0A+     inventory.on_hand + inventory.incoming - inventory.allocated - inventory.safety_stock%0A+   );%0A+   const pending: PendingPreorder[] = preorders.map((preorder, position) => ({%0A+     preorderId: preorder.id,%0A+     customerId: preorder.customer_id,%0A+     channel: "b2c",%0A+     quantity: preorder.quantity,%0A+     position,%0A+   }));%0A+   const allocatedByPreorder = new Map(%0A+     allocate(availableQty, rules, pending).map((allocation) => [%0A+       allocation.preorderId,%0A+       allocation.allocated,%0A+     ])%0A+   );%0A+%0A+   const rows: PreorderAllocationPreviewRow[] = preorders.map((preorder) => {%0A+     const allocatedQty = allocatedByPreorder.get(preorder.id) ?? 0;%0A+     const customer = one(preorder.customers as unknown) as {%0A+       email?: string | null;%0A+       name?: string | null;%0A+     } | null;%0A+     return {%0A+       preorderId: preorder.id,%0A+       customerId: preorder.customer_id,%0A+       customerLabel: customer?.name || customer?.email || preorder.customer_id,%0A+       requestedQty: preorder.quantity,%0A+       allocatedQty,%0A+       refundCents: (preorder.quantity - allocatedQty) * preorder.unit_price_cents,%0A+       unitPriceCents: preorder.unit_price_cents,%0A+       currency: preorder.currency,%0A+       createdAt: preorder.created_at,%0A+     };%0A+   });%0A+%0A+   const currency = rows[0]?.currency ?? "SGD";%0A+   if (rows.some((row) => row.currency !== currency)) {%0A+     throw conflict("Allocation queue contains mixed currencies");%0A+   }%0A+%0A+   const fingerprint = createHash("sha256")%0A+     .update(%0A+       JSON.stringify({%0A+         skuId: parsedSkuId,%0A+         availableQty,%0A+         rows: rows.map((row) => ({%0A+           preorderId: row.preorderId,%0A+           requestedQty: row.requestedQty,%0A+           allocatedQty: row.allocatedQty,%0A+           unitPriceCents: row.unitPriceCents,%0A+           createdAt: row.createdAt,%0A+         })),%0A+       })%0A+     )%0A+     .digest("hex");%0A+%0A+   return {%0A+     skuId: parsedSkuId,%0A+     sku: sku.sku,%0A+     productName: sku.productName,%0A+     availableQty,%0A+     requestedQty: rows.reduce((sum, row) => sum + row.requestedQty, 0),%0A+     allocatedQty: rows.reduce((sum, row) => sum + row.allocatedQty, 0),%0A+     refundCents: rows.reduce((sum, row) => sum + row.refundCents, 0),%0A+     currency,%0A+     fingerprint,%0A+     rows,%0A+   };%0A+ }%0A+%0A+ export async function executePreorderAllocationForSku(%0A+   supabase: SupabaseClient,%0A+   hitpay: HitPayClient,%0A+   input: { skuId: string; fingerprint: string; actor: string }%0A+ ): Promise<PreorderAllocationExecution> {%0A+   const parsed = preorderAllocationRequestSchema.parse(input);%0A+   let staged = await loadStagedAllocations(supabase, parsed.skuId, parsed.fingerprint);%0A+%0A+   if (staged.length === 0) {%0A+     const preview = await previewPreorderAllocationForSku(supabase, parsed.skuId);%0A+     if (preview.fingerprint !== parsed.fingerprint) {%0A+       throw conflict(%0A+         "The preorder queue or available stock changed. Review a fresh allocation preview."%0A+       );%0A+     }%0A+%0A+     const { data, error } = await supabase.rpc("stage_preorder_allocations", {%0A+       p_sku_id: parsed.skuId,%0A+       p_allocations: preview.rows.map((row) => ({%0A+         preorder_id: row.preorderId,%0A+         allocated: row.allocatedQty,%0A+       })),%0A+       p_fingerprint: parsed.fingerprint,%0A+       p_actor: input.actor,%0A+     });%0A+     if (error) throw new Error(error.message);%0A+     staged = (data ?? []) as StagedAllocationRow[];%0A+   }%0A+%0A+   if (staged.length === 0) {%0A+     throw conflict("No preorder allocation remains to be confirmed");%0A+   }%0A+%0A+   let refundsCreated = 0;%0A+   let refundCents = 0;%0A+   let finalized = 0;%0A+%0A+   for (const row of staged) {%0A+     let refundId: string | null = null;%0A+     let refundStatus: string | null = null;%0A+%0A+     if (row.refund_cents > 0) {%0A+       if (!row.provider_charge_id) {%0A+         throw conflict(`HitPay charge is missing for preorder ${row.preorder_id}`);%0A+       }%0A+       const refund = await hitpay.createRefund({%0A+         paymentId: row.provider_charge_id,%0A+         amountCents: row.refund_cents,%0A+       });%0A+       const normalizedStatus = hitPayRefundStatus(refund.status);%0A+       if (normalizedStatus === "failed") {%0A+         throw conflict(`HitPay rejected the allocation refund for preorder ${row.preorder_id}`);%0A+       }%0A+       refundId = refund.id;%0A+       refundStatus = normalizedStatus;%0A+       refundsCreated += 1;%0A+       refundCents += row.refund_cents;%0A+     }%0A+%0A+     const { error } = await supabase.rpc("finalize_preorder_allocation", {%0A+       p_preorder_id: row.preorder_id,%0A+       p_provider_refund_id: refundId,%0A+       p_refund_status: refundStatus,%0A+       p_actor: input.actor,%0A+     });%0A+     if (error) throw new Error(error.message);%0A+     finalized += 1;%0A+   }%0A+%0A+   return { finalized, refundsCreated, refundCents };%0A+ }%0A+%0A+ async function loadInventoryCapacity(%0A+   supabase: SupabaseClient,%0A+   skuId: string%0A+ ): Promise<InventoryCapacityRow> {%0A+   const { data, error } = await supabase%0A+     .from("inventory")%0A+     .select("on_hand, incoming, allocated, safety_stock")%0A+     .eq("sku_id", skuId)%0A+     .eq("location", "main")%0A+     .maybeSingle();%0A+   if (error) throw new Error(error.message);%0A+   if (!data) throw badRequest("Inventory is not available for allocation");%0A+   return data as InventoryCapacityRow;%0A+ }%0A+%0A+ async function loadAllocationRules(%0A+   supabase: SupabaseClient,%0A+   skuId: string%0A+ ): Promise<AllocationRule[]> {%0A+   const { data, error } = await supabase%0A+     .from("allocation_rules")%0A+     .select("priority, reserve_quantity, max_per_customer")%0A+     .eq("sku_id", skuId)%0A+     .eq("channel", "b2c")%0A+     .eq("active", true)%0A+     .order("priority", { ascending: true });%0A+   if (error) throw new Error(error.message);%0A+%0A+   const rows = (data ?? []) as AllocationRuleRow[];%0A+   if (rows.length === 0) {%0A+     return [{ priority: 10, channel: "b2c", reserveQuantity: 0, maxPerCustomer: null }];%0A+   }%0A+   return rows.map((row) => ({%0A+     priority: row.priority,%0A+     channel: "b2c",%0A+     reserveQuantity: row.reserve_quantity,%0A+     maxPerCustomer: row.max_per_customer,%0A+   }));%0A+ }%0A+%0A+ async function loadPaidPreorders(supabase: SupabaseClient, skuId: string): Promise<PreorderRow[]> {%0A+   const { data, error } = await supabase%0A+     .from("preorders")%0A+     .select(%0A+       "id, customer_id, quantity, unit_price_cents, currency, created_at, customers(email, name)"%0A+     )%0A+     .eq("sku_id", skuId)%0A+     .eq("channel", "b2c")%0A+     .eq("status", "paid")%0A+     .order("created_at", { ascending: true })%0A+     .order("id", { ascending: true });%0A+   if (error) throw new Error(error.message);%0A+   return (data ?? []) as unknown as PreorderRow[];%0A+ }%0A+%0A+ async function loadSkuLabel(%0A+   supabase: SupabaseClient,%0A+   skuId: string%0A+ ): Promise<{ sku: string; productName: string }> {%0A+   const { data, error } = await supabase%0A+     .from("booster_box_skus")%0A+     .select("sku, product_variants(products(name))")%0A+     .eq("id", skuId)%0A+     .maybeSingle();%0A+   if (error) throw new Error(error.message);%0A+   if (!data) throw badRequest("SKU not found");%0A+%0A+   const variant = one(data.product_variants as unknown) as { products?: unknown } | null;%0A+   const product = one(variant?.products as unknown) as { name?: string } | null;%0A+   return { sku: String(data.sku), productName: product?.name ?? "Unknown product" };%0A+ }%0A+%0A+ async function loadStagedAllocations(%0A+   supabase: SupabaseClient,%0A+   skuId: string,%0A+   fingerprint: string%0A+ ): Promise<StagedAllocationRow[]> {%0A+   const { data: preorders, error } = await supabase%0A+     .from("preorders")%0A+     .select("id, allocated_qty, allocation_refund_cents, currency")%0A+     .eq("sku_id", skuId)%0A+     .eq("allocation_fingerprint", fingerprint)%0A+     .in("status", ["allocated", "refund_pending"])%0A+     .order("created_at", { ascending: true });%0A+   if (error) throw new Error(error.message);%0A+   if (!preorders?.length) return [];%0A+%0A+   const ids = preorders.map((preorder) => String(preorder.id));%0A+   const { data: payments, error: paymentError } = await supabase%0A+     .from("payments")%0A+     .select("id, preorder_id, provider_charge_id")%0A+     .in("preorder_id", ids)%0A+     .eq("provider", "hitpay")%0A+     .eq("kind", "full")%0A+     .eq("status", "captured");%0A+   if (paymentError) throw new Error(paymentError.message);%0A+   const paymentByPreorder = new Map(%0A+     (payments ?? []).map((payment) => [String(payment.preorder_id), payment])%0A+   );%0A+%0A+   return preorders.map((preorder) => {%0A+     const payment = paymentByPreorder.get(String(preorder.id));%0A+     if (!payment) {%0A+       throw conflict(`Captured HitPay payment is missing for preorder ${preorder.id}`);%0A+     }%0A+     if (!payment.provider_charge_id) {%0A+       throw conflict(`HitPay charge is missing for preorder ${preorder.id}`);%0A+     }%0A+     return {%0A+       preorder_id: String(preorder.id),%0A+       allocated_qty: Number(preorder.allocated_qty),%0A+       refund_cents: Number(preorder.allocation_refund_cents),%0A+       payment_id: String(payment.id),%0A+       provider_charge_id: String(payment.provider_charge_id),%0A+       currency: String(preorder.currency),%0A+     };%0A+   });%0A+ }%0A+%0A+ function one<T = unknown>(value: T | T[] | null | undefined): T | null {%0A+   if (Array.isArray(value)) return value[0] ?? null;%0A+   return value ?? null;%0A+ }%0A+%0A%0A ❯ tests/preorder-flow.test.ts:108:20%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/vercel-provisioned-secret-safety.test.ts,title=tests/vercel-provisioned-secret-safety.test.ts > Vercel provisioned secret safety > removes stale workflow webhook secrets and rotates only newly issued credentials,line=24,column=23::AssertionError: expected '#!/usr/bin/env node\nimport { spawnSy…' to contain 'delete provisionEnvironment.HITPAY_WE…'%0A%0A- Expected%0A+ Received%0A%0A- delete provisionEnvironment.HITPAY_WEBHOOK_SALT%0A+ #!/usr/bin/env node%0A+ import { spawnSync } from "node:child_process";%0A+ import { rm } from "node:fs/promises";%0A+%0A+ import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";%0A+ import { ENV_CONTRACT, loadLocalDotenv } from "./generate-env.mjs";%0A+ import {%0A+   buildEnvironmentWithVercelFallback,%0A+   fetchVercelEnvironmentRecords,%0A+   resolveVercelProjectContext,%0A+ } from "./lib/vercel-environment.mjs";%0A+%0A+ try {%0A+   await main();%0A+ } catch (error) {%0A+   fail(error?.message || String(error));%0A+ }%0A+%0A+ async function main() {%0A+   await loadLocalDotenv(process.env);%0A+   await applyVersionedEnvironmentConfig(process.env);%0A+%0A+   const providerMode = argumentValue("--providers") || "apply-if-configured";%0A+   if (!["skip", "plan", "apply", "apply-if-configured", "verify"].includes(providerMode)) {%0A+     fail(`Unsupported --providers mode: ${providerMode}`);%0A+   }%0A+   if (!/^(development|staging|production)$/.test(process.env.TARGET_ENV || "")) {%0A+     fail("TARGET_ENV must be development, staging, or production");%0A+   }%0A+%0A+   const vercelEnvironment = process.env.TARGET_ENV === "development" ? "preview" : "production";%0A+   const runtimePath = `.env.deploy-${process.pid}`;%0A+   const context = await resolveVercelProjectContext(process.env);%0A+   const records = await fetchVercelEnvironmentRecords({%0A+     ...context,%0A+     target: vercelEnvironment,%0A+     decrypt: true,%0A+   });%0A+   const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);%0A+   const provisionEnvironment = buildEnvironmentWithVercelFallback({%0A+     records,%0A+     runtimeKeys,%0A+     baseEnv: process.env,%0A+     target: vercelEnvironment,%0A+   });%0A+   for (const [key, value] of Object.entries(provisionEnvironment)) {%0A+     process.env[key] = value;%0A+   }%0A+   process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";%0A+%0A+   try {%0A+     if (providerMode !== "skip") {%0A+       run(process.execPath, ["scripts/configure-providers.mjs", `--${providerMode}`]);%0A+     }%0A+%0A+     run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);%0A+     run(process.execPath, [%0A+       "scripts/generate-env.mjs",%0A+       "--write",%0A+       runtimePath,%0A+       "--allow-missing-provisioned",%0A+     ]);%0A+     run(process.execPath, [%0A+       "scripts/sync-vercel-env.mjs",%0A+       runtimePath,%0A+       "--preserve-unset-optional",%0A+     ]);%0A+     console.log(`Runtime environment ${process.env.TARGET_ENV} reconciled successfully.`);%0A+   } finally {%0A+     await rm(runtimePath, { force: true });%0A+   }%0A+ }%0A+%0A+ function argumentValue(flag) {%0A+   const index = process.argv.indexOf(flag);%0A+   return index >= 0 ? process.argv[index + 1] || "" : "";%0A+ }%0A+%0A+ function run(command, args, options = {}) {%0A+   const printable = [command, ...args].map(redactArgument).join(" ");%0A+   console.log(`\n$ ${printable}`);%0A+   const result = spawnSync(command, args, {%0A+     env: options.env || process.env,%0A+     stdio: "inherit",%0A+   });%0A+   if (result.error) fail(`${printable} failed to start: ${result.error.message}`);%0A+   if (result.status !== 0) fail(`${printable} failed with exit code ${result.status}`);%0A+   return result;%0A+ }%0A+%0A+ function redactArgument(value) {%0A+   return value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value;%0A+ }%0A+%0A+ function fail(message) {%0A+   console.error(message);%0A+   process.exit(1);%0A+ }%0A+%0A%0A ❯ tests/vercel-provisioned-secret-safety.test.ts:24:23%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/vercel-provisioned-secret-safety.test.ts,title=tests/vercel-provisioned-secret-safety.test.ts > Vercel provisioned secret safety > keeps readiness checks non-mutating for optional and provisioned sensitive values,line=34,column=20::AssertionError: expected '#!/usr/bin/env node\nimport { spawnSy…' to contain 'delete verificationEnvironment.HITPAY…'%0A%0A- Expected%0A+ Received%0A%0A- delete verificationEnvironment.HITPAY_WEBHOOK_SALT%0A+ #!/usr/bin/env node%0A+ import { spawnSync } from "node:child_process";%0A+ import { rm } from "node:fs/promises";%0A+%0A+ import { ENV_CONTRACT } from "./generate-env.mjs";%0A+ import {%0A+   buildEnvironmentWithVercelFallback,%0A+   fetchVercelEnvironmentRecords,%0A+   resolveVercelProjectContext,%0A+ } from "./lib/vercel-environment.mjs";%0A+ import { buildVercelProtectionHeaders } from "./lib/vercel-protection.mjs";%0A+%0A+ const targetEnv = process.env.TARGET_ENV;%0A+ const skipHealth = process.argv.includes("--skip-health");%0A+ const runtimePath = `.env.readiness-${process.pid}`;%0A+ const planPath = `infra/terraform/platform/.terraform-readiness-${process.pid}.tfplan`;%0A+%0A+ try {%0A+   await main();%0A+ } catch (error) {%0A+   console.error(error?.message || String(error));%0A+   process.exitCode = 1;%0A+ }%0A+%0A+ async function main() {%0A+   if (!/^(development|staging|production)$/.test(targetEnv || "")) {%0A+     throw new Error("TARGET_ENV must be development, staging, or production");%0A+   }%0A+%0A+   const vercelEnvironment = targetEnv === "development" ? "preview" : "production";%0A+   const context = await resolveVercelProjectContext(process.env);%0A+   const records = await fetchVercelEnvironmentRecords({%0A+     ...context,%0A+     target: vercelEnvironment,%0A+     decrypt: true,%0A+   });%0A+   const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);%0A+   const verificationEnvironment = buildEnvironmentWithVercelFallback({%0A+     records,%0A+     runtimeKeys,%0A+     baseEnv: process.env,%0A+     target: vercelEnvironment,%0A+   });%0A+   const siteUrl = verificationEnvironment.NEXT_PUBLIC_SITE_URL;%0A+   if (!siteUrl && !skipHealth) {%0A+     throw new Error("NEXT_PUBLIC_SITE_URL is required unless --skip-health is used");%0A+   }%0A+   process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";%0A+%0A+   try {%0A+     const plan = run(%0A+       "terraform",%0A+       [%0A+         "-chdir=infra/terraform/platform",%0A+         "plan",%0A+         "-input=false",%0A+         "-detailed-exitcode",%0A+         `-out=.terraform-readiness-${process.pid}.tfplan`,%0A+       ],%0A+       { allowedStatuses: [0, 2] }%0A+     );%0A+     if (plan.status === 2) {%0A+       throw new Error(%0A+         "Terraform drift detected. Reconcile and apply a reviewed exact plan before release."%0A+       );%0A+     }%0A+%0A+     run(process.execPath, ["scripts/configure-providers.mjs", "--verify"], {%0A+       env: verificationEnvironment,%0A+     });%0A+     run(%0A+       process.execPath,%0A+       ["scripts/generate-env.mjs", "--write", runtimePath, "--allow-missing-provisioned"],%0A+       { env: verificationEnvironment }%0A+     );%0A+     run(%0A+       process.execPath,%0A+       ["scripts/sync-vercel-env.mjs", runtimePath, "--check-only", "--preserve-unset-optional"],%0A+       { env: verificationEnvironment }%0A+     );%0A+%0A+     if (!skipHealth) {%0A+       await checkHealth(new URL("/api/health", siteUrl));%0A+       if (targetEnv !== "development") {%0A+         await checkHealth(new URL("/api/health?deep=1", siteUrl));%0A+       }%0A+     }%0A+     console.log(%0A+       `Environment ${targetEnv} is release-ready: no Terraform, HitPay, or OAuth provider drift was detected, the runtime contract is satisfied, and health checks ${skipHealth ? "were skipped" : "passed"}.`%0A+     );%0A+   } finally {%0A+     await Promise.all([rm(runtimePath, { force: true }), rm(planPath, { force: true })]);%0A+   }%0A+ }%0A+%0A+ async function checkHealth(url) {%0A+   let lastError;%0A+   for (let attempt = 1; attempt <= 5; attempt += 1) {%0A+     try {%0A+       const response = await fetch(url, {%0A+         headers: buildVercelProtectionHeaders(),%0A+         redirect: "manual",%0A+       });%0A+       if (response.ok) return;%0A+       lastError = healthError(url, response);%0A+     } catch (error) {%0A+       lastError = error;%0A+     }%0A+     await new Promise((resolve) => setTimeout(resolve, attempt * 1000));%0A+   }%0A+   throw lastError || new Error(`Health check failed for ${url}`);%0A+ }%0A+%0A+ function healthError(url, response) {%0A+   if (response.status >= 300 && response.status < 400) {%0A+     const protectionHint = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim()%0A+       ? "Verify that VERCEL_AUTOMATION_BYPASS_SECRET matches Vercel's Protection Bypass for Automation secret."%0A+       : "Configure the environment-scoped VERCEL_AUTOMATION_BYPASS_SECRET GitHub secret from Vercel's Protection Bypass for Automation setting.";%0A+     return new Error(%0A+       `${url.pathname}${url.search} returned HTTP ${response.status}. Redirects are rejected so an authentication page cannot pass readiness verification. ${protectionHint}`%0A+     );%0A+   }%0A+   return new Error(`${url.pathname}${url.search} returned HTTP ${response.status}`);%0A+ }%0A+%0A+ function run(command, args, options = {}) {%0A+   const printable = [command, ...args]%0A+     .map((value) => (value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value))%0A+     .join(" ");%0A+   console.log(`\n$ ${printable}`);%0A+   const result = spawnSync(command, args, {%0A+     env: options.env || process.env,%0A+     stdio: "inherit",%0A+   });%0A+   if (result.error) throw new Error(`${command} failed to start: ${result.error.message}`);%0A+   const allowedStatuses = options.allowedStatuses || [0];%0A+   if (!allowedStatuses.includes(result.status ?? 1)) {%0A+     throw new Error(`${command} failed with exit code ${result.status}`);%0A+   }%0A+   return result;%0A+ }%0A+%0A%0A ❯ tests/vercel-provisioned-secret-safety.test.ts:34:20%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/vercel-sensitive-environment.test.ts,title=tests/vercel-sensitive-environment.test.ts > Vercel sensitive runtime environment > does not replace a matching HitPay webhook when Vercel stores an unreadable signing secret,line=285,column=34::Error: file:///home/runner/work/marketplace/marketplace/[eval1]:4%0A        desiredHitPayWebhookMetadata,%0A        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^%0ASyntaxError: The requested module './scripts/lib/hitpay-webhook.mjs' does not provide an export named 'desiredHitPayWebhookMetadata'%0A    at ModuleJob._instantiate (node:internal/modules/esm/module_job:220:21)%0A    at async ModuleJob.run (node:internal/modules/esm/module_job:321:5)%0A    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:268:26)%0A    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:264:20)%0A    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)%0A%0ANode.js v22.17.0%0A%0A ❯ runModule tests/vercel-sensitive-environment.test.ts:285:34%0A ❯ tests/vercel-sensitive-environment.test.ts:211:20%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/vercel-sensitive-environment.test.ts,title=tests/vercel-sensitive-environment.test.ts > Vercel sensitive runtime environment > uses authoritative API reads and avoids vercel env run precedence,line=273,column=23::AssertionError: expected '#!/usr/bin/env node\nimport { inspect…' to contain 'requireSigningSecret: !storedSigningS…'%0A%0A- Expected%0A+ Received%0A%0A- requireSigningSecret: !storedSigningSecretPresent%0A+ #!/usr/bin/env node%0A+ import { inspect } from "node:util";%0A+%0A+ import {%0A+   buildHitPayWebhookConfig,%0A+   listHitPayWebhooks,%0A+   reconcileHitPayWebhook,%0A+   verifyHitPayWebhook,%0A+ } from "./lib/hitpay-webhook.mjs";%0A+%0A+ const args = new Set(process.argv.slice(2));%0A+ const mode = args.has("--apply")%0A+   ? "apply"%0A+   : args.has("--apply-if-configured")%0A+     ? "apply-if-configured"%0A+     : args.has("--verify")%0A+       ? "verify"%0A+       : "plan";%0A+ const config = buildHitPayWebhookConfig(process.env);%0A+ const missing = [%0A+   ["HITPAY_API_KEY", config.apiKey],%0A+   ["NEXT_PUBLIC_SITE_URL", config.siteUrl],%0A+   ["TARGET_ENV", config.targetEnv],%0A+ ]%0A+   .filter(([, value]) => !value)%0A+   .map(([key]) => key);%0A+%0A+ try {%0A+   if (missing.length > 0 && mode === "apply-if-configured") {%0A+     console.log(`HitPay webhook configuration skipped. Missing: ${missing.join(", ")}`);%0A+     process.exit(0);%0A+   }%0A+   if (missing.length > 0) {%0A+     throw new Error(`HitPay webhook configuration is missing: ${missing.join(", ")}`);%0A+   }%0A+%0A+   if (mode === "plan") {%0A+     const webhooks = await listHitPayWebhooks(config);%0A+     console.log(%0A+       inspect(%0A+         {%0A+           webhookUrl: config.webhookUrl,%0A+           enabledEvents: config.enabledEvents,%0A+           existing:%0A+             webhooks.find(%0A+               (item) => item.id === config.webhookId || item.url === config.webhookUrl%0A+             ) || null,%0A+         },%0A+         { colors: false, depth: null }%0A+       )%0A+     );%0A+   } else if (mode === "verify") {%0A+     const webhook = await verifyHitPayWebhook(config);%0A+     console.log(`HitPay webhook verified: ${webhook.id || webhook.url}`);%0A+   } else {%0A+     const result = await reconcileHitPayWebhook(config);%0A+     console.log(`HitPay webhook ${result.action}: ${result.webhook.id || result.webhook.url}`);%0A+     await verifyHitPayWebhook(config);%0A+   }%0A+ } catch (error) {%0A+   const message = String(error?.message || error);%0A+   console.error(%0A+     config.apiKey ? message.replaceAll(config.apiKey, "[redacted-hitpay-api-key]") : message%0A+   );%0A+   process.exit(1);%0A+ }%0A+%0A%0A ❯ tests/vercel-sensitive-environment.test.ts:273:23%0A%0A
