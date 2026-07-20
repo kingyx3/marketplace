@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireControlPermission } from "@/lib/control-access";
+import { createHitPayClient } from "@/lib/hitpay";
 import { executePreorderAllocationForSku } from "@/lib/preorders";
-import { createStripeClient } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function confirmPreorderAllocation(formData: FormData): Promise<void> {
@@ -28,7 +28,7 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
   try {
     const result = await executePreorderAllocationForSku(
       createServiceClient(),
-      createStripeClient(),
+      createHitPayClient(),
       {
         skuId,
         fingerprint,
@@ -54,7 +54,7 @@ function allocationErrorCode(error: unknown): string {
   if (message.includes("changed") || message.includes("stale") || message.includes("refresh")) {
     return "stale-preview";
   }
-  if (message.includes("stripe") || message.includes("refund")) return "refund-failed";
+  if (message.includes("hitpay") || message.includes("refund")) return "refund-failed";
   if (message.includes("payment")) return "payment-missing";
   return "allocation-failed";
 }
