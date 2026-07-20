@@ -1,0 +1,4 @@
+lint=0
+typecheck=2
+unit_tests=1
+config_check=1
