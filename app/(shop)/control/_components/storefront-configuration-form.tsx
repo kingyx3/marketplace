@@ -2,7 +2,10 @@ import {
   AdminTextField,
   AdminTextareaField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlSaveButton } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { upsertStorefrontConfiguration } from "@/app/actions/admin";
 
 export interface StorefrontConfigurationRecord {
@@ -19,7 +22,18 @@ export function StorefrontConfigurationForm({
   configuration: StorefrontConfigurationRecord;
 }) {
   return (
-    <form action={upsertStorefrontConfiguration} className="grid gap-5">
+    <ControlActionForm
+      action={upsertStorefrontConfiguration}
+      className="grid gap-5"
+      confirmation={{
+        title: "Save storefront configuration?",
+        description:
+          "This changes customer-facing storefront behavior. Confirm that the JSON and active state are correct.",
+        confirmLabel: "Save configuration",
+      }}
+      errorMessage="The storefront configuration could not be saved. The JSON and other entries have been preserved."
+      successMessage="Storefront configuration saved."
+    >
       <div className="grid gap-4 md:grid-cols-2">
         <AdminTextField
           defaultValue={configuration.key}
@@ -72,6 +86,6 @@ export function StorefrontConfigurationForm({
         </label>
         <ControlSaveButton>Save configuration</ControlSaveButton>
       </div>
-    </form>
+    </ControlActionForm>
   );
 }

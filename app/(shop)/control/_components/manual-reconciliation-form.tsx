@@ -2,6 +2,10 @@ import {
   AdminNumberField,
   AdminTextField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
+import {
+  ControlActionForm,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { runAdminOrderAction } from "@/app/actions/admin";
 
 export function ManualReconciliationForm({
@@ -12,7 +16,21 @@ export function ManualReconciliationForm({
   providerPaymentId?: string | null;
 }) {
   return (
-    <form action={runAdminOrderAction} className="grid gap-4 sm:grid-cols-2">
+    <ControlActionForm
+      action={runAdminOrderAction}
+      className="grid gap-4 sm:grid-cols-2"
+      confirmation={{
+        title: "Record manual payment reconciliation?",
+        description:
+          "This writes an audited payment reconciliation against the order. Verify the Stripe reference, amount, currency, and reason against the provider dashboard.",
+        confirmLabel: "Record reconciliation",
+        requireText: "RECONCILE",
+        tone: "danger",
+      }}
+      errorMessage="The reconciliation could not be recorded. All payment details have been preserved for review."
+      successHref="/control/finance"
+      successMessage="Audited payment reconciliation recorded."
+    >
       <input name="action" type="hidden" value="record_manual_reconciliation" />
       <input name="provider" type="hidden" value="stripe" />
       <AdminTextField
@@ -56,9 +74,11 @@ export function ManualReconciliationForm({
           required
         />
       </div>
-      <button className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 sm:col-span-2">
-        Record audited reconciliation
-      </button>
-    </form>
+      <div className="sm:col-span-2">
+        <ControlSaveButton pendingLabel="Recording reconciliation…">
+          Record audited reconciliation
+        </ControlSaveButton>
+      </div>
+    </ControlActionForm>
   );
 }

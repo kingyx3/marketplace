@@ -98,7 +98,8 @@ describe("customer account management", () => {
     expect(detailPage).toContain('hasControlPermission(staff, "customers.manage")');
     expect(detailPage).toContain("CustomerLifecycleControl");
     expect(detailPage).toContain("retained for audit only");
-    expect(control).toContain("useActionState");
+    expect(control).toContain("ControlActionForm");
+    expect(control).toContain('requireText: "DISABLE"');
     expect(control).toContain("Restore account");
     expect(control).toContain('name="confirmDisable"');
     expect(action).toContain('ban_duration: deleted ? LONG_BAN_DURATION : "none"');

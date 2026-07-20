@@ -1,4 +1,8 @@
-import { ControlBackLink } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlBackLink,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { confirmPreorderAllocation } from "@/app/actions/preorder-allocation";
@@ -75,9 +79,18 @@ export default async function AllocationPage({
           </tbody>
         </table>
       </div>
-      <form
+      <ControlActionForm
         action={confirmPreorderAllocation}
         className="rounded-lg border border-amber-200 bg-amber-50 p-5"
+        confirmation={{
+          title: "Finalize allocation and refunds?",
+          description: `This finalizes ${preview.allocatedQty} allocated units and creates ${formatMoney(preview.refundCents, preview.currency)} in Stripe refunds. The reviewed fingerprint must still match.`,
+          confirmLabel: "Finalize allocation",
+          requireText: "ALLOCATE",
+          tone: "danger",
+        }}
+        errorMessage="The allocation could not be finalized. The preview remains open; refresh it before retrying."
+        successMessage="Allocation finalized and required refunds submitted."
       >
         <input name="skuId" type="hidden" value={preview.skuId} />
         <input name="fingerprint" type="hidden" value={preview.fingerprint} />
@@ -88,10 +101,12 @@ export default async function AllocationPage({
             and sends Stripe refunds for every unallocated unit.
           </span>
         </label>
-        <button className="mt-4 min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
-          Confirm allocation and refunds
-        </button>
-      </form>
+        <div className="mt-4">
+          <ControlSaveButton pendingLabel="Finalizing allocation…">
+            Confirm allocation and refunds
+          </ControlSaveButton>
+        </div>
+      </ControlActionForm>
     </div>
   );
 }

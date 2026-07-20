@@ -99,6 +99,7 @@ export function ProductImageUploader({ productId }: { productId: string }) {
       });
 
       form.reset();
+      form.dataset.dirty = "false";
       setPhase("success");
       setMessage("Product image uploaded successfully.");
       router.refresh();
@@ -109,7 +110,16 @@ export function ProductImageUploader({ productId }: { productId: string }) {
   }
 
   return (
-    <form className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" onSubmit={submitImage}>
+    <form
+      aria-busy={busy}
+      className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
+      data-admin-form="true"
+      data-dirty="false"
+      onInputCapture={(event) => {
+        event.currentTarget.dataset.dirty = "true";
+      }}
+      onSubmit={submitImage}
+    >
       <AdminFileField
         accept="image/jpeg,image/png,image/webp,image/avif"
         disabled={busy}

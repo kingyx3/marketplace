@@ -4,7 +4,12 @@ import {
   AdminNumberField,
   AdminTextField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlBackLink,
+  ControlData,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { setSkuPrice } from "@/app/actions/pricing";
@@ -90,7 +95,18 @@ export default async function SkuPricePage({ params }: { params: Promise<{ skuId
           <p className="mt-1 text-sm text-zinc-600">
             Saving closes the current version and creates a new auditable price.
           </p>
-          <form action={setSkuPrice} className="mt-5 grid gap-4 sm:grid-cols-2">
+          <ControlActionForm
+            action={setSkuPrice}
+            className="mt-5 grid gap-4 sm:grid-cols-2"
+            confirmation={{
+              title: "Create new price version?",
+              description:
+                "This closes the current price version and immediately creates an auditable replacement that can affect storefront orders.",
+              confirmLabel: "Create price version",
+            }}
+            errorMessage="The new price could not be saved. Your price and currency entries have been preserved."
+            successMessage="New price version created."
+          >
             <input name="skuId" type="hidden" value={skuId} />
             <AdminNumberField
               defaultValue={current?.price_cents}
@@ -118,10 +134,10 @@ export default async function SkuPricePage({ params }: { params: Promise<{ skuId
               patternMessage="Currency must be a 3-letter code, such as SGD."
               required
             />
-            <button className="min-h-11 self-end rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
-              Save new price
-            </button>
-          </form>
+            <div className="self-end">
+              <ControlSaveButton pendingLabel="Saving price…">Save new price</ControlSaveButton>
+            </div>
+          </ControlActionForm>
         </section>
       ) : (
         <p className="rounded-xl border border-zinc-200 bg-white p-5 text-sm text-zinc-600">

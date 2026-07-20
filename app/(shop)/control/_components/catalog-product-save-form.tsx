@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -29,6 +29,7 @@ export function CatalogProductSaveForm({
   sets: ControlSetOption[];
 }) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, pending] = useActionState(
     saveCatalogProduct,
     initialCatalogProductActionState
@@ -43,14 +44,32 @@ export function CatalogProductSaveForm({
   const [description, setDescription] = useState(product.description ?? "");
 
   useEffect(() => {
-    if (state.status === "success") router.refresh();
+    if (state.status === "success") {
+      if (formRef.current) formRef.current.dataset.dirty = "false";
+      router.refresh();
+    }
   }, [router, state.status, state.message]);
 
   return (
-    <form action={formAction} className="grid gap-4">
+    <form
+      action={formAction}
+      aria-busy={pending}
+      className="grid gap-4"
+      data-admin-form="true"
+      data-dirty="false"
+      onInputCapture={(event) => {
+        event.currentTarget.dataset.dirty = "true";
+      }}
+      ref={formRef}
+    >
       <input name="productId" type="hidden" value={product.id} />
       <AdminTextField
         example="Pokémon Destined Rivals Booster Box"
+        externalError={
+          state.status === "error" && (state.field === "name" || state.field === "productIdentity")
+            ? state.message
+            : undefined
+        }
         hint="Changing this value regenerates the product slug when saved."
         label="Display name"
         maxLength={160}
@@ -63,6 +82,12 @@ export function CatalogProductSaveForm({
       <div className="grid gap-4 sm:grid-cols-3">
         <AdminSelectField
           example={categories[0]?.name ?? "Select a category"}
+          externalError={
+            state.status === "error" &&
+            (state.field === "category" || state.field === "productIdentity")
+              ? state.message
+              : undefined
+          }
           label="Category"
           name="categoryId"
           onValueChange={setCategoryId}
@@ -76,6 +101,11 @@ export function CatalogProductSaveForm({
         />
         <AdminSelectField
           example={sets[0] ? `${sets[0].name} (${sets[0].code})` : "Select a set"}
+          externalError={
+            state.status === "error" && (state.field === "set" || state.field === "productIdentity")
+              ? state.message
+              : undefined
+          }
           label="Set"
           name="setId"
           onValueChange={setSetId}
@@ -89,6 +119,12 @@ export function CatalogProductSaveForm({
         />
         <AdminSelectField
           example={productTypes[0]?.name ?? "Select a type"}
+          externalError={
+            state.status === "error" &&
+            (state.field === "productType" || state.field === "productIdentity")
+              ? state.message
+              : undefined
+          }
           label="Type"
           name="productType"
           onValueChange={setProductType}
@@ -104,6 +140,11 @@ export function CatalogProductSaveForm({
       <div className="grid gap-4 sm:grid-cols-[7rem_1fr_auto]">
         <AdminTextField
           example="EN"
+          externalError={
+            state.status === "error" && state.field === "productIdentity"
+              ? state.message
+              : undefined
+          }
           hint="Use a 2–8 letter language code."
           label="Language"
           maxLength={8}

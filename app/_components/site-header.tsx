@@ -64,6 +64,7 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
     document.documentElement.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnKeyDown);
     const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const menuButton = menuButtonRef.current;
 
     return () => {
       window.cancelAnimationFrame(focusFrame);
@@ -74,7 +75,7 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
         if (previouslyFocused?.isConnected) {
           previouslyFocused.focus();
         } else {
-          menuButtonRef.current?.focus();
+          menuButton?.focus();
         }
       });
     };

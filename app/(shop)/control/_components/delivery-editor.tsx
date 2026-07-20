@@ -3,6 +3,7 @@ import {
   AdminTextField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
 import {
+  ControlActionForm,
   ControlData,
   ControlSaveButton,
 } from "@/app/(shop)/control/_components/control-resource-ui";
@@ -78,10 +79,21 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
           <p className="mt-1 text-sm text-zinc-600">
             Mark the fully paid order as packing before arranging handoff.
           </p>
-          <form action={markDeliveryPacking} className="mt-4">
+          <ControlActionForm
+            action={markDeliveryPacking}
+            className="mt-4"
+            confirmation={{
+              title: "Mark order as packing?",
+              description:
+                "This advances the paid order into fulfilment and records the administrator action.",
+              confirmLabel: "Mark packing",
+            }}
+            errorMessage="The order could not be moved to packing. Refresh its payment status and try again."
+            successMessage="Order marked as packing."
+          >
             <input name="orderId" type="hidden" value={order.id} />
             <ControlSaveButton>Mark packing</ControlSaveButton>
-          </form>
+          </ControlActionForm>
         </section>
       ) : null}
 
@@ -95,7 +107,18 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
           <p className="mt-1 text-sm text-zinc-600">
             Confirm the carrier and recipient details before saving.
           </p>
-          <form action={arrangeDelivery} className="mt-5 grid gap-4">
+          <ControlActionForm
+            action={arrangeDelivery}
+            className="mt-5 grid gap-4"
+            confirmation={{
+              title: shipment ? "Update delivery arrangement?" : "Arrange delivery?",
+              description:
+                "The carrier and recipient address will be saved to the shipment and exposed to fulfilment operations. Verify them carefully.",
+              confirmLabel: shipment ? "Update arrangement" : "Arrange delivery",
+            }}
+            errorMessage="The delivery arrangement could not be saved. All carrier and address entries have been preserved."
+            successMessage="Delivery arrangement saved."
+          >
             <input name="orderId" type="hidden" value={order.id} />
             <div className="grid gap-4 sm:grid-cols-2">
               <AdminTextField
@@ -186,16 +209,24 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
             <div className="flex justify-end">
               <ControlSaveButton>Save arrangement</ControlSaveButton>
             </div>
-          </form>
+          </ControlActionForm>
         </section>
       ) : null}
 
       {shipment ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-zinc-950">Delivery status</h2>
-          <form
+          <ControlActionForm
             action={updateDeliveryStatus}
             className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+            confirmation={{
+              title: "Update delivery status?",
+              description:
+                "This customer-visible status change is audited. Verify the carrier state before confirming.",
+              confirmLabel: "Update status",
+            }}
+            errorMessage="The delivery status could not be updated. The selected status has been preserved."
+            successMessage="Delivery status updated."
           >
             <input name="orderId" type="hidden" value={order.id} />
             <input name="shipmentId" type="hidden" value={shipment.id} />
@@ -212,7 +243,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
               required
             />
             <ControlSaveButton>Update status</ControlSaveButton>
-          </form>
+          </ControlActionForm>
         </section>
       ) : null}
     </div>

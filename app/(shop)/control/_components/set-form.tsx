@@ -4,7 +4,10 @@ import {
   AdminTextField,
   AdminTextareaField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlSaveButton } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { upsertControlSet } from "@/app/actions/control";
 
 export interface CategoryOption {
@@ -44,7 +47,13 @@ export function SetForm({
   error?: string;
 }) {
   return (
-    <form action={upsertControlSet} className="grid gap-5">
+    <ControlActionForm
+      action={upsertControlSet}
+      className="grid gap-5"
+      errorMessage="The set could not be saved. Your entries are still here; review them and try again."
+      successHref="/control/catalog/sets"
+      successMessage={set ? "Set updated." : "Set created."}
+    >
       {set ? <input name="setId" type="hidden" value={set.id} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -146,7 +155,7 @@ export function SetForm({
         </label>
         <ControlSaveButton>{set ? "Save set" : "Create set"}</ControlSaveButton>
       </div>
-    </form>
+    </ControlActionForm>
   );
 }
 

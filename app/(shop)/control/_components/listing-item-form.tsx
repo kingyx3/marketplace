@@ -4,7 +4,10 @@ import {
   AdminTextField,
   AdminTextareaField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlSaveButton } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { upsertListingItem } from "@/app/actions/admin";
 
 export interface ListingItemRecord {
@@ -38,7 +41,12 @@ export function ListingItemForm({
   product: ListingProductRecord;
 }) {
   return (
-    <form action={upsertListingItem} className="grid gap-5">
+    <ControlActionForm
+      action={upsertListingItem}
+      className="grid gap-5"
+      errorMessage="The listing could not be saved. Your entries are still here; review them and try again."
+      successMessage="Listing configuration saved."
+    >
       <input name="productId" type="hidden" value={product.id} />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -160,7 +168,7 @@ export function ListingItemForm({
       <div className="flex justify-end">
         <ControlSaveButton>Save listing</ControlSaveButton>
       </div>
-    </form>
+    </ControlActionForm>
   );
 }
 

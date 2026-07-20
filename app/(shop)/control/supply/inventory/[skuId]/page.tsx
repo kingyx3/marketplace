@@ -5,7 +5,12 @@ import {
   AdminSelectField,
   AdminTextField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlBackLink,
+  ControlData,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { updateInventory } from "@/app/actions/admin";
@@ -55,7 +60,18 @@ export default async function InventoryRecordPage({
       {canAdjust ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
           <h2 className="font-semibold text-zinc-950">Adjust inventory</h2>
-          <form action={updateInventory} className="mt-5 grid gap-4 sm:grid-cols-2">
+          <ControlActionForm
+            action={updateInventory}
+            className="mt-5 grid gap-4 sm:grid-cols-2"
+            confirmation={{
+              title: "Apply inventory adjustment?",
+              description:
+                "Stock changes affect storefront availability and order allocation. Confirm the counts and audit reason before applying them.",
+              confirmLabel: "Apply adjustment",
+            }}
+            errorMessage="The stock adjustment could not be applied. Your counts and reason have been preserved."
+            successMessage="Inventory adjusted and storefront availability refreshed."
+          >
             <input name="skuId" type="hidden" value={row.skuId} />
             <AdminNumberField
               defaultValue={row.onHand}
@@ -103,10 +119,12 @@ export default async function InventoryRecordPage({
                 name="reasonNote"
               />
             </div>
-            <button className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 sm:col-span-2">
-              Save stock adjustment
-            </button>
-          </form>
+            <div className="sm:col-span-2">
+              <ControlSaveButton pendingLabel="Applying adjustment…">
+                Save stock adjustment
+              </ControlSaveButton>
+            </div>
+          </ControlActionForm>
         </section>
       ) : (
         <p className="rounded-xl border border-zinc-200 bg-white p-5 text-sm text-zinc-600">

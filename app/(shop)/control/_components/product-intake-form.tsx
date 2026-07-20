@@ -74,7 +74,15 @@ export function ProductIntakeForm({
   }
 
   return (
-    <form action={action} className="grid gap-5">
+    <form
+      action={action}
+      className="grid gap-5"
+      data-admin-form="true"
+      data-dirty="false"
+      onInputCapture={(event) => {
+        event.currentTarget.dataset.dirty = "true";
+      }}
+    >
       {state.status !== "idle" ? (
         <div
           className={

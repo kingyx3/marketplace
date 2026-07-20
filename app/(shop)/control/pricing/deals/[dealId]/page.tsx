@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import {
   ControlBackLink,
+  ControlActionForm,
   ControlDangerButton,
   ControlData,
 } from "@/app/(shop)/control/_components/control-resource-ui";
@@ -123,13 +124,26 @@ export default async function DealDetailPage({
           <p className="mt-1 text-sm text-zinc-600">
             The scheduled window still controls storefront eligibility when a deal is active.
           </p>
-          <form action={setLimitedTimeDealActive} className="mt-4">
+          <ControlActionForm
+            action={setLimitedTimeDealActive}
+            className="mt-4"
+            confirmation={{
+              title: deal.active ? "Deactivate promotion?" : "Activate promotion?",
+              description: deal.active
+                ? "The discount will stop applying to new eligible orders. Existing orders are unaffected."
+                : "The promotion can become customer-visible and affect eligible order pricing during its scheduled window.",
+              confirmLabel: deal.active ? "Deactivate deal" : "Activate deal",
+              tone: deal.active ? "danger" : "default",
+            }}
+            errorMessage="The promotion status could not be changed. Verify its schedule and pricing configuration."
+            successMessage={`Promotion ${deal.active ? "deactivated" : "activated"}.`}
+          >
             <input name="dealId" type="hidden" value={deal.id} />
             <input name="active" type="hidden" value={deal.active ? "false" : "true"} />
             <ControlDangerButton>
               {deal.active ? "Deactivate deal" : "Activate deal"}
             </ControlDangerButton>
-          </form>
+          </ControlActionForm>
         </section>
       ) : (
         <section className="rounded-xl border border-zinc-200 bg-white p-5 text-sm text-zinc-500 shadow-sm">

@@ -5,6 +5,8 @@ import {
   AdminTextField,
   AdminTextareaField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
+import { AdminSubmitButton } from "@/app/(shop)/control/_components/admin-action-form";
+import { ControlActionForm } from "@/app/(shop)/control/_components/control-resource-ui";
 import {
   setCatalogProductActive,
   setCatalogSkuActive,
@@ -53,7 +55,12 @@ export function CatalogProductEditor({
         </div>
       </div>
 
-      <form action={upsertCatalogProduct} className="grid gap-4">
+      <ControlActionForm
+        action={upsertCatalogProduct}
+        className="grid gap-4"
+        errorMessage="The product could not be saved. Your entries are still here; review them and try again."
+        successMessage="Product saved."
+      >
         <input name="productId" type="hidden" value={product.id} />
         <AdminTextField
           defaultValue={product.name}
@@ -139,12 +146,14 @@ export function CatalogProductEditor({
           name="description"
         />
         <SecondaryButton>Save product</SecondaryButton>
-      </form>
+      </ControlActionForm>
 
       <div className="mt-6 grid gap-4 border-t border-zinc-200 pt-6 sm:grid-cols-[1fr_auto] sm:items-end">
-        <form
+        <ControlActionForm
           action={uploadCatalogProductImage}
           className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
+          errorMessage="The image could not be uploaded. Choose a supported file and try again."
+          successMessage="Product image uploaded."
         >
           <input name="productId" type="hidden" value={product.id} />
           <AdminFileField
@@ -156,7 +165,7 @@ export function CatalogProductEditor({
             required
           />
           <SecondaryButton>Upload image</SecondaryButton>
-        </form>
+        </ControlActionForm>
         <ToggleForm
           action={setCatalogProductActive}
           active={product.active}
@@ -184,12 +193,17 @@ export function CatalogSkuManager({ product }: { product: ControlProductRow }) {
         </StatusBadge>
       </div>
 
-      <form action={upsertCatalogSku} className={editorClass}>
+      <ControlActionForm
+        action={upsertCatalogSku}
+        className={editorClass}
+        errorMessage="The SKU could not be created. Your entries are still here; review them and try again."
+        successMessage="SKU created."
+      >
         <input name="productId" type="hidden" value={product.id} />
         <h3 className="font-semibold text-zinc-950">Add SKU</h3>
         <SkuFields />
         <PrimaryButton>Create SKU</PrimaryButton>
-      </form>
+      </ControlActionForm>
 
       <div className="mt-6 grid gap-4">
         {product.skus.length === 0 ? (
@@ -218,12 +232,17 @@ function SkuEditor({ productId, sku }: { productId: string; sku: ControlCatalogS
         </StatusBadge>
       </div>
 
-      <form action={upsertCatalogSku} className="grid gap-4">
+      <ControlActionForm
+        action={upsertCatalogSku}
+        className="grid gap-4"
+        errorMessage="The SKU could not be saved. Your entries are still here; review them and try again."
+        successMessage="SKU saved."
+      >
         <input name="productId" type="hidden" value={productId} />
         <input name="skuId" type="hidden" value={sku.skuId} />
         <SkuFields sku={sku} />
         <SecondaryButton>Save SKU</SecondaryButton>
-      </form>
+      </ControlActionForm>
 
       <div className="mt-3">
         <ToggleForm
@@ -309,11 +328,23 @@ function ToggleForm({
   noun: string;
 }) {
   return (
-    <form action={action}>
+    <ControlActionForm
+      action={action}
+      confirmation={{
+        title: `${active ? "Archive" : "Restore"} ${noun}?`,
+        description: active
+          ? `Archiving this ${noun} can remove it from downstream availability.`
+          : `Restoring this ${noun} makes it available to downstream workflows again.`,
+        confirmLabel: active ? `Archive ${noun}` : `Restore ${noun}`,
+        tone: active ? "danger" : "default",
+      }}
+      errorMessage={`The ${noun} status could not be changed. Please try again.`}
+      successMessage={`${noun} ${active ? "archived" : "restored"}.`}
+    >
       <input name={idName} type="hidden" value={id} />
       <input name="active" type="hidden" value={active ? "false" : "true"} />
       <DangerButton>{active ? `Archive ${noun}` : `Restore ${noun}`}</DangerButton>
-    </form>
+    </ControlActionForm>
   );
 }
 
@@ -329,25 +360,34 @@ function BooleanField({ label, name, checked }: { label: string; name: string; c
 
 function PrimaryButton({ children }: { children: React.ReactNode }) {
   return (
-    <button className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700">
+    <AdminSubmitButton
+      className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+      pendingLabel="Creating…"
+    >
       {children}
-    </button>
+    </AdminSubmitButton>
   );
 }
 
 function SecondaryButton({ children }: { children: React.ReactNode }) {
   return (
-    <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700">
+    <AdminSubmitButton
+      className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+      pendingLabel="Saving…"
+    >
       {children}
-    </button>
+    </AdminSubmitButton>
   );
 }
 
 function DangerButton({ children }: { children: React.ReactNode }) {
   return (
-    <button className="min-h-10 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700">
+    <AdminSubmitButton
+      className="min-h-10 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+      pendingLabel="Working…"
+    >
       {children}
-    </button>
+    </AdminSubmitButton>
   );
 }
 

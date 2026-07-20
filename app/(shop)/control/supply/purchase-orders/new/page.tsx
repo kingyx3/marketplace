@@ -3,7 +3,11 @@ import {
   AdminSelectField,
   AdminTextField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlBackLink } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlBackLink,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { recordSupplierPurchaseOrder } from "@/app/actions/admin";
 import { requireControlPermission } from "@/lib/control-access";
@@ -28,7 +32,19 @@ export default async function NewPurchaseOrderPage() {
         title="Create purchase order"
       />
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-        <form action={recordSupplierPurchaseOrder} className="grid gap-4 sm:grid-cols-2">
+        <ControlActionForm
+          action={recordSupplierPurchaseOrder}
+          className="grid gap-4 sm:grid-cols-2"
+          confirmation={{
+            title: "Record supplier commitment?",
+            description:
+              "This creates a purchase order and immediately adds its quantity to incoming stock. Verify the supplier, SKU, quantity, and unit cost.",
+            confirmLabel: "Record purchase order",
+          }}
+          errorMessage="The purchase order could not be recorded. All entered values have been preserved."
+          successHref="/control/supply"
+          successMessage="Purchase order recorded and incoming stock updated."
+        >
           <AdminSelectField
             example="Select supplier"
             label="Supplier"
@@ -74,10 +90,12 @@ export default async function NewPurchaseOrderPage() {
               name="notes"
             />
           </div>
-          <button className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700 sm:col-span-2">
-            Record purchase order
-          </button>
-        </form>
+          <div className="sm:col-span-2">
+            <ControlSaveButton pendingLabel="Recording purchase order…">
+              Record purchase order
+            </ControlSaveButton>
+          </div>
+        </ControlActionForm>
       </section>
     </div>
   );

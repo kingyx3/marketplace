@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import {
   ControlBackLink,
+  ControlActionForm,
   ControlDangerButton,
   ControlData,
 } from "@/app/(shop)/control/_components/control-resource-ui";
@@ -91,13 +92,26 @@ export default async function SupplierDetailPage({
           <p className="mt-1 text-sm text-zinc-600">
             Suppliers with open purchase orders cannot be archived.
           </p>
-          <form action={setControlSupplierActive} className="mt-4">
+          <ControlActionForm
+            action={setControlSupplierActive}
+            className="mt-4"
+            confirmation={{
+              title: `${supplier.active ? "Archive" : "Restore"} supplier?`,
+              description: supplier.active
+                ? "Archiving removes this supplier from new purchase-order choices. Open purchase orders must be resolved first."
+                : "Restoring makes this supplier available for new purchase orders again.",
+              confirmLabel: supplier.active ? "Archive supplier" : "Restore supplier",
+              tone: supplier.active ? "danger" : "default",
+            }}
+            errorMessage="The supplier status could not be changed. Resolve open purchase orders and try again."
+            successMessage={`Supplier ${supplier.active ? "archived" : "restored"}.`}
+          >
             <input name="id" type="hidden" value={supplier.id} />
             <input name="active" type="hidden" value={supplier.active ? "false" : "true"} />
             <ControlDangerButton>
               {supplier.active ? "Archive supplier" : "Restore supplier"}
             </ControlDangerButton>
-          </form>
+          </ControlActionForm>
         </section>
       ) : null}
     </div>

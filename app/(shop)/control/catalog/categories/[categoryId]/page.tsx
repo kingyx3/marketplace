@@ -7,6 +7,7 @@ import {
 } from "@/app/(shop)/control/_components/category-form";
 import {
   ControlBackLink,
+  ControlActionForm,
   ControlDangerButton,
   ControlData,
 } from "@/app/(shop)/control/_components/control-resource-ui";
@@ -130,13 +131,26 @@ export default async function CategoryDetailPage({
         <p className="mt-1 text-sm text-zinc-600">
           Archive active child categories, sets, and products before archiving this category.
         </p>
-        <form action={setControlCategoryActive} className="mt-4">
+        <ControlActionForm
+          action={setControlCategoryActive}
+          className="mt-4"
+          confirmation={{
+            title: `${category.active ? "Archive" : "Restore"} category?`,
+            description: category.active
+              ? "Archiving removes this category from active catalog choices. The server will reject the change while active dependants remain."
+              : "Restoring makes this category available to catalog workflows again.",
+            confirmLabel: category.active ? "Archive category" : "Restore category",
+            tone: category.active ? "danger" : "default",
+          }}
+          errorMessage="The category status could not be changed. Resolve any active dependants and try again."
+          successMessage={`Category ${category.active ? "archived" : "restored"}.`}
+        >
           <input name="id" type="hidden" value={category.id} />
           <input name="active" type="hidden" value={category.active ? "false" : "true"} />
           <ControlDangerButton>
             {category.active ? "Archive category" : "Restore category"}
           </ControlDangerButton>
-        </form>
+        </ControlActionForm>
       </section>
     </div>
   );

@@ -68,26 +68,18 @@ describe("catalog administration workflow", () => {
     expect(skuEditor).not.toContain('name="published"');
   });
 
-  it("surfaces duplicate generated category slugs on the active form route", async () => {
-    const [categoryAction, newPage, detailPage, form] = await Promise.all([
+  it("surfaces duplicate generated category slugs without leaving or clearing the form", async () => {
+    const [categoryAction, form] = await Promise.all([
       readFile(new URL("../app/actions/control.ts", import.meta.url), "utf8"),
-      readFile(
-        new URL("../app/(shop)/control/catalog/categories/new/page.tsx", import.meta.url),
-        "utf8"
-      ),
-      readFile(
-        new URL("../app/(shop)/control/catalog/categories/[categoryId]/page.tsx", import.meta.url),
-        "utf8"
-      ),
       readFile(
         new URL("../app/(shop)/control/_components/category-form.tsx", import.meta.url),
         "utf8"
       ),
     ]);
-    expect(categoryAction).toContain("redirectToCategoryConflict");
-    expect(categoryAction).toContain('error: "duplicate-category"');
-    expect(newPage).toContain('params.error === "duplicate-category"');
-    expect(detailPage).toContain('paramsValue.error === "duplicate-category"');
+    expect(categoryAction).toContain("categoryConflictResult");
+    expect(categoryAction).toContain("fieldErrors: {\n      name:");
+    expect(categoryAction).not.toContain("redirectToCategoryConflict");
+    expect(form).toContain("ControlActionForm");
     expect(form).toContain("externalError={error}");
     expect(form).not.toContain('name="slug"');
   });

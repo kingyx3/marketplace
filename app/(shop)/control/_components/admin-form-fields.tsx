@@ -9,6 +9,8 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 
+import { useAdminFieldError } from "@/app/(shop)/control/_components/admin-action-form";
+
 type Feedback = {
   tone: "error" | "success";
   message: string;
@@ -25,7 +27,10 @@ type BaseFieldProps = {
 };
 
 type TextFieldProps = BaseFieldProps &
-  Omit<InputHTMLAttributes<HTMLInputElement>, "defaultValue" | "name" | "onChange" | "required" | "value"> & {
+  Omit<
+    InputHTMLAttributes<HTMLInputElement>,
+    "defaultValue" | "name" | "onChange" | "required" | "value"
+  > & {
     defaultValue?: string | number;
     value?: string;
     onValueChange?: (value: string) => void;
@@ -48,7 +53,10 @@ type SelectFieldProps = BaseFieldProps & {
 };
 
 type TextareaFieldProps = BaseFieldProps &
-  Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "defaultValue" | "name" | "onChange" | "required" | "value"> & {
+  Omit<
+    TextareaHTMLAttributes<HTMLTextAreaElement>,
+    "defaultValue" | "name" | "onChange" | "required" | "value"
+  > & {
     defaultValue?: string;
     value?: string;
     onValueChange?: (value: string) => void;
@@ -74,9 +82,11 @@ export function AdminTextField({
 }: TextFieldProps) {
   const id = useId();
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const message = externalError
-    ? { tone: "error" as const, message: externalError }
-    : feedback;
+  const formError = useAdminFieldError(name);
+  const message =
+    externalError || formError
+      ? { tone: "error" as const, message: externalError ?? formError ?? "Invalid value" }
+      : feedback;
 
   function validate(element: HTMLInputElement, showSuccess: boolean) {
     setFeedback(validationFeedback(element, label, patternMessage, showSuccess));
@@ -131,9 +141,11 @@ export function AdminSelectField({
 }: SelectFieldProps) {
   const id = useId();
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const message = externalError
-    ? { tone: "error" as const, message: externalError }
-    : feedback;
+  const formError = useAdminFieldError(name);
+  const message =
+    externalError || formError
+      ? { tone: "error" as const, message: externalError ?? formError ?? "Invalid value" }
+      : feedback;
 
   return (
     <FieldFrame
@@ -188,9 +200,11 @@ export function AdminTextareaField({
 }: TextareaFieldProps) {
   const id = useId();
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const message = externalError
-    ? { tone: "error" as const, message: externalError }
-    : feedback;
+  const formError = useAdminFieldError(name);
+  const message =
+    externalError || formError
+      ? { tone: "error" as const, message: externalError ?? formError ?? "Invalid value" }
+      : feedback;
 
   return (
     <FieldFrame
@@ -236,9 +250,11 @@ export function AdminFileField({
 }: FileFieldProps) {
   const id = useId();
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const message = externalError
-    ? { tone: "error" as const, message: externalError }
-    : feedback;
+  const formError = useAdminFieldError(name);
+  const message =
+    externalError || formError
+      ? { tone: "error" as const, message: externalError ?? formError ?? "Invalid value" }
+      : feedback;
 
   return (
     <FieldFrame
@@ -328,7 +344,8 @@ function validationFeedback(
   const validity = element.validity;
 
   if (validity.valueMissing) return { tone: "error", message: `${label} is required.` };
-  if (validity.typeMismatch) return { tone: "error", message: `Enter a valid ${label.toLowerCase()}.` };
+  if (validity.typeMismatch)
+    return { tone: "error", message: `Enter a valid ${label.toLowerCase()}.` };
   if (validity.patternMismatch) {
     return { tone: "error", message: patternMessage ?? `${label} has an invalid format.` };
   }

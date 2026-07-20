@@ -4,7 +4,10 @@ import {
   AdminTextField,
   AdminTextareaField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import { ControlSaveButton } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlActionForm,
+  ControlSaveButton,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { upsertControlSupplier } from "@/app/actions/control";
 
 export interface SupplierRecord {
@@ -28,7 +31,13 @@ export function SupplierForm({ supplier }: { supplier?: SupplierRecord }) {
   const contactPhone = typeof contact.phone === "string" ? contact.phone : "";
 
   return (
-    <form action={upsertControlSupplier} className="grid gap-5">
+    <ControlActionForm
+      action={upsertControlSupplier}
+      className="grid gap-5"
+      errorMessage="The supplier could not be saved. Your entries are still here; review them and try again."
+      successHref="/control/supply/suppliers"
+      successMessage={supplier ? "Supplier updated." : "Supplier created."}
+    >
       {supplier ? <input name="supplierId" type="hidden" value={supplier.id} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -137,11 +146,16 @@ export function SupplierForm({ supplier }: { supplier?: SupplierRecord }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700">
           <input name="active" type="hidden" value="false" />
-          <input defaultChecked={supplier?.active ?? true} name="active" type="checkbox" value="true" />
+          <input
+            defaultChecked={supplier?.active ?? true}
+            name="active"
+            type="checkbox"
+            value="true"
+          />
           Active
         </label>
         <ControlSaveButton>{supplier ? "Save supplier" : "Create supplier"}</ControlSaveButton>
       </div>
-    </form>
+    </ControlActionForm>
   );
 }

@@ -1,9 +1,12 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
+import type { AdminActionResult } from "@/lib/admin-action-state";
 import { requiredBoolean, requiredUuid } from "@/lib/admin-form-values";
 import { requireControlPermission } from "@/lib/control-access";
+import { logError } from "@/lib/observability";
 import { createServiceClient } from "@/lib/supabase";
 
 const LONG_BAN_DURATION = "876000h";
@@ -160,6 +163,27 @@ export async function setCustomerAccountDeleted(
   }
 }
 
+export async function updateCustomerAccountLifecycle(
+  formData: FormData
+): Promise<AdminActionResult> {
+  const result = await setCustomerAccountDeleted(initialCustomerLifecycleActionState, formData);
+  if (result.status === "idle") {
+    return { status: "error", message: "The customer account was not changed." };
+  }
+  if (result.status === "error" && !isActionableLifecycleMessage(result.message)) {
+    const requestId = randomUUID();
+    logError("customer.lifecycle_action_failed", new Error(result.message), {
+      requestId,
+      route: "/control/customers",
+    });
+    return {
+      status: "error",
+      message: `The customer account could not be changed. Error reference: ${requestId}`,
+    };
+  }
+  return { status: result.status, message: result.message };
+}
+
 function success(message: string): CustomerLifecycleActionState {
   return { status: "success", message };
 }
@@ -176,4 +200,10 @@ function withoutDeletionMetadata(metadata: Record<string, unknown>): Record<stri
 
 function safeError(error: unknown): string {
   return error instanceof Error ? error.message : "Customer account update failed";
+}
+
+function isActionableLifecycleMessage(message: string): boolean {
+  return /confirm|cannot|must be managed|no linked sign-in identity|already (disabled|active)/i.test(
+    message
+  );
 }
