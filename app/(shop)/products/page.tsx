@@ -19,6 +19,7 @@ import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 import { getStorefrontAvailability } from "@/lib/storefront-availability";
 import { indexBestDealsBySku } from "@/lib/storefront-deals";
 import { createAnonClient } from "@/lib/supabase";
+import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ interface CatalogRow {
   description: string | null;
   language: string;
   image_url: string | null;
-  listing_items: ListingItemRow[] | null;
+  listing_items: SupabaseToOne<ListingItemRow>;
   sets_releases: {
     name: string;
     code: string;
@@ -257,7 +258,7 @@ export default async function ProductsPage() {
 }
 
 function listingForRow(row: CatalogRow): ListingItemRow | null {
-  return row.listing_items?.[0] ?? null;
+  return toOne(row.listing_items);
 }
 
 function compareCatalogRows(a: CatalogRow, b: CatalogRow): number {

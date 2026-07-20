@@ -13,6 +13,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
+import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ type ProductRow = {
   name: string;
   slug: string;
   active: boolean;
-  listing_items: ListingItemRecord | ListingItemRecord[] | null;
+  listing_items: SupabaseToOne<ListingItemRecord>;
 };
 
 const DEFAULT_HEADER_CONFIG: StorefrontConfigurationRecord = {
@@ -69,7 +70,7 @@ export default async function ControlListingsPage({
 
   const allProducts = (productsResult.data ?? []) as unknown as ProductRow[];
   const products = allProducts.filter((product) => {
-    const listing = one(product.listing_items);
+    const listing = toOne(product.listing_items);
     const live = Boolean(listing?.published);
     const matchesStatus = status === "all" || (status === "live" ? live : !live);
     return matchesStatus && (!query || product.name.toLowerCase().includes(query) || product.slug.includes(query));
@@ -77,7 +78,7 @@ export default async function ControlListingsPage({
   const configurations = mergeConfigurations(
     (configurationResult.data ?? []) as StorefrontConfigurationRecord[]
   );
-  const activeListings = allProducts.filter((product) => one(product.listing_items)?.published).length;
+  const activeListings = allProducts.filter((product) => toOne(product.listing_items)?.published).length;
 
   return (
     <div className="space-y-8">
@@ -134,7 +135,7 @@ export default async function ControlListingsPage({
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {products.map((product) => {
-              const listing = one(product.listing_items);
+              const listing = toOne(product.listing_items);
               return (
                 <Link
                   className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
@@ -197,11 +198,6 @@ export default async function ControlListingsPage({
       </section>
     </div>
   );
-}
-
-function one<T>(value: T | T[] | null | undefined): T | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
 }
 
 function mergeConfigurations(

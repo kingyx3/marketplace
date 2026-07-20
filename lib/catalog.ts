@@ -1,5 +1,6 @@
 import { hasSupabasePublicEnv } from "@/lib/env";
 import { createAnonClient, createServiceClient } from "@/lib/supabase";
+import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
 export type CatalogChannel = "b2c";
 
@@ -57,7 +58,7 @@ interface ProductRow {
   description: string | null;
   image_url: string | null;
   language: string;
-  listing_items: ListingItemRow[] | null;
+  listing_items: SupabaseToOne<ListingItemRow>;
   tcg_categories: { name: string } | null;
   sets_releases: { name: string; code: string; status: string; release_date: string | null } | null;
   product_variants: Array<{
@@ -213,7 +214,7 @@ export async function getSkuQuote(items: Array<{ skuId: string; quantity: number
 }
 
 function mapProduct(row: ProductRow): CatalogProduct {
-  const listing = row.listing_items?.[0] ?? null;
+  const listing = toOne(row.listing_items);
   const skus = (row.product_variants ?? []).flatMap((variant) =>
     (variant.booster_box_skus ?? [])
       .filter((sku) => sku.active)
@@ -259,8 +260,8 @@ function mapProduct(row: ProductRow): CatalogProduct {
 }
 
 function compareRows(a: ProductRow, b: ProductRow): number {
-  const listingA = a.listing_items?.[0] ?? null;
-  const listingB = b.listing_items?.[0] ?? null;
+  const listingA = toOne(a.listing_items);
+  const listingB = toOne(b.listing_items);
   const featured = Number(Boolean(listingB?.featured)) - Number(Boolean(listingA?.featured));
   if (featured !== 0) return featured;
   const priority = (listingA?.sort_priority ?? 0) - (listingB?.sort_priority ?? 0);

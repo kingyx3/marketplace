@@ -36,6 +36,15 @@ export default async function ControlProductPage({ params }: ControlProductPageP
 
   if (!product) notFound();
 
+  const hasSellableSku = product.skus.some((sku) => sku.skuActive && sku.priceCents > 0);
+  const storefrontStatus = !product.published
+    ? "Not published"
+    : !product.active
+      ? "Published · product archived"
+      : !hasSellableSku
+        ? "Published · active priced SKU required"
+        : "Visible";
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -52,12 +61,13 @@ export default async function ControlProductPage({ params }: ControlProductPageP
         title={product.name}
       />
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Summary label="Slug" value={`/${product.slug}`} />
         <Summary
-          label="Listing"
+          label="Publication"
           value={product.published ? "Published" : "Not published"}
         />
+        <Summary label="Storefront" value={storefrontStatus} />
         <Summary
           label="SKUs"
           value={`${product.skus.length} ${product.skus.length === 1 ? "SKU" : "SKUs"}`}

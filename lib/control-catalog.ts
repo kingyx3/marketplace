@@ -4,6 +4,7 @@ import {
   type CatalogSetOption,
 } from "@/app/(shop)/control/_components/product-intake-form";
 import { createServiceClient } from "@/lib/supabase";
+import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
 export interface ControlCatalogSku {
   skuId: string;
@@ -61,7 +62,7 @@ interface ProductQueryRow {
   language: string;
   image_url: string | null;
   active: boolean;
-  listing_items: Array<{ published: boolean }> | null;
+  listing_items: SupabaseToOne<{ published: boolean }>;
   tcg_categories: { name: string } | null;
   sets_releases: { name: string; code: string } | null;
   product_variants: Array<{
@@ -195,6 +196,7 @@ export async function fetchControlProductTypes(
 }
 
 function mapProduct(row: ProductQueryRow): ControlProductRow {
+  const listing = toOne(row.listing_items);
   const skus = (row.product_variants ?? []).flatMap((variant) =>
     (variant.booster_box_skus ?? []).map((sku) => ({
       skuId: sku.id,
@@ -226,7 +228,7 @@ function mapProduct(row: ProductQueryRow): ControlProductRow {
     language: row.language,
     imageUrl: row.image_url,
     active: row.active,
-    published: Boolean(row.listing_items?.[0]?.published),
+    published: Boolean(listing?.published),
     skus,
   };
 }
