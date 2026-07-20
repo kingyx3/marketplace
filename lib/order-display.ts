@@ -88,6 +88,52 @@ export function formatStatus(status: string): string {
     .join(" ");
 }
 
+export function preorderStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending_payment: "Payment required",
+    pending_deposit: "Payment required",
+    deposited: "Payment received",
+    balance_due: "Payment required",
+    paid: "Awaiting allocation",
+    allocated: "Allocation confirmed",
+    refund_pending: "Refund in progress",
+    converted: "Ready in orders",
+    cancelled: "Cancelled",
+    refunded: "Refunded",
+  };
+
+  return labels[status] ?? "Update available";
+}
+
+export function preorderStatusMessage(preorder: LivePreorder): string {
+  const allocated = Number(preorder.allocated_qty ?? 0);
+  const requested = Number(preorder.quantity ?? 0);
+
+  if (["pending_payment", "pending_deposit", "balance_due"].includes(preorder.status)) {
+    return "Payment is still needed before this preorder can move forward.";
+  }
+  if (preorder.status === "paid" || preorder.status === "deposited") {
+    return "You’re paid in full. We’ll confirm your quantity after supplier allocation.";
+  }
+  if (preorder.status === "refund_pending") {
+    return `We confirmed ${allocated} of ${requested} and are returning the difference to your original payment method.`;
+  }
+  if (preorder.status === "allocated") {
+    return `Your confirmed quantity is ${allocated} of ${requested}. We’ll create an order when it is ready for fulfilment.`;
+  }
+  if (preorder.status === "converted") {
+    return "Your confirmed items have moved to Orders, where you can follow delivery progress.";
+  }
+  if (preorder.status === "refunded") {
+    return "The amount due back has been returned to your original payment method.";
+  }
+  if (preorder.status === "cancelled") {
+    return "This preorder will not move forward.";
+  }
+
+  return "We have an update on this preorder. Check the progress below for details.";
+}
+
 export function formatDate(value?: string | null): string {
   if (!value) return "Pending";
   const date = new Date(value);

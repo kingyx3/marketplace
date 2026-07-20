@@ -12,6 +12,8 @@ const internalStorefrontLabels = [
   "Live stock and preorders",
   "formatStatus(customer.provisioning_state)",
   "provisioningTone(customer.provisioning_state)",
+  "{preorder.id}</h2>",
+  "skuForItem(preorder) ?? preorder.sku_id",
 ];
 
 describe("storefront UI boundaries", () => {

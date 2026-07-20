@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   orderItemCount,
   orderTimeline,
+  preorderStatusLabel,
+  preorderStatusMessage,
   productHrefForItem,
   productNameForItem,
   type LiveOrder,
@@ -95,5 +97,32 @@ describe("live customer pages", () => {
 
     expect(productNameForItem(preorder)).toBe("Aurora Skies Booster Box");
     expect(productHrefForItem(preorder)).toBe("/products/aurora-booster-box");
+    expect(preorderStatusLabel(preorder.status)).toBe("Payment required");
+    expect(preorderStatusMessage(preorder)).toBe(
+      "Payment is still needed before this preorder can move forward."
+    );
+  });
+
+  it("translates active preorder states into customer outcomes", () => {
+    const preorder = {
+      id: "pre-live",
+      sku_id: "sku-2",
+      channel: "b2c",
+      quantity: 3,
+      unit_price_cents: 21400,
+      deposit_cents: 64200,
+      balance_cents: 0,
+      allocation_refund_cents: 21400,
+      currency: "SGD",
+      status: "refund_pending",
+      allocated_qty: 2,
+      created_at: "2026-07-04T02:00:00.000Z",
+    } satisfies LivePreorder;
+
+    expect(preorderStatusLabel(preorder.status)).toBe("Refund in progress");
+    expect(preorderStatusMessage(preorder)).toContain(
+      "confirmed 2 of 3 and are returning the difference"
+    );
+    expect(preorderStatusLabel("new_internal_state")).toBe("Update available");
   });
 });
