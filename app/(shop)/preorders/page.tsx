@@ -8,11 +8,11 @@ import { getCatalogProducts } from "@/lib/catalog";
 import { formatMoney } from "@/lib/money";
 import {
   formatDate,
-  formatStatus,
+  preorderStatusLabel,
+  preorderStatusMessage,
   preorderTimeline,
   productHrefForItem,
   productNameForItem,
-  skuForItem,
   type LivePreorder,
 } from "@/lib/order-display";
 import { createServiceClient } from "@/lib/supabase";
@@ -95,20 +95,33 @@ export default async function PreordersPage({
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-xl font-semibold text-zinc-950">{preorder.id}</h2>
+                      <h2 className="text-xl font-semibold text-zinc-950">
+                        {productNameForItem(preorder)}
+                      </h2>
                       <StatusBadge tone={preorderTone(preorder.status)}>
-                        {formatStatus(preorder.status)}
+                        {preorderStatusLabel(preorder.status)}
                       </StatusBadge>
                     </div>
-                    <p className="mt-3 text-zinc-700">{productNameForItem(preorder)}</p>
-                    <p className="mt-1 text-sm text-zinc-500">
-                      {skuForItem(preorder) ?? preorder.sku_id} · Created {formatDate(preorder.created_at)}
+                    <p className="mt-2 text-sm text-zinc-500">
+                      Preordered {formatDate(preorder.created_at)} · Quantity {preorder.quantity}
+                    </p>
+                    <p className="mt-4 text-sm leading-6 text-zinc-700">
+                      {preorderStatusMessage(preorder)}
                     </p>
                     <dl className="mt-5 grid gap-4 sm:grid-cols-4">
                       <Value label="Requested" value={String(preorder.quantity)} />
-                      <Value label="Allocated" value={String(preorder.allocated_qty)} />
                       <Value
-                        label="Paid upfront"
+                        label="Confirmed"
+                        value={
+                          ["allocated", "refund_pending", "converted", "refunded"].includes(
+                            preorder.status
+                          )
+                            ? String(preorder.allocated_qty)
+                            : "Pending"
+                        }
+                      />
+                      <Value
+                        label="Paid total"
                         value={formatMoney(preorder.deposit_cents, preorder.currency)}
                       />
                       <Value
