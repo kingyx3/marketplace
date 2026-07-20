@@ -177,8 +177,18 @@ jobs:
         id: vercel
         run: node scripts/deploy-vercel.mjs
 
-  smoke:
+  bootstrap-test-data:
     needs: deploy
+    if: ${{ inputs.environment != 'production' && needs.deploy.result == 'success' }}
+    uses: ./.github/workflows/bootstrap-database.yml
+    with:
+      environment: ${{ inputs.environment }}
+      deployment_url: ${{ needs.deploy.outputs.deployment_url }}
+    secrets: inherit
+
+  smoke:
+    needs: [deploy, bootstrap-test-data]
+    if: ${{ always() && needs.deploy.result == 'success' && (inputs.environment == 'production' || needs.bootstrap-test-data.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: ${{ inputs.environment }}

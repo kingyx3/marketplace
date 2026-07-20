@@ -22,6 +22,7 @@
     "env:write": "node scripts/generate-env.mjs --write",
     "env:resolve": "node scripts/resolve-environment.mjs",
     "env:config": "node scripts/environment-config.mjs",
+    "db:bootstrap": "node scripts/bootstrap-database.mjs",
     "bootstrap": "node scripts/bootstrap-hosted.mjs",
     "bootstrap:doctor": "node scripts/bootstrap-local.mjs --check-only",
     "bootstrap:local": "node scripts/bootstrap-local.mjs",
