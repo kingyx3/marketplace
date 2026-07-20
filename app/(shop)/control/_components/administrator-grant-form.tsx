@@ -112,7 +112,12 @@ export function AdministratorGrantForm({ grant }: { grant?: GrantRecord }) {
       const next = new Set(current);
       for (const permission of permissions) {
         if (checked) next.add(permission.key);
-        else if (permission.key !== "control.view") next.delete(permission.key);
+        else if (
+          permission.key !== "control.view" &&
+          !("ownerOnly" in permission && permission.ownerOnly && template === "owner")
+        ) {
+          next.delete(permission.key);
+        }
       }
       next.add("control.view");
       return next;
@@ -122,6 +127,9 @@ export function AdministratorGrantForm({ grant }: { grant?: GrantRecord }) {
   return (
     <form action={upsertControlAccessGrant} className="grid gap-6">
       {grant ? <input name="grantId" type="hidden" value={grant.id} /> : null}
+      {template === "owner" ? (
+        <input name="permissions" type="hidden" value="governance.manage" />
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_20rem]">
         <AdminTextField
@@ -197,8 +205,15 @@ export function AdministratorGrantForm({ grant }: { grant?: GrantRecord }) {
                       key={permission.key}
                     >
                       <input
-                        checked={selected.has(permission.key)}
-                        disabled={permission.key === "control.view"}
+                        checked={
+                          "ownerOnly" in permission && permission.ownerOnly
+                            ? template === "owner"
+                            : selected.has(permission.key)
+                        }
+                        disabled={
+                          permission.key === "control.view" ||
+                          ("ownerOnly" in permission && permission.ownerOnly)
+                        }
                         name="permissions"
                         onChange={(event) => togglePermission(permission.key, event.target.checked)}
                         type="checkbox"

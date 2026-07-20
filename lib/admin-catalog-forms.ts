@@ -1,4 +1,15 @@
 import { badRequest } from "@/lib/api/errors";
+import {
+  assertHttpUrl,
+  booleanField,
+  isExactIsoDate,
+  optionalInteger,
+  optionalString,
+  optionalUuid,
+  requiredInteger,
+  requiredString,
+  requiredUuid,
+} from "@/lib/admin-form-values";
 import { productTypeCodeFromName, setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
 
 export interface AdminCatalogProductInput {
@@ -54,7 +65,6 @@ export interface AdminInventoryAdjustmentInput {
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SET_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,15}$/;
 const PRODUCT_TYPE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const LANGUAGE_PATTERN = /^[A-Z]{2,8}$/;
 const SKU_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const SET_STATUSES = [
@@ -76,9 +86,9 @@ export function adminCatalogProductFromForm(formData: FormData): AdminCatalogPro
   }
 
   return {
-    productId: optionalString(formData, "productId") ?? null,
-    categoryId: requiredString(formData, "categoryId"),
-    setId: requiredString(formData, "setId"),
+    productId: optionalUuid(formData, "productId", "productId"),
+    categoryId: requiredUuid(formData, "categoryId", "categoryId"),
+    setId: requiredUuid(formData, "setId", "setId"),
     productType,
     ...commonProductFieldsFromForm(formData),
   };
@@ -88,17 +98,22 @@ export function adminCatalogProductCreateFromForm(
   formData: FormData
 ): AdminCatalogProductCreateInput {
   const categoryMode = optionalString(formData, "categoryMode") ?? "existing";
+  if (categoryMode !== "existing" && categoryMode !== "new") {
+    throw badRequest("Select an existing category or add a new category");
+  }
   const categoryId =
-    categoryMode === "new" ? null : (optionalString(formData, "categoryId") ?? null);
+    categoryMode === "new" ? null : optionalUuid(formData, "categoryId", "categoryId");
   const newCategoryName =
-    categoryMode === "new" ? (optionalString(formData, "newCategoryName") ?? null) : null;
+    categoryMode === "new"
+      ? (optionalString(formData, "newCategoryName", { max: 160 }) ?? null)
+      : null;
   const newCategorySlug = newCategoryName ? slugFromName(newCategoryName) : null;
 
   if (!categoryId && !newCategoryName) {
     throw badRequest("Select a category or add a new category");
   }
-  if (newCategoryName && newCategoryName.length > 160) {
-    throw badRequest("New category name must be 160 characters or fewer");
+  if (newCategoryName && newCategoryName.length < 2) {
+    throw badRequest("New category name must be at least 2 characters");
   }
   if (newCategoryName && (!newCategorySlug || !SLUG_PATTERN.test(newCategorySlug))) {
     throw badRequest("New category name must contain letters or numbers for its generated slug");
@@ -116,21 +131,21 @@ export function adminCatalogProductCreateFromForm(
   let newSetStatus: SetStatus | null = null;
 
   if (setMode === "existing") {
-    setId = optionalString(formData, "setId") ?? null;
+    setId = optionalUuid(formData, "setId", "setId");
     if (!setId) throw badRequest("Select an existing set");
   } else {
-    newSetName = optionalString(formData, "newSetName") ?? null;
+    newSetName = optionalString(formData, "newSetName", { max: 160 }) ?? null;
     newSetCode = newSetName ? setCodeFromName(newSetName) : null;
     newSetReleaseDate = optionalString(formData, "newSetReleaseDate") ?? null;
     newSetStatus = parseSetStatus(optionalString(formData, "newSetStatus") ?? "announced");
 
     if (!newSetName) throw badRequest("New set name is required");
-    if (newSetName.length > 160) throw badRequest("New set name must be 160 characters or fewer");
+    if (newSetName.length < 2) throw badRequest("New set name must be at least 2 characters");
     if (!newSetCode || !SET_CODE_PATTERN.test(newSetCode)) {
       throw badRequest("New set name must contain letters or numbers for its generated code");
     }
-    if (newSetReleaseDate && !DATE_PATTERN.test(newSetReleaseDate)) {
-      throw badRequest("new set release date must use YYYY-MM-DD");
+    if (newSetReleaseDate && !isExactIsoDate(newSetReleaseDate)) {
+      throw badRequest("new set release date must be a valid date using YYYY-MM-DD");
     }
   }
 
@@ -144,11 +159,11 @@ export function adminCatalogProductCreateFromForm(
     if (!productType) throw badRequest("Select a product type");
     if (!PRODUCT_TYPE_PATTERN.test(productType)) throw badRequest("Select a valid product type");
   } else {
-    newProductTypeName = optionalString(formData, "newProductTypeName") ?? null;
+    newProductTypeName = optionalString(formData, "newProductTypeName", { max: 160 }) ?? null;
     newProductTypeCode = newProductTypeName ? productTypeCodeFromName(newProductTypeName) : null;
     if (!newProductTypeName) throw badRequest("New product type name is required");
-    if (newProductTypeName.length > 160) {
-      throw badRequest("New product type name must be 160 characters or fewer");
+    if (newProductTypeName.length < 2) {
+      throw badRequest("New product type name must be at least 2 characters");
     }
     if (!newProductTypeCode || !PRODUCT_TYPE_PATTERN.test(newProductTypeCode)) {
       throw badRequest("New product type name must contain letters or numbers");
@@ -160,7 +175,9 @@ export function adminCatalogProductCreateFromForm(
     newCategoryName,
     newCategorySlug,
     newCategoryPublisher:
-      categoryMode === "new" ? (optionalString(formData, "newCategoryPublisher") ?? null) : null,
+      categoryMode === "new"
+        ? (optionalString(formData, "newCategoryPublisher", { max: 160 }) ?? null)
+        : null,
     setId,
     newSetName,
     newSetCode,
@@ -199,24 +216,28 @@ function parseSetStatus(value: string): SetStatus {
 function commonProductFieldsFromForm(
   formData: FormData
 ): Pick<AdminCatalogProductInput, "name" | "description" | "language" | "imageUrl" | "active"> {
-  const name = requiredString(formData, "name");
+  const name = requiredString(formData, "name", { min: 2, max: 160, label: "Display name" });
   const generatedSlug = slugFromName(name);
-  if (name.length > 160) throw badRequest("Display name must be 160 characters or fewer");
   if (!generatedSlug || !SLUG_PATTERN.test(generatedSlug)) {
     throw badRequest("Display name must contain letters or numbers for its generated slug");
   }
 
-  const description = optionalString(formData, "description") ?? null;
-  if (description && description.length > 2000) {
-    throw badRequest("Description must be 2000 characters or fewer");
-  }
+  const description =
+    optionalString(formData, "description", {
+      max: 2000,
+      label: "Description",
+    }) ?? null;
 
   const language = (optionalString(formData, "language") ?? "EN").toUpperCase();
   if (!LANGUAGE_PATTERN.test(language)) {
     throw badRequest("language must be 2-8 uppercase letters");
   }
 
-  const imageUrl = optionalString(formData, "imageUrl") ?? null;
+  const imageUrl =
+    optionalString(formData, "imageUrl", {
+      max: 2048,
+      label: "Image URL",
+    }) ?? null;
   if (imageUrl) assertHttpUrl(imageUrl, "Image URL");
 
   return {
@@ -236,17 +257,16 @@ export function adminCatalogSkuFromForm(formData: FormData): AdminCatalogSkuInpu
     );
   }
 
-  const barcode = optionalString(formData, "barcode") ?? null;
-  if (barcode && barcode.length > 64) throw badRequest("Barcode must be 64 characters or fewer");
+  const barcode = optionalString(formData, "barcode", { max: 64, label: "Barcode" }) ?? null;
 
   return {
-    skuId: optionalString(formData, "skuId") ?? null,
-    productId: requiredString(formData, "productId"),
+    skuId: optionalUuid(formData, "skuId", "skuId"),
+    productId: requiredUuid(formData, "productId", "productId"),
     sku,
     barcode,
-    packsPerBox: optionalNonNegativeInteger(formData, "packsPerBox"),
-    cardsPerPack: optionalNonNegativeInteger(formData, "cardsPerPack"),
-    weightGrams: optionalNonNegativeInteger(formData, "weightGrams"),
+    packsPerBox: optionalInteger(formData, "packsPerBox", { min: 1 }),
+    cardsPerPack: optionalInteger(formData, "cardsPerPack", { min: 1 }),
+    weightGrams: optionalInteger(formData, "weightGrams", { min: 1 }),
     active: booleanField(formData, "active", true),
   };
 }
@@ -260,71 +280,11 @@ export function adminInventoryAdjustmentFromForm(
   }
 
   return {
-    skuId: requiredString(formData, "skuId"),
-    onHand: requiredNonNegativeInteger(formData, "onHand"),
-    incoming: requiredNonNegativeInteger(formData, "incoming"),
-    safetyStock: requiredNonNegativeInteger(formData, "safetyStock"),
+    skuId: requiredUuid(formData, "skuId", "skuId"),
+    onHand: requiredInteger(formData, "onHand", { min: 0 }),
+    incoming: requiredInteger(formData, "incoming", { min: 0 }),
+    safetyStock: requiredInteger(formData, "safetyStock", { min: 0 }),
     reasonCode,
-    reasonNote: optionalString(formData, "reasonNote") ?? null,
+    reasonNote: optionalString(formData, "reasonNote", { max: 500, label: "Reason note" }) ?? null,
   };
-}
-
-function assertHttpUrl(value: string, label: string) {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw badRequest(`${label} must be a valid URL`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw badRequest(`${label} must use http or https`);
-  }
-}
-
-function requiredString(formData: FormData, key: string): string {
-  const value = optionalString(formData, key);
-  if (!value) {
-    throw badRequest(`${key} is required`);
-  }
-  return value;
-}
-
-function optionalString(formData: FormData, key: string): string | undefined {
-  const value = formData.get(key);
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed || undefined;
-}
-
-function requiredNonNegativeInteger(formData: FormData, key: string): number {
-  const value = requiredInteger(formData, key);
-  if (value < 0) {
-    throw badRequest(`${key} must be non-negative`);
-  }
-  return value;
-}
-
-function optionalNonNegativeInteger(formData: FormData, key: string): number | null {
-  const raw = optionalString(formData, key);
-  if (!raw) return null;
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 0) {
-    throw badRequest(`${key} must be a non-negative integer`);
-  }
-  return value;
-}
-
-function requiredInteger(formData: FormData, key: string): number {
-  const raw = requiredString(formData, key);
-  const value = Number(raw);
-  if (!Number.isInteger(value)) {
-    throw badRequest(`${key} must be an integer`);
-  }
-  return value;
-}
-
-function booleanField(formData: FormData, key: string, defaultValue: boolean): boolean {
-  const values = formData.getAll(key);
-  if (values.length === 0) return defaultValue;
-  return values.some((value) => value === "true" || value === "on");
 }

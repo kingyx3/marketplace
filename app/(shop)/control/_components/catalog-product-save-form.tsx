@@ -119,6 +119,7 @@ export function CatalogProductSaveForm({
           example="https://cdn.example.com/products/destined-rivals.jpg"
           hint="Optional. Uploading a file below replaces this value."
           label="Image URL"
+          maxLength={2048}
           name="imageUrl"
           onValueChange={setImageUrl}
           type="url"

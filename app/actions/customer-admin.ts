@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requiredBoolean, requiredUuid } from "@/lib/admin-form-values";
 import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -30,10 +31,9 @@ export async function setCustomerAccountDeleted(
   const { user: actor } = await requireControlPermission("customers.manage", "/control/customers");
 
   try {
-    const customerId = String(formData.get("customerId") ?? "").trim();
-    const deleted = String(formData.get("deleted") ?? "false") === "true";
+    const customerId = requiredUuid(formData, "customerId", "customerId");
+    const deleted = requiredBoolean(formData, "deleted");
 
-    if (!customerId) return failure("Customer is required");
     if (deleted && formData.get("confirmDisable") !== "yes") {
       return failure("Confirm account disable before continuing");
     }

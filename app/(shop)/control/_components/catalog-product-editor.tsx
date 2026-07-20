@@ -121,6 +121,7 @@ export function CatalogProductEditor({
             example="https://cdn.example.com/products/destined-rivals.jpg"
             hint="Optional. Uploading a file below replaces this value."
             label="Image URL"
+            maxLength={2048}
             name="imageUrl"
             type="url"
           />
@@ -147,9 +148,9 @@ export function CatalogProductEditor({
         >
           <input name="productId" type="hidden" value={product.id} />
           <AdminFileField
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/avif"
             example="destined-rivals-booster-box.jpg"
-            hint="Choose a JPG, PNG, WebP, or other supported image file."
+            hint="Choose a JPG, PNG, WebP, or AVIF image up to 6 MB."
             label="Product image"
             name="image"
             required
@@ -272,21 +273,21 @@ function SkuFields({ sku }: { sku?: ControlCatalogSku }) {
           defaultValue={sku?.packsPerBox ?? undefined}
           example="36"
           label="Packs per box"
-          min={0}
+          min={1}
           name="packsPerBox"
         />
         <AdminNumberField
           defaultValue={sku?.cardsPerPack ?? undefined}
           example="10"
           label="Cards per pack"
-          min={0}
+          min={1}
           name="cardsPerPack"
         />
         <AdminNumberField
           defaultValue={sku?.weightGrams ?? undefined}
           example="720"
           label="Weight grams"
-          min={0}
+          min={1}
           name="weightGrams"
         />
       </div>

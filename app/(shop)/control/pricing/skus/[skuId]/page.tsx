@@ -104,7 +104,7 @@ export default async function SkuPricePage({ params }: { params: Promise<{ skuId
               defaultValue={current?.compare_at_cents ?? undefined}
               example="19900"
               label="Compare-at cents"
-              min={1}
+              min={(current?.price_cents ?? 0) + 1}
               name="compareAtCents"
             />
             <AdminTextField
@@ -115,6 +115,7 @@ export default async function SkuPricePage({ params }: { params: Promise<{ skuId
               minLength={3}
               name="currency"
               pattern="[A-Za-z]{3}"
+              patternMessage="Currency must be a 3-letter code, such as SGD."
               required
             />
             <button className="min-h-11 self-end rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700">

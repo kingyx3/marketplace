@@ -32,9 +32,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="font-semibold text-zinc-950">
-              {order.customer?.name || "Customer"}
-            </h2>
+            <h2 className="font-semibold text-zinc-950">{order.customer?.name || "Customer"}</h2>
             <p className="mt-1 break-all text-sm text-zinc-600">
               {order.customer?.email ?? "Unknown email"}
             </p>
@@ -104,6 +102,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
                 defaultValue={shipment?.carrier ?? order.shippingService ?? ""}
                 example="Ninja Van"
                 label="Carrier"
+                maxLength={80}
                 name="carrier"
                 required
               />
@@ -112,6 +111,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
                 example="SG123456789"
                 hint="Optional until a label is created."
                 label="Tracking number"
+                maxLength={120}
                 name="trackingNumber"
               />
             </div>
@@ -120,6 +120,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
                 defaultValue={addressValue(address, "recipientName")}
                 example="Alex Tan"
                 label="Recipient"
+                maxLength={120}
                 name="recipientName"
                 required
               />
@@ -127,6 +128,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
                 defaultValue={addressValue(address, "phone")}
                 example="+65 9123 4567"
                 label="Phone"
+                maxLength={50}
                 name="phone"
               />
             </div>
@@ -134,6 +136,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
               defaultValue={addressValue(address, "line1")}
               example="1 Raffles Place"
               label="Address line 1"
+              maxLength={200}
               name="line1"
               required
             />
@@ -141,6 +144,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
               defaultValue={addressValue(address, "line2")}
               example="#10-01"
               label="Address line 2"
+              maxLength={200}
               name="line2"
             />
             <div className="grid gap-4 sm:grid-cols-3">
@@ -148,18 +152,21 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
                 defaultValue={addressValue(address, "city")}
                 example="Singapore"
                 label="City"
+                maxLength={120}
                 name="city"
               />
               <AdminTextField
                 defaultValue={addressValue(address, "state")}
                 example="Singapore"
                 label="State"
+                maxLength={120}
                 name="state"
               />
               <AdminTextField
                 defaultValue={addressValue(address, "postalCode")}
                 example="048616"
                 label="Postal code"
+                maxLength={32}
                 name="postalCode"
                 required
               />

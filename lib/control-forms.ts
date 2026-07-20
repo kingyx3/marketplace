@@ -1,12 +1,19 @@
 import { z } from "zod";
 
+import {
+  POSTGRES_INTEGER_MAX,
+  optionalIsoDate,
+  optionalSingaporeDateTime,
+} from "@/lib/admin-form-values";
 import { setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
 import { CONTROL_PERMISSION_DEFINITIONS, CONTROL_PERMISSION_KEYS } from "@/lib/control-permissions";
 
-const optionalText = z
-  .string()
-  .trim()
-  .transform((value) => (value ? value : null));
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((value) => (value ? value : null));
 
 const optionalUuid = z
   .string()
@@ -17,40 +24,39 @@ const optionalUuid = z
 const optionalNonNegativeInteger = z
   .string()
   .trim()
+  .refine((value) => !value || /^\d+$/.test(value), "Must be a non-negative integer")
   .transform((value) => (value ? Number(value) : null))
-  .pipe(z.number().int().nonnegative().nullable());
+  .pipe(z.number().int().nonnegative().max(POSTGRES_INTEGER_MAX).nullable());
+
+const nonNegativeInteger = z
+  .string()
+  .trim()
+  .regex(/^\d+$/, "Must be a non-negative integer")
+  .transform(Number)
+  .pipe(z.number().int().nonnegative().max(POSTGRES_INTEGER_MAX));
 
 const checkbox = z
   .union([z.literal("true"), z.literal("false")])
   .transform((value) => value === "true");
 
-const dateOrNull = z
-  .string()
-  .trim()
-  .transform((value) => (value ? value : null))
-  .pipe(z.iso.date().nullable());
-
-const dateTimeOrNull = z
-  .string()
-  .trim()
-  .transform((value) => (value ? new Date(value).toISOString() : null));
-
 const supplierSchema = z.object({
   supplierId: optionalUuid,
-  name: z.string().trim().min(1).max(160),
+  name: z.string().trim().min(2).max(160),
   supplierType: z.enum(["distributor", "publisher_direct", "peer_retailer", "other"]),
-  region: optionalText,
-  contactName: optionalText,
-  contactEmail: z.union([z.literal(""), z.email()]).transform((value) => value || null),
-  contactPhone: optionalText,
-  paymentTerms: optionalText,
+  region: optionalText(160),
+  contactName: optionalText(160),
+  contactEmail: z
+    .union([z.literal(""), z.string().trim().max(320).pipe(z.email())])
+    .transform((value) => value || null),
+  contactPhone: optionalText(80),
+  paymentTerms: optionalText(500),
   minOrderCents: optionalNonNegativeInteger,
   currency: z
     .string()
     .trim()
     .toUpperCase()
     .regex(/^[A-Z]{3}$/),
-  notes: optionalText,
+  notes: optionalText(2000),
   active: checkbox,
 });
 
@@ -58,10 +64,10 @@ const categorySchema = z.object({
   categoryId: optionalUuid,
   parentId: optionalUuid,
   slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Category name must produce a valid slug"),
-  name: z.string().trim().min(1).max(160),
-  publisher: optionalText,
-  description: optionalText,
-  sortOrder: z.coerce.number().int().nonnegative(),
+  name: z.string().trim().min(2).max(160),
+  publisher: optionalText(160),
+  description: optionalText(2000),
+  sortOrder: nonNegativeInteger,
   active: checkbox,
 });
 
@@ -69,14 +75,14 @@ const setSchema = z
   .object({
     setId: optionalUuid,
     categoryId: z.uuid(),
-    name: z.string().trim().min(1).max(160),
+    name: z.string().trim().min(2).max(160),
     code: z.string().regex(/^[A-Z0-9][A-Z0-9_-]{1,15}$/, "Set name must produce a valid code"),
-    description: optionalText,
-    releaseDate: dateOrNull,
-    preorderOpenAt: dateTimeOrNull,
-    preorderCloseAt: dateTimeOrNull,
+    description: optionalText(2000),
+    releaseDate: z.iso.date().nullable(),
+    preorderOpenAt: z.iso.datetime().nullable(),
+    preorderCloseAt: z.iso.datetime().nullable(),
     status: z.enum(["announced", "preorder_open", "preorder_closed", "released", "out_of_print"]),
-    sortOrder: z.coerce.number().int().nonnegative(),
+    sortOrder: nonNegativeInteger,
     active: checkbox,
   })
   .refine(
@@ -87,21 +93,44 @@ const setSchema = z
     { message: "Preorder close must be after preorder open", path: ["preorderCloseAt"] }
   );
 
-const accessGrantSchema = z.object({
-  grantId: optionalUuid,
-  email: z.email().transform((value) => value.trim().toLowerCase()),
-  role: z.enum(["viewer", "support", "catalog", "operations", "admin", "owner"]),
-  active: checkbox,
-  permissions: z.array(z.string()).superRefine((permissions, context) => {
-    for (const permission of permissions) {
-      if (
-        !CONTROL_PERMISSION_KEYS.includes(permission as (typeof CONTROL_PERMISSION_KEYS)[number])
-      ) {
-        context.addIssue({ code: "custom", message: `Unknown permission: ${permission}` });
+const accessGrantSchema = z
+  .object({
+    grantId: optionalUuid,
+    email: z
+      .string()
+      .trim()
+      .max(320)
+      .pipe(z.email())
+      .transform((value) => value.toLowerCase()),
+    role: z.enum(["viewer", "support", "catalog", "operations", "admin", "owner"]),
+    active: checkbox,
+    permissions: z.array(z.string()).superRefine((permissions, context) => {
+      for (const permission of permissions) {
+        if (
+          !CONTROL_PERMISSION_KEYS.includes(permission as (typeof CONTROL_PERMISSION_KEYS)[number])
+        ) {
+          context.addIssue({ code: "custom", message: `Unknown permission: ${permission}` });
+        }
       }
+    }),
+  })
+  .superRefine((input, context) => {
+    const hasOwnerPermission = input.permissions.includes("governance.manage");
+    if (input.role === "owner" && !hasOwnerPermission) {
+      context.addIssue({
+        code: "custom",
+        path: ["permissions"],
+        message: "Owner access must include administrator management",
+      });
     }
-  }),
-});
+    if (input.role !== "owner" && hasOwnerPermission) {
+      context.addIssue({
+        code: "custom",
+        path: ["permissions"],
+        message: "Administrator management can only be assigned to an owner",
+      });
+    }
+  });
 
 const statusSchema = z.object({
   id: z.uuid(),
@@ -147,9 +176,9 @@ export function controlSetFromForm(formData: FormData) {
     name,
     code: setCodeFromName(name),
     description: String(formData.get("description") ?? ""),
-    releaseDate: String(formData.get("releaseDate") ?? ""),
-    preorderOpenAt: String(formData.get("preorderOpenAt") ?? ""),
-    preorderCloseAt: String(formData.get("preorderCloseAt") ?? ""),
+    releaseDate: optionalIsoDate(formData, "releaseDate"),
+    preorderOpenAt: optionalSingaporeDateTime(formData, "preorderOpenAt"),
+    preorderCloseAt: optionalSingaporeDateTime(formData, "preorderCloseAt"),
     status: String(formData.get("status") ?? "announced"),
     sortOrder: String(formData.get("sortOrder") ?? "0"),
     active: checkboxValue(formData, "active"),
@@ -177,7 +206,7 @@ export function controlAccessGrantFromForm(formData: FormData) {
 export function controlStatusFromForm(formData: FormData) {
   return statusSchema.parse({
     id: String(formData.get("id") ?? ""),
-    active: checkboxValue(formData, "active"),
+    active: String(formData.get("active") ?? ""),
   });
 }
 

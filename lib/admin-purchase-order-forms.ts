@@ -1,4 +1,12 @@
 import { badRequest } from "@/lib/api/errors";
+import {
+  POSTGRES_INTEGER_MAX,
+  optionalIsoDate,
+  optionalString,
+  requiredCurrency,
+  requiredInteger,
+  requiredUuid,
+} from "@/lib/admin-form-values";
 
 export interface AdminPurchaseOrderInput {
   supplierId: string;
@@ -11,59 +19,20 @@ export interface AdminPurchaseOrderInput {
 }
 
 export function adminPurchaseOrderFromForm(formData: FormData): AdminPurchaseOrderInput {
-  const currency = requiredString(formData, "currency").toUpperCase();
-
-  if (!/^[A-Z]{3}$/.test(currency)) {
-    throw badRequest("currency must be a 3-letter code");
+  const currency = requiredCurrency(formData);
+  const quantity = requiredInteger(formData, "quantity", { min: 1 });
+  const unitCostCents = requiredInteger(formData, "unitCostCents", { min: 0 });
+  if (quantity * unitCostCents > POSTGRES_INTEGER_MAX) {
+    throw badRequest("purchase order total exceeds the supported maximum");
   }
 
   return {
-    supplierId: requiredString(formData, "supplierId"),
-    skuId: requiredString(formData, "skuId"),
-    quantity: requiredPositiveInteger(formData, "quantity"),
-    unitCostCents: requiredNonNegativeInteger(formData, "unitCostCents"),
+    supplierId: requiredUuid(formData, "supplierId", "supplierId"),
+    skuId: requiredUuid(formData, "skuId", "skuId"),
+    quantity,
+    unitCostCents,
     currency,
-    expectedAt: optionalString(formData, "expectedAt") ?? null,
-    notes: optionalString(formData, "notes") ?? null,
+    expectedAt: optionalIsoDate(formData, "expectedAt"),
+    notes: optionalString(formData, "notes", { max: 500, label: "Notes" }) ?? null,
   };
-}
-
-function requiredString(formData: FormData, key: string): string {
-  const value = optionalString(formData, key);
-  if (!value) {
-    throw badRequest(`${key} is required`);
-  }
-  return value;
-}
-
-function optionalString(formData: FormData, key: string): string | undefined {
-  const value = formData.get(key);
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed || undefined;
-}
-
-function requiredPositiveInteger(formData: FormData, key: string): number {
-  const value = requiredInteger(formData, key);
-  if (value <= 0) {
-    throw badRequest(`${key} must be a positive integer`);
-  }
-  return value;
-}
-
-function requiredNonNegativeInteger(formData: FormData, key: string): number {
-  const value = requiredInteger(formData, key);
-  if (value < 0) {
-    throw badRequest(`${key} must be a non-negative integer`);
-  }
-  return value;
-}
-
-function requiredInteger(formData: FormData, key: string): number {
-  const raw = requiredString(formData, key);
-  const value = Number(raw);
-  if (!Number.isInteger(value)) {
-    throw badRequest(`${key} must be an integer`);
-  }
-  return value;
 }

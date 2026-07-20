@@ -102,9 +102,7 @@ describe("admin catalog management", () => {
     sku.set("productId", "11111111-1111-4111-8111-111111111111");
     sku.set("sku", "box-1");
     sku.set("packsPerBox", "-1");
-    expect(() => adminCatalogSkuFromForm(sku)).toThrow(
-      "packsPerBox must be a non-negative integer"
-    );
+    expect(() => adminCatalogSkuFromForm(sku)).toThrow("packsPerBox must be at least 1");
   });
 
   it("maps SKU save failures to actionable operator guidance", () => {

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { POSTGRES_INTEGER_MAX } from "@/lib/admin-form-values";
 import { badRequest, conflict, notFound } from "@/lib/api/errors";
 import type { CustomerRecord } from "@/lib/api/auth";
 
@@ -42,11 +43,11 @@ export const adminOrderActionSchema = z.discriminatedUnion("action", [
     action: z.literal("record_manual_reconciliation"),
     provider: z.string().trim().min(2).max(40),
     providerPaymentId: z.string().trim().min(3).max(200),
-    amountCents: z.number().int().positive(),
+    amountCents: z.number().int().positive().max(POSTGRES_INTEGER_MAX),
     currency: z
       .string()
       .trim()
-      .length(3)
+      .regex(/^[A-Za-z]{3}$/)
       .transform((value) => value.toUpperCase()),
     reason: z.string().trim().min(3).max(500),
   }),
@@ -162,10 +163,11 @@ export async function listAdminOrders(supabase: SupabaseClient, limit: number) {
 }
 
 export async function getAdminOrder(supabase: SupabaseClient, id: string) {
+  const orderId = z.string().uuid().parse(id);
   const { data, error } = await supabase
     .from("orders")
     .select(`${orderSelect}, customers(id, email, name, segment)`)
-    .eq("id", id)
+    .eq("id", orderId)
     .maybeSingle();
   if (error) {
     throw new Error(error.message);
@@ -189,10 +191,11 @@ export async function listAdminPreorders(supabase: SupabaseClient, limit: number
 }
 
 export async function getAdminPreorder(supabase: SupabaseClient, id: string) {
+  const preorderId = z.string().uuid().parse(id);
   const { data, error } = await supabase
     .from("preorders")
     .select(`${preorderSelect}, customers(id, email, name, segment)`)
-    .eq("id", id)
+    .eq("id", preorderId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw notFound("Preorder not found");
@@ -205,43 +208,44 @@ export async function performAdminOrderAction(
   body: unknown,
   actor: string
 ) {
+  const orderId = z.string().uuid().parse(id);
   const input = adminOrderActionSchema.parse(body);
 
   switch (input.action) {
     case "mark_packing":
       await checkedRpc(supabase, "admin_mark_order_packing", {
-        p_order_id: id,
+        p_order_id: orderId,
         p_actor: actor,
       });
-      return getAdminOrder(supabase, id);
+      return getAdminOrder(supabase, orderId);
     case "ship":
       await checkedRpc(supabase, "admin_ship_order", {
-        p_order_id: id,
+        p_order_id: orderId,
         p_carrier: input.carrier,
         p_tracking_number: input.trackingNumber,
         p_actor: actor,
       });
-      return getAdminOrder(supabase, id);
+      return getAdminOrder(supabase, orderId);
     case "cancel_unpaid":
       await checkedRpc(supabase, "admin_cancel_unpaid_order", {
-        p_order_id: id,
+        p_order_id: orderId,
         p_reason: input.reason,
         p_actor: actor,
       });
-      return getAdminOrder(supabase, id);
+      return getAdminOrder(supabase, orderId);
     case "flag_payment_exception":
       await checkedRpc(supabase, "admin_flag_payment_exception", {
-        p_order_id: id,
+        p_order_id: orderId,
         p_payment_id: input.paymentId ?? null,
         p_exception_type: input.exceptionType,
         p_detail: input.detail,
         p_actor: actor,
         p_severity: input.severity,
       });
-      return getAdminOrder(supabase, id);
+      return getAdminOrder(supabase, orderId);
     case "record_manual_reconciliation":
       await checkedRpc(supabase, "admin_record_manual_reconciliation", {
-        p_order_id: id,
+        p_order_id: orderId,
         p_provider: input.provider,
         p_provider_payment_id: input.providerPaymentId,
         p_amount_cents: input.amountCents,
@@ -249,7 +253,7 @@ export async function performAdminOrderAction(
         p_reason: input.reason,
         p_actor: actor,
       });
-      return getAdminOrder(supabase, id);
+      return getAdminOrder(supabase, orderId);
     default:
       input satisfies never;
       throw badRequest("Unsupported admin order action");

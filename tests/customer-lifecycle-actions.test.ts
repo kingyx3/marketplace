@@ -73,7 +73,7 @@ describe("customer lifecycle action", () => {
     });
     expect(fake.auditRows[0]).toMatchObject({
       action: "CONTROL_CUSTOMER_DISABLE",
-      record_id: "customer-123",
+      record_id: "11111111-1111-4111-8111-111111111111",
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/customers");
   });
@@ -107,7 +107,7 @@ describe("customer lifecycle action", () => {
     });
     expect(fake.auditRows[0]).toMatchObject({
       action: "CONTROL_CUSTOMER_RESTORE",
-      record_id: "customer-123",
+      record_id: "11111111-1111-4111-8111-111111111111",
     });
   });
 
@@ -272,7 +272,7 @@ function fakeLifecycleClient(options: FakeLifecycleOptions) {
 function lifecycleForm(overrides: Record<string, string> = {}): FormData {
   const formData = new FormData();
   const values = {
-    customerId: "customer-123",
+    customerId: "11111111-1111-4111-8111-111111111111",
     deleted: "false",
     ...overrides,
   };
@@ -282,7 +282,7 @@ function lifecycleForm(overrides: Record<string, string> = {}): FormData {
 
 function activeCustomer(): CustomerRow {
   return {
-    id: "customer-123",
+    id: "11111111-1111-4111-8111-111111111111",
     auth_user_id: "customer-auth-123",
     deleted_at: null,
   };
@@ -290,7 +290,7 @@ function activeCustomer(): CustomerRow {
 
 function deletedCustomer(): CustomerRow {
   return {
-    id: "customer-123",
+    id: "11111111-1111-4111-8111-111111111111",
     auth_user_id: "customer-auth-123",
     deleted_at: "2026-07-16T12:00:00.000Z",
   };

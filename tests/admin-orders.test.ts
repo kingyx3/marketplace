@@ -182,7 +182,7 @@ describe("admin order actions", () => {
     form.set("currency", "SGD");
     form.set("reason", "operator matched Stripe dashboard payment");
 
-    expect(() => adminOrderActionFromForm(form)).toThrow("amountCents must be a positive integer");
+    expect(() => adminOrderActionFromForm(form)).toThrow("amountCents must be at least 1");
   });
 });
 

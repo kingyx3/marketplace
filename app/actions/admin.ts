@@ -8,8 +8,10 @@ import {
   adminLimitedTimeDealFromForm,
   adminLimitedTimeDealStatusFromForm,
   adminListingItemFromForm,
+  adminListingPublicationFromForm,
   adminStorefrontConfigurationFromForm,
 } from "@/lib/admin-listing-forms";
+import { requiredUuid } from "@/lib/admin-form-values";
 import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
 import { adminPurchaseOrderFromForm } from "@/lib/admin-purchase-order-forms";
 import { requireControlPermission } from "@/lib/control-access";
@@ -116,8 +118,7 @@ export async function upsertListingItem(formData: FormData) {
 }
 
 export async function setListingPublished(formData: FormData) {
-  const productId = String(formData.get("productId") ?? "");
-  const published = String(formData.get("published") ?? "false") === "true";
+  const { productId, published } = adminListingPublicationFromForm(formData);
   const { user } = await requireControlPermission(
     "storefront.publish",
     productId ? `/control/storefront/listings/${productId}` : "/control/storefront/listings"
@@ -179,7 +180,7 @@ export async function updateInventory(formData: FormData) {
     p_safety_stock: input.safetyStock,
     p_reason_code: input.reasonCode,
     p_reason_note: input.reasonNote,
-    p_actor: `staff:${user.id}`,
+    p_actor_auth_user_id: user.id,
   });
 
   if (error) throw new Error(`Inventory adjustment failed: ${error.message}`);
@@ -227,7 +228,7 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
     p_currency: input.currency,
     p_expected_at: input.expectedAt,
     p_notes: input.notes,
-    p_actor: `staff:${user.id}`,
+    p_actor_auth_user_id: user.id,
   });
 
   if (error) throw new Error(`Supplier purchase order intake failed: ${error.message}`);
@@ -247,7 +248,7 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
 
 export async function runPreorderAllocation(formData: FormData) {
   await requireControlPermission("preorders.allocate", "/control/orders/allocations");
-  const skuId = String(formData.get("skuId") ?? "");
+  const skuId = requiredUuid(formData, "skuId", "skuId");
   redirect(`/control/orders/allocations/${encodeURIComponent(skuId)}`);
 }
 

@@ -61,6 +61,8 @@ export default async function NewPurchaseOrderPage() {
             maxLength={3}
             minLength={3}
             name="currency"
+            pattern="[A-Za-z]{3}"
+            patternMessage="Currency must be a 3-letter code, such as SGD."
             required
           />
           <AdminTextField example="2026-08-15" label="Expected" name="expectedAt" type="date" />

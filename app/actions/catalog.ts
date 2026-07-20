@@ -9,6 +9,13 @@ import {
   adminCatalogProductFromForm,
   adminCatalogSkuFromForm,
 } from "@/lib/admin-catalog-forms";
+import { requiredBoolean, requiredUuid } from "@/lib/admin-form-values";
+import {
+  MAX_PRODUCT_IMAGE_BYTES,
+  PRODUCT_IMAGE_BUCKET,
+  isProductImageContentType,
+  productImageExtension,
+} from "@/lib/catalog-product-images";
 import { catalogSkuErrorCode } from "@/lib/catalog-sku-errors";
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
@@ -131,8 +138,8 @@ export async function upsertCatalogProduct(formData: FormData) {
 
 export async function setCatalogProductActive(formData: FormData) {
   const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
-  const productId = String(formData.get("productId") ?? "");
-  const active = String(formData.get("active") ?? "false") === "true";
+  const productId = requiredUuid(formData, "productId", "productId");
+  const active = requiredBoolean(formData, "active");
 
   const { error } = await createServiceClient().rpc("admin_set_product_active", {
     p_product_id: productId,
@@ -146,23 +153,23 @@ export async function setCatalogProductActive(formData: FormData) {
 
 export async function uploadCatalogProductImage(formData: FormData) {
   const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
-  const productId = String(formData.get("productId") ?? "");
+  const productId = requiredUuid(formData, "productId", "productId");
   const image = formData.get("image");
 
   if (!(image instanceof File) || image.size === 0)
     throw new Error("Product image file is required");
-  if (!image.type.startsWith("image/")) throw new Error("Product image must be an image file");
+  if (image.size > MAX_PRODUCT_IMAGE_BYTES) {
+    throw new Error("Product image exceeds the allowed file size");
+  }
+  if (!isProductImageContentType(image.type)) {
+    throw new Error("Product image format is not supported");
+  }
 
   const supabase = createServiceClient();
-  const extension =
-    image.name
-      .split(".")
-      .pop()
-      ?.toLowerCase()
-      .replace(/[^a-z0-9]/g, "") || "bin";
+  const extension = productImageExtension(image.type);
   const path = `${productId}/${randomUUID()}.${extension}`;
   const { error: uploadError } = await supabase.storage
-    .from("product-images")
+    .from(PRODUCT_IMAGE_BUCKET)
     .upload(path, Buffer.from(await image.arrayBuffer()), {
       contentType: image.type,
       upsert: false,
@@ -170,14 +177,17 @@ export async function uploadCatalogProductImage(formData: FormData) {
 
   if (uploadError) throw new Error(`Product image upload failed: ${uploadError.message}`);
 
-  const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+  const { data } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
   const { error } = await supabase.rpc("admin_set_product_image", {
     p_product_id: productId,
     p_image_url: data.publicUrl,
     p_actor: `staff:${user.id}`,
   });
 
-  if (error) throw new Error(`Product image assignment failed: ${error.message}`);
+  if (error) {
+    await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove([path]);
+    throw new Error(`Product image assignment failed: ${error.message}`);
+  }
   revalidateCatalogPaths(productId);
 }
 
@@ -236,9 +246,9 @@ export async function upsertCatalogSku(formData: FormData) {
 
 export async function setCatalogSkuActive(formData: FormData) {
   const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
-  const skuId = String(formData.get("skuId") ?? "");
-  const productId = String(formData.get("productId") ?? "");
-  const active = String(formData.get("active") ?? "false") === "true";
+  const skuId = requiredUuid(formData, "skuId", "skuId");
+  const productId = requiredUuid(formData, "productId", "productId");
+  const active = requiredBoolean(formData, "active");
 
   const { error } = await createServiceClient().rpc("admin_set_booster_box_sku_active", {
     p_sku_id: skuId,

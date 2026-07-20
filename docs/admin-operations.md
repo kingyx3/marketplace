@@ -44,6 +44,16 @@ This model applies to products, categories, sets, SKU prices, promotions, listin
 
 Sensitive permissions are intentionally separate: `pricing.approve`, `storefront.publish`, `inventory.adjust`, `purchase_orders.manage`, `preorders.allocate`, `customers.manage`, `payments.reconcile`, `refunds.manage`, and `governance.manage`.
 
+## Value and consistency contracts
+
+- Treat browser constraints as operator guidance only. Every control mutation parses and normalizes its `FormData` again in the Server Action before a service-role call.
+- Record identifiers must be UUIDs; money uses integer minor units and an uppercase three-letter currency code; calendar dates use `YYYY-MM-DD`. Datetime-local values entered in the control console are interpreted in Singapore time and stored as UTC instants.
+- Names, codes, notes, URLs, JSON configuration, tags, contact details, and fulfilment addresses have explicit size and shape limits. Optional physical SKU measurements must be positive when present, and compare-at prices must be greater than the selling price.
+- Database constraints repeat durable shape rules and protect new or updated rows even when data arrives outside the control UI. Relationship constraints ensure a product's selected set belongs to its selected category.
+- Supply RPCs verify active referenced records and the exact action permission. Purchase-order totals must fit the database integer range, and inventory cannot be reduced below already allocated stock.
+- A delegated access grant is atomically bound to its first authenticated Supabase user. After acceptance, authorization uses that bound Auth identity, the invitation email is immutable, and owner-only permissions are enforced in both the form parser and database function.
+- Length and shape checks added over legacy tables are introduced `NOT VALID`: they protect future writes immediately without rewriting historical rows. Clean up legacy violations before validating those constraints in a later forward migration.
+
 ## Product-to-listing flow
 
 1. **Product** — Select **Create product** from `/control/catalog`; the modal sets identity, category, release, type, language, description, and media.
