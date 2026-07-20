@@ -59,6 +59,7 @@ export function StorefrontConfigurationForm({
         example={'{"title":"Sealed products"}'}
         hint="Valid JSON only. Keep customer-facing copy concise."
         label="JSON value"
+        maxLength={32768}
         name="valueJson"
         required
       />

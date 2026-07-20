@@ -23,6 +23,7 @@ interface AccessGrant {
   id: string;
   role: StaffRole;
   active: boolean;
+  auth_user_id: string | null;
   created_by_staff_id: string | null;
   permissions: string[];
 }
@@ -59,6 +60,11 @@ export async function resolveAdminStaff(
   if (!email) return null;
   const grant = await readAccessGrant(supabase, email);
   if (!grant?.active) return null;
+  if (grant.auth_user_id && grant.auth_user_id !== input.authUserId) return null;
+
+  if (!grant.auth_user_id) {
+    await acceptAccessGrant(supabase, grant.id, input.authUserId);
+  }
 
   if (existing) {
     if (!existing.active || existing.source === "environment") return null;
@@ -74,15 +80,6 @@ export async function resolveAdminStaff(
     created_by_staff_id: grant.created_by_staff_id,
     last_seen_at: new Date().toISOString(),
   });
-
-  const accepted = await supabase
-    .from("admin_access_grants")
-    .update({ auth_user_id: input.authUserId, accepted_at: new Date().toISOString() })
-    .eq("id", grant.id);
-
-  if (accepted.error) {
-    throw new Error(`Administrator grant acceptance failed: ${accepted.error.message}`);
-  }
 
   return { ...profile, permissions: grant.permissions };
 }
@@ -111,7 +108,9 @@ async function readAccessGrant(
 ): Promise<AccessGrant | null> {
   const result = await supabase
     .from("admin_access_grants")
-    .select("id, role, active, created_by_staff_id, admin_access_grant_permissions(permission_key)")
+    .select(
+      "id, role, active, auth_user_id, created_by_staff_id, admin_access_grant_permissions(permission_key)"
+    )
     .eq("email", email)
     .eq("active", true)
     .maybeSingle();
@@ -128,11 +127,36 @@ async function readAccessGrant(
     id: row.id,
     role: row.role,
     active: row.active,
+    auth_user_id: row.auth_user_id,
     created_by_staff_id: row.created_by_staff_id,
     permissions: (row.admin_access_grant_permissions ?? []).map(
       (permission) => permission.permission_key
     ),
   };
+}
+
+async function acceptAccessGrant(
+  supabase: SupabaseClient,
+  grantId: string,
+  authUserId: string
+): Promise<void> {
+  const accepted = await supabase
+    .from("admin_access_grants")
+    .update({ auth_user_id: authUserId, accepted_at: new Date().toISOString() })
+    .eq("id", grantId)
+    .eq("active", true)
+    .is("auth_user_id", null)
+    .select("id")
+    .maybeSingle();
+
+  if (accepted.error) {
+    throw new Error(`Administrator grant acceptance failed: ${accepted.error.message}`);
+  }
+  if (!accepted.data) {
+    throw new Error(
+      "Administrator grant acceptance failed: grant was accepted by another identity"
+    );
+  }
 }
 
 async function updateEnvironmentOwner(

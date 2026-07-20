@@ -57,6 +57,7 @@ describe("control staff resolution", () => {
         id: "grant-1",
         role: "catalog",
         active: true,
+        auth_user_id: null,
         created_by_staff_id: "owner-staff",
       },
     });
@@ -78,6 +79,28 @@ describe("control staff resolution", () => {
     expect(state.grantAcceptedFor).toBe("user-3");
   });
 
+  it("denies an accepted grant when the authenticated identity does not match", async () => {
+    const state = createStaffClient({
+      grant: {
+        id: "grant-1",
+        role: "catalog",
+        active: true,
+        auth_user_id: "original-user",
+        created_by_staff_id: "owner-staff",
+      },
+    });
+
+    await expect(
+      resolveAdminStaff(state.client, {
+        authUserId: "different-user",
+        email: "catalog@example.test",
+        environmentAllowlisted: false,
+      })
+    ).resolves.toBeNull();
+
+    expect(state.grantAcceptedFor).toBeNull();
+  });
+
   it("denies users without an environment allowlist entry or active grant", async () => {
     const state = createStaffClient();
 
@@ -95,6 +118,7 @@ interface FakeGrant {
   id: string;
   role: StaffProfile["role"];
   active: boolean;
+  auth_user_id: string | null;
   created_by_staff_id: string | null;
 }
 
@@ -195,9 +219,30 @@ function grantTable(state: FakeState) {
     },
     update(input: Record<string, unknown>) {
       return {
-        async eq() {
-          state.grantAcceptedFor = String(input.auth_user_id ?? "");
-          return { error: null };
+        eq() {
+          return {
+            eq() {
+              return {
+                is() {
+                  return {
+                    select() {
+                      return {
+                        async maybeSingle() {
+                          if (state.grant?.auth_user_id || !state.grant?.active) {
+                            return { data: null, error: null };
+                          }
+                          const authUserId = String(input.auth_user_id ?? "");
+                          state.grantAcceptedFor = authUserId;
+                          if (state.grant) state.grant.auth_user_id = authUserId;
+                          return { data: { id: state.grant?.id }, error: null };
+                        },
+                      };
+                    },
+                  };
+                },
+              };
+            },
+          };
         },
       };
     },

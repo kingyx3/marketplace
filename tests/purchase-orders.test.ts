@@ -32,12 +32,12 @@ describe("admin supplier purchase orders", () => {
     form.set("unitCostCents", "15000");
     form.set("currency", "SG");
 
-    expect(() => adminPurchaseOrderFromForm(form)).toThrow("currency must be a 3-letter code");
+    expect(() => adminPurchaseOrderFromForm(form)).toThrow(
+      "currency must be a 3-letter currency code"
+    );
 
     form.set("currency", "SGD");
-    expect(() => adminPurchaseOrderFromForm(form)).toThrow(
-      "quantity must be a positive integer"
-    );
+    expect(() => adminPurchaseOrderFromForm(form)).toThrow("quantity must be at least 1");
   });
 
   it("keeps supplier PO intake service-role-only and stock-affecting", async () => {

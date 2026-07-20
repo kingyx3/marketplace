@@ -150,7 +150,7 @@ describe("catalog product action", () => {
       "admin_create_catalog_product_hierarchy",
       expect.objectContaining({
         p_name: "Pokémon Destined Rivals Booster Box",
-        p_category_id: "category-123",
+        p_category_id: "22222222-2222-4222-8222-222222222222",
         p_set_id: null,
         p_new_set_name: "Destined Rivals",
         p_new_set_code: "DESTINED-RIVALS",
@@ -333,9 +333,9 @@ function productForm(overrides: Record<string, string> = {}): FormData {
   const values: Record<string, string> = {
     name: "Pokémon Destined Rivals Booster Box",
     categoryMode: "existing",
-    categoryId: "category-123",
+    categoryId: "22222222-2222-4222-8222-222222222222",
     setMode: "existing",
-    setId: "set-123",
+    setId: "33333333-3333-4333-8333-333333333333",
     productTypeMode: "existing",
     productType: "booster_box",
     newProductTypeName: "",

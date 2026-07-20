@@ -194,6 +194,7 @@ export function ProductIntakeForm({
             example="https://cdn.example.com/products/destined-rivals.jpg"
             hint="Optional. You can also upload an image after creating the product."
             label="Image URL"
+            maxLength={2048}
             name="imageUrl"
             type="url"
           />

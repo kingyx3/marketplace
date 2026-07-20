@@ -19,13 +19,19 @@ export function ManualReconciliationForm({
         defaultValue={orderId ?? undefined}
         example="Order UUID"
         label="Order ID"
+        maxLength={36}
+        minLength={36}
         name="orderId"
+        pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}"
+        patternMessage="Order ID must be a UUID."
         required
       />
       <AdminTextField
         defaultValue={providerPaymentId ?? undefined}
         example="pi_..."
         label="Stripe payment reference"
+        maxLength={200}
+        minLength={3}
         name="providerPaymentId"
         required
       />
@@ -37,6 +43,8 @@ export function ManualReconciliationForm({
         maxLength={3}
         minLength={3}
         name="currency"
+        pattern="[A-Za-z]{3}"
+        patternMessage="Currency must be a 3-letter code, such as SGD."
         required
       />
       <div className="sm:col-span-2">

@@ -71,6 +71,7 @@ describe("auth helpers", () => {
         id: "grant-1",
         role: "operations",
         active: true,
+        auth_user_id: null,
         created_by_staff_id: "owner-staff",
       },
     });
@@ -97,6 +98,7 @@ describe("auth helpers", () => {
         id: "grant-1",
         role: "operations",
         active: true,
+        auth_user_id: null,
         created_by_staff_id: "owner-staff",
       },
     });
@@ -273,6 +275,7 @@ interface FakeGrant {
   id: string;
   role: StaffProfile["role"];
   active: boolean;
+  auth_user_id: string | null;
   created_by_staff_id: string | null;
   permissions?: string[];
   admin_access_grant_permissions?: Array<{ permission_key: string }>;
@@ -363,7 +366,18 @@ function fakeAdminSupabase(initial?: { staff?: StaffProfile; grant?: FakeGrant }
             })),
           })),
           update: vi.fn(() => ({
-            eq: vi.fn(async () => ({ error: null })),
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                is: vi.fn(() => ({
+                  select: vi.fn(() => ({
+                    maybeSingle: vi.fn(async () => ({
+                      data: state.grant?.active ? { id: state.grant.id } : null,
+                      error: null,
+                    })),
+                  })),
+                })),
+              })),
+            })),
           })),
         };
       }
