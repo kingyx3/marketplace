@@ -1,0 +1,78 @@
+name: Bootstrap Database Test Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Hosted database environment to bootstrap
+        required: true
+        default: development
+        type: choice
+        options: [development, staging]
+
+concurrency:
+  group: marketplace-database-bootstrap-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    name: Upsert and verify ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    timeout-minutes: 20
+    env:
+      TARGET_ENV: ${{ inputs.target }}
+      APP_NAME: ${{ vars.APP_NAME }}
+      GCP_TERRAFORM_CREDENTIALS_JSON: ${{ secrets.GCP_TERRAFORM_CREDENTIALS_JSON }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      PROJECT_SLUG: ${{ vars.PROJECT_SLUG }}
+      TF_STATE_BUCKET_NAME: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_STATE_BUCKET_LOCATION: ${{ vars.TF_STATE_BUCKET_LOCATION }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+      ADMIN_EMAIL_ALLOWLIST: ${{ vars.ADMIN_EMAIL_ALLOWLIST }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      GOOGLE_AUTH_ENABLED: ${{ vars.GOOGLE_AUTH_ENABLED }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+    steps:
+      - name: Require provisioned staging
+        if: ${{ inputs.target == 'staging' && vars.ENABLE_RELEASE_TOPOLOGY != 'true' }}
+        run: |
+          echo "Staging is disabled. Set ENABLE_RELEASE_TOPOLOGY=true and bootstrap staging first." >&2
+          exit 1
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.15.8
+      - run: npm ci
+      - name: Resolve selected hosted environment
+        run: |
+          node scripts/resolve-terraform-inputs.mjs platform
+          terraform -chdir=infra/terraform/platform init \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="bucket=$TF_STATE_BUCKET_NAME" \
+            -backend-config="prefix=$TF_STATE_PREFIX"
+          terraform -chdir=infra/terraform/platform output -json \
+            > infra/terraform/platform/tf-outputs.json
+          node scripts/resolve-environment.mjs \
+            --environment "${{ inputs.target }}" \
+            --tf-output-json infra/terraform/platform/tf-outputs.json \
+            --strict \
+            --verify-supabase-keys
+      - name: Validate bootstrap contract
+        run: npx vitest run tests/database-bootstrap.test.ts
+      - name: Upsert test data and verify storefront visibility
+        run: npm run db:bootstrap -- --target="${{ inputs.target }}"
