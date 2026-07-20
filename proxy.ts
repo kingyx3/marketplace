@@ -59,6 +59,6 @@ function validRequestId(value: string | null): string | null {
 
 export const config = {
   matcher: [
-    "/((?!api/webhooks/stripe|monitoring|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/webhooks/hitpay|monitoring|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
