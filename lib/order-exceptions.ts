@@ -27,11 +27,7 @@ export async function listAdminOrderExceptions(
       .from("webhook_events")
       .select("id, event_id, event_type, payload, processed_at")
       .eq("provider", "hitpay")
-      .in("event_type", [
-        "payment_request.completed",
-        "payment_request.failed",
-        "charge.updated",
-      ])
+      .in("event_type", ["payment_request.completed", "payment_request.failed", "charge.updated"])
       .order("processed_at", { ascending: false })
       .limit(200),
   ]);

@@ -2,13 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { reportOperationalFailure } from "@/lib/operational-alerts";
-import {
-  logError,
-  logInfo,
-  logWarn,
-  requestIdFrom,
-  withRequestId,
-} from "@/lib/observability";
+import { logError, logInfo, logWarn, requestIdFrom, withRequestId } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 

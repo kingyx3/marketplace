@@ -10,17 +10,13 @@ export const serverEnvSchema = z.object({
   HITPAY_API_KEY: z.string().min(1),
   HITPAY_WEBHOOK_SALT: z.string().min(1),
   HITPAY_API_URL: z.string().url(),
-  HITPAY_PAYMENT_METHODS: z
-    .string()
-    .regex(new RegExp("^[a-z0-9_]+(?:,[a-z0-9_]+)*$")),
+  HITPAY_PAYMENT_METHODS: z.string().regex(new RegExp("^[a-z0-9_]+(?:,[a-z0-9_]+)*$")),
   NEXT_PUBLIC_SITE_URL: z.string().url(),
   APP_NAME: z.string().min(1),
   ADMIN_EMAIL_ALLOWLIST: z
     .string()
     .regex(
-      new RegExp(
-        "^[^,\\s@]+@[^,\\s@]+\\.[^,\\s@]+(?:\\s*,\\s*[^,\\s@]+@[^,\\s@]+\\.[^,\\s@]+)*$"
-      )
+      new RegExp("^[^,\\s@]+@[^,\\s@]+\\.[^,\\s@]+(?:\\s*,\\s*[^,\\s@]+@[^,\\s@]+\\.[^,\\s@]+)*$")
     )
     .optional(),
   MARKETPLACE_PREVIEW_FIXTURES: z.enum(["true", "false"]).optional(),

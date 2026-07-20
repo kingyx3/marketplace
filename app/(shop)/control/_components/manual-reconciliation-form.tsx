@@ -53,13 +53,7 @@ export function ManualReconciliationForm({
         name="providerPaymentId"
         required
       />
-      <AdminNumberField
-        example="18900"
-        label="Amount cents"
-        min={1}
-        name="amountCents"
-        required
-      />
+      <AdminNumberField example="18900" label="Amount cents" min={1} name="amountCents" required />
       <AdminTextField
         defaultValue="SGD"
         example="SGD"

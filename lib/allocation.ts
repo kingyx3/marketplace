@@ -26,7 +26,9 @@ export function allocate(
   const results = new Map<string, number>();
   let remaining = available;
   const orderedRules = [...rules].sort((a, b) => a.priority - b.priority);
-  const remainingByPreorder = new Map(preorders.map((preorder) => [preorder.preorderId, preorder.quantity]));
+  const remainingByPreorder = new Map(
+    preorders.map((preorder) => [preorder.preorderId, preorder.quantity])
+  );
 
   for (const rule of orderedRules) {
     if (remaining <= 0) break;
@@ -44,10 +46,7 @@ export function allocate(
       let allocation = Math.min(outstanding, budget, remaining);
       if (rule.maxPerCustomer !== null) {
         const alreadyAllocated = perCustomer.get(preorder.customerId) ?? 0;
-        allocation = Math.min(
-          allocation,
-          Math.max(0, rule.maxPerCustomer - alreadyAllocated)
-        );
+        allocation = Math.min(allocation, Math.max(0, rule.maxPerCustomer - alreadyAllocated));
       }
       if (allocation <= 0) continue;
 

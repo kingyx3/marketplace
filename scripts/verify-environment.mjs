@@ -34,9 +34,7 @@ async function main() {
     target: vercelEnvironment,
     decrypt: true,
   });
-  const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map(
-    (entry) => entry.key
-  );
+  const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);
   const verificationEnvironment = buildEnvironmentWithVercelFallback({
     records,
     runtimeKeys,
@@ -77,12 +75,7 @@ async function main() {
     );
     run(
       process.execPath,
-      [
-        "scripts/sync-vercel-env.mjs",
-        runtimePath,
-        "--check-only",
-        "--preserve-unset-optional",
-      ],
+      ["scripts/sync-vercel-env.mjs", runtimePath, "--check-only", "--preserve-unset-optional"],
       { env: verificationEnvironment }
     );
 
@@ -132,9 +125,7 @@ function healthError(url, response) {
 
 function run(command, args, options = {}) {
   const printable = [command, ...args]
-    .map((value) =>
-      value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value
-    )
+    .map((value) => (value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value))
     .join(" ");
   console.log(`\n$ ${printable}`);
   const result = spawnSync(command, args, {

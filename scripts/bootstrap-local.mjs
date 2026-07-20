@@ -11,11 +11,8 @@ const checkOnly = args.has("--check-only");
 const skipInstall = args.has("--skip-install");
 const skipReset = args.has("--skip-reset");
 
-checkPrerequisite(
-  "Node",
-  process.execPath,
-  ["--version"],
-  (value) => value.startsWith(`v${TOOL_VERSIONS.node.split(".")[0]}.`)
+checkPrerequisite("Node", process.execPath, ["--version"], (value) =>
+  value.startsWith(`v${TOOL_VERSIONS.node.split(".")[0]}.`)
 );
 checkPrerequisite("npm", "npm", ["--version"], () => true);
 checkPrerequisite("Docker", "docker", ["info"], () => true, { quiet: true });
@@ -26,11 +23,9 @@ if (checkOnly) {
 
 if (!skipInstall) run("npm", ["ci"]);
 run("npx", ["--yes", pinnedNpxPackage("supabase"), "start"]);
-const status = run(
-  "npx",
-  ["--yes", pinnedNpxPackage("supabase"), "status", "--output", "env"],
-  { capture: true }
-);
+const status = run("npx", ["--yes", pinnedNpxPackage("supabase"), "status", "--output", "env"], {
+  capture: true,
+});
 const supabase = parseShellEnv(status.stdout);
 const envPath = ".env.local";
 const current = await readOptionalDotenv(envPath);
@@ -57,7 +52,9 @@ for (const key of ["HITPAY_API_KEY", "HITPAY_WEBHOOK_SALT"]) {
 
 await writeFile(envPath, renderDotenv(merged), { encoding: "utf8", mode: 0o600 });
 await chmod(envPath, 0o600);
-console.log(`Wrote ${envPath} from local Supabase state while preserving existing provider values.`);
+console.log(
+  `Wrote ${envPath} from local Supabase state while preserving existing provider values.`
+);
 if (!skipReset) run("npx", ["--yes", pinnedNpxPackage("supabase"), "db", "reset"]);
 
 const validation = validateEnv({

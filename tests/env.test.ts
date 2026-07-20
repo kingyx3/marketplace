@@ -9,10 +9,10 @@ const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const validEnv: Record<string, string> = {
   NEXT_PUBLIC_SUPABASE_URL: "https://abc123.supabase.co",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_123",
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
+  HITPAY_API_URL: "https://api.sandbox.hit-pay.com",
   SUPABASE_SECRET_KEY: "sb_secret_test_123",
-  STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_WEBHOOK_SECRET: "whsec_123",
+  HITPAY_API_KEY: "hitpay_test_api_key",
+  HITPAY_WEBHOOK_SALT: "hitpay_test_webhook_salt",
   APP_NAME: "Marketplace",
   NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
   TARGET_ENV: "development",
@@ -21,7 +21,9 @@ const validEnv: Record<string, string> = {
 
 describe("environment contract", () => {
   it("accepts a minimal valid runtime/deploy environment", () => {
-    const result = runGenerateEnv<{ ok: boolean; errors: string[] }>(`console.log(JSON.stringify(validateEnv(${literal(validEnv)})));`);
+    const result = runGenerateEnv<{ ok: boolean; errors: string[] }>(
+      `console.log(JSON.stringify(validateEnv(${literal(validEnv)})));`
+    );
     expect(result).toEqual({ ok: true, errors: [] });
   });
 
@@ -52,10 +54,12 @@ describe("environment contract", () => {
     expect(malformed.errors.join("\n")).toContain("malformed: ADMIN_EMAIL_ALLOWLIST");
   });
 
-  it("allows the generated Stripe signing secret to be absent only during pre-provision checks", () => {
+  it("allows the generated HitPay signing secret to be absent only during pre-provision checks", () => {
     const withoutWebhook = { ...validEnv };
-    delete withoutWebhook.STRIPE_WEBHOOK_SECRET;
-    const strict = runGenerateEnv<{ ok: boolean }>(`console.log(JSON.stringify(validateEnv(${literal(withoutWebhook)})));`);
+    delete withoutWebhook.HITPAY_WEBHOOK_SALT;
+    const strict = runGenerateEnv<{ ok: boolean }>(
+      `console.log(JSON.stringify(validateEnv(${literal(withoutWebhook)})));`
+    );
     const preProvision = runGenerateEnv<{ ok: boolean }>(
       `console.log(JSON.stringify(validateEnv(${literal(withoutWebhook)}, { allowMissingProvisioned: true })));`
     );
@@ -64,7 +68,9 @@ describe("environment contract", () => {
   });
 
   it("never writes deploy-only keys into runtime dotenv", () => {
-    const dotenv = runGenerateEnv<string>(`console.log(JSON.stringify(renderDotenv(${literal(validEnv)})));`);
+    const dotenv = runGenerateEnv<string>(
+      `console.log(JSON.stringify(renderDotenv(${literal(validEnv)})));`
+    );
     expect(dotenv).not.toContain("TARGET_ENV");
     expect(dotenv).not.toContain("GOOGLE_AUTH_ENABLED");
     expect(dotenv).toContain("APP_NAME=Marketplace");
@@ -73,15 +79,17 @@ describe("environment contract", () => {
   it("loads local dotenv without overriding exported values", async () => {
     const dir = await mkdtemp(join(tmpdir(), "marketplace-env-"));
     const file = join(dir, ".env");
-    await writeFile(file, "TARGET_ENV=development\nSTRIPE_SECRET_KEY=sk_test_from_file\n", "utf8");
+    await writeFile(file, "TARGET_ENV=development\nHITPAY_API_KEY=sk_test_from_file\n", "utf8");
     try {
-      const env = runGenerateEnv<Record<string, string>>([
-        `const env = ${literal({ STRIPE_SECRET_KEY: "sk_test_exported" })};`,
-        `await loadLocalDotenv(env, ${literal(file)});`,
-        "console.log(JSON.stringify(env));",
-      ].join("\n"));
+      const env = runGenerateEnv<Record<string, string>>(
+        [
+          `const env = ${literal({ HITPAY_API_KEY: "sk_test_exported" })};`,
+          `await loadLocalDotenv(env, ${literal(file)});`,
+          "console.log(JSON.stringify(env));",
+        ].join("\n")
+      );
       expect(env.TARGET_ENV).toBe("development");
-      expect(env.STRIPE_SECRET_KEY).toBe("sk_test_exported");
+      expect(env.HITPAY_API_KEY).toBe("sk_test_exported");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -94,21 +102,26 @@ describe("environment contract", () => {
       APP_NAME: "Custom Marketplace",
       NEXT_PUBLIC_SITE_URL: "https://dev.example.com",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_123",
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
+      HITPAY_API_URL: "https://api.sandbox.hit-pay.com",
       SUPABASE_SECRET_KEY: "sb_secret_test_123",
       VERCEL_ORG_ID: "team_test_123",
       TF_OUTPUT_JSON: JSON.stringify({
         vercel_project_id: { value: "prj_test_123" },
         supabase_project_refs: { value: { development: "abcdefghijklmnopq" } },
         supabase_project_urls: { value: { development: "https://abcdefghijklmnopq.supabase.co" } },
-        supabase_database_passwords: { value: { development: "database-password" }, sensitive: true },
+        supabase_database_passwords: {
+          value: { development: "database-password" },
+          sensitive: true,
+        },
       }),
     };
-    const resolved = runResolveEnvironment<Record<string, string | string[]>>([
-      `const env = ${literal(env)};`,
-      "const result = await resolveEnvironment(env, { environment: 'development', strict: true, requireDbPassword: true, loadDotenv: false });",
-      "console.log(JSON.stringify({ ...env, missing: result.missing }));",
-    ].join("\n"));
+    const resolved = runResolveEnvironment<Record<string, string | string[]>>(
+      [
+        `const env = ${literal(env)};`,
+        "const result = await resolveEnvironment(env, { environment: 'development', strict: true, requireDbPassword: true, loadDotenv: false });",
+        "console.log(JSON.stringify({ ...env, missing: result.missing }));",
+      ].join("\n")
+    );
     expect(resolved.missing).toEqual([]);
     expect(resolved.APP_NAME).toBe("Custom Marketplace");
     expect(resolved.SUPABASE_PROJECT_REF).toBe("abcdefghijklmnopq");
@@ -180,10 +193,7 @@ describe("environment contract", () => {
         projectRef: ref,
         url: `https://${ref}.supabase.co`,
         publishableKey: `sb_publishable_${ref}`,
-        secretKey:
-          target === "staging"
-            ? `sb_secret_${ref}_secondary`
-            : `sb_secret_${ref}_default`,
+        secretKey: target === "staging" ? `sb_secret_${ref}_secondary` : `sb_secret_${ref}_default`,
       });
     }
     expect(resolved.requests).toHaveLength(3);
@@ -198,25 +208,27 @@ describe("environment contract", () => {
       NEXT_PUBLIC_SITE_URL: "https://dev.example.com",
       NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopq.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "stale-publishable-key",
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
+      HITPAY_API_URL: "https://api.sandbox.hit-pay.com",
       SUPABASE_SECRET_KEY: "stale-secret-key",
       SUPABASE_PROJECT_REF: "abcdefghijklmnopq",
       SUPABASE_ACCESS_TOKEN: "sbp_test_token",
       VERCEL_ORG_ID: "team_test_123",
       VERCEL_PROJECT_ID: "prj_test_123",
     };
-    const resolved = runResolveEnvironment<Record<string, string>>([
-      "globalThis.fetch = async (input) => {",
-      "  if (!String(input).includes('/api-keys')) throw new Error(`unexpected fetch: ${input}`);",
-      "  return new Response(JSON.stringify([",
-      "    { name: 'anon', api_key: 'legacy-anon-key' },",
-      "    { name: 'service_role', api_key: 'legacy-service-role-key' },",
-      "  ]), { status: 200, headers: { 'content-type': 'application/json' } });",
-      "};",
-      `const env = ${literal(env)};`,
-      "await resolveEnvironment(env, { environment: 'development', strict: true, loadDotenv: false });",
-      "console.log(JSON.stringify(env));",
-    ].join("\n"));
+    const resolved = runResolveEnvironment<Record<string, string>>(
+      [
+        "globalThis.fetch = async (input) => {",
+        "  if (!String(input).includes('/api-keys')) throw new Error(`unexpected fetch: ${input}`);",
+        "  return new Response(JSON.stringify([",
+        "    { name: 'anon', api_key: 'legacy-anon-key' },",
+        "    { name: 'service_role', api_key: 'legacy-service-role-key' },",
+        "  ]), { status: 200, headers: { 'content-type': 'application/json' } });",
+        "};",
+        `const env = ${literal(env)};`,
+        "await resolveEnvironment(env, { environment: 'development', strict: true, loadDotenv: false });",
+        "console.log(JSON.stringify(env));",
+      ].join("\n")
+    );
     expect(resolved.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).toBe("legacy-anon-key");
     expect(resolved.SUPABASE_SECRET_KEY).toBe("legacy-service-role-key");
   });
@@ -229,50 +241,69 @@ describe("environment contract", () => {
       NEXT_PUBLIC_SITE_URL: "https://dev.example.com",
       NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopq.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "valid-publishable-key",
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
+      HITPAY_API_URL: "https://api.sandbox.hit-pay.com",
       SUPABASE_SECRET_KEY: "wrong-project-secret-key",
       SUPABASE_PROJECT_REF: "abcdefghijklmnopq",
       VERCEL_ORG_ID: "team_test_123",
       VERCEL_PROJECT_ID: "prj_test_123",
     };
-    const result = runResolveEnvironment<{ ok: boolean; message: string }>([
-      "globalThis.fetch = async (_input, init) => {",
-      "  const key = init?.headers?.apikey;",
-      "  return key === 'valid-publishable-key'",
-      "    ? new Response('[]', { status: 200 })",
-      "    : new Response(JSON.stringify({ message: 'Invalid API key' }), { status: 401 });",
-      "};",
-      `const env = ${literal(env)};`,
-      "try {",
-      "  await resolveEnvironment(env, { environment: 'development', strict: true, verifySupabaseKeys: true, loadDotenv: false });",
-      "  console.log(JSON.stringify({ ok: true, message: '' }));",
-      "} catch (error) {",
-      "  console.log(JSON.stringify({ ok: false, message: error.message }));",
-      "}",
-    ].join("\n"));
+    const result = runResolveEnvironment<{ ok: boolean; message: string }>(
+      [
+        "globalThis.fetch = async (_input, init) => {",
+        "  const key = init?.headers?.apikey;",
+        "  return key === 'valid-publishable-key'",
+        "    ? new Response('[]', { status: 200 })",
+        "    : new Response(JSON.stringify({ message: 'Invalid API key' }), { status: 401 });",
+        "};",
+        `const env = ${literal(env)};`,
+        "try {",
+        "  await resolveEnvironment(env, { environment: 'development', strict: true, verifySupabaseKeys: true, loadDotenv: false });",
+        "  console.log(JSON.stringify({ ok: true, message: '' }));",
+        "} catch (error) {",
+        "  console.log(JSON.stringify({ ok: false, message: error.message }));",
+        "}",
+      ].join("\n")
+    );
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("SUPABASE_SECRET_KEY is not valid for Supabase project abcdefghijklmnopq");
+    expect(result.message).toContain(
+      "SUPABASE_SECRET_KEY is not valid for Supabase project abcdefghijklmnopq"
+    );
     expect(result.message).toContain("Re-run Bootstrap & Deploy");
   });
 
   it("keeps generated artifacts in sync with every contract key", async () => {
     const example = await readFile(new URL("../.env.example", import.meta.url), "utf8");
-    const keys = runGenerateEnv<string[]>("console.log(JSON.stringify(ENV_CONTRACT.map((entry) => entry.key)));");
+    const keys = runGenerateEnv<string[]>(
+      "console.log(JSON.stringify(ENV_CONTRACT.map((entry) => entry.key)));"
+    );
     for (const key of keys) expect(example).toContain(`${key}=`);
-    const result = spawnSync(process.execPath, ["scripts/generate-environment-artifacts.mjs", "--check"], { cwd: repoRoot, encoding: "utf8" });
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/generate-environment-artifacts.mjs", "--check"],
+      { cwd: repoRoot, encoding: "utf8" }
+    );
     expect(result.status, result.stderr || result.stdout).toBe(0);
   });
 });
 
 function runGenerateEnv<T>(body: string): T {
-  return runNodeModule<T>(`import { ENV_CONTRACT, loadLocalDotenv, renderDotenv, validateEnv } from './scripts/generate-env.mjs';\n${body}`);
+  return runNodeModule<T>(
+    `import { ENV_CONTRACT, loadLocalDotenv, renderDotenv, validateEnv } from './scripts/generate-env.mjs';\n${body}`
+  );
 }
 function runResolveEnvironment<T>(body: string): T {
-  return runNodeModule<T>(`import { resolveEnvironment } from './scripts/resolve-environment.mjs';\n${body}`);
+  return runNodeModule<T>(
+    `import { resolveEnvironment } from './scripts/resolve-environment.mjs';\n${body}`
+  );
 }
 function runNodeModule<T>(source: string): T {
-  const result = spawnSync(process.execPath, ["--input-type=module", "-e", source], { cwd: repoRoot, encoding: "utf8" });
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", source], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
   if (result.status !== 0) throw new Error(result.stderr || result.stdout);
   return JSON.parse(result.stdout);
 }
-function literal(value: unknown): string { return JSON.stringify(value); }
+function literal(value: unknown): string {
+  return JSON.stringify(value);
+}

@@ -59,8 +59,7 @@ export function CartCheckoutPanel({
   const [shippingAddress, setShippingAddress] = useState(emptyShippingAddress);
   const checkoutIdempotencyKey = useRef<string | null>(null);
   const requiresShipping = mode === "order";
-  const supabaseKey =
-    supabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+  const supabaseKey = supabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
   const session = useMemo(
     () => createBrowserSessionProvider(supabaseUrl, supabaseKey),
     [supabaseUrl, supabaseKey]
@@ -108,17 +107,14 @@ export function CartCheckoutPanel({
       checkoutIdempotencyKey.current = null;
       setPhase("failed");
       setMessage(
-        error instanceof Error && error.message
-          ? error.message
-          : "Checkout could not be started"
+        error instanceof Error && error.message ? error.message : "Checkout could not be started"
       );
       router.refresh();
     }
   }
 
   const addressReady = !requiresShipping || isShippingAddressComplete(shippingAddress);
-  const canCreate =
-    !disabled && addressReady && items.length > 0 && phase !== "creating";
+  const canCreate = !disabled && addressReady && items.length > 0 && phase !== "creating";
 
   return (
     <div className="mt-6 grid gap-3">

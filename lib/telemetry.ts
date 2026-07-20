@@ -63,9 +63,7 @@ export function sanitizeTelemetryValue(value: unknown, depth = 0): unknown {
         .slice(0, 50)
         .map(([key, entry]) => [
           key,
-          SENSITIVE_KEY_PATTERN.test(key)
-            ? "[redacted]"
-            : sanitizeTelemetryValue(entry, depth + 1),
+          SENSITIVE_KEY_PATTERN.test(key) ? "[redacted]" : sanitizeTelemetryValue(entry, depth + 1),
         ])
     );
   }
@@ -136,7 +134,8 @@ function sanitizeLogEntry(value: unknown): unknown {
   if (!logentry) return value;
   const output = { ...logentry };
   if (typeof output.message === "string") output.message = sanitizeTelemetryText(output.message);
-  if (typeof output.formatted === "string") output.formatted = sanitizeTelemetryText(output.formatted);
+  if (typeof output.formatted === "string")
+    output.formatted = sanitizeTelemetryText(output.formatted);
   if (Array.isArray(output.params)) output.params = sanitizeTelemetryValue(output.params);
   return output;
 }

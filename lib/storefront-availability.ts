@@ -1,9 +1,5 @@
 export type StorefrontSetStatus =
-  | "announced"
-  | "preorder_open"
-  | "preorder_closed"
-  | "released"
-  | "out_of_print";
+  "announced" | "preorder_open" | "preorder_closed" | "released" | "out_of_print";
 
 export type StorefrontAvailabilityKind =
   | "in_stock"

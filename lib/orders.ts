@@ -278,11 +278,7 @@ export async function listAdminOrderExceptions(supabase: SupabaseClient, now = n
     supabase
       .from("webhook_events")
       .select("id, event_id, event_type, payload, processed_at")
-      .in("event_type", [
-        "payment_intent.succeeded",
-        "payment_intent.payment_failed",
-        "payment_intent.amount_capturable_updated",
-      ])
+      .in("event_type", ["payment_request.completed", "payment_request.failed", "charge.updated"])
       .order("processed_at", { ascending: false })
       .limit(200),
   ]);
@@ -393,18 +389,18 @@ export function buildAdminOrderExceptionQueue(input: {
 
   for (const row of input.webhookEvents) {
     const event = row as WebhookEventRow;
-    const providerPaymentId = paymentIntentIdFromWebhookPayload(event.payload);
+    const providerPaymentId = paymentRequestIdFromWebhookPayload(event.payload);
     if (!providerPaymentId || localProviderPaymentIds.has(providerPaymentId)) continue;
 
     pushException(exceptions, seen, {
       key: `orphan-provider-payment:${event.event_id}`,
       source: "derived",
       exceptionType: "orphan_provider_payment",
-      severity: event.event_type === "payment_intent.succeeded" ? "critical" : "warning",
+      severity: event.event_type === "payment_request.completed" ? "critical" : "warning",
       orderId: null,
       paymentId: null,
       providerPaymentId,
-      detail: `Stripe webhook ${event.event_type} has no matching local payment row.`,
+      detail: `HitPay webhook ${event.event_type} has no matching local payment row.`,
       createdAt: event.processed_at,
     });
   }
@@ -422,14 +418,10 @@ function pushException(
   exceptions.push(exception);
 }
 
-function paymentIntentIdFromWebhookPayload(payload: unknown): string | null {
+function paymentRequestIdFromWebhookPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
-  const data = "data" in payload ? payload.data : null;
-  if (!data || typeof data !== "object") return null;
-  const object = "object" in data ? data.object : null;
-  if (!object || typeof object !== "object") return null;
-  const id = "id" in object ? object.id : null;
-  return typeof id === "string" && id.startsWith("pi_") ? id : null;
+  const id = "id" in payload ? payload.id : null;
+  return typeof id === "string" ? id : null;
 }
 
 async function checkedRpc(supabase: SupabaseClient, name: string, params: Record<string, unknown>) {

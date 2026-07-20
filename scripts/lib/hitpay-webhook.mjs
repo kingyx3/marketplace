@@ -1,17 +1,10 @@
-const DEFAULT_EVENTS = [
-  "payment_request.completed",
-  "payment_request.failed",
-  "charge.updated",
-];
+const DEFAULT_EVENTS = ["payment_request.completed", "payment_request.failed", "charge.updated"];
 
 export function buildHitPayWebhookConfig(env = process.env) {
   const siteUrl = String(env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
   return {
     apiKey: String(env.HITPAY_API_KEY || ""),
-    apiUrl: String(env.HITPAY_API_URL || "https://api.sandbox.hit-pay.com").replace(
-      /\/$/,
-      ""
-    ),
+    apiUrl: String(env.HITPAY_API_URL || "https://api.sandbox.hit-pay.com").replace(/\/$/, ""),
     siteUrl,
     targetEnv: String(env.TARGET_ENV || ""),
     webhookUrl: siteUrl ? `${siteUrl}/api/webhooks/hitpay` : "",

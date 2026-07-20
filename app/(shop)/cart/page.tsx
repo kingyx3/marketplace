@@ -229,9 +229,7 @@ export default async function CartPage({
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-zinc-500">GST included</dt>
-                <dd className="font-semibold text-zinc-950">
-                  {formatMoney(gst, quote.currency)}
-                </dd>
+                <dd className="font-semibold text-zinc-950">{formatMoney(gst, quote.currency)}</dd>
               </div>
               <div className="mt-3 border-t border-zinc-200 pt-4">
                 <div className="flex justify-between gap-4">

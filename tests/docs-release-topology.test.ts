@@ -22,7 +22,9 @@ describe("release topology documentation", () => {
     expect(provisioning).toContain("The default compact topology manages");
     expect(architecture).toContain("The default compact topology has two deployable targets");
 
-    expect(platform).toContain('base_supabase_environments    = toset(["development", "production"])');
+    expect(platform).toContain(
+      'base_supabase_environments    = toset(["development", "production"])'
+    );
     expect(platform).toContain("release_supabase_environments = var.enable_release_topology");
     expect(platform).toContain("count = var.enable_release_topology ? 1 : 0");
   });

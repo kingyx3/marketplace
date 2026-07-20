@@ -12,7 +12,9 @@ const LEGACY_ROUTE_REGEX = /\\\/catalog/;
 describe("products storefront route", () => {
   it("ships products pages without legacy catalog route entries", async () => {
     await expect(access(join(ROOT, "app/(shop)/products/page.tsx"))).resolves.toBeUndefined();
-    await expect(access(join(ROOT, "app/(shop)/products/[slug]/page.tsx"))).resolves.toBeUndefined();
+    await expect(
+      access(join(ROOT, "app/(shop)/products/[slug]/page.tsx"))
+    ).resolves.toBeUndefined();
     await expect(access(join(ROOT, "app/(shop)/catalog/page.tsx"))).rejects.toBeDefined();
     await expect(access(join(ROOT, "app/(shop)/catalog/[slug]/page.tsx"))).rejects.toBeDefined();
   });

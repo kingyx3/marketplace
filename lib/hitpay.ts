@@ -57,11 +57,7 @@ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPay
   if (!apiKey) throw new Error("HitPay is not configured (HITPAY_API_KEY)");
   if (!/^https:\/\//i.test(apiUrl)) throw new Error("HITPAY_API_URL must use HTTPS");
 
-  const request = async <T>(
-    path: string,
-    init: RequestInit,
-    schema?: z.ZodType<T>
-  ): Promise<T> => {
+  const request = async <T>(path: string, init: RequestInit, schema?: z.ZodType<T>): Promise<T> => {
     const response = await fetch(`${apiUrl}${path}`, {
       ...init,
       cache: "no-store",
@@ -77,9 +73,7 @@ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPay
     const payload = text ? safeJson(text) : {};
     if (!response.ok) {
       const detail = providerErrorMessage(payload);
-      throw new Error(
-        `HitPay request failed (${response.status})${detail ? `: ${detail}` : ""}`
-      );
+      throw new Error(`HitPay request failed (${response.status})${detail ? `: ${detail}` : ""}`);
     }
     return schema ? schema.parse(payload) : (payload as T);
   };

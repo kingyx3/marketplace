@@ -4,10 +4,7 @@ import { inspect } from "node:util";
 
 import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";
 import { loadLocalDotenv } from "./generate-env.mjs";
-import {
-  buildHitPayWebhookConfig,
-  listHitPayWebhooks,
-} from "./lib/hitpay-webhook.mjs";
+import { buildHitPayWebhookConfig, listHitPayWebhooks } from "./lib/hitpay-webhook.mjs";
 
 const PUBLIC_ENV_KEYS = Object.freeze([
   "TARGET_ENV",
@@ -101,7 +98,8 @@ function applyTerraformOutputs(env, outputs, targetEnv) {
   setIfMissing(
     env,
     "VERCEL_PROJECT_NAME",
-    valueForEnvironment(vercelProjectNames, targetEnv) || terraformValue(outputs, "vercel_project_name")
+    valueForEnvironment(vercelProjectNames, targetEnv) ||
+      terraformValue(outputs, "vercel_project_name")
   );
 }
 
@@ -109,9 +107,7 @@ function applyHitPayDefaults(env, targetEnv) {
   setIfMissing(
     env,
     "HITPAY_API_URL",
-    targetEnv === "production"
-      ? "https://api.hit-pay.com"
-      : "https://api.sandbox.hit-pay.com"
+    targetEnv === "production" ? "https://api.hit-pay.com" : "https://api.sandbox.hit-pay.com"
   );
   setIfMissing(env, "HITPAY_PAYMENT_METHODS", "paynow_online");
   setIfMissing(
@@ -346,9 +342,7 @@ function hasValue(value) {
 }
 
 function pickValues(env, keys) {
-  return Object.fromEntries(
-    keys.filter((key) => hasValue(env[key])).map((key) => [key, env[key]])
-  );
+  return Object.fromEntries(keys.filter((key) => hasValue(env[key])).map((key) => [key, env[key]]));
 }
 
 function missingRequired(env, requireDbPassword) {
@@ -458,7 +452,8 @@ function redact(value, env = process.env) {
     .replaceAll(/sb_secret_[A-Za-z0-9_\-]+/g, "[redacted-supabase-secret-key]")
     .replaceAll(/Bearer\s+[A-Za-z0-9_\-.]+/g, "Bearer [redacted]");
   for (const secret of [env.HITPAY_API_KEY, env.HITPAY_WEBHOOK_SALT]) {
-    if (hasValue(secret)) redacted = redacted.replaceAll(String(secret), "[redacted-hitpay-secret]");
+    if (hasValue(secret))
+      redacted = redacted.replaceAll(String(secret), "[redacted-hitpay-secret]");
   }
   return redacted;
 }

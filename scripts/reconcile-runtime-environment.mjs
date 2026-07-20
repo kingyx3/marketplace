@@ -36,9 +36,7 @@ async function main() {
     target: vercelEnvironment,
     decrypt: true,
   });
-  const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map(
-    (entry) => entry.key
-  );
+  const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);
   const provisionEnvironment = buildEnvironmentWithVercelFallback({
     records,
     runtimeKeys,
@@ -55,11 +53,7 @@ async function main() {
       run(process.execPath, ["scripts/configure-providers.mjs", `--${providerMode}`]);
     }
 
-    run(process.execPath, [
-      "scripts/generate-env.mjs",
-      "--check",
-      "--allow-missing-provisioned",
-    ]);
+    run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);
     run(process.execPath, [
       "scripts/generate-env.mjs",
       "--write",

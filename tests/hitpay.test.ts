@@ -2,10 +2,7 @@ import { createHmac } from "node:crypto";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  hitPayEventAuditEnvelope,
-  validSignature,
-} from "@/app/api/webhooks/hitpay/route";
+import { hitPayEventAuditEnvelope, validSignature } from "@/app/api/webhooks/hitpay/route";
 import {
   createHitPayClient,
   hitPayAmountToCents,
@@ -79,9 +76,7 @@ describe("HitPay payment requests", () => {
 
     expect(result.url).toContain("securecheckout.sandbox.hit-pay.com");
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect((init.headers as Record<string, string>)["X-BUSINESS-API-KEY"]).toBe(
-      "server-secret"
-    );
+    expect((init.headers as Record<string, string>)["X-BUSINESS-API-KEY"]).toBe("server-secret");
     expect(JSON.parse(String(init.body))).toEqual(
       expect.objectContaining({
         amount: "10.00",

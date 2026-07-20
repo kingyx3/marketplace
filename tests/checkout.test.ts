@@ -191,11 +191,7 @@ describe("hosted HitPay checkout", () => {
     const hitpay = fakeHitPay();
 
     await expect(
-      cancelPendingCheckoutPayment(
-        auth as never,
-        { paymentRequestId: requestId },
-        hitpay as never
-      )
+      cancelPendingCheckoutPayment(auth as never, { paymentRequestId: requestId }, hitpay as never)
     ).resolves.toEqual({
       cancelled: true,
       orderId: "order-cancel",

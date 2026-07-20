@@ -21,14 +21,14 @@ The bootstrap command:
 2. Uses the pinned Supabase CLI version from `config/tool-versions.json`.
 3. Starts or reuses local Supabase.
 4. Reads machine-readable local URL/keys.
-5. Merges them into ignored `.env.local` without overwriting existing Stripe values.
+5. Merges them into ignored `.env.local` without overwriting existing HitPay values.
 6. Resets migrations and seed data.
 7. Reports only missing provider values.
 
-Stripe API keys cannot be recovered automatically. Add test-mode values to `.env.local`. For webhook testing, run the Stripe CLI in another terminal:
+HitPay API keys cannot be recovered automatically. Add test-mode values to `.env.local`. For webhook testing, run the HitPay CLI in another terminal:
 
 ```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
+hitpay listen --forward-to localhost:3000/api/webhooks/hitpay
 ```
 
 Copy its temporary `whsec_...` value into `.env.local`, then run:

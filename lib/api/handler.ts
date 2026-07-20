@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requestTimeout, toErrorResponse } from "@/lib/api/errors";
-import {
-  logInfo,
-  requestIdFrom,
-  withRequestId,
-  type LogContext,
-} from "@/lib/observability";
+import { logInfo, requestIdFrom, withRequestId, type LogContext } from "@/lib/observability";
 
 export interface ApiHandlerContext extends LogContext {
   requestId: string;
@@ -42,13 +37,13 @@ export function withApiHandler(
     };
 
     try {
-      const response = await withTimeout(
-        handler(request, context),
-        options.timeoutMs ?? 20_000
-      );
+      const response = await withTimeout(handler(request, context), options.timeoutMs ?? 20_000);
       const normalized = normalizeResponse(response);
       withRequestId(normalized, requestId);
-      normalized.headers.set("Cache-Control", normalized.headers.get("Cache-Control") ?? "no-store");
+      normalized.headers.set(
+        "Cache-Control",
+        normalized.headers.get("Cache-Control") ?? "no-store"
+      );
       normalized.headers.set("X-Content-Type-Options", "nosniff");
 
       logInfo("api.request.completed", {

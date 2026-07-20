@@ -3,13 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { handleHitPayEvent } from "@/lib/hitpay-webhooks";
-import {
-  logError,
-  logInfo,
-  logWarn,
-  requestIdFrom,
-  withRequestId,
-} from "@/lib/observability";
+import { logError, logInfo, logWarn, requestIdFrom, withRequestId } from "@/lib/observability";
 import { reportOperationalFailure } from "@/lib/operational-alerts";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -94,11 +88,7 @@ export async function POST(request: Request) {
   try {
     await handleHitPayEvent(supabase, { object, type, payload });
   } catch (error) {
-    await supabase
-      .from("webhook_events")
-      .delete()
-      .eq("provider", "hitpay")
-      .eq("event_id", eventId);
+    await supabase.from("webhook_events").delete().eq("provider", "hitpay").eq("event_id", eventId);
     logError("hitpay.webhook.processing_failed", error, {
       ...eventContext,
       status: 500,
@@ -144,11 +134,8 @@ export function hitPayEventAuditEnvelope(event: {
       typeof event.payload.amount === "number" || typeof event.payload.amount === "string"
         ? event.payload.amount
         : null,
-    currency:
-      typeof event.payload.currency === "string" ? event.payload.currency : null,
+    currency: typeof event.payload.currency === "string" ? event.payload.currency : null,
     referenceNumber:
-      typeof event.payload.reference_number === "string"
-        ? event.payload.reference_number
-        : null,
+      typeof event.payload.reference_number === "string" ? event.payload.reference_number : null,
   };
 }

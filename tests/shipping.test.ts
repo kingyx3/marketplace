@@ -22,12 +22,7 @@ describe("shipping policy", () => {
 
   it("rejects non-Singapore destinations before querying a rate", async () => {
     await expect(
-      quoteShipping(
-        {} as never,
-        { ...address, countryCode: "MY" },
-        19900,
-        "SGD"
-      )
+      quoteShipping({} as never, { ...address, countryCode: "MY" }, 19900, "SGD")
     ).rejects.toThrow("Shipping is currently available only within Singapore");
   });
 

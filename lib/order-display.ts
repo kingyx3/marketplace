@@ -244,7 +244,14 @@ export function preorderTimeline(preorder: LivePreorder): TimelineItem[] {
     },
     {
       label: refundRequired ? "Shortfall refund" : "Allocation confirmed",
-      date: refundRequired && refundComplete ? formatDate(preorder.updated_at) : refundRequired ? "Pending" : allocationConfirmed ? "Not required" : "Pending",
+      date:
+        refundRequired && refundComplete
+          ? formatDate(preorder.updated_at)
+          : refundRequired
+            ? "Pending"
+            : allocationConfirmed
+              ? "Not required"
+              : "Pending",
       state: refundRequired
         ? refundComplete
           ? "complete"

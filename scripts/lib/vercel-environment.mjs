@@ -26,7 +26,10 @@ export function vercelEnvironmentRecordTargets(record) {
     : typeof record?.target === "string"
       ? [record.target]
       : [];
-  return [...targets, ...(Array.isArray(record?.customEnvironmentIds) ? record.customEnvironmentIds : [])];
+  return [
+    ...targets,
+    ...(Array.isArray(record?.customEnvironmentIds) ? record.customEnvironmentIds : []),
+  ];
 }
 
 export function genericVercelEnvironmentRecords(records, target) {
@@ -64,7 +67,8 @@ export async function resolveVercelProjectContext(env = process.env, options = {
   try {
     linked = JSON.parse(await readFile(projectPath, "utf8"));
   } catch (error) {
-    if (error?.code !== "ENOENT") throw new Error(`Could not read ${projectPath}: ${error.message}`);
+    if (error?.code !== "ENOENT")
+      throw new Error(`Could not read ${projectPath}: ${error.message}`);
   }
 
   const token = env.VERCEL_TOKEN || env.VERCEL_API_TOKEN || "";
@@ -87,7 +91,8 @@ export async function fetchVercelEnvironmentRecords({
   if (target) url.searchParams.set("target", target);
   if (decrypt) url.searchParams.set("decrypt", "true");
   const payload = await vercelApiRequest(url, { token, fetchImpl });
-  if (!Array.isArray(payload?.envs)) throw new Error("Vercel environment API response did not contain an envs array.");
+  if (!Array.isArray(payload?.envs))
+    throw new Error("Vercel environment API response did not contain an envs array.");
   return payload.envs.filter((record) => record && typeof record.key === "string");
 }
 
@@ -119,7 +124,8 @@ export async function updateVercelEnvironmentRecord({
   target,
   fetchImpl = fetch,
 }) {
-  if (!record?.id) throw new Error(`Vercel environment record ${record?.key || "<unknown>"} has no id.`);
+  if (!record?.id)
+    throw new Error(`Vercel environment record ${record?.key || "<unknown>"} has no id.`);
   if (!isTargetExclusiveVercelEnvironmentRecord(record, target)) {
     throw new Error(
       `Refusing to update shared Vercel environment record ${record.key}; split it into one record per target first.`
@@ -147,7 +153,8 @@ export async function deleteVercelEnvironmentRecord({
   target,
   fetchImpl = fetch,
 }) {
-  if (!record?.id) throw new Error(`Vercel environment record ${record?.key || "<unknown>"} has no id.`);
+  if (!record?.id)
+    throw new Error(`Vercel environment record ${record?.key || "<unknown>"} has no id.`);
   if (!isTargetExclusiveVercelEnvironmentRecord(record, target)) {
     throw new Error(
       `Refusing to remove shared Vercel environment record ${record.key}; split it into one record per target first.`
@@ -201,7 +208,8 @@ async function vercelApiRequest(url, { token, fetchImpl, method = "GET", body })
     }
   }
   if (!response.ok) {
-    const message = payload?.error?.message || payload?.message || response.statusText || "request failed";
+    const message =
+      payload?.error?.message || payload?.message || response.statusText || "request failed";
     throw new Error(`Vercel API ${method} ${url.pathname} failed (${response.status}): ${message}`);
   }
   return payload;

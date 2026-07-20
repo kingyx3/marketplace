@@ -42,7 +42,9 @@ describe("deployment workflow contract", () => {
 
   it("scopes every workflow job that reads GitHub vars or secrets to an environment", async () => {
     const workflowsDirectory = new URL("../.github/workflows/", import.meta.url);
-    const workflowNames = (await readdir(workflowsDirectory)).filter((name) => /\.ya?ml$/.test(name));
+    const workflowNames = (await readdir(workflowsDirectory)).filter((name) =>
+      /\.ya?ml$/.test(name)
+    );
     const violations: string[] = [];
 
     for (const workflowName of workflowNames) {
@@ -75,11 +77,12 @@ describe("deployment workflow contract", () => {
 
       for (const job of jobs) {
         const directlyReadsGitHubValues = /\$\{\{\s*(?:vars|secrets)(?:\.|\[)/.test(job.body);
-        const referencedAnchors = [...job.body.matchAll(/^    env:\s*\*([A-Za-z0-9_-]+)\s*$/gm)].map(
-          (match) => match[1]!,
-        );
+        const referencedAnchors = [
+          ...job.body.matchAll(/^    env:\s*\*([A-Za-z0-9_-]+)\s*$/gm),
+        ].map((match) => match[1]!);
         const readsGitHubValues =
-          directlyReadsGitHubValues || referencedAnchors.some((anchor) => sensitiveAnchors.has(anchor));
+          directlyReadsGitHubValues ||
+          referencedAnchors.some((anchor) => sensitiveAnchors.has(anchor));
 
         if (readsGitHubValues && !/^    environment:/m.test(job.body)) {
           violations.push(`${workflowName}:${job.name}`);
@@ -92,9 +95,14 @@ describe("deployment workflow contract", () => {
 
   it("exposes two deployment orchestrators and hides their reusable helpers", async () => {
     const workflowsDirectory = new URL("../.github/workflows/", import.meta.url);
-    const workflowNames = (await readdir(workflowsDirectory)).filter((name) => /\.ya?ml$/.test(name));
+    const workflowNames = (await readdir(workflowsDirectory)).filter((name) =>
+      /\.ya?ml$/.test(name)
+    );
     const workflows = await Promise.all(
-      workflowNames.map(async (file) => ({ file, content: await readFile(new URL(file, workflowsDirectory), "utf8") })),
+      workflowNames.map(async (file) => ({
+        file,
+        content: await readFile(new URL(file, workflowsDirectory), "utf8"),
+      }))
     );
     const names = workflows.map(({ content }) => content.match(/^name:\s*(.+)$/m)?.[1]);
 
@@ -119,7 +127,11 @@ describe("deployment workflow contract", () => {
       expect(workflow).not.toContain("workflow_dispatch:");
     }
 
-    for (const removed of ["deploy-development.yml", "deploy-staging.yml", "deploy-production.yml"]) {
+    for (const removed of [
+      "deploy-development.yml",
+      "deploy-staging.yml",
+      "deploy-production.yml",
+    ]) {
       expect(workflowNames).not.toContain(removed);
     }
   });
@@ -155,7 +167,9 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("deploy-release-staging:");
     expect(workflow).toContain("hosted-release-gates:");
     expect(workflow).toContain("needs: deploy-release-staging");
-    expect(workflow).toContain("staging_app_url: ${{ needs.deploy-release-staging.outputs.deployment_url }}");
+    expect(workflow).toContain(
+      "staging_app_url: ${{ needs.deploy-release-staging.outputs.deployment_url }}"
+    );
     expect(workflow).toContain("deploy-production-gated:");
     expect(workflow).toContain("needs: hosted-release-gates");
     expect(workflow).toContain("deploy-production-direct:");
@@ -198,9 +212,13 @@ describe("deployment workflow contract", () => {
 
   it("runs the shared runtime reconciler before deployment", async () => {
     const workflow = await read(".github/workflows/deploy.yml");
-    expect(workflow).toContain("node scripts/reconcile-runtime-environment.mjs --providers apply-if-configured");
+    expect(workflow).toContain(
+      "node scripts/reconcile-runtime-environment.mjs --providers apply-if-configured"
+    );
     expect(workflow).toContain("node scripts/deploy-vercel.mjs");
-    expect(workflow.indexOf("reconcile-runtime-environment.mjs")).toBeLessThan(workflow.indexOf("deploy-vercel.mjs"));
+    expect(workflow.indexOf("reconcile-runtime-environment.mjs")).toBeLessThan(
+      workflow.indexOf("deploy-vercel.mjs")
+    );
     expect(workflow).toContain("node scripts/generate-env.mjs --check --allow-missing-provisioned");
   });
 
@@ -210,7 +228,7 @@ describe("deployment workflow contract", () => {
     expect(workflow).toContain("if: ${{ inputs.environment != 'development' }}");
     expect(workflow).toContain("node scripts/verify-environment.mjs --skip-health");
     expect(workflow.indexOf("verify-environment.mjs --skip-health")).toBeLessThan(
-      workflow.indexOf("Link and push hosted migrations"),
+      workflow.indexOf("Link and push hosted migrations")
     );
   });
 

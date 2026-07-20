@@ -4,17 +4,17 @@ Target: **near-zero fixed cost before revenue**, linear cost after.
 
 ## Platform (scale-to-zero by default)
 
-| Service | Free tier covers | First paid step |
-| --- | --- | --- |
-| Vercel (Hobby→Pro) | scaffold traffic easily | Pro ~US$20/mo when commercial use requires it |
-| Supabase | 2 free projects (500MB DB) | Pro US$25/mo/project — upgrade production first |
-| Stripe | no fixed fee | per-transaction only (~3.4% + S$0.50 domestic SG) |
-| GitHub Actions | 2,000 min/mo (private repos) | pay-as-you-go |
+| Service            | Free tier covers             | First paid step                                   |
+| ------------------ | ---------------------------- | ------------------------------------------------- |
+| Vercel (Hobby→Pro) | scaffold traffic easily      | Pro ~US$20/mo when commercial use requires it     |
+| Supabase           | 2 free projects (500MB DB)   | Pro US$25/mo/project — upgrade production first   |
+| HitPay             | no fixed fee                 | per-transaction only (~3.4% + S$0.50 domestic SG) |
+| GitHub Actions     | 2,000 min/mo (private repos) | pay-as-you-go                                     |
 
 Practical staging note: with only 2 free Supabase projects, run
 `development` + `production` free and add `staging` when revenue
 justifies a Pro project (or point staging at the development project
-initially — separate Stripe *test* keys keep money paths isolated).
+initially — separate HitPay _test_ keys keep money paths isolated).
 
 ## CI spend
 
@@ -40,7 +40,7 @@ initially — separate Stripe *test* keys keep money paths isolated).
 
 Use `docs/admin-operations.md` as the operator checklist. At minimum,
 review GitHub Actions minutes, Vercel project usage, Supabase database
-size/storage, Stripe test/live mode separation, and unused notification
+size/storage, HitPay test/live mode separation, and unused notification
 provider keys.
 
 ## When volume arrives

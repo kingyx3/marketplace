@@ -53,8 +53,7 @@ async function handlePaymentCompleted(
     payload.amount === undefined
       ? payment.amount_cents
       : hitPayAmountToCents(payload.amount as string | number);
-  const currency =
-    typeof payload.currency === "string" ? payload.currency : payment.currency;
+  const currency = typeof payload.currency === "string" ? payload.currency : payment.currency;
 
   if (payment.order_id) {
     const { data, error } = await supabase.rpc("settle_order_payment", {
@@ -103,12 +102,11 @@ async function handlePaymentFailed(
   const payment = await paymentByRequest(supabase, requestId);
   if (!payment) return;
 
-  await updatePayment(
-    supabase,
-    payment.id,
-    { status: "failed" },
-    ["pending", "requires_capture", "authorized"]
-  );
+  await updatePayment(supabase, payment.id, { status: "failed" }, [
+    "pending",
+    "requires_capture",
+    "authorized",
+  ]);
 
   if (payment.order_id) {
     await supabase.rpc("release_order_allocation", { p_order_id: payment.order_id });
@@ -209,12 +207,7 @@ async function markFullyRefundedIfComplete(
   if (error) throw new Error(error.message);
   const refunded = (data ?? []).reduce((sum, row) => sum + Number(row.amount_cents), 0);
   if (refunded >= payment.amount_cents) {
-    await updatePayment(
-      supabase,
-      paymentId,
-      { status: "refunded" },
-      ["captured", "cancelled"]
-    );
+    await updatePayment(supabase, paymentId, { status: "refunded" }, ["captured", "cancelled"]);
   }
 }
 
@@ -246,10 +239,7 @@ async function paymentByRequest(
   return data as PaymentRecord | null;
 }
 
-async function paymentById(
-  supabase: SupabaseClient,
-  id: string
-): Promise<PaymentRecord | null> {
+async function paymentById(supabase: SupabaseClient, id: string): Promise<PaymentRecord | null> {
   const { data, error } = await supabase
     .from("payments")
     .select(paymentSelect)

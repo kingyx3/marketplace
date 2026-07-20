@@ -86,10 +86,7 @@ export async function getAdminDeliveryOrder(
   return isFullyPaidDeliveryOrder(order) ? order : null;
 }
 
-export function netCapturedPaymentTotal(
-  payments: DeliveryPayment[],
-  currency: string
-): number {
+export function netCapturedPaymentTotal(payments: DeliveryPayment[], currency: string): number {
   const seen = new Set<string>();
   const expectedCurrency = currency.toUpperCase();
 

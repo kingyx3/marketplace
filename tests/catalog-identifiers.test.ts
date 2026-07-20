@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  productTypeCodeFromName,
-  setCodeFromName,
-  slugFromName,
-} from "@/lib/catalog-identifiers";
+import { productTypeCodeFromName, setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
 import { controlCategoryFromForm, controlSetFromForm } from "@/lib/control-forms";
 
 describe("catalog identifiers", () => {
@@ -19,16 +15,12 @@ describe("catalog identifiers", () => {
 
   it("creates compact uppercase set codes from names", () => {
     expect(setCodeFromName("First Release")).toBe("FIRST-RELEASE");
-    expect(setCodeFromName("A Very Long Set Name That Exceeds Limit")).toBe(
-      "A-VERY-LONG-SET"
-    );
+    expect(setCodeFromName("A Very Long Set Name That Exceeds Limit")).toBe("A-VERY-LONG-SET");
     expect(setCodeFromName("A")).toBe("A-1");
   });
 
   it("creates reusable product type codes from display names", () => {
-    expect(productTypeCodeFromName("Premium Collection Box")).toBe(
-      "premium_collection_box"
-    );
+    expect(productTypeCodeFromName("Premium Collection Box")).toBe("premium_collection_box");
     expect(productTypeCodeFromName("151 Case")).toBe("type_151_case");
     expect(productTypeCodeFromName("Pokémon Élite Box")).toBe("pokemon_elite_box");
   });

@@ -17,11 +17,11 @@ describe("deployment idempotency contract", () => {
     }
 
     expect(await repoFile(".github/workflows/bootstrap-environment.yml")).toContain(
-      "group: marketplace-environment-${{ inputs.environment }}",
+      "group: marketplace-environment-${{ inputs.environment }}"
     );
     const deployApp = await repoFile(".github/workflows/deploy-app.yml");
     expect(deployApp).toContain(
-      "group: marketplace-deploy-${{ inputs.target || github.ref_name || github.event_name }}",
+      "group: marketplace-deploy-${{ inputs.target || github.ref_name || github.event_name }}"
     );
     expect(deployApp).toContain("cancel-in-progress: ${{ github.event_name == 'push'");
     expect(deployApp).toContain("startsWith(github.ref, 'refs/heads/')");
@@ -44,7 +44,9 @@ describe("deployment idempotency contract", () => {
 
   it("keeps only one code-change deployment workflow", async () => {
     const workflowsDirectory = new URL("../.github/workflows/", import.meta.url);
-    const workflowNames = (await readdir(workflowsDirectory)).filter((name) => /\.ya?ml$/.test(name));
+    const workflowNames = (await readdir(workflowsDirectory)).filter((name) =>
+      /\.ya?ml$/.test(name)
+    );
     expect(workflowNames).toContain("deploy-app.yml");
     expect(workflowNames).not.toContain("deploy-development.yml");
     expect(workflowNames).not.toContain("deploy-staging.yml");
@@ -61,20 +63,22 @@ describe("deployment idempotency contract", () => {
     expect(sync).not.toContain("scripts/fingerprint-runtime-env.mjs");
     expect(deploy).toContain("marketplaceDeploymentKey");
     expect(deploy).toContain("Reusing ready ${targetEnv} Vercel deployment");
-    expect(deploy).toContain('const target = targetEnv === "development" ? "preview" : "production"');
+    expect(deploy).toContain(
+      'const target = targetEnv === "development" ? "preview" : "production"'
+    );
     expect(deploy).toContain('"--build-env"');
-    expect(deploy).toContain('`NEXT_PUBLIC_SENTRY_ENVIRONMENT=${targetEnv}`');
+    expect(deploy).toContain("`NEXT_PUBLIC_SENTRY_ENVIRONMENT=${targetEnv}`");
     expect(deploy).toContain('"--env"');
   });
 
-  it("keeps Stripe checkout and webhooks limited to PayNow lifecycle events", async () => {
-    const stripe = await repoFile("lib/stripe.ts");
+  it("keeps HitPay checkout and webhooks limited to PayNow lifecycle events", async () => {
+    const hitpay = await repoFile("lib/hitpay.ts");
     const config = JSON.parse(await repoFile("config/environments.json"));
-    expect(stripe).toContain('normalized.payment_method_types = ["paynow"]');
-    expect(stripe).toContain("delete normalized.automatic_payment_methods");
-    expect(config.shared.STRIPE_WEBHOOK_ENABLED_EVENTS).toEqual([
-      "payment_intent.succeeded",
-      "payment_intent.payment_failed",
+    expect(hitpay).toContain('normalized.payment_method_types = ["paynow"]');
+    expect(hitpay).toContain("delete normalized.automatic_payment_methods");
+    expect(config.shared.HITPAY_WEBHOOK_ENABLED_EVENTS).toEqual([
+      "payment_request.completed",
+      "payment_request.failed",
       "charge.refunded",
     ]);
   });

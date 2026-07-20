@@ -9,7 +9,14 @@ if (!new Set(deploymentEnvironments).has(target)) {
   fail("--target must be development, staging, or production");
 }
 
-const repo = capture("gh", ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]).trim();
+const repo = capture("gh", [
+  "repo",
+  "view",
+  "--json",
+  "nameWithOwner",
+  "--jq",
+  ".nameWithOwner",
+]).trim();
 if (!repo) fail("Could not resolve the current GitHub repository.");
 run("gh", ["auth", "status"]);
 
@@ -147,13 +154,10 @@ for (const environment of deploymentEnvironments) {
     deleteEnvironmentSettingIfPresent("variable", environment, name);
   }
   deleteEnvironmentSettingIfPresent("secret", environment, "SENTRY_AUTH_TOKEN");
-  for (const legacy of [
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-    "STRIPE_WEBHOOK_ENDPOINT_ID",
-  ]) {
+  for (const legacy of ["HITPAY_API_URL", "HITPAY_WEBHOOK_ID"]) {
     deleteEnvironmentSettingIfPresent("variable", environment, legacy);
   }
-  for (const legacy of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]) {
+  for (const legacy of ["HITPAY_API_KEY", "HITPAY_WEBHOOK_SALT"]) {
     deleteEnvironmentSettingIfPresent("secret", environment, legacy);
   }
 }
@@ -166,9 +170,7 @@ for (const name of environmentVariables) {
     setVariable(
       target,
       name,
-      target === "production"
-        ? "https://api.hit-pay.com"
-        : "https://api.sandbox.hit-pay.com"
+      target === "production" ? "https://api.hit-pay.com" : "https://api.sandbox.hit-pay.com"
     );
   } else if (name === "HITPAY_PAYMENT_METHODS") setVariable(target, name, "paynow_online");
   else if (name === "HITPAY_WEBHOOK_ENABLED_EVENTS") {
@@ -185,7 +187,9 @@ for (const name of environmentSecrets) {
   if (value) setSecret(name, value, target);
   else if (secretIsRequired(name)) fail(`${environmentPrefix(target)}_${name} is required`);
 }
-console.log(`GitHub ${target} environment, policies, variables, and supplied secrets are converged.`);
+console.log(
+  `GitHub ${target} environment, policies, variables, and supplied secrets are converged.`
+);
 
 function variableIsRequired(name) {
   if (["SUPPORT_EMAIL", "HITPAY_WEBHOOK_ID"].includes(name)) {
@@ -226,7 +230,9 @@ function ensureEnvironment(environment) {
   const preserved = current ? currentReviewers(current) : [];
   const reviewers = requested.length > 0 ? requested : preserved;
   if (environment === "production" && reviewers.length === 0) {
-    fail("PRODUCTION_REVIEWERS is required when creating production without existing required reviewers");
+    fail(
+      "PRODUCTION_REVIEWERS is required when creating production without existing required reviewers"
+    );
   }
   const payload = {
     wait_timer: currentWaitTimer(current),
@@ -318,11 +324,9 @@ function setRepositoryVariable(name, value) {
 }
 
 function setVariable(environment, name, value) {
-  run(
-    "gh",
-    ["variable", "set", name, "--repo", repo, "--env", environment, "--body", value],
-    { quiet: true }
-  );
+  run("gh", ["variable", "set", name, "--repo", repo, "--env", environment, "--body", value], {
+    quiet: true,
+  });
   console.log(`${environment} variable ${name}: set`);
 }
 
@@ -355,7 +359,9 @@ function requiredEnv(name) {
 }
 
 function booleanValue(name, fallback) {
-  const value = String(process.env[name] ?? "").trim().toLowerCase();
+  const value = String(process.env[name] ?? "")
+    .trim()
+    .toLowerCase();
   if (!value) return String(fallback);
   if (value === "true" || value === "false") return value;
   fail(`${name} must be true or false`);

@@ -8,8 +8,8 @@ export default function AuthCodeErrorPage() {
         We could not complete Google sign-in.
       </h1>
       <p className="text-sm leading-6 text-red-900">
-        Try again. If this keeps happening, check the Supabase Google provider redirect URL
-        for this environment.
+        Try again. If this keeps happening, check the Supabase Google provider redirect URL for this
+        environment.
       </p>
       <Link
         href="/sign-in"

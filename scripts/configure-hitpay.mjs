@@ -59,6 +59,8 @@ try {
   }
 } catch (error) {
   const message = String(error?.message || error);
-  console.error(config.apiKey ? message.replaceAll(config.apiKey, "[redacted-hitpay-api-key]") : message);
+  console.error(
+    config.apiKey ? message.replaceAll(config.apiKey, "[redacted-hitpay-api-key]") : message
+  );
   process.exit(1);
 }

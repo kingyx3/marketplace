@@ -3,12 +3,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import type { ApiErrorCode, ApiFieldError, ApiErrorPayload } from "@/lib/api/contracts";
-import {
-  logError,
-  logWarn,
-  withRequestId,
-  type LogContext,
-} from "@/lib/observability";
+import { logError, logWarn, withRequestId, type LogContext } from "@/lib/observability";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -59,10 +54,7 @@ export function unsupportedMediaType(message = "Content-Type must be application
   return new ApiError(415, "unsupported_media_type", message);
 }
 
-export function rateLimited(
-  message = "Too many requests",
-  retryAfterSeconds = 60
-): ApiError {
+export function rateLimited(message = "Too many requests", retryAfterSeconds = 60): ApiError {
   return new ApiError(429, "rate_limited", message, {
     retryable: true,
     retryAfterSeconds,

@@ -109,9 +109,9 @@ export async function listPreorderAllocationSkus(
 
   return (skus ?? []).map((row) => {
     const variant = one(row.product_variants as unknown);
-    const product = one(
-      (variant as { products?: unknown } | null)?.products as unknown
-    ) as { name?: string } | null;
+    const product = one((variant as { products?: unknown } | null)?.products as unknown) as {
+      name?: string;
+    } | null;
     return {
       skuId: String(row.id),
       sku: String(row.sku),
@@ -321,10 +321,7 @@ async function loadAllocationRules(
   }));
 }
 
-async function loadPaidPreorders(
-  supabase: SupabaseClient,
-  skuId: string
-): Promise<PreorderRow[]> {
+async function loadPaidPreorders(supabase: SupabaseClient, skuId: string): Promise<PreorderRow[]> {
   const { data, error } = await supabase
     .from("preorders")
     .select(

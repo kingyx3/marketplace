@@ -45,26 +45,27 @@ export default function PrivacyPage() {
           data outside Singapore under their own infrastructure and contractual safeguards.
         </p>
         <p>
-          We may also disclose information where law requires it or to protect users and the service.
+          We may also disclose information where law requires it or to protect users and the
+          service.
         </p>
       </PolicySection>
 
       <PolicySection title="Retention and security">
         <p>
           We retain records only for as long as reasonably needed for fulfilment, disputes,
-          fraud-prevention, tax, accounting, and legal requirements. Retention varies by record type.
-          We use access controls, row-level database policies, encryption in transit, restricted
-          service credentials, audit records, and privacy scrubbing, but no internet service can
-          guarantee absolute security.
+          fraud-prevention, tax, accounting, and legal requirements. Retention varies by record
+          type. We use access controls, row-level database policies, encryption in transit,
+          restricted service credentials, audit records, and privacy scrubbing, but no internet
+          service can guarantee absolute security.
         </p>
       </PolicySection>
 
       <PolicySection title="Your choices and requests">
         <p>
           You may ask about access, correction, withdrawal of consent, or another privacy concern.
-          Withdrawing consent does not affect processing already lawfully completed and may prevent us
-          from providing features that need the affected data. You can also change optional monitoring
-          choices through Cookie preferences in the footer.
+          Withdrawing consent does not affect processing already lawfully completed and may prevent
+          us from providing features that need the affected data. You can also change optional
+          monitoring choices through Cookie preferences in the footer.
         </p>
         <p>
           {supportEmail ? (
@@ -95,9 +96,9 @@ export default function PrivacyPage() {
 
       <PolicySection title="Changes">
         <p>
-          We may update this policy when the service or legal requirements change. The effective date
-          above identifies the current version; material changes will be communicated through an
-          appropriate account or storefront notice.
+          We may update this policy when the service or legal requirements change. The effective
+          date above identifies the current version; material changes will be communicated through
+          an appropriate account or storefront notice.
         </p>
       </PolicySection>
     </PolicyPage>

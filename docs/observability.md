@@ -44,7 +44,7 @@ Before telemetry leaves the process, the application removes or redacts:
 - email addresses, phone numbers, postal addresses, IP headers, and payment/card fields;
 - oversized or deeply nested values.
 
-Browser replay masks all text and blocks all media. Do not add raw request bodies, Stripe objects, customer profiles, credentials, or full provider payloads to log context.
+Browser replay masks all text and blocks all media. Do not add raw request bodies, HitPay objects, customer profiles, credentials, or full provider payloads to log context.
 
 Every handled API failure includes the request ID, route, method, status, environment, release, and safe operational identifiers. Use `x-request-id` as the first Sentry search key.
 
@@ -62,17 +62,17 @@ For a reported API failure:
 2. Search Sentry Issues and Logs for that exact value.
 3. Identify the event name, route, environment, release, and safe order/payment/webhook identifiers.
 4. Correlate those identifiers with subsequent structured logs and database audit records.
-5. Never request customer bearer tokens, cookies, Stripe secrets, or complete payment payloads.
+5. Never request customer bearer tokens, cookies, HitPay secrets, or complete payment payloads.
 
-Stripe webhook requests create their own correlation ID because the webhook route bypasses authentication middleware. The Stripe event ID is recorded separately after signature verification.
+HitPay webhook requests create their own correlation ID because the webhook route bypasses authentication middleware. The HitPay event ID is recorded separately after signature verification.
 
 ## Production dashboards and alerts
 
-Create dashboards for application 5xx rate, route latency, checkout outcomes, invoice rejection reasons, Stripe webhook failures, payment exceptions, stale pending payments, manual-invoice allocation expiry, and deep readiness.
+Create dashboards for application 5xx rate, route latency, checkout outcomes, invoice rejection reasons, HitPay webhook failures, payment exceptions, stale pending payments, manual-invoice allocation expiry, and deep readiness.
 
 Minimum alerts should cover:
 
-- Stripe webhook storage or processing failures;
+- HitPay webhook storage or processing failures;
 - checkout 5xx rate above the agreed threshold;
 - new high-severity production regressions;
 - stale payment exceptions;
@@ -92,7 +92,7 @@ Before launch and after observability changes:
 3. Confirm the event has a readable first-party stack trace, release, route, and request ID.
 4. Confirm the Sentry release contains source-map artifacts and no `.map` file is publicly served.
 5. Verify submitted personal data and credentials are absent from events and logs.
-6. Exercise a signed Stripe test webhook and verify event-ID correlation.
+6. Exercise a signed HitPay test webhook and verify event-ID correlation.
 7. Verify invoice-expiry monitoring and operational alert delivery.
 
 Repository CI validates SDK wiring, environment derivation, source-map configuration, sampling bounds, request-ID preservation, and telemetry redaction. It cannot prove hosted credentials, ingestion, alert routing, or responder readiness; those remain release gates.

@@ -74,7 +74,7 @@ export default async function OrdersPage({
 
       {params.checkout === "processing" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Payment is processing. Your pre-order will appear after Stripe confirms it.
+          Payment is processing. Your pre-order will appear after HitPay confirms it.
         </div>
       ) : null}
 
@@ -167,7 +167,7 @@ export default async function OrdersPage({
           <ErrorNotice>Pre-orders could not be loaded right now.</ErrorNotice>
         ) : preorders.length === 0 ? (
           <EmptyState
-            description="Fully paid pre-orders appear here after Stripe confirms payment."
+            description="Fully paid pre-orders appear here after HitPay confirms payment."
             title="No pre-orders yet"
           />
         ) : (
@@ -225,8 +225,8 @@ export default async function OrdersPage({
                     {refundCents > 0 ? (
                       <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
                         {preorder.status === "refund_pending"
-                          ? "Stripe is processing the refund for the unallocated quantity."
-                          : "The unallocated amount was submitted to Stripe for refund when allocation was confirmed."}
+                          ? "HitPay is processing the refund for the unallocated quantity."
+                          : "The unallocated amount was submitted to HitPay for refund when allocation was confirmed."}
                       </p>
                     ) : null}
                     <div className="mt-5 flex flex-wrap gap-2">

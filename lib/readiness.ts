@@ -107,16 +107,12 @@ async function checkSupabase(
 
 function checkHitPay(env: EnvLike): ReadinessResponse["checks"]["hitpay"] {
   const apiKey: CheckStatus = env.HITPAY_API_KEY?.trim() ? "configured" : "fail";
-  const webhookSalt: CheckStatus = env.HITPAY_WEBHOOK_SALT?.trim()
-    ? "configured"
-    : "fail";
+  const webhookSalt: CheckStatus = env.HITPAY_WEBHOOK_SALT?.trim() ? "configured" : "fail";
   const apiUrl: CheckStatus = isHttpsUrl(env.HITPAY_API_URL) ? "configured" : "fail";
 
   return {
     status:
-      apiKey === "configured" &&
-      webhookSalt === "configured" &&
-      apiUrl === "configured"
+      apiKey === "configured" && webhookSalt === "configured" && apiUrl === "configured"
         ? "ok"
         : "fail",
     apiKey,

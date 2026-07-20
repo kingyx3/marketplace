@@ -20,12 +20,16 @@ describe("minimal Sentry configuration contract", () => {
     const bootstrap = await read("scripts/bootstrap-github.mjs");
 
     expect(bootstrap).toContain(
-      'const sharedSentryVariables = ["NEXT_PUBLIC_SENTRY_DSN", "SENTRY_ORG", "SENTRY_PROJECT"]',
+      'const sharedSentryVariables = ["NEXT_PUBLIC_SENTRY_DSN", "SENTRY_ORG", "SENTRY_PROJECT"]'
     );
     expect(bootstrap).toContain('const sharedSentrySecrets = ["SENTRY_AUTH_TOKEN"]');
-    expect(bootstrap).toContain('const deploymentEnvironments = ["development", "staging", "production"]');
-    expect(bootstrap).toContain('for (const environment of deploymentEnvironments)');
-    expect(bootstrap).toContain('deleteEnvironmentSettingIfPresent("secret", environment, "SENTRY_AUTH_TOKEN")');
+    expect(bootstrap).toContain(
+      'const deploymentEnvironments = ["development", "staging", "production"]'
+    );
+    expect(bootstrap).toContain("for (const environment of deploymentEnvironments)");
+    expect(bootstrap).toContain(
+      'deleteEnvironmentSettingIfPresent("secret", environment, "SENTRY_AUTH_TOKEN")'
+    );
 
     for (const key of redundantEnvironmentKeys) {
       expect(bootstrap).toContain(`"${key}"`);
@@ -38,12 +42,16 @@ describe("minimal Sentry configuration contract", () => {
       ".github/workflows/deploy.yml",
     ]) {
       const workflow = await read(path);
-      expect(workflow).toMatch(/^\s+NEXT_PUBLIC_SENTRY_DSN: \$\{\{ vars\.NEXT_PUBLIC_SENTRY_DSN \}\}$/m);
+      expect(workflow).toMatch(
+        /^\s+NEXT_PUBLIC_SENTRY_DSN: \$\{\{ vars\.NEXT_PUBLIC_SENTRY_DSN \}\}$/m
+      );
       expect(workflow).toMatch(/^\s+SENTRY_ORG: \$\{\{ vars\.SENTRY_ORG \}\}$/m);
       expect(workflow).toMatch(/^\s+SENTRY_PROJECT: \$\{\{ vars\.SENTRY_PROJECT \}\}$/m);
       expect(workflow).toMatch(/^\s+SENTRY_AUTH_TOKEN: \$\{\{ secrets\.SENTRY_AUTH_TOKEN \}\}$/m);
 
-      for (const key of redundantEnvironmentKeys.filter((key) => key !== "NEXT_PUBLIC_SENTRY_DSN")) {
+      for (const key of redundantEnvironmentKeys.filter(
+        (key) => key !== "NEXT_PUBLIC_SENTRY_DSN"
+      )) {
         expect(workflow).not.toMatch(new RegExp(`^\\s+${key}:`, "m"));
       }
     }

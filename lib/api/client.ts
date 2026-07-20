@@ -90,11 +90,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
           return payload as T;
         } catch (error) {
           finalError = normalizeTransportError(error, requestId);
-          if (
-            attempt < attempts &&
-            finalError instanceof ApiClientError &&
-            finalError.retryable
-          ) {
+          if (attempt < attempts && finalError instanceof ApiClientError && finalError.retryable) {
             await delay(100 * attempt);
             continue;
           }
@@ -163,7 +159,11 @@ async function readResponsePayload(response: Response): Promise<unknown> {
   return await response.json().catch(() => undefined);
 }
 
-function normalizeApiError(response: Response, payload: unknown, fallbackRequestId: string): ApiClientError {
+function normalizeApiError(
+  response: Response,
+  payload: unknown,
+  fallbackRequestId: string
+): ApiClientError {
   if (isApiErrorPayload(payload)) {
     return new ApiClientError({
       status: response.status,
@@ -212,7 +212,9 @@ function userSafeFallback(status: number): string {
   if (status === 404) return "The requested resource was not found.";
   if (status === 409) return "The request conflicts with the latest data. Refresh and try again.";
   if (status === 429) return "Too many requests. Please try again shortly.";
-  return status >= 500 ? "The service is temporarily unavailable." : "The request could not be completed.";
+  return status >= 500
+    ? "The service is temporarily unavailable."
+    : "The request could not be completed.";
 }
 
 function assertApiPath(path: string): void {
