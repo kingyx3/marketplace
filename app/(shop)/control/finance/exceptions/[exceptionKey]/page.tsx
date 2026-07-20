@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 
 import { ManualReconciliationForm } from "@/app/(shop)/control/_components/manual-reconciliation-form";
-import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/control-resource-ui";
+import {
+  ControlBackLink,
+  ControlData,
+} from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { listAdminOrderExceptions } from "@/lib/orders";
+import { listAdminOrderExceptions } from "@/lib/order-exceptions";
 import { createServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +28,7 @@ export default async function PaymentExceptionPage({
   );
   if (!exception) notFound();
   const canReconcile = hasControlPermission(staff, "payments.reconcile");
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -51,7 +55,9 @@ export default async function PaymentExceptionPage({
       </section>
       {canReconcile && exception.orderId ? (
         <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6">
-          <h2 className="mb-4 font-semibold text-zinc-950">Resolve with manual reconciliation</h2>
+          <h2 className="mb-4 font-semibold text-zinc-950">
+            Resolve with manual reconciliation
+          </h2>
           <ManualReconciliationForm
             orderId={exception.orderId}
             providerPaymentId={exception.providerPaymentId}
@@ -75,6 +81,7 @@ function Summary({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-SG", {
     dateStyle: "medium",
