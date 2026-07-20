@@ -8,7 +8,6 @@ import {
 import type { CategoryOption, SetRecord } from "@/app/(shop)/control/_components/set-form";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { setControlSetActive } from "@/app/actions/control";
 import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -68,7 +67,7 @@ export default async function ControlSetsPage({
         action={
           <>
             <StatusBadge tone="success">{staff.role}</StatusBadge>
-            <ControlPrimaryLink href="/control/catalog/sets/new">Add set</ControlPrimaryLink>
+            <ControlPrimaryLink href="/control/catalog/sets/new">Create set</ControlPrimaryLink>
           </>
         }
         description="Review releases and open a set to maintain its category, lifecycle, dates, and preorder window."
@@ -105,7 +104,9 @@ export default async function ControlSetsPage({
 
       {sets.length === 0 ? (
         <ControlEmptyState
-          action={<ControlPrimaryLink href="/control/catalog/sets/new">Add set</ControlPrimaryLink>}
+          action={
+            <ControlPrimaryLink href="/control/catalog/sets/new">Create set</ControlPrimaryLink>
+          }
           description={
             categories.some((category) => category.active)
               ? "Create the first set or broaden the current filters."
@@ -121,19 +122,15 @@ export default async function ControlSetsPage({
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {sets.map((set) => (
-              <article
+              <Link
+                href={`/control/catalog/sets/${set.id}`}
                 key={set.id}
-                className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+                className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        className="truncate font-semibold text-zinc-950 hover:text-emerald-700"
-                        href={`/control/catalog/sets/${set.id}`}
-                      >
-                        {set.name}
-                      </Link>
+                      <h3 className="truncate font-semibold text-zinc-950">{set.name}</h3>
                       <StatusBadge tone={set.active ? "success" : "warning"}>
                         {set.active ? "Active" : "Archived"}
                       </StatusBadge>
@@ -143,20 +140,14 @@ export default async function ControlSetsPage({
                       {set.code} · {categoryNames.get(set.category_id) ?? "Unknown category"}
                     </p>
                   </div>
-                  <form action={setControlSetActive}>
-                    <input name="id" type="hidden" value={set.id} />
-                    <input name="active" type="hidden" value={set.active ? "false" : "true"} />
-                    <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700">
-                      {set.active ? "Archive" : "Restore"}
-                    </button>
-                  </form>
+                  <span className="text-sm font-semibold text-emerald-700">Open record →</span>
                 </div>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                   <ControlData label="Release" value={set.release_date ?? "Unscheduled"} />
                   <ControlData label="Products" value={String(productCounts.get(set.id) ?? 0)} />
                   <ControlData label="Sort order" value={String(set.sort_order)} />
                 </dl>
-              </article>
+              </Link>
             ))}
           </div>
         </section>

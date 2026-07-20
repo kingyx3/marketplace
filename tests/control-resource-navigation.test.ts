@@ -8,6 +8,7 @@ describe("list-first control resources", () => {
         index: "../app/(shop)/control/supply/suppliers/page.tsx",
         create: "../app/(shop)/control/supply/suppliers/new/page.tsx",
         detail: "../app/(shop)/control/supply/suppliers/[supplierId]/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)supply/suppliers/[supplierId]/page.tsx",
         form: "SupplierForm",
         addHref: "/control/supply/suppliers/new",
       },
@@ -15,6 +16,7 @@ describe("list-first control resources", () => {
         index: "../app/(shop)/control/catalog/categories/page.tsx",
         create: "../app/(shop)/control/catalog/categories/new/page.tsx",
         detail: "../app/(shop)/control/catalog/categories/[categoryId]/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)catalog/categories/[categoryId]/page.tsx",
         form: "CategoryForm",
         addHref: "/control/catalog/categories/new",
       },
@@ -22,6 +24,7 @@ describe("list-first control resources", () => {
         index: "../app/(shop)/control/catalog/sets/page.tsx",
         create: "../app/(shop)/control/catalog/sets/new/page.tsx",
         detail: "../app/(shop)/control/catalog/sets/[setId]/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)catalog/sets/[setId]/page.tsx",
         form: "SetForm",
         addHref: "/control/catalog/sets/new",
       },
@@ -29,6 +32,7 @@ describe("list-first control resources", () => {
         index: "../app/(shop)/control/governance/administrators/page.tsx",
         create: "../app/(shop)/control/governance/administrators/new/page.tsx",
         detail: "../app/(shop)/control/governance/administrators/[grantId]/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)governance/administrators/[grantId]/page.tsx",
         form: "AdministratorGrantForm",
         addHref: "/control/governance/administrators/new",
       },
@@ -36,16 +40,18 @@ describe("list-first control resources", () => {
         index: "../app/(shop)/control/pricing/deals/page.tsx",
         create: "../app/(shop)/control/pricing/deals/new/page.tsx",
         detail: "../app/(shop)/control/pricing/deals/[dealId]/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)pricing/deals/[dealId]/page.tsx",
         form: "DealForm",
         addHref: "/control/pricing/deals/new",
       },
     ];
 
     for (const resource of resources) {
-      const [index, create, detail] = await Promise.all([
+      const [index, create, detail, modal] = await Promise.all([
         readFile(new URL(resource.index, import.meta.url), "utf8"),
         readFile(new URL(resource.create, import.meta.url), "utf8"),
         readFile(new URL(resource.detail, import.meta.url), "utf8"),
+        readFile(new URL(resource.modal, import.meta.url), "utf8"),
       ]);
 
       expect(index).toContain(resource.addHref);
@@ -55,6 +61,121 @@ describe("list-first control resources", () => {
       expect(detail).toContain("notFound()");
       expect(create).toContain("ControlBackLink");
       expect(detail).toContain("ControlBackLink");
+      expect(modal).toContain("ControlModalRoute");
+    }
+  });
+
+  it("moves operational mutation forms behind record modal routes", async () => {
+    const cases = [
+      {
+        index: "../app/(shop)/control/pricing/page.tsx",
+        record: "../app/(shop)/control/pricing/skus/[skuId]/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)pricing/skus/[skuId]/page.tsx",
+        mutation: "setSkuPrice",
+      },
+      {
+        index: "../app/(shop)/control/supply/page.tsx",
+        record: "../app/(shop)/control/supply/inventory/[skuId]/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)supply/inventory/[skuId]/page.tsx",
+        mutation: "updateInventory",
+      },
+      {
+        index: "../app/(shop)/control/finance/page.tsx",
+        record: "../app/(shop)/control/finance/reconciliations/new/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)finance/reconciliations/new/page.tsx",
+        mutation: "ManualReconciliationForm",
+      },
+      {
+        index: "../app/(shop)/control/orders/allocations/page.tsx",
+        record: "../app/(shop)/control/orders/allocations/[skuId]/page.tsx",
+        modal: "../app/(shop)/control/@modal/(.)orders/allocations/[skuId]/page.tsx",
+        mutation: "confirmPreorderAllocation",
+      },
+    ];
+
+    for (const item of cases) {
+      const [index, record, modal] = await Promise.all([
+        readFile(new URL(item.index, import.meta.url), "utf8"),
+        readFile(new URL(item.record, import.meta.url), "utf8"),
+        readFile(new URL(item.modal, import.meta.url), "utf8"),
+      ]);
+      expect(index).not.toContain(item.mutation);
+      expect(record).toContain(item.mutation);
+      expect(modal).toContain("ControlModalRoute");
+    }
+  });
+
+  it("provides an accessible dismissible modal layer from the control layout", async () => {
+    const [layout, modal, defaultSlot] = await Promise.all([
+      readFile(new URL("../app/(shop)/control/layout.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/_components/control-modal-route.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(new URL("../app/(shop)/control/@modal/default.tsx", import.meta.url), "utf8"),
+    ]);
+    expect(layout).toContain("modal?: ReactNode");
+    expect(layout).toContain("{modal}");
+    expect(defaultSlot).toContain("return null");
+    expect(modal).toContain('role="dialog"');
+    expect(modal).toContain('aria-modal="true"');
+    expect(modal).toContain('event.key === "Escape"');
+    expect(modal).toContain("router.back()");
+    expect(modal).toContain('document.body.style.overflow = "hidden"');
+  });
+
+  it("intercepts every create and record editor into the shared modal layer", async () => {
+    const modalRoutes = [
+      "catalog/products/new",
+      "catalog/products/[productId]",
+      "catalog/categories/new",
+      "catalog/categories/[categoryId]",
+      "catalog/sets/new",
+      "catalog/sets/[setId]",
+      "pricing/skus/[skuId]",
+      "pricing/deals/new",
+      "pricing/deals/[dealId]",
+      "storefront/listings/[productId]",
+      "storefront/listings/configurations/[configurationKey]",
+      "supply/inventory/[skuId]",
+      "supply/purchase-orders/new",
+      "supply/purchase-orders/[purchaseOrderId]",
+      "supply/suppliers/new",
+      "supply/suppliers/[supplierId]",
+      "orders/normal/[orderId]",
+      "orders/preorders/[preorderId]",
+      "orders/allocations/[skuId]",
+      "fulfilment/deliveries/[orderId]",
+      "customers/[customerId]",
+      "finance/reconciliations/new",
+      "finance/exceptions/[exceptionKey]",
+      "governance/administrators/new",
+      "governance/administrators/[grantId]",
+    ];
+
+    for (const route of modalRoutes) {
+      const source = await readFile(
+        new URL(`../app/(shop)/control/@modal/(.)${route}/page.tsx`, import.meta.url),
+        "utf8"
+      );
+      expect(source).toContain("ControlModalRoute");
+    }
+  });
+
+  it("keeps lifecycle mutations out of resource listings", async () => {
+    const cases = [
+      ["../app/(shop)/control/catalog/categories/page.tsx", "setControlCategoryActive"],
+      ["../app/(shop)/control/catalog/sets/page.tsx", "setControlSetActive"],
+      ["../app/(shop)/control/supply/suppliers/page.tsx", "setControlSupplierActive"],
+      ["../app/(shop)/control/pricing/page.tsx", "setSkuPrice"],
+      ["../app/(shop)/control/supply/page.tsx", "recordSupplierPurchaseOrder"],
+      ["../app/(shop)/control/finance/page.tsx", "runAdminOrderAction"],
+      ["../app/(shop)/control/orders/allocations/page.tsx", "confirmPreorderAllocation"],
+    ] as const;
+
+    for (const [path, mutation] of cases) {
+      const source = await readFile(new URL(path, import.meta.url), "utf8");
+      expect(source).not.toContain(mutation);
     }
   });
 

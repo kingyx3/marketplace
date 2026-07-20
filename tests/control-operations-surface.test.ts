@@ -46,8 +46,14 @@ describe("separated product-to-listing workflow", () => {
         new URL("../app/(shop)/control/_components/product-listing-workflow.tsx", import.meta.url),
         "utf8"
       ),
-      readFile(new URL("../app/(shop)/control/pricing/page.tsx", import.meta.url), "utf8"),
-      readFile(new URL("../app/(shop)/control/supply/page.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/pricing/skus/[skuId]/page.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL("../app/(shop)/control/supply/inventory/[skuId]/page.tsx", import.meta.url),
+        "utf8"
+      ),
       readFile(
         new URL("../app/(shop)/control/_components/listing-item-form.tsx", import.meta.url),
         "utf8"

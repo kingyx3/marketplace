@@ -77,7 +77,7 @@ describe("retail preorder flow", () => {
   it("requires a reviewed allocation fingerprint and explicit confirmation", async () => {
     const [page, action, api] = await Promise.all([
       readFile(
-        new URL("../app/(shop)/control/orders/allocations/page.tsx", import.meta.url),
+        new URL("../app/(shop)/control/orders/allocations/[skuId]/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(new URL("../app/actions/preorder-allocation.ts", import.meta.url), "utf8"),

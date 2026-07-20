@@ -76,7 +76,7 @@ export default async function ControlAdministratorsPage({
             <StatusBadge tone="success">Acting as {currentStaff.role}</StatusBadge>
             {canManage ? (
               <ControlPrimaryLink href="/control/governance/administrators/new">
-                Add administrator
+                Create administrator
               </ControlPrimaryLink>
             ) : null}
           </>
@@ -153,7 +153,7 @@ export default async function ControlAdministratorsPage({
           action={
             canManage ? (
               <ControlPrimaryLink href="/control/governance/administrators/new">
-                Add administrator
+                Create administrator
               </ControlPrimaryLink>
             ) : undefined
           }

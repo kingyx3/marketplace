@@ -40,7 +40,7 @@ export default async function NewSetPage({
         action={<ControlBackLink href="/control/catalog/sets">Back to sets</ControlBackLink>}
         description="Create a release after its parent category exists."
         eyebrow="Control · Sets"
-        title="Add set"
+        title="Create set"
       />
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
         {categories.some((category) => category.active) ? (

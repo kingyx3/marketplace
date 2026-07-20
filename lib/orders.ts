@@ -188,6 +188,17 @@ export async function listAdminPreorders(supabase: SupabaseClient, limit: number
   return data ?? [];
 }
 
+export async function getAdminPreorder(supabase: SupabaseClient, id: string) {
+  const { data, error } = await supabase
+    .from("preorders")
+    .select(`${preorderSelect}, customers(id, email, name, segment)`)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw notFound("Preorder not found");
+  return data;
+}
+
 export async function performAdminOrderAction(
   supabase: SupabaseClient,
   id: string,

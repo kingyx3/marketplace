@@ -1,19 +1,21 @@
-import {
-  AdminNumberField,
-  AdminTextField,
-} from "@/app/(shop)/control/_components/admin-form-fields";
+import Link from "next/link";
+
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { runAdminOrderAction } from "@/app/actions/admin";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { listAdminOrderExceptions } from "@/lib/orders";
 import { createServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-export default async function ControlFinancePage() {
+export default async function ControlFinancePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ reconciled?: string }>;
+}) {
   const { staff } = await requireControlPermission("finance.view", "/control/finance");
+  const params = (await searchParams) ?? {};
   const exceptions = await listAdminOrderExceptions(createServiceClient());
   const critical = exceptions.filter((exception) => exception.severity === "critical").length;
   const canReconcile = hasControlPermission(staff, "payments.reconcile");
@@ -21,6 +23,16 @@ export default async function ControlFinancePage() {
   return (
     <div className="space-y-8">
       <PageHeader
+        action={
+          canReconcile ? (
+            <Link
+              className="inline-flex min-h-10 items-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
+              href="/control/finance/reconciliations/new"
+            >
+              Create reconciliation
+            </Link>
+          ) : undefined
+        }
         description="Review payments, provider exceptions, refunds, and audited reconciliation without granting order or fulfilment authority."
         eyebrow="Control"
         title="Finance"
@@ -39,53 +51,13 @@ export default async function ControlFinancePage() {
         />
       </section>
 
-      {canReconcile ? (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6">
-          <h2 className="text-lg font-semibold text-zinc-950">Manual reconciliation</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            Use only after verifying the Stripe reference, amount, currency, and order
-            independently.
-          </p>
-          <form action={runAdminOrderAction} className="mt-4 grid gap-3 lg:grid-cols-2">
-            <input name="action" type="hidden" value="record_manual_reconciliation" />
-            <input name="provider" type="hidden" value="stripe" />
-            <AdminTextField example="Order UUID" label="Order ID" name="orderId" required />
-            <AdminTextField
-              example="pi_..."
-              label="Stripe payment reference"
-              name="providerPaymentId"
-              required
-            />
-            <AdminNumberField
-              example="18900"
-              label="Amount cents"
-              min={1}
-              name="amountCents"
-              required
-            />
-            <AdminTextField
-              defaultValue="SGD"
-              example="SGD"
-              label="Currency"
-              maxLength={3}
-              minLength={3}
-              name="currency"
-              required
-            />
-            <div className="lg:col-span-2">
-              <AdminTextField
-                example="Verified against Stripe dashboard and webhook event"
-                label="Reason"
-                maxLength={500}
-                name="reason"
-                required
-              />
-            </div>
-            <button className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white lg:col-span-2">
-              Record audited reconciliation
-            </button>
-          </form>
-        </section>
+      {params.reconciled === "1" ? (
+        <div
+          className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+          role="status"
+        >
+          Manual reconciliation recorded successfully.
+        </div>
       ) : null}
 
       <section className="space-y-4">
@@ -97,8 +69,9 @@ export default async function ControlFinancePage() {
         ) : null}
         <div className="grid gap-4 xl:grid-cols-2">
           {exceptions.map((exception) => (
-            <article
-              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+            <Link
+              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
+              href={`/control/finance/exceptions/${encodeURIComponent(exception.key)}`}
               key={exception.key}
             >
               <div className="flex flex-wrap justify-between gap-3">
@@ -113,7 +86,8 @@ export default async function ControlFinancePage() {
               {exception.orderId ? (
                 <p className="mt-2 font-mono text-xs text-zinc-400">Order {exception.orderId}</p>
               ) : null}
-            </article>
+              <p className="mt-4 text-sm font-semibold text-emerald-700">Review exception →</p>
+            </Link>
           ))}
         </div>
       </section>

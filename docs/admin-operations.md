@@ -18,6 +18,19 @@ The protected `/control` console is organized by ownership domain. Each task has
 
 Do not add a second mutation surface for a resource in another domain. Cross-domain pages may link to the owning control centre and show read-only readiness state.
 
+## List-first interaction model
+
+Every control centre opens on its record list, queue, or dashboard. Administrators should retain the surrounding list context while working:
+
+- Use a **Create …** action on the owning list to open a creation form in a route-addressable modal.
+- Make the complete record card or row the edit/view target. Clicking it opens that record in the same modal layer.
+- Do not place create, edit, lifecycle, reconciliation, inventory, allocation, or fulfilment mutation forms directly in list pages. Search and filter forms are the only forms that belong on an index.
+- Close with the modal button, `Escape`, the backdrop, or browser back to restore the unchanged list and filters. The record's **Back to …** action returns to the canonical unfiltered list and also supports direct-route fallbacks.
+- Canonical detail routes remain refreshable and bookmarkable; client-side navigation from a control list is intercepted into the modal layer.
+- Read-only administrators use the same record modal without mutation controls. Permissions continue to be checked by the record page and again by every Server Action or RPC.
+
+This model applies to products, categories, sets, SKU prices, promotions, listings, storefront configurations, inventory, suppliers, purchase orders, orders, preorders, allocation queues, deliveries, customers, payment exceptions, reconciliation, and administrator grants. Audit evidence remains a read-only table because it has no create or edit workflow.
+
 ## Access provisioning
 
 - `ADMIN_EMAIL_ALLOWLIST` is authoritative for protected environment owners.
@@ -33,11 +46,11 @@ Sensitive permissions are intentionally separate: `pricing.approve`, `storefront
 
 ## Product-to-listing flow
 
-1. **Product** — Create the draft at `/control/catalog/products/new`; set identity, category, release, type, language, description, and media.
-2. **Physical SKU** — Add the SKU code, barcode, box/pack configuration, weight, and active state on `/control/catalog/products/[productId]`.
-3. **Pricing** — Set a versioned base and optional compare-at price at `/control/pricing`. Catalog SKU saves never write money.
-4. **Supply** — Record stock, incoming quantity, safety stock, supplier, or purchase order at `/control/supply`.
-5. **Availability and listing** — Set `available_now`, `preorder`, `coming_soon`, or `unavailable`, plus optional order windows, release date, merchandising, and customer limits at `/control/storefront/listings/[productId]`.
+1. **Product** — Select **Create product** from `/control/catalog`; the modal sets identity, category, release, type, language, description, and media.
+2. **Physical SKU** — Select the product record from `/control/catalog`, then add the SKU code, barcode, box/pack configuration, weight, and active state in its modal.
+3. **Pricing** — Select a SKU from `/control/pricing` to open its versioned base and optional compare-at price form. Catalog SKU saves never write money.
+4. **Supply** — Select an inventory record from `/control/supply`, or use **Create purchase order**, to update stock and incoming commitments in a modal.
+5. **Availability and listing** — Select the product from `/control/storefront/listings` to set `available_now`, `preorder`, `coming_soon`, or `unavailable`, plus optional order windows, release date, merchandising, and customer limits.
 6. **Readiness review** — Review product, SKU, current price, supply, availability, and storefront content from the guided product workflow.
 7. **Publish** — An administrator with `storefront.publish` makes the final customer-facing decision.
 
@@ -52,16 +65,16 @@ Publication is rejected unless the product is active, an active physical SKU and
 
 ## Supply and preorder allocation
 
-- Inventory adjustments require a reason code and optional reviewer note at `/control/supply`.
-- Purchase-order intake records the order and incoming inventory transactionally.
+- Inventory adjustments require a reason code and optional reviewer note in the selected `/control/supply` inventory modal.
+- **Create purchase order** opens purchase-order intake as a modal and records the order and incoming inventory transactionally.
 - Suppliers with open purchase orders cannot be archived.
-- Preorder allocation is reviewed at `/control/orders/allocations` and requires both `preorders.allocate` and `refunds.manage` because partial allocation can create Stripe refunds.
+- Preorder allocation begins with the queue list at `/control/orders/allocations`; selecting a SKU opens the reviewed plan and confirmation in a modal. It requires both `preorders.allocate` and `refunds.manage` because partial allocation can create Stripe refunds.
 - Allocation remains FIFO, fingerprints the reviewed queue, rejects stale confirmations, and is idempotent for refunds.
 
 ## Orders, finance, and fulfilment
 
 - `/control/orders` is the commercial order context and non-financial lifecycle workspace.
-- `/control/finance` owns provider exceptions and manual reconciliation. Reconciliation requires provider, payment reference, amount, currency, reason, and actor.
+- `/control/finance` owns provider exceptions and manual reconciliation. Selecting an exception or **Create reconciliation** opens the modal form, which requires provider, payment reference, amount, currency, reason, and actor.
 - `/control/fulfilment` owns packing and shipment mutations for fully captured orders.
 - A single order action maps to exactly one owning permission: `orders.manage`, `fulfilment.manage`, or `payments.reconcile`.
 

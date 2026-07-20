@@ -24,7 +24,7 @@ export default async function NewDealPage({
         action={<ControlBackLink href="/control/pricing/deals">Back to deals</ControlBackLink>}
         description="Create a truthful, time-bounded promotion. Times are interpreted in Singapore time."
         eyebrow="Control · Deals"
-        title="Add deal"
+        title="Create deal"
       />
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
         <DealForm error={conflict} skus={skus} />

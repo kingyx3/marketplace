@@ -32,7 +32,7 @@ export default async function ControlCatalogPage() {
       <PageHeader
         action={
           canManage ? (
-            <PrimaryLink href="/control/catalog/products/new">Add product</PrimaryLink>
+            <PrimaryLink href="/control/catalog/products/new">Create product</PrimaryLink>
           ) : undefined
         }
         description="Maintain product identity, taxonomy, media, and physical SKU definitions without changing price, stock, or publication."

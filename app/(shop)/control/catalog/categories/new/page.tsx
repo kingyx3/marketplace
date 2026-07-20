@@ -52,7 +52,7 @@ export default async function NewCategoryPage({
         }
         description="Create a category and then use it in set and product relationships."
         eyebrow="Control · Categories"
-        title="Add category"
+        title="Create category"
       />
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
         <CategoryForm

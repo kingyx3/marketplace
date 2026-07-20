@@ -29,7 +29,7 @@ export default async function NewControlProductPage() {
         action={<BackLink href="/control/catalog">Back to products</BackLink>}
         description="Create the internal product draft first, then continue through SKU, Pricing, Supply, Listing, and Publication."
         eyebrow="Control · Catalog"
-        title="Add product"
+        title="Create product"
       />
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">

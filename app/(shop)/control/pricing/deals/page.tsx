@@ -51,7 +51,7 @@ export default async function ControlDealsPage({
           <>
             <StatusBadge tone="success">{staff.role}</StatusBadge>
             {canManage ? (
-              <ControlPrimaryLink href="/control/pricing/deals/new">Add deal</ControlPrimaryLink>
+              <ControlPrimaryLink href="/control/pricing/deals/new">Create deal</ControlPrimaryLink>
             ) : null}
           </>
         }
@@ -105,7 +105,7 @@ export default async function ControlDealsPage({
         <ControlEmptyState
           action={
             canManage ? (
-              <ControlPrimaryLink href="/control/pricing/deals/new">Add deal</ControlPrimaryLink>
+              <ControlPrimaryLink href="/control/pricing/deals/new">Create deal</ControlPrimaryLink>
             ) : undefined
           }
           description="Create the first promotion or broaden the current filters."

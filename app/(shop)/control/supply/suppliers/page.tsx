@@ -9,7 +9,6 @@ import type { SupplierRecord } from "@/app/(shop)/control/_components/supplier-f
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { setControlSupplierActive } from "@/app/actions/control";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -60,7 +59,7 @@ export default async function ControlSuppliersPage({
             <StatusBadge tone="success">{staff.role}</StatusBadge>
             {canManage ? (
               <ControlPrimaryLink href="/control/supply/suppliers/new">
-                Add supplier
+                Create supplier
               </ControlPrimaryLink>
             ) : null}
           </>
@@ -120,7 +119,7 @@ export default async function ControlSuppliersPage({
           action={
             canManage ? (
               <ControlPrimaryLink href="/control/supply/suppliers/new">
-                Add supplier
+                Create supplier
               </ControlPrimaryLink>
             ) : undefined
           }
@@ -138,19 +137,15 @@ export default async function ControlSuppliersPage({
               const contact = supplier.contact ?? {};
               const contactName = typeof contact.name === "string" ? contact.name : "Not set";
               return (
-                <article
+                <Link
+                  href={`/control/supply/suppliers/${supplier.id}`}
                   key={supplier.id}
-                  className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+                  className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          className="truncate font-semibold text-zinc-950 hover:text-emerald-700"
-                          href={`/control/supply/suppliers/${supplier.id}`}
-                        >
-                          {supplier.name}
-                        </Link>
+                        <h3 className="truncate font-semibold text-zinc-950">{supplier.name}</h3>
                         <StatusBadge tone={supplier.active ? "success" : "warning"}>
                           {supplier.active ? "Active" : "Archived"}
                         </StatusBadge>
@@ -160,19 +155,9 @@ export default async function ControlSuppliersPage({
                         {supplier.region ? ` · ${supplier.region}` : ""}
                       </p>
                     </div>
-                    {canManage ? (
-                      <form action={setControlSupplierActive}>
-                        <input name="id" type="hidden" value={supplier.id} />
-                        <input
-                          name="active"
-                          type="hidden"
-                          value={supplier.active ? "false" : "true"}
-                        />
-                        <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700">
-                          {supplier.active ? "Archive" : "Restore"}
-                        </button>
-                      </form>
-                    ) : null}
+                    <span className="text-sm font-semibold text-emerald-700">
+                      {canManage ? "Edit record →" : "View record →"}
+                    </span>
                   </div>
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                     <ControlData label="Contact" value={contactName} />
@@ -189,7 +174,7 @@ export default async function ControlSuppliersPage({
                       }
                     />
                   </dl>
-                </article>
+                </Link>
               );
             })}
           </div>

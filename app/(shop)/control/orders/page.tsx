@@ -58,8 +58,9 @@ export default async function ControlOrdersPage() {
         <h2 className="text-lg font-semibold text-zinc-950">Normal orders</h2>
         <div className="grid gap-4 xl:grid-cols-2">
           {orders.map((order) => (
-            <article
-              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+            <Link
+              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
+              href={`/control/orders/normal/${order.id}`}
               key={order.id}
             >
               <div className="flex flex-wrap justify-between gap-3">
@@ -75,7 +76,8 @@ export default async function ControlOrdersPage() {
                 {formatMoney(order.total_cents, order.currency)} · {order.order_items?.length ?? 0}{" "}
                 lines
               </p>
-            </article>
+              <p className="mt-4 text-sm font-semibold text-emerald-700">Open order →</p>
+            </Link>
           ))}
         </div>
       </section>
@@ -84,8 +86,9 @@ export default async function ControlOrdersPage() {
         <h2 className="text-lg font-semibold text-zinc-950">Preorders</h2>
         <div className="grid gap-4 xl:grid-cols-2">
           {preorders.map((preorder) => (
-            <article
-              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+            <Link
+              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
+              href={`/control/orders/preorders/${preorder.id}`}
               key={preorder.id}
             >
               <div className="flex flex-wrap justify-between gap-3">
@@ -101,7 +104,8 @@ export default async function ControlOrdersPage() {
                 {preorder.quantity} requested · {preorder.allocated_qty} allocated ·{" "}
                 {formatMoney(preorder.quantity * preorder.unit_price_cents, preorder.currency)}
               </p>
-            </article>
+              <p className="mt-4 text-sm font-semibold text-emerald-700">Open preorder →</p>
+            </Link>
           ))}
         </div>
       </section>

@@ -8,7 +8,6 @@ import {
 import type { CategoryRecord } from "@/app/(shop)/control/_components/category-form";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { setControlCategoryActive } from "@/app/actions/control";
 import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
 
@@ -64,7 +63,7 @@ export default async function ControlCategoriesPage({
           <>
             <StatusBadge tone="success">{staff.role}</StatusBadge>
             <ControlPrimaryLink href="/control/catalog/categories/new">
-              Add category
+              Create category
             </ControlPrimaryLink>
           </>
         }
@@ -104,7 +103,7 @@ export default async function ControlCategoriesPage({
         <ControlEmptyState
           action={
             <ControlPrimaryLink href="/control/catalog/categories/new">
-              Add category
+              Create category
             </ControlPrimaryLink>
           }
           description="Create the first category or broaden the current filters."
@@ -118,19 +117,15 @@ export default async function ControlCategoriesPage({
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {categories.map((category) => (
-              <article
+              <Link
+                href={`/control/catalog/categories/${category.id}`}
                 key={category.id}
-                className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+                className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        className="truncate font-semibold text-zinc-950 hover:text-emerald-700"
-                        href={`/control/catalog/categories/${category.id}`}
-                      >
-                        {category.name}
-                      </Link>
+                      <h3 className="truncate font-semibold text-zinc-950">{category.name}</h3>
                       <StatusBadge tone={category.active ? "success" : "warning"}>
                         {category.active ? "Active" : "Archived"}
                       </StatusBadge>
@@ -139,13 +134,7 @@ export default async function ControlCategoriesPage({
                       {categoryPath(category, categoryMap)} · /{category.slug}
                     </p>
                   </div>
-                  <form action={setControlCategoryActive}>
-                    <input name="id" type="hidden" value={category.id} />
-                    <input name="active" type="hidden" value={category.active ? "false" : "true"} />
-                    <button className="min-h-10 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700">
-                      {category.active ? "Archive" : "Restore"}
-                    </button>
-                  </form>
+                  <span className="text-sm font-semibold text-emerald-700">Open record →</span>
                 </div>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                   <ControlData label="Publisher" value={category.publisher || "Not set"} />
@@ -155,7 +144,7 @@ export default async function ControlCategoriesPage({
                     value={String(productCounts.get(category.id) ?? 0)}
                   />
                 </dl>
-              </article>
+              </Link>
             ))}
           </div>
         </section>

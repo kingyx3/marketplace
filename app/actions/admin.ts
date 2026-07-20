@@ -212,13 +212,14 @@ export async function runAdminOrderAction(formData: FormData) {
   revalidatePath("/control/finance");
   revalidatePath("/control/fulfilment");
   revalidatePath(`/orders/${orderId}`);
+  if (permission === "payments.reconcile") redirect("/control/finance?reconciled=1");
 }
 
 export async function recordSupplierPurchaseOrder(formData: FormData) {
   const { user } = await requireControlPermission("purchase_orders.manage", "/control/supply");
   const input = adminPurchaseOrderFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_create_supplier_purchase_order", {
+  const { data, error } = await createServiceClient().rpc("admin_create_supplier_purchase_order", {
     p_supplier_id: input.supplierId,
     p_sku_id: input.skuId,
     p_quantity: input.quantity,
@@ -231,16 +232,23 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
 
   if (error) throw new Error(`Supplier purchase order intake failed: ${error.message}`);
 
+  const purchaseOrderId = readRpcId(data, "purchase_order_id");
+  if (!purchaseOrderId) {
+    throw new Error("Supplier purchase order intake failed: no purchase order ID was returned");
+  }
+
   revalidatePath("/control");
   revalidatePath("/control/supply");
+  revalidatePath(`/control/supply/purchase-orders/${purchaseOrderId}`);
   revalidatePath("/products");
   revalidatePath("/orders");
+  redirect(`/control/supply/purchase-orders/${purchaseOrderId}?saved=1`);
 }
 
 export async function runPreorderAllocation(formData: FormData) {
   await requireControlPermission("preorders.allocate", "/control/orders/allocations");
   const skuId = String(formData.get("skuId") ?? "");
-  redirect(`/control/orders/allocations?sku=${encodeURIComponent(skuId)}`);
+  redirect(`/control/orders/allocations/${encodeURIComponent(skuId)}`);
 }
 
 function readRpcId(data: unknown, key: string): string | null {

@@ -1,14 +1,9 @@
 import Link from "next/link";
 
-import {
-  AdminNumberField,
-  AdminTextField,
-} from "@/app/(shop)/control/_components/admin-form-fields";
 import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { setSkuPrice } from "@/app/actions/pricing";
-import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
+import { requireControlPermission } from "@/lib/control-access";
 import { fetchControlProducts } from "@/lib/control-catalog";
 import { formatMoney } from "@/lib/money";
 import { createServiceClient } from "@/lib/supabase";
@@ -27,7 +22,7 @@ interface PriceHistoryRow {
 }
 
 export default async function ControlPricingPage() {
-  const { staff } = await requireControlPermission("pricing.view", "/control/pricing");
+  await requireControlPermission("pricing.view", "/control/pricing");
   const supabase = createServiceClient();
   const [products, pricesResult] = await Promise.all([
     fetchControlProducts(supabase),
@@ -47,7 +42,6 @@ export default async function ControlPricingPage() {
     product.skus.map((sku) => ({ ...sku, productName: product.name, productId: product.id }))
   );
   const priced = skus.filter((sku) => activeBySku.has(sku.skuId)).length;
-  const canManage = hasControlPermission(staff, "pricing.manage");
 
   return (
     <div className="space-y-8">
@@ -79,18 +73,14 @@ export default async function ControlPricingPage() {
         {skus.map((sku) => {
           const current = activeBySku.get(sku.skuId);
           return (
-            <article
-              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"
+            <Link
+              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
+              href={`/control/pricing/skus/${sku.skuId}`}
               key={sku.skuId}
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <Link
-                    className="font-semibold text-zinc-950 hover:text-emerald-700"
-                    href={`/control/catalog/products/${sku.productId}`}
-                  >
-                    {sku.productName}
-                  </Link>
+                  <h2 className="font-semibold text-zinc-950">{sku.productName}</h2>
                   <p className="mt-1 text-xs text-zinc-500">{sku.sku}</p>
                 </div>
                 <StatusBadge tone={current ? "success" : "warning"}>
@@ -98,45 +88,8 @@ export default async function ControlPricingPage() {
                 </StatusBadge>
               </div>
 
-              {canManage ? (
-                <form
-                  action={setSkuPrice}
-                  className="mt-5 grid gap-3 sm:grid-cols-[10rem_10rem_8rem_auto] sm:items-end"
-                >
-                  <input name="skuId" type="hidden" value={sku.skuId} />
-                  <AdminNumberField
-                    defaultValue={current?.price_cents}
-                    example="18900"
-                    label="Selling price cents"
-                    min={1}
-                    name="priceCents"
-                    required
-                  />
-                  <AdminNumberField
-                    defaultValue={current?.compare_at_cents ?? undefined}
-                    example="19900"
-                    label="Compare-at cents"
-                    min={1}
-                    name="compareAtCents"
-                  />
-                  <AdminTextField
-                    defaultValue={current?.currency ?? "SGD"}
-                    example="SGD"
-                    label="Currency"
-                    maxLength={3}
-                    minLength={3}
-                    name="currency"
-                    pattern="[A-Za-z]{3}"
-                    required
-                  />
-                  <button className="min-h-11 rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
-                    Save new price
-                  </button>
-                </form>
-              ) : (
-                <p className="mt-4 text-sm text-zinc-500">You have read-only pricing access.</p>
-              )}
-            </article>
+              <p className="mt-5 text-sm font-semibold text-emerald-700">Open price record →</p>
+            </Link>
           );
         })}
       </section>

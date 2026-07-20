@@ -16,7 +16,7 @@ export default async function NewSupplierPage() {
         }
         description="Create a supplier record before using it in purchase-order workflows."
         eyebrow="Control · Suppliers"
-        title="Add supplier"
+        title="Create supplier"
       />
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
         <SupplierForm />

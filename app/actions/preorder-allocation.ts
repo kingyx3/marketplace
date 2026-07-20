@@ -20,7 +20,7 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
 
   if (!confirmed) {
     redirect(
-      `/control/orders/allocations?sku=${encodeURIComponent(skuId)}&error=confirmation-required`
+      `/control/orders/allocations/${encodeURIComponent(skuId)}?error=confirmation-required`
     );
   }
 
@@ -43,7 +43,7 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
     summary = `${result.finalized}-${result.refundsCreated}-${result.refundCents}`;
   } catch (error) {
     const code = allocationErrorCode(error);
-    redirect(`/control/orders/allocations?sku=${encodeURIComponent(skuId)}&error=${code}`);
+    redirect(`/control/orders/allocations/${encodeURIComponent(skuId)}?error=${code}`);
   }
 
   redirect(`/control/orders/allocations?success=${encodeURIComponent(summary)}`);

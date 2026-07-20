@@ -9,7 +9,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default async function ControlLayout({ children }: { children: ReactNode }) {
+export default async function ControlLayout({
+  children,
+  modal,
+}: {
+  children: ReactNode;
+  modal?: ReactNode;
+}) {
   const { staff } = await requireControlPermission("control.view", "/control");
-  return <ControlShell staff={staff}>{children}</ControlShell>;
+  return (
+    <>
+      <ControlShell staff={staff}>{children}</ControlShell>
+      {modal}
+    </>
+  );
 }
