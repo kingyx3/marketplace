@@ -147,7 +147,15 @@ begin
     );
     raise exception 'a product accepted a set from another category';
   exception
-    when foreign_key_violation then null;
+    when others then
+      if sqlstate = '23503' then
+        null;
+      elsif sqlstate = 'P0001'
+        and sqlerrm = 'category, set, or product type relationship is invalid' then
+        null;
+      else
+        raise;
+      end if;
   end;
 
   select product.id
