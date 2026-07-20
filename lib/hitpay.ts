@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+const hitPayChargeSchema = z.object({
+  id: z.string().uuid(),
+  status: z.string(),
+  amount: z.union([z.string(), z.number()]),
+  currency: z.string(),
+  refunded_amount: z.union([z.string(), z.number()]).optional(),
+  payment_type: z.string().optional(),
+});
+
 const hitPayPaymentRequestSchema = z.object({
   id: z.string().uuid(),
   status: z.string(),
@@ -7,6 +16,7 @@ const hitPayPaymentRequestSchema = z.object({
   currency: z.string(),
   url: z.string().url(),
   reference_number: z.string().nullish(),
+  payments: z.array(hitPayChargeSchema).optional(),
 });
 
 const hitPayRefundSchema = z.object({
@@ -18,6 +28,7 @@ const hitPayRefundSchema = z.object({
   amount: z.union([z.string(), z.number()]).optional(),
 });
 
+export type HitPayCharge = z.infer<typeof hitPayChargeSchema>;
 export type HitPayPaymentRequest = z.infer<typeof hitPayPaymentRequestSchema>;
 export type HitPayRefund = z.infer<typeof hitPayRefundSchema>;
 
@@ -46,7 +57,11 @@ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPay
   if (!apiKey) throw new Error("HitPay is not configured (HITPAY_API_KEY)");
   if (!/^https:\/\//i.test(apiUrl)) throw new Error("HITPAY_API_URL must use HTTPS");
 
-  const request = async <T>(path: string, init: RequestInit, schema?: z.ZodType<T>): Promise<T> => {
+  const request = async <T>(
+    path: string,
+    init: RequestInit,
+    schema?: z.ZodType<T>
+  ): Promise<T> => {
     const response = await fetch(`${apiUrl}${path}`, {
       ...init,
       cache: "no-store",
@@ -141,6 +156,17 @@ export function hitPayRefundStatus(status: string): "pending" | "succeeded" | "f
   if (["succeeded", "completed", "refunded"].includes(normalized)) return "succeeded";
   if (["failed", "cancelled", "canceled", "rejected"].includes(normalized)) return "failed";
   return "pending";
+}
+
+export function successfulHitPayChargeId(payload: Record<string, unknown>): string | null {
+  if (!Array.isArray(payload.payments)) return null;
+  for (const raw of payload.payments) {
+    const result = hitPayChargeSchema.safeParse(raw);
+    if (result.success && result.data.status.toLowerCase() === "succeeded") {
+      return result.data.id;
+    }
+  }
+  return null;
 }
 
 export function applicationUrl(path: string, env: NodeJS.ProcessEnv = process.env): string {
