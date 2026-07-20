@@ -37,12 +37,12 @@ export default async function ControlDealsPage({
   const deals = allDeals.filter((deal) => {
     const matchesStatus =
       status === "all" || (status === "active" ? deal.active : !deal.active);
-    return matchesStatus && (!query || deal.title.toLowerCase().includes(query) || deal.code.includes(query));
+    return (
+      matchesStatus &&
+      (!query || deal.title.toLowerCase().includes(query) || deal.code.includes(query))
+    );
   });
-  const now = Date.now();
-  const liveCount = allDeals.filter(
-    (deal) => deal.active && Date.parse(deal.starts_at) <= now && Date.parse(deal.ends_at) > now
-  ).length;
+  const enabledCount = allDeals.filter((deal) => deal.active).length;
 
   return (
     <div className="space-y-8">
@@ -60,7 +60,7 @@ export default async function ControlDealsPage({
 
       <section className="grid gap-4 sm:grid-cols-3">
         <MetricCard label="Deals" value={String(allDeals.length)} detail="Configured promotions" />
-        <MetricCard label="Live now" value={String(liveCount)} detail="Active and inside the scheduled window" />
+        <MetricCard label="Enabled" value={String(enabledCount)} detail="Schedules eligible to become live" />
         <MetricCard label="Matching" value={String(deals.length)} detail="Current search and status filter" />
       </section>
 
