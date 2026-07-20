@@ -5,13 +5,7 @@
     "required": true,
     "secret": false,
     "hint": "Supabase project API URL",
-    "validator": {
-      "type": "url",
-      "protocols": [
-        "http:",
-        "https:"
-      ]
-    }
+    "validator": { "type": "url", "protocols": ["http:", "https:"] }
   },
   {
     "key": "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -19,9 +13,7 @@
     "required": true,
     "secret": false,
     "hint": "Supabase publishable key",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SUPABASE_SECRET_KEY",
@@ -29,9 +21,7 @@
     "required": true,
     "secret": true,
     "hint": "Supabase server key or local service-role key",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID",
@@ -39,9 +29,7 @@
     "required": false,
     "secret": false,
     "hint": "Local Supabase Google OAuth client id",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET",
@@ -49,43 +37,44 @@
     "required": false,
     "secret": true,
     "hint": "Local Supabase Google OAuth client secret",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
-    "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-    "section": "Stripe",
+    "key": "HITPAY_API_KEY",
+    "section": "HitPay",
+    "required": true,
+    "secret": true,
+    "hint": "HitPay server-side business API key",
+    "validator": { "type": "nonempty" }
+  },
+  {
+    "key": "HITPAY_WEBHOOK_SALT",
+    "section": "HitPay",
+    "required": true,
+    "secret": true,
+    "hint": "HitPay webhook HMAC salt",
+    "validator": { "type": "nonempty" }
+  },
+  {
+    "key": "HITPAY_API_URL",
+    "section": "HitPay",
     "required": true,
     "secret": false,
-    "hint": "Stripe publishable key",
-    "validator": {
-      "type": "prefix",
-      "value": "pk_"
-    }
+    "hint": "HitPay API base URL",
+    "validator": { "type": "url", "protocols": ["https:"] },
+    "default": "https://api.sandbox.hit-pay.com"
   },
   {
-    "key": "STRIPE_SECRET_KEY",
-    "section": "Stripe",
+    "key": "HITPAY_PAYMENT_METHODS",
+    "section": "HitPay",
     "required": true,
-    "secret": true,
-    "hint": "Stripe server key",
+    "secret": false,
+    "hint": "Comma-separated HitPay online payment method codes",
     "validator": {
-      "type": "prefix",
-      "value": "sk_"
-    }
-  },
-  {
-    "key": "STRIPE_WEBHOOK_SECRET",
-    "section": "Stripe",
-    "required": true,
-    "provisioned": true,
-    "secret": true,
-    "hint": "Stripe webhook signing key",
-    "validator": {
-      "type": "prefix",
-      "value": "whsec_"
-    }
+      "type": "pattern",
+      "value": "^[a-z0-9_]+(?:,[a-z0-9_]+)*$"
+    },
+    "default": "paynow_online"
   },
   {
     "key": "NEXT_PUBLIC_SITE_URL",
@@ -93,13 +82,7 @@
     "required": true,
     "secret": false,
     "hint": "Canonical public URL",
-    "validator": {
-      "type": "url",
-      "protocols": [
-        "http:",
-        "https:"
-      ]
-    },
+    "validator": { "type": "url", "protocols": ["http:", "https:"] },
     "example": "http://localhost:3000"
   },
   {
@@ -108,19 +91,14 @@
     "required": true,
     "secret": false,
     "hint": "Display name",
-    "validator": {
-      "type": "nonempty"
-    },
+    "validator": { "type": "nonempty" },
     "default": "Marketplace"
   },
   {
     "key": "ADMIN_EMAIL_ALLOWLIST",
     "section": "Application",
     "required": false,
-    "requiredWhen": {
-      "key": "TARGET_ENV",
-      "equals": "production"
-    },
+    "requiredWhen": { "key": "TARGET_ENV", "equals": "production" },
     "secret": false,
     "hint": "Comma-separated admin email allowlist; admin access also requires an active staff record",
     "validator": {
@@ -134,69 +112,44 @@
     "required": false,
     "secret": false,
     "hint": "Development and E2E-only fixture catalog flag; ignored in production",
-    "validator": {
-      "type": "boolean-string"
-    },
+    "validator": { "type": "boolean-string" },
     "default": "false"
   },
   {
     "key": "CRON_SECRET",
     "section": "Application",
     "required": false,
-    "requiredWhen": {
-      "key": "TARGET_ENV",
-      "equals": "production"
-    },
+    "requiredWhen": { "key": "TARGET_ENV", "equals": "production" },
     "secret": true,
     "hint": "Bearer secret used by Vercel Cron to authenticate scheduled maintenance routes",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SYNTHETIC_MONITOR_SECRET",
     "section": "Application",
     "required": false,
-    "requiredWhen": {
-      "key": "TARGET_ENV",
-      "equals": "production"
-    },
+    "requiredWhen": { "key": "TARGET_ENV", "equals": "production" },
     "secret": true,
     "hint": "Bearer secret for authenticated synthetic operational probes",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "OPERATIONAL_ALERT_WEBHOOK_URL",
     "section": "Application",
     "required": false,
-    "requiredWhen": {
-      "key": "TARGET_ENV",
-      "equals": "production"
-    },
+    "requiredWhen": { "key": "TARGET_ENV", "equals": "production" },
     "secret": true,
     "hint": "HTTPS destination for privacy-safe critical operational alerts",
-    "validator": {
-      "type": "url",
-      "protocols": [
-        "https:"
-      ]
-    }
+    "validator": { "type": "url", "protocols": ["https:"] }
   },
   {
     "key": "OPERATIONAL_ALERT_WEBHOOK_SECRET",
     "section": "Application",
     "required": false,
-    "requiredWhen": {
-      "key": "TARGET_ENV",
-      "equals": "production"
-    },
+    "requiredWhen": { "key": "TARGET_ENV", "equals": "production" },
     "secret": true,
     "hint": "HMAC secret used to sign operational alert deliveries",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "NEXT_PUBLIC_SENTRY_DSN",
@@ -204,12 +157,7 @@
     "required": false,
     "secret": false,
     "hint": "Sentry project DSN for browser, Node.js, and Edge telemetry",
-    "validator": {
-      "type": "url",
-      "protocols": [
-        "https:"
-      ]
-    }
+    "validator": { "type": "url", "protocols": ["https:"] }
   },
   {
     "key": "SENTRY_DSN",
@@ -217,12 +165,7 @@
     "required": false,
     "secret": false,
     "hint": "Optional server-only Sentry DSN override",
-    "validator": {
-      "type": "url",
-      "protocols": [
-        "https:"
-      ]
-    }
+    "validator": { "type": "url", "protocols": ["https:"] }
   },
   {
     "key": "NEXT_PUBLIC_SENTRY_ENVIRONMENT",
@@ -230,9 +173,7 @@
     "required": false,
     "secret": false,
     "hint": "Explicit Sentry environment name shared with browser telemetry",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SENTRY_ENVIRONMENT",
@@ -240,9 +181,7 @@
     "required": false,
     "secret": false,
     "hint": "Optional server-only Sentry environment override",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE",
@@ -250,10 +189,7 @@
     "required": false,
     "secret": false,
     "hint": "Browser performance trace sample rate from 0 to 1",
-    "validator": {
-      "type": "pattern",
-      "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
-    }
+    "validator": { "type": "pattern", "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$" }
   },
   {
     "key": "SENTRY_TRACES_SAMPLE_RATE",
@@ -261,10 +197,7 @@
     "required": false,
     "secret": false,
     "hint": "Server and Edge performance trace sample rate from 0 to 1",
-    "validator": {
-      "type": "pattern",
-      "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
-    }
+    "validator": { "type": "pattern", "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$" }
   },
   {
     "key": "NEXT_PUBLIC_SENTRY_REPLAYS_SESSION_SAMPLE_RATE",
@@ -272,10 +205,7 @@
     "required": false,
     "secret": false,
     "hint": "Browser session replay sample rate from 0 to 1",
-    "validator": {
-      "type": "pattern",
-      "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
-    }
+    "validator": { "type": "pattern", "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$" }
   },
   {
     "key": "NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE",
@@ -283,10 +213,7 @@
     "required": false,
     "secret": false,
     "hint": "Browser error replay sample rate from 0 to 1",
-    "validator": {
-      "type": "pattern",
-      "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$"
-    }
+    "validator": { "type": "pattern", "value": "^(0(?:\\.[0-9]+)?|1(?:\\.0+)?)$" }
   },
   {
     "key": "SENTRY_RELEASE",
@@ -294,9 +221,7 @@
     "required": false,
     "secret": false,
     "hint": "Optional explicit Sentry release identifier",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SENTRY_ORG",
@@ -304,9 +229,7 @@
     "required": false,
     "secret": false,
     "hint": "Sentry organization slug for release and source-map uploads",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SENTRY_PROJECT",
@@ -314,9 +237,7 @@
     "required": false,
     "secret": false,
     "hint": "Sentry project slug for release and source-map uploads",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SENTRY_AUTH_TOKEN",
@@ -324,9 +245,7 @@
     "required": false,
     "secret": true,
     "hint": "Scoped Sentry build token for release and source-map uploads",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "TARGET_ENV",
@@ -335,14 +254,7 @@
     "secret": false,
     "deployOnly": true,
     "hint": "Deployment environment",
-    "validator": {
-      "type": "enum",
-      "values": [
-        "development",
-        "staging",
-        "production"
-      ]
-    },
+    "validator": { "type": "enum", "values": ["development", "staging", "production"] },
     "default": "development"
   },
   {
@@ -352,9 +264,7 @@
     "secret": false,
     "deployOnly": true,
     "hint": "Whether hosted Google authentication must be configured",
-    "validator": {
-      "type": "boolean-string"
-    },
+    "validator": { "type": "boolean-string" },
     "default": "true"
   },
   {
@@ -364,9 +274,7 @@
     "secret": true,
     "deployOnly": true,
     "hint": "Supabase Management API and CLI access",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SUPABASE_DB_PASSWORD",
@@ -375,9 +283,7 @@
     "secret": true,
     "deployOnly": true,
     "hint": "Supabase database credential",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "SUPABASE_PROJECT_REF",
@@ -386,63 +292,45 @@
     "secret": false,
     "deployOnly": true,
     "hint": "Supabase project reference",
-    "validator": {
-      "type": "pattern",
-      "value": "^[a-z0-9]{15,30}$"
-    }
+    "validator": { "type": "pattern", "value": "^[a-z0-9]{15,30}$" }
   },
   {
     "key": "GOOGLE_OAUTH_CLIENT_ID",
     "section": "Hosted deployment",
     "required": false,
-    "requiredWhen": {
-      "key": "GOOGLE_AUTH_ENABLED",
-      "equals": "true"
-    },
+    "requiredWhen": { "key": "GOOGLE_AUTH_ENABLED", "equals": "true" },
     "secret": false,
     "deployOnly": true,
     "hint": "Hosted Google OAuth client id",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "GOOGLE_OAUTH_CLIENT_SECRET",
     "section": "Hosted deployment",
     "required": false,
-    "requiredWhen": {
-      "key": "GOOGLE_AUTH_ENABLED",
-      "equals": "true"
-    },
+    "requiredWhen": { "key": "GOOGLE_AUTH_ENABLED", "equals": "true" },
     "secret": true,
     "deployOnly": true,
     "hint": "Hosted Google OAuth client secret",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
-    "key": "STRIPE_WEBHOOK_ENDPOINT_ID",
+    "key": "HITPAY_WEBHOOK_ID",
     "section": "Hosted deployment",
     "required": false,
     "secret": false,
     "deployOnly": true,
-    "hint": "Managed Stripe webhook endpoint id",
-    "validator": {
-      "type": "prefix",
-      "value": "we_"
-    }
+    "hint": "Registered HitPay webhook id",
+    "validator": { "type": "nonempty" }
   },
   {
-    "key": "STRIPE_WEBHOOK_ENABLED_EVENTS",
+    "key": "HITPAY_WEBHOOK_ENABLED_EVENTS",
     "section": "Hosted deployment",
     "required": false,
     "secret": false,
     "deployOnly": true,
-    "hint": "Stripe webhook event override",
-    "validator": {
-      "type": "nonempty"
-    }
+    "hint": "HitPay webhook event override",
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "VERCEL_TOKEN",
@@ -451,9 +339,7 @@
     "secret": true,
     "deployOnly": true,
     "hint": "Vercel CLI access",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "VERCEL_ORG_ID",
@@ -462,9 +348,7 @@
     "secret": false,
     "deployOnly": true,
     "hint": "Vercel user or team scope id",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "VERCEL_PROJECT_ID",
@@ -473,9 +357,7 @@
     "secret": false,
     "deployOnly": true,
     "hint": "Vercel project id",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "RESEND_API_KEY",
@@ -483,9 +365,7 @@
     "required": false,
     "secret": true,
     "hint": "Email provider key",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "RESEND_FROM_EMAIL",
@@ -493,23 +373,16 @@
     "required": false,
     "secret": false,
     "hint": "Verified sender email",
-    "validator": {
-      "type": "email"
-    }
+    "validator": { "type": "email" }
   },
   {
     "key": "SUPPORT_EMAIL",
     "section": "Optional notifications",
     "required": false,
-    "requiredWhen": {
-      "key": "TARGET_ENV",
-      "equals": "production"
-    },
+    "requiredWhen": { "key": "TARGET_ENV", "equals": "production" },
     "secret": false,
     "hint": "Public support and data-protection contact email",
-    "validator": {
-      "type": "email"
-    }
+    "validator": { "type": "email" }
   },
   {
     "key": "TWILIO_ACCOUNT_SID",
@@ -517,9 +390,7 @@
     "required": false,
     "secret": false,
     "hint": "Twilio account id",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "TWILIO_AUTH_TOKEN",
@@ -527,9 +398,7 @@
     "required": false,
     "secret": true,
     "hint": "Twilio authentication token",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "TELEGRAM_BOT_TOKEN",
@@ -537,9 +406,7 @@
     "required": false,
     "secret": true,
     "hint": "Telegram bot token",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "WHATSAPP_ACCESS_TOKEN",
@@ -547,9 +414,7 @@
     "required": false,
     "secret": true,
     "hint": "WhatsApp access token",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   },
   {
     "key": "WHATSAPP_PHONE_NUMBER_ID",
@@ -557,8 +422,6 @@
     "required": false,
     "secret": false,
     "hint": "WhatsApp phone number id",
-    "validator": {
-      "type": "nonempty"
-    }
+    "validator": { "type": "nonempty" }
   }
 ]
