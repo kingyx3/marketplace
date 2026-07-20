@@ -3,15 +3,19 @@
   "shared": {
     "APP_NAME": "Marketplace",
     "GOOGLE_AUTH_ENABLED": "true",
-    "STRIPE_WEBHOOK_ENABLED_EVENTS": [
-      "payment_intent.succeeded",
-      "payment_intent.payment_failed",
-      "charge.refunded"
+    "HITPAY_API_URL": "https://api.sandbox.hit-pay.com",
+    "HITPAY_PAYMENT_METHODS": "paynow_online",
+    "HITPAY_WEBHOOK_ENABLED_EVENTS": [
+      "payment_request.completed",
+      "payment_request.failed",
+      "charge.updated"
     ]
   },
   "environments": {
     "development": {},
     "staging": {},
-    "production": {}
+    "production": {
+      "HITPAY_API_URL": "https://api.hit-pay.com"
+    }
   }
 }
