@@ -163,7 +163,7 @@ describe("catalog administration workflow", () => {
   });
 
   it("standardizes catalog admin input guidance and validation", async () => {
-    const [operations, newProduct, productEditor, categories, sets] = await Promise.all([
+    const [operations, newProduct, productEditor, categoryForm, setForm] = await Promise.all([
       readFile(new URL("../app/(shop)/control/operations/page.tsx", import.meta.url), "utf8"),
       readFile(
         new URL("../app/(shop)/control/operations/products/new/page.tsx", import.meta.url),
@@ -176,14 +176,20 @@ describe("catalog administration workflow", () => {
         ),
         "utf8"
       ),
-      readFile(new URL("../app/(shop)/control/categories/page.tsx", import.meta.url), "utf8"),
-      readFile(new URL("../app/(shop)/control/sets/page.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/_components/category-form.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL("../app/(shop)/control/_components/set-form.tsx", import.meta.url),
+        "utf8"
+      ),
     ]);
 
-    for (const page of [operations, productEditor, categories, sets]) {
-      expect(page).toContain("AdminTextField");
-      expect(page).toContain("example=");
-      expect(page).toContain("required");
+    for (const source of [operations, productEditor, categoryForm, setForm]) {
+      expect(source).toContain("AdminTextField");
+      expect(source).toContain("example=");
+      expect(source).toContain("required");
     }
     expect(newProduct).toContain("ProductIntakeForm");
     expect(operations).toContain("AdminNumberField");
@@ -191,8 +197,8 @@ describe("catalog administration workflow", () => {
     expect(productEditor).toContain("AdminNumberField");
     expect(productEditor).toContain("AdminSelectField");
     expect(productEditor).toContain("AdminFileField");
-    expect(categories).toContain("AdminTextareaField");
-    expect(sets).toContain('type="datetime-local"');
+    expect(categoryForm).toContain("AdminTextareaField");
+    expect(setForm).toContain('type="datetime-local"');
   });
 
   it("removes the standalone control catalog route", async () => {
@@ -201,17 +207,30 @@ describe("catalog administration workflow", () => {
     ).rejects.toThrow();
   });
 
-  it("surfaces duplicate generated category slugs through the source name", async () => {
-    const [categoryAction, categoryPage] = await Promise.all([
+  it("surfaces duplicate generated category slugs on the active form route", async () => {
+    const [categoryAction, newCategoryPage, categoryDetailPage, categoryForm] = await Promise.all([
       readFile(new URL("../app/actions/control.ts", import.meta.url), "utf8"),
-      readFile(new URL("../app/(shop)/control/categories/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/(shop)/control/categories/new/page.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/categories/[categoryId]/page.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL("../app/(shop)/control/_components/category-form.tsx", import.meta.url),
+        "utf8"
+      ),
     ]);
 
     expect(categoryAction).toContain("redirectToCategoryConflict");
     expect(categoryAction).toContain('error: "duplicate-category"');
+    expect(categoryAction).toContain('"/control/categories/new"');
+    expect(categoryAction).toContain('`/control/categories/${input.categoryId}`');
     expect(categoryAction).not.toContain("while (used.has");
-    expect(categoryPage).toContain("generates the same slug as");
-    expect(categoryPage).toContain("Rename the category or edit the existing category instead.");
-    expect(categoryPage).not.toContain('name="slug"');
+    expect(newCategoryPage).toContain('params.error === "duplicate-category"');
+    expect(newCategoryPage).toContain("This name conflicts with");
+    expect(categoryDetailPage).toContain('paramsValue.error === "duplicate-category"');
+    expect(categoryDetailPage).toContain("This name conflicts with");
+    expect(categoryForm).toContain("externalError={error}");
+    expect(categoryForm).not.toContain('name="slug"');
   });
 });

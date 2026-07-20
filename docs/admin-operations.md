@@ -1,15 +1,28 @@
 # Control operations
 
-The protected `/control` console supports catalog, category, set, listing, deal, inventory, supplier, purchase-order, preorder-allocation, order, payment-exception, administrator, and audit workflows. It is intentionally absent from storefront navigation and is protected on every server-rendered page and mutation.
+The protected `/control` console supports catalog, category, set, listing, deal, inventory, supplier, purchase-order, preorder-allocation, order, payment-exception, administrator, customer, delivery, and audit workflows. It is intentionally absent from storefront navigation and is protected on every server-rendered page and mutation.
 
 ## Access model
 
 - Emails in `ADMIN_EMAIL_ALLOWLIST` are authoritative environment owners. They are normalized case-insensitively, synchronized as active `owner` staff records, and managed through the GitHub repository variable rather than the UI.
-- An active `admin` or `owner` may add another email under `/control/administrators` and assign a scoped role.
+- An active `admin` or `owner` may add another email under `/control/administrators/new` and assign a scoped role.
+- Delegated grants are listed at `/control/administrators` and edited at `/control/administrators/[grantId]`.
 - A delegated administrator receives access after signing in with the exact normalized email. First sign-in binds the grant to the Supabase auth user and provisions the corresponding `staff_users` row.
 - Revoked database-managed staff remain denied. Environment owners cannot be revoked or demoted through the console.
 - The final active owner cannot remove or demote themself.
 - Roles follow least privilege: `viewer`, `support`, `catalog`, `operations`, `admin`, and `owner`.
+
+## Admin navigation pattern
+
+Resource-management workspaces use a consistent list-first flow:
+
+1. Open the resource index to search, filter, and review status.
+2. Select **Add** to open a dedicated `/new` form.
+3. Select a record to open its stable ID-based detail page.
+4. Save changes on the detail page and confirm the explicit success result.
+5. Use compact archive, restore, activate, or revoke actions only when the underlying business rule allows the transition.
+
+Full create and edit forms are not repeated inside resource directories.
 
 ## Operating model
 
@@ -17,40 +30,66 @@ The protected `/control` console supports catalog, category, set, listing, deal,
 - Runtime commerce data lives in Supabase Postgres.
 - Stripe-confirmed state and verified webhooks drive payment transitions. Never mark an order paid from browser-provided state.
 - Admin reconciliation requires provider, payment reference, amount, currency, reason, and actor.
-- Product, SKU, category, set, listing, deal, inventory, supplier, purchasing, allocation, refund, payment, administrator, and customer-communication changes require review in production.
+- Product, SKU, category, set, listing, deal, inventory, supplier, purchasing, allocation, refund, payment, administrator, delivery, and customer-communication changes require review in production.
 - Significant control changes write explicit records to `audit_logs`; core table triggers retain before-and-after row images.
 
 ## Categories and sets
 
-1. Create and maintain categories under `/control/categories`.
-2. Use a parent category only when the relationship is meaningful. The database rejects self-parenting and recursive cycles.
-3. Archive dependent child categories, sets, and products before archiving their parent category.
-4. Manage releases under `/control/sets`, including category, code, release date, preorder window, lifecycle status, ordering, and active state.
-5. A set with active products cannot be archived.
-6. Verify affected catalog filters and product pages after changing relationships or publication state.
+1. Review categories under `/control/categories`.
+2. Create a category at `/control/categories/new`.
+3. Edit a category at `/control/categories/[categoryId]`.
+4. Use a parent category only when the relationship is meaningful. The database rejects self-parenting and recursive cycles.
+5. Archive dependent child categories, sets, and products before archiving their parent category.
+6. Review releases under `/control/sets`, create them at `/control/sets/new`, and edit them at `/control/sets/[setId]`.
+7. A set with active products cannot be archived.
+8. Verify affected catalog filters and product pages after changing relationships or publication state.
 
 ## Catalog and listings
 
 1. Confirm product, set, SKU, price, currency, stock, visibility, and customer limit.
-2. Use `/control/operations` to create, update, archive, restore, or upload a product image.
-3. Use `/control/listings` for title overrides, badges, tags, featured order, publish state, customer limits, preorder reserve, and catalog copy.
-4. Listings are retail-only. Do not add alternate sales channels directly in the database.
-5. Verify the public catalog and product page after the change.
+2. Use `/control/operations` to review products.
+3. Use `/control/operations/products/new` to create a product.
+4. Use `/control/operations/products/[productId]` to update product details, publication, image, and related SKUs.
+5. Use `/control/listings` to review storefront listing state.
+6. Use `/control/listings/[productId]` for title overrides, badges, tags, featured order, publish state, customer limits, and preorder reserve.
+7. Use `/control/listings/configurations/[configurationKey]` for storefront copy and configuration.
+8. Listings are retail-only. Do not add alternate sales channels directly in the database.
+9. Verify the public catalog and product page after the change.
 
 ## Deals
 
-1. Confirm the SKU, title, discount, visibility, start, end, and priority.
-2. Create or update the deal in `/control/deals`.
-3. Confirm the product card on `/products` shows the intended sale badge, original price, and eligible sale price.
-4. Verify checkout applies the best eligible active deal from current server data.
+1. Review promotions under `/control/deals`.
+2. Create a promotion at `/control/deals/new`.
+3. Edit a promotion at `/control/deals/[dealId]`.
+4. Confirm the SKU, title, discount, visibility, start, end, and priority.
+5. Confirm the product card on `/products` shows the intended sale badge, original price, and eligible sale price.
+6. Verify checkout applies the best eligible active deal from current server data.
 
 ## Suppliers and purchase orders
 
-1. Create and maintain supplier contact, region, type, payment terms, minimum order, currency, notes, and active state under `/control/suppliers`.
-2. A supplier with an open purchase order cannot be archived. Complete or cancel the dependent order first.
-3. Confirm supplier, SKU, quantity, unit cost, currency, expected date, and reviewer approval before recording a purchase order.
-4. Record the purchase order through `/control/operations`.
-5. Confirm the purchase order appears and incoming inventory increases by the recorded quantity.
+1. Review suppliers under `/control/suppliers`.
+2. Create a supplier at `/control/suppliers/new`.
+3. Edit supplier contact, region, type, payment terms, minimum order, currency, notes, and lifecycle state at `/control/suppliers/[supplierId]`.
+4. A supplier with an open purchase order cannot be archived. Complete or cancel the dependent order first.
+5. Confirm supplier, SKU, quantity, unit cost, currency, expected date, and reviewer approval before recording a purchase order.
+6. Record purchase orders through `/control/operations`.
+7. Confirm the purchase order appears and incoming inventory increases by the recorded quantity.
+
+## Customers
+
+1. Search customer accounts under `/control/customers`.
+2. Open `/control/customers/[customerId]` to review lifecycle history.
+3. Disable or restore access only from the selected customer page.
+4. Deleted customer records remain retained for audit.
+5. A deleted record without a linked Auth identity cannot be restored through the console.
+
+## Deliveries
+
+1. Review fully paid orders under `/control/deliveries`.
+2. Open `/control/deliveries/[orderId]` to arrange shipment or update delivery status.
+3. Arrange delivery only after the full order value is captured.
+4. Confirm the recipient address, carrier, and tracking information before saving.
+5. Maintain shipment status manually until provider automation is introduced.
 
 ## Inventory correction
 
@@ -63,9 +102,10 @@ The protected `/control` console supports catalog, category, set, listing, deal,
 
 1. Confirm incoming stock, safety stock, customer limits, and current preorder data.
 2. Run the SKU-scoped allocation action from `/control/operations` only after inventory is current.
-3. Allocation is retail FIFO and only considers outstanding quantity.
-4. Customers pay allocated balances through the authenticated Stripe balance-payment flow.
-5. Record partial fills or skipped customers for support follow-up.
+3. Review and confirm the FIFO allocation plan under `/control/preorders`.
+4. Allocation is retail FIFO and only considers outstanding quantity.
+5. Customers pay 100% upfront. Partial allocation issues automatic Stripe refunds for every unallocated unit.
+6. Record partial fills or skipped customers for support follow-up.
 
 ## Payment or webhook exception
 
@@ -81,13 +121,6 @@ The protected `/control` console supports catalog, category, set, listing, deal,
 2. Confirm the actor, action, target table, record identifier, timestamp, and safe summary.
 3. Use the protected database audit record for detailed before-and-after analysis; the UI intentionally omits arbitrary or sensitive fields.
 4. Never copy secrets, payment credentials, tokens, or unnecessary personal information into notes or logs.
-
-## Drop alerts
-
-1. Confirm the SKU is active and has on-hand or incoming availability.
-2. Confirm the selected provider is configured in the target GitHub Environment.
-3. Use the staff-only waitlist notification API.
-4. Review failed or skipped notification rows; do not bypass dedupe state by sending directly from provider dashboards.
 
 ## Deploy incident
 

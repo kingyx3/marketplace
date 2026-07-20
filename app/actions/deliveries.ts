@@ -8,8 +8,11 @@ import { deliveryStatuses, type DeliveryStatus } from "@/lib/deliveries";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function markDeliveryPacking(formData: FormData) {
-  const { user } = await requireControlPermission("manage_orders", "/control/deliveries");
   const orderId = requiredString(formData, "orderId");
+  const { user } = await requireControlPermission(
+    "manage_orders",
+    `/control/deliveries/${orderId}`
+  );
 
   const { error } = await createServiceClient().rpc("admin_mark_order_packing", {
     p_order_id: orderId,
@@ -21,8 +24,11 @@ export async function markDeliveryPacking(formData: FormData) {
 }
 
 export async function arrangeDelivery(formData: FormData) {
-  const { user } = await requireControlPermission("manage_orders", "/control/deliveries");
   const orderId = requiredString(formData, "orderId");
+  const { user } = await requireControlPermission(
+    "manage_orders",
+    `/control/deliveries/${orderId}`
+  );
   const address = {
     recipientName: requiredString(formData, "recipientName"),
     line1: requiredString(formData, "line1"),
@@ -47,8 +53,11 @@ export async function arrangeDelivery(formData: FormData) {
 }
 
 export async function updateDeliveryStatus(formData: FormData) {
-  const { user } = await requireControlPermission("manage_orders", "/control/deliveries");
   const orderId = requiredString(formData, "orderId");
+  const { user } = await requireControlPermission(
+    "manage_orders",
+    `/control/deliveries/${orderId}`
+  );
   const status = requiredString(formData, "status");
 
   if (!deliveryStatuses.includes(status as DeliveryStatus)) {
@@ -69,6 +78,7 @@ export async function updateDeliveryStatus(formData: FormData) {
 function revalidateDeliveryPaths(orderId: string) {
   revalidatePath("/control");
   revalidatePath("/control/deliveries");
+  revalidatePath(`/control/deliveries/${orderId}`);
   revalidatePath("/account");
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);

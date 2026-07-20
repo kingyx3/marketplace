@@ -1,4 +1,13 @@
-import { upsertControlAccessGrant } from "@/app/actions/control";
+import Link from "next/link";
+
+import {
+  ControlData,
+  ControlEmptyState,
+  ControlPrimaryLink,
+} from "@/app/(shop)/control/_components/control-resource-ui";
+import type { GrantRecord } from "@/app/(shop)/control/_components/administrator-grant-form";
+import { PageHeader } from "@/app/_components/page-header";
+import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
 import type { StaffRole } from "@/lib/admin-staff";
 import { createServiceClient } from "@/lib/supabase";
@@ -14,40 +23,27 @@ interface StaffRow {
   last_seen_at: string | null;
 }
 
-interface GrantRow {
-  id: string;
-  email: string;
-  role: StaffRole;
-  active: boolean;
-  auth_user_id: string | null;
-  created_by_staff_id: string | null;
-  accepted_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-const roles: Array<[StaffRole, string]> = [
-  ["viewer", "Viewer"],
-  ["support", "Support"],
-  ["catalog", "Catalog"],
-  ["operations", "Operations"],
-  ["admin", "Administrator"],
-  ["owner", "Owner"],
-];
-
 export const dynamic = "force-dynamic";
 
-export default async function ControlAdministratorsPage() {
+export default async function ControlAdministratorsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string; status?: string }>;
+}) {
   const { staff: currentStaff } = await requireControlPermission(
     "manage_admins",
     "/control/administrators"
   );
+  const params = (await searchParams) ?? {};
+  const query = params.q?.trim().toLowerCase() ?? "";
+  const status =
+    params.status === "active" ? "active" : params.status === "revoked" ? "revoked" : "all";
   const supabase = createServiceClient();
   const [staffResult, grantResult] = await Promise.all([
     supabase
       .from("staff_users")
       .select("id, auth_user_id, email, role, active, source, created_at, last_seen_at")
-      .order("source", { ascending: false })
+      .eq("source", "environment")
       .order("created_at"),
     supabase
       .from("admin_access_grants")
@@ -61,31 +57,26 @@ export default async function ControlAdministratorsPage() {
   if (staffResult.error) throw new Error(`Staff list failed: ${staffResult.error.message}`);
   if (grantResult.error) throw new Error(`Administrator grant list failed: ${grantResult.error.message}`);
 
-  const staffRows = (staffResult.data ?? []) as StaffRow[];
-  const grants = (grantResult.data ?? []) as GrantRow[];
-  const environmentOwners = staffRows.filter((row) => row.source === "environment");
+  const environmentOwners = (staffResult.data ?? []) as StaffRow[];
+  const grants = ((grantResult.data ?? []) as GrantRecord[]).filter((grant) => {
+    const matchesStatus =
+      status === "all" || (status === "active" ? grant.active : !grant.active);
+    return matchesStatus && (!query || grant.email.toLowerCase().includes(query) || grant.role.includes(query));
+  });
 
   return (
     <div className="space-y-8">
-      <PageHeading
+      <PageHeader
+        action={
+          <>
+            <StatusBadge tone="success">Acting as {currentStaff.role}</StatusBadge>
+            <ControlPrimaryLink href="/control/administrators/new">Add administrator</ControlPrimaryLink>
+          </>
+        }
+        description="Review protected environment owners and open delegated grants to change role-scoped access."
+        eyebrow="Control"
         title="Administrators"
-        description="Grant role-scoped console access by normalized email. Environment allowlisted owners remain controlled by ADMIN_EMAIL_ALLOWLIST and cannot be removed here."
       />
-
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-zinc-950">Add administrator</h2>
-            <p className="mt-1 text-sm text-zinc-500">
-              Access activates after the user signs in with the exact email address.
-            </p>
-          </div>
-          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold capitalize text-zinc-700">
-            Acting as {currentStaff.role}
-          </span>
-        </div>
-        <GrantForm />
-      </section>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">
@@ -93,104 +84,98 @@ export default async function ControlAdministratorsPage() {
           <span className="text-sm text-zinc-500">{environmentOwners.length}</span>
         </div>
         {environmentOwners.length === 0 ? (
-          <EmptyState text="No environment owner has signed in yet. ADMIN_EMAIL_ALLOWLIST remains authoritative." />
+          <ControlEmptyState
+            description="ADMIN_EMAIL_ALLOWLIST remains authoritative even when an owner has not signed in yet."
+            title="No environment owner has signed in"
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {environmentOwners.map((row) => (
-              <article key={row.id} className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5">
+            {environmentOwners.map((owner) => (
+              <article key={owner.id} className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold text-zinc-950">{row.email ?? "Email pending"}</h3>
-                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">
-                    Protected owner
-                  </span>
+                  <h3 className="break-all font-semibold text-zinc-950">{owner.email ?? "Email pending"}</h3>
+                  <StatusBadge tone="success">Protected owner</StatusBadge>
                 </div>
-                <p className="mt-3 text-sm text-zinc-600">
-                  Last seen: {row.last_seen_at ? formatDate(row.last_seen_at) : "Not recorded"}
-                </p>
+                <dl className="mt-4 grid gap-3 text-sm">
+                  <ControlData
+                    label="Last seen"
+                    value={owner.last_seen_at ? formatDate(owner.last_seen_at) : "Not recorded"}
+                  />
+                </dl>
               </article>
             ))}
           </div>
         )}
       </section>
 
-      <section className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-zinc-950">Delegated access</h2>
-          <span className="text-sm text-zinc-500">{grants.length} grants</span>
-        </div>
-        {grants.length === 0 ? (
-          <EmptyState text="No database-managed administrators have been added." />
-        ) : (
+      <form className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
+        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          Search
+          <input
+            className="min-h-11 rounded-md border border-zinc-300 px-3 text-base sm:text-sm"
+            defaultValue={params.q ?? ""}
+            name="q"
+            placeholder="Email or role"
+          />
+        </label>
+        <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          Status
+          <select
+            className="min-h-11 rounded-md border border-zinc-300 px-3 text-base sm:text-sm"
+            defaultValue={status}
+            name="status"
+          >
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="revoked">Revoked</option>
+          </select>
+        </label>
+        <button className="min-h-11 self-end rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
+          Filter
+        </button>
+      </form>
+
+      {grants.length === 0 ? (
+        <ControlEmptyState
+          action={<ControlPrimaryLink href="/control/administrators/new">Add administrator</ControlPrimaryLink>}
+          description="Create the first delegated grant or broaden the current filters."
+          title="No delegated grants match this view"
+        />
+      ) : (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-zinc-950">Delegated access</h2>
+            <span className="text-sm text-zinc-500">{grants.length} results</span>
+          </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {grants.map((grant) => (
-              <article key={grant.id} className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+              <Link
+                className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
+                href={`/control/administrators/${grant.id}`}
+                key={grant.id}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-zinc-950">{grant.email}</h3>
+                  <div className="min-w-0">
+                    <h3 className="break-all font-semibold text-zinc-950">{grant.email}</h3>
                     <p className="mt-1 text-sm text-zinc-500">
                       {grant.auth_user_id ? "Accepted" : "Pending first sign-in"}
                       {grant.accepted_at ? ` · ${formatDate(grant.accepted_at)}` : ""}
                     </p>
                   </div>
-                  <Status active={grant.active} />
+                  <StatusBadge tone={grant.active ? "success" : "warning"}>
+                    {grant.active ? "Active" : "Revoked"}
+                  </StatusBadge>
                 </div>
-                <GrantForm grant={grant} />
-              </article>
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <ControlData label="Role" value={grant.role} />
+                  <ControlData label="Updated" value={formatDate(grant.updated_at)} />
+                </dl>
+              </Link>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
     </div>
-  );
-}
-
-function GrantForm({ grant }: { grant?: GrantRow }) {
-  const accepted = Boolean(grant?.auth_user_id);
-
-  return (
-    <form action={upsertControlAccessGrant} className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_auto] md:items-end">
-      {grant ? <input name="grantId" type="hidden" value={grant.id} /> : null}
-      <label className="grid gap-1 text-sm font-medium text-zinc-700">
-        Email
-        <input
-          className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm read-only:bg-zinc-100 read-only:text-zinc-600"
-          defaultValue={grant?.email}
-          name="email"
-          readOnly={accepted}
-          required
-          type="email"
-        />
-        {accepted ? (
-          <span className="text-xs font-normal text-zinc-500">
-            Accepted identities are immutable. Revoke this grant and add a new email instead.
-          </span>
-        ) : null}
-      </label>
-      <label className="grid gap-1 text-sm font-medium text-zinc-700">
-        Role
-        <select
-          className="min-h-10 rounded-md border border-zinc-300 px-3 text-sm"
-          defaultValue={grant?.role ?? "viewer"}
-          name="role"
-        >
-          {roles.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="flex flex-wrap items-center gap-3 md:justify-end">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
-          <input name="active" type="hidden" value="false" />
-          <input defaultChecked={grant?.active ?? true} name="active" type="checkbox" value="true" />
-          Active
-        </label>
-        <button className="rounded-md bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-          {grant ? "Save" : "Add"}
-        </button>
-      </div>
-    </form>
   );
 }
 
@@ -200,32 +185,4 @@ function formatDate(value: string): string {
     timeStyle: "short",
     timeZone: "Asia/Singapore",
   }).format(new Date(value));
-}
-
-function PageHeading({ title, description }: { title: string; description: string }) {
-  return (
-    <div>
-      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">Security</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">{title}</h1>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{description}</p>
-    </div>
-  );
-}
-
-function Status({ active }: { active: boolean }) {
-  return (
-    <span
-      className={
-        active
-          ? "rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
-          : "rounded-full bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600"
-      }
-    >
-      {active ? "Active" : "Revoked"}
-    </span>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-sm text-zinc-500">{text}</div>;
 }
