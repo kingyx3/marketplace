@@ -22,8 +22,8 @@ export default function PrivacyPage() {
         <p>
           We collect account identifiers and profile details supplied through Google and Supabase
           Auth; contact, billing, delivery, order, payment-status, preorder, waitlist, and support
-          information; and security, device, request, and reliability data. Stripe processes
-          payment-card details directly, and we do not store complete card numbers.
+          information; and security, device, request, and reliability data. HitPay processes payment
+          details through its hosted checkout, and we do not store complete card numbers.
         </p>
       </PolicySection>
 
@@ -39,12 +39,14 @@ export default function PrivacyPage() {
       <PolicySection title="Service providers and transfers">
         <p>
           We disclose only the data reasonably needed to providers that support the service,
-          including Supabase for authentication and database services, Vercel for hosting, Google for
-          sign-in, Stripe for payments, Sentry for privacy-scrubbed error monitoring, and configured
-          communications providers such as Resend or Twilio. These providers may process data outside
-          Singapore under their own infrastructure and contractual safeguards.
+          including Supabase for authentication and database services, Vercel for hosting, Google
+          for sign-in, HitPay for payments, Sentry for privacy-scrubbed error monitoring, and
+          configured communications providers such as Resend or Twilio. These providers may process
+          data outside Singapore under their own infrastructure and contractual safeguards.
         </p>
-        <p>We may also disclose information where law requires it or to protect users and the service.</p>
+        <p>
+          We may also disclose information where law requires it or to protect users and the service.
+        </p>
       </PolicySection>
 
       <PolicySection title="Retention and security">
