@@ -53,6 +53,8 @@ export interface LiveOrder {
   shipping_cents?: number | null;
   tax_cents?: number | null;
   total_cents: number;
+  shipping_address?: unknown;
+  shipping_service?: string | null;
   placed_at?: string | null;
   created_at: string;
   updated_at?: string | null;
@@ -146,11 +148,7 @@ export function orderItemCount(order: LiveOrder): number {
 }
 
 export function productNameForItem(item: LiveOrderItem | LivePreorder): string {
-  return productForSku(item.booster_box_skus)?.name ?? skuForItem(item) ?? item.sku_id;
-}
-
-export function skuForItem(item: LiveOrderItem | LivePreorder): string | null {
-  return one(item.booster_box_skus)?.sku ?? null;
+  return productForSku(item.booster_box_skus)?.name ?? "Product unavailable";
 }
 
 export function productHrefForItem(item: LiveOrderItem | LivePreorder): string | null {

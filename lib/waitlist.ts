@@ -257,14 +257,12 @@ function buildDropNotificationMessage(
   const productUrl = siteUrl ? `${siteUrl}${productPath}` : productPath;
   const payload = {
     skuId: sku.id,
-    sku: sku.sku,
     productName: product.name,
     productUrl,
     appName,
   };
   const text = [
-    `${appName} drop alert: ${product.name} is available.`,
-    `SKU: ${sku.sku}`,
+    `${appName} restock alert: ${product.name} is available.`,
     `View: ${productUrl}`,
   ].join("\n");
 
@@ -274,7 +272,7 @@ function buildDropNotificationMessage(
     to: entry.contact,
     template: "drop_alert",
     payload,
-    subject: `${appName} drop alert: ${product.name}`,
+    subject: `${appName} restock alert: ${product.name}`,
     text,
     html: `<p>${escapeHtml(product.name)} is available.</p><p><a href="${escapeHtml(
       productUrl
@@ -298,7 +296,7 @@ async function fetchWaitlistSku(supabase: SupabaseClient, skuId: string): Promis
   const row = data as unknown as WaitlistSkuRow | null;
   const product = row ? productForSku(row) : null;
   if (!row || !row.active || !product?.active) {
-    throw notFound("SKU is not available for waitlist alerts");
+    throw notFound("This product is not available for restock alerts");
   }
   return row;
 }
@@ -310,8 +308,8 @@ function mapWaitlistEntry(row: WaitlistRow): CustomerWaitlistEntry {
   return {
     id: row.id,
     skuId: row.sku_id,
-    sku: sku?.sku ?? "SKU",
-    productName: product?.name ?? sku?.sku ?? "Sealed product",
+    sku: sku?.sku ?? "",
+    productName: product?.name ?? "Sealed product",
     productSlug: product?.slug ?? "",
     channel: row.channel as WaitlistChannel,
     contact: row.contact,

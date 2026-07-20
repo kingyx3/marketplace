@@ -55,10 +55,10 @@ export function WaitlistSignupPanel({
           contact: channel === "email" ? undefined : contact,
         },
       });
-      setMessage("Drop alert saved");
+      setMessage("Restock alert saved");
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Drop alert could not be saved");
+      setMessage(error instanceof Error ? error.message : "Restock alert could not be saved");
     } finally {
       setSaving(false);
     }
@@ -67,9 +67,9 @@ export function WaitlistSignupPanel({
   return (
     <div className="mt-5 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
       <div>
-        <p className="text-sm font-semibold text-zinc-950">Drop alerts</p>
+        <p className="text-sm font-semibold text-zinc-950">Restock alerts</p>
         <p className="mt-1 text-xs text-zinc-500">
-          {inStock ? "Get the next restock alert." : "Get notified when this SKU is available."}
+          {inStock ? "Get the next restock alert." : "Get notified when this product is available."}
         </p>
       </div>
       <label className="grid gap-1 text-xs font-medium text-zinc-600">
@@ -108,7 +108,7 @@ export function WaitlistSignupPanel({
         onClick={joinWaitlist}
         type="button"
       >
-        {saving ? "Saving alert" : "Save drop alert"}
+        {saving ? "Saving alert" : "Save restock alert"}
       </button>
       {message ? <p className="text-sm text-zinc-600">{message}</p> : null}
     </div>

@@ -16,7 +16,6 @@ import {
   paymentSummary,
   productHrefForItem,
   productNameForItem,
-  skuForItem,
   type LiveOrder,
 } from "@/lib/order-display";
 
@@ -99,7 +98,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
                     ) : (
                       <p className="font-semibold text-zinc-950">{name}</p>
                     )}
-                    <p className="mt-1 text-sm text-zinc-500">{skuForItem(line) ?? line.sku_id}</p>
                   </div>
                   <div className="text-left sm:text-right">
                     <p className="font-semibold text-zinc-950">x{line.quantity}</p>

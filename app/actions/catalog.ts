@@ -89,7 +89,7 @@ export async function createCatalogProduct(
     revalidateCatalogPaths(createdProductId);
     revalidatePath("/control/categories");
     revalidatePath("/control/sets");
-    revalidatePath("/preorders");
+    revalidatePath("/orders");
   } catch (error) {
     return {
       status: "error",

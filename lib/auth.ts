@@ -33,6 +33,8 @@ export interface CustomerProfile {
   id: string;
   email: string;
   name: string | null;
+  default_currency?: string;
+  marketing_opt_in?: boolean;
   provisioning_state: string;
   provisioning_error: string | null;
 }
@@ -94,7 +96,9 @@ export async function getCustomerProfile(authUserId: string): Promise<CustomerPr
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("customers")
-    .select("id, email, name, provisioning_state, provisioning_error")
+    .select(
+      "id, email, name, default_currency, marketing_opt_in, provisioning_state, provisioning_error"
+    )
     .eq("auth_user_id", authUserId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -116,6 +120,8 @@ export async function requireCustomer(next = "/account") {
       id: customer.id,
       email: customer.email,
       name: customer.name,
+      default_currency: customer.default_currency,
+      marketing_opt_in: customer.marketing_opt_in,
       provisioning_state: customer.provisioning_state ?? "active",
       provisioning_error: customer.provisioning_error ?? null,
     } satisfies CustomerProfile,

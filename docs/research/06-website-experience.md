@@ -49,7 +49,7 @@ section is the _rationale_, not a duplicate status tracker).
   audience for this category in SEA is heavily Telegram/WhatsApp-native)
   for: pre-order confirmed, allocation result, balance due, shipped.
   Provider-agnostic interface lives in `lib/notifications.ts`; Resend
-  email and Telegram/WhatsApp drop alerts are implemented, with SMS
+  email and Telegram/WhatsApp restock alerts are implemented, with SMS
   still feature-gated.
 
 ## Admin / operator surface (not customer-facing, but required to run

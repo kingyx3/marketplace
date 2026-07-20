@@ -2,23 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { StatusBadge } from "@/app/_components/status-badge";
-import {
-  formatMoney,
-  formatStatus,
-  type MarketplaceProduct,
-} from "@/app/_data/marketplace-fixtures";
+import { formatMoney, type MarketplaceProduct } from "@/app/_data/marketplace-fixtures";
 import {
   getStorefrontAvailability,
   type StorefrontAvailabilityKind,
 } from "@/lib/storefront-availability";
-
-function getStatusTone(status: MarketplaceProduct["setStatus"]) {
-  if (status === "preorder_open") return "success";
-  if (status === "announced") return "info";
-  if (status === "released") return "dark";
-  if (status === "preorder_closed") return "warning";
-  return "neutral";
-}
 
 function getAvailabilityTone(kind: StorefrontAvailabilityKind) {
   if (kind === "in_stock" || kind === "preorder_available") return "success";
@@ -44,11 +32,6 @@ export function ProductCard({ product }: { product: MarketplaceProduct }) {
             sizes="(min-width: 1024px) 32vw, (min-width: 640px) 50vw, 100vw"
           />
           <div className="absolute left-3 top-3">
-            <StatusBadge tone={getStatusTone(product.setStatus)}>
-              {formatStatus(product.setStatus)}
-            </StatusBadge>
-          </div>
-          <div className="absolute right-3 top-3">
             <StatusBadge tone={getAvailabilityTone(availability.kind)}>
               {availability.label}
             </StatusBadge>
@@ -68,14 +51,13 @@ export function ProductCard({ product }: { product: MarketplaceProduct }) {
           </h2>
         </div>
 
-        <div className="flex items-end justify-between gap-4">
+        <div>
           <div>
             <p className="text-xl font-bold text-zinc-950">
               {formatMoney(product.priceCents, product.currency)}
             </p>
             <p className="mt-1 text-xs text-zinc-500">GST included where applicable</p>
           </div>
-          <p className="text-right text-sm font-semibold text-zinc-700">{availability.label}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">

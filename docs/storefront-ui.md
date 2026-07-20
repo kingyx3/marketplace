@@ -28,6 +28,16 @@ Status treatments are appropriate when the state directly affects the customer. 
 
 Use plain language and avoid implementation terminology. A customer should not need to understand the system architecture to understand the page.
 
+## Customer navigation and account information
+
+- Keep regular orders and pre-orders in the same `/orders` purchase-history destination. Use separate sections so allocation and refund details remain clear without adding a second primary navigation item.
+- Do not expose SKU codes or database identifiers on product, cart, account, order, notification, or delivery screens. Product names are the customer-facing reference.
+- Show one availability status for each product. For example, an open pre-order displays `Preorder available`; it does not display a second `Preorder open` badge beside it.
+- Use `Restock alert` in customer-facing copy. Internal notification template and deduplication identifiers may retain stable legacy keys when changing them would break persisted data.
+- The account page prioritizes purchase history, recent delivery destinations, restock alerts, profile preferences, sign-out, and a clearly separated destructive account-deletion action.
+- Delivery addresses currently belong to individual orders. The account page may show recent destinations, while customers enter a new destination during checkout; do not imply that a reusable address book exists until it is implemented.
+- Account deletion requires an explicit confirmation modal. Both the entry action and final confirmation use destructive styling, while cancellation remains prominent and safe.
+
 ## Out-of-stock and preorder behaviour
 
 Published products remain discoverable when they sell out so customers can review the product and subscribe to an availability alert. Use these rules consistently across the home page, product list, product detail, cart, and checkout:

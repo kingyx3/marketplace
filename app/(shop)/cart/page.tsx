@@ -130,7 +130,6 @@ export default async function CartPage({
                       </h2>
                       <StatusBadge tone={availabilityTone}>{availabilityLabel}</StatusBadge>
                     </div>
-                    <p className="mt-2 break-all text-sm text-zinc-500">{line.sku}</p>
                     {outOfStock ? (
                       <p className="mt-3 text-sm font-medium text-amber-800">
                         Remove this item to continue checkout. It will remain in your cart until you decide.

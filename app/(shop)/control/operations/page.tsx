@@ -112,7 +112,7 @@ export default async function ControlOperationsPage() {
         <ControlLink href="/control/deals">Deals</ControlLink>
         <ControlLink href="/control/categories">Category details</ControlLink>
         <ControlLink href="/control/sets">Set details</ControlLink>
-        {canManageFullOperations ? <ControlLink href="/preorders">Preorders</ControlLink> : null}
+        {canManageFullOperations ? <ControlLink href="/control/preorders">Preorders</ControlLink> : null}
         <ControlLink href="/products">Open products</ControlLink>
       </nav>
 

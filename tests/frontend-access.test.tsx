@@ -30,6 +30,7 @@ describe("audience-aware frontend access", () => {
 
     expect(html).toContain("Account");
     expect(html).toContain("Orders");
+    expect(html).not.toContain("Preorders");
     expect(html).not.toContain(">Home<");
     expect(html).not.toContain("Sign out");
     expect(html).not.toContain("Admin");
