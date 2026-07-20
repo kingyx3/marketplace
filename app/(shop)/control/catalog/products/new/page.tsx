@@ -1,14 +1,15 @@
 import Link from "next/link";
 
 import { ProductIntakeForm } from "@/app/(shop)/control/_components/product-intake-form";
+import { TcgplayerCatalogImport } from "@/app/(shop)/control/_components/tcgplayer-catalog-import";
 import { PageHeader } from "@/app/_components/page-header";
+import { requireControlPermission } from "@/lib/control-access";
 import {
   fetchControlCategories,
   fetchControlProducts,
   fetchControlProductTypes,
   fetchControlSets,
 } from "@/lib/control-catalog";
-import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,9 @@ export default async function NewControlProductPage() {
     fetchControlSets(supabase),
     fetchControlProductTypes(supabase),
   ]);
+  const activeCategories = categories.filter((category) => category.active);
+  const activeSets = sets.filter((set) => set.active);
+  const activeProductTypes = productTypes.filter((productType) => productType.active);
 
   return (
     <div className="space-y-8">
@@ -32,12 +36,28 @@ export default async function NewControlProductPage() {
         title="Create product"
       />
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+      <TcgplayerCatalogImport
+        categories={activeCategories}
+        productTypes={activeProductTypes}
+        sets={activeSets}
+      />
+
+      <section className="grid gap-5 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            Manual entry
+          </p>
+          <h2 className="mt-1 text-xl font-semibold text-zinc-950">Build a product manually</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            Use the standard hierarchy form when TCGplayer does not have the product or its public
+            storefront data is unavailable.
+          </p>
+        </div>
         <ProductIntakeForm
-          categories={categories.filter((category) => category.active)}
+          categories={activeCategories}
           existingSlugs={products.map((product) => product.slug)}
-          productTypes={productTypes.filter((productType) => productType.active)}
-          sets={sets.filter((set) => set.active)}
+          productTypes={activeProductTypes}
+          sets={activeSets}
         />
       </section>
     </div>
