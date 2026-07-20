@@ -1,137 +1,43 @@
-name: Finalize HitPay migration
+name: Validate HitPay migration
 
 on:
   pull_request:
     types: [reopened]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  finalize:
+  validate:
     if: github.event.pull_request.head.ref == 'agent/migrate-payments-to-hitpay'
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test-publishable-key
+      SUPABASE_SECRET_KEY: test-secret-key
+      HITPAY_API_KEY: test-hitpay-key
+      HITPAY_WEBHOOK_SALT: test-hitpay-salt
+      HITPAY_API_URL: https://api.sandbox.hit-pay.com
+      HITPAY_PAYMENT_METHODS: paynow_online
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      APP_NAME: Marketplace
+      TARGET_ENV: development
+      GOOGLE_AUTH_ENABLED: "false"
     steps:
       - uses: actions/checkout@v7.0.0
         with:
           ref: agent/migrate-payments-to-hitpay
-          fetch-depth: 0
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --silent
-      - name: Replace remaining active Stripe references
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import json
-          import re
-
-          roots = [Path('app'), Path('lib'), Path('scripts'), Path('tests')]
-          explicit = [
-            Path('AGENTS.md'), Path('README.md'), Path('docs/security.md'),
-            Path('docs/local-dev.md'), Path('docs/bootstrap.md'), Path('docs/environments.md'),
-            Path('docs/architecture.md'), Path('docs/data-model.md'), Path('docs/provisioning.md'),
-            Path('docs/cost-controls.md'), Path('docs/observability.md'), Path('docs/testing.md'),
-          ]
-          files = set(explicit)
-          for root in roots:
-            if root.exists():
-              files.update(
-                path for path in root.rglob('*')
-                if path.is_file()
-                and 'node_modules' not in path.parts
-                and path.suffix in {'.ts', '.tsx', '.js', '.mjs', '.json', '.md'}
-              )
-
-          replacements = [
-            ('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'HITPAY_API_URL'),
-            ('STRIPE_SECRET_KEY', 'HITPAY_API_KEY'),
-            ('STRIPE_WEBHOOK_SECRET', 'HITPAY_WEBHOOK_SALT'),
-            ('STRIPE_WEBHOOK_ENDPOINT_ID', 'HITPAY_WEBHOOK_ID'),
-            ('STRIPE_WEBHOOK_ENABLED_EVENTS', 'HITPAY_WEBHOOK_ENABLED_EVENTS'),
-            ('verify:hosted:stripe', 'verify:hosted:hitpay'),
-            ('verify-stripe-staging.mjs', 'verify-hitpay-staging.mjs'),
-            ('configure-stripe.mjs', 'configure-hitpay.mjs'),
-            ('provision-stripe-webhook.mjs', 'configure-hitpay.mjs'),
-            ('/api/webhooks/stripe', '/api/webhooks/hitpay'),
-            ('payment_intent.succeeded', 'payment_request.completed'),
-            ('payment_intent.payment_failed', 'payment_request.failed'),
-            ('payment_intent.amount_capturable_updated', 'charge.updated'),
-            ('Stripe', 'HitPay'),
-            ('stripe', 'hitpay'),
-            ('pk_test_123', 'https://api.sandbox.hit-pay.com'),
-            ('sk_test_123', 'hitpay_test_api_key'),
-            ('whsec_123', 'hitpay_test_webhook_salt'),
-          ]
-          for path in sorted(files):
-            if not path.exists():
-              continue
-            text = path.read_text()
-            updated = text
-            for old, new in replacements:
-              updated = updated.replace(old, new)
-            if path == Path('lib/orders.ts'):
-              updated = updated.replace(
-                'paymentIntentIdFromWebhookPayload',
-                'paymentRequestIdFromWebhookPayload',
-              )
-              updated = re.sub(
-                r'function paymentRequestIdFromWebhookPayload\(payload: unknown\): string \| null \{.*?\n\}',
-                '''function paymentRequestIdFromWebhookPayload(payload: unknown): string | null {\n  if (!payload || typeof payload !== "object") return null;\n  const id = "id" in payload ? payload.id : null;\n  return typeof id === "string" ? id : null;\n}''',
-                updated,
-                flags=re.S,
-              )
-            if updated != text:
-              path.write_text(updated)
-
-          package_path = Path('package.json')
-          package = json.loads(package_path.read_text())
-          for dependency in ['stripe', '@stripe/react-stripe-js', '@stripe/stripe-js']:
-            package.get('dependencies', {}).pop(dependency, None)
-          package_path.write_text(json.dumps(package, indent=2) + '\n')
-          PY
-      - name: Regenerate package lockfile
-        run: npm install --package-lock-only --ignore-scripts --silent
-      - name: Regenerate canonical environment artifacts
-        run: npm run env:artifacts:write --silent
-      - name: Format application source
-        run: npx prettier --write app --log-level silent
-      - name: Format library source
-        run: npx prettier --write lib --log-level silent
-      - name: Format scripts
-        run: npx prettier --write scripts --log-level silent
-      - name: Format tests
-        run: npx prettier --write tests --log-level silent
-      - name: Format configuration
-        run: npx prettier --write package.json package-lock.json config --log-level silent
-      - name: Format active documentation
-        run: npx prettier --write AGENTS.md README.md docs/security.md docs/local-dev.md docs/bootstrap.md docs/environments.md docs/architecture.md docs/data-model.md docs/provisioning.md docs/cost-controls.md docs/observability.md docs/testing.md docs/generated --log-level silent
-      - name: Commit finalized migration
-        run: |
-          git restore --source=HEAD -- .github/workflows
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
-          git commit -m "Finalize HitPay migration and generated artifacts"
-          git push origin HEAD:agent/migrate-payments-to-hitpay
-      - name: Validate application and configuration
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test-publishable-key
-          SUPABASE_SECRET_KEY: test-secret-key
-          HITPAY_API_KEY: test-hitpay-key
-          HITPAY_WEBHOOK_SALT: test-hitpay-salt
-          HITPAY_API_URL: https://api.sandbox.hit-pay.com
-          HITPAY_PAYMENT_METHODS: paynow_online
-          NEXT_PUBLIC_SITE_URL: http://localhost:3000
-          APP_NAME: Marketplace
-          TARGET_ENV: development
-          GOOGLE_AUTH_ENABLED: "false"
-        run: |
-          npm run lint
-          npm run typecheck
-          npm test
-          npm run config:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Configuration contract
+        run: npm run config:check
