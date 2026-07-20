@@ -8,6 +8,8 @@ import {
   discoverActivePublicTables,
 } from "../scripts/bootstrap-database.mjs";
 
+const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+
 describe("database bootstrap", () => {
   it("is restricted to development and staging", () => {
     expect(DATABASE_BOOTSTRAP_TARGETS).toEqual(["development", "staging"]);
@@ -34,25 +36,39 @@ describe("database bootstrap", () => {
     expect(SEEDED_PUBLIC_TABLES).toContain("api_idempotency_records");
   });
 
-  it("runs through GitHub Environments and verifies the public product path", async () => {
-    const workflow = await readFile(
-      new URL("../.github/workflows/bootstrap-database.yml", import.meta.url),
-      "utf8"
-    );
-    const script = await readFile(
-      new URL("../scripts/bootstrap-database.mjs", import.meta.url),
-      "utf8"
-    );
-    const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  it("receives its environment and deployment URL from CI/CD", async () => {
+    const [workflow, deploy, resolver, script, packageJson] = await Promise.all([
+      read(".github/workflows/bootstrap-database.yml"),
+      read(".github/workflows/deploy.yml"),
+      read("scripts/resolve-terraform-inputs.mjs"),
+      read("scripts/bootstrap-database.mjs"),
+      read("package.json"),
+    ]);
+    const pkg = JSON.parse(packageJson);
 
-    expect(workflow).toContain("options: [development, staging]");
-    expect(workflow).not.toContain("options: [development, staging, production]");
-    expect(workflow).toContain("environment: ${{ inputs.target }}");
-    expect(workflow).toContain("resolve-terraform-inputs.mjs platform");
+    expect(workflow).toContain("name: ZZZ-Database Bootstrap (reusable)");
+    expect(workflow).toContain("workflow_call:");
+    expect(workflow).not.toContain("workflow_dispatch:");
+    expect(workflow).toContain("environment: ${{ inputs.environment }}");
+    expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: ${{ inputs.deployment_url }}");
+    expect(workflow).toContain("resolve-terraform-inputs.mjs bootstrap");
     expect(workflow).toContain("resolve-environment.mjs");
     expect(workflow).toContain("--verify-supabase-keys");
-    expect(workflow).toContain("SUPABASE_SECRET_KEY");
+    expect(workflow).not.toContain("APP_NAME:");
+    expect(workflow).not.toContain("VERCEL_TOKEN:");
+    expect(workflow).not.toContain("SUPABASE_SECRET_KEY: ${{ secrets.");
+
+    expect(deploy).toContain("bootstrap-test-data:");
+    expect(deploy).toContain("uses: ./.github/workflows/bootstrap-database.yml");
+    expect(deploy).toContain("environment: ${{ inputs.environment }}");
+    expect(deploy).toContain("deployment_url: ${{ needs.deploy.outputs.deployment_url }}");
+    expect(deploy).toContain("inputs.environment != 'production'");
+    expect(deploy).toContain("needs: [deploy, bootstrap-test-data]");
+
+    expect(resolver).toContain('["state", "platform", "bootstrap"]');
+    expect(resolver).toContain('mode === "bootstrap"');
     expect(pkg.scripts["db:bootstrap"]).toBe("node scripts/bootstrap-database.mjs");
+
     expect(script).toContain('rpc(client, "admin_upsert_category"');
     expect(script).toContain('rpc(client, "admin_upsert_set_release"');
     expect(script).toContain('rpc(client, "admin_upsert_catalog_product_with_publication"');
