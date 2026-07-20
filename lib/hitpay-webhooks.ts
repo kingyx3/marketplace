@@ -4,6 +4,7 @@ import {
   createHitPayClient,
   hitPayAmountToCents,
   hitPayRefundStatus,
+  successfulHitPayChargeId,
   type HitPayClient,
 } from "@/lib/hitpay";
 import { sendOrderConfirmationEmail } from "@/lib/notifications";
@@ -40,6 +41,13 @@ async function handlePaymentCompleted(
   const requestId = requiredString(payload.id, "HitPay webhook is missing payment request id");
   const payment = await paymentByRequest(supabase, requestId);
   if (!payment) return;
+
+  const chargeId = successfulHitPayChargeId(payload);
+  if (!chargeId) {
+    throw new Error("HitPay completed webhook is missing a successful charge id");
+  }
+  await updatePayment(supabase, payment.id, { provider_charge_id: chargeId });
+  payment.provider_charge_id = chargeId;
 
   const amountCents =
     payload.amount === undefined
@@ -128,6 +136,10 @@ async function refundNonPayablePayment(
   payment: PaymentRecord,
   reason: string
 ): Promise<void> {
+  if (!payment.provider_charge_id) {
+    throw new Error("HitPay charge id is required before a payment can be refunded");
+  }
+
   await updatePayment(
     supabase,
     payment.id,
@@ -136,7 +148,7 @@ async function refundNonPayablePayment(
   );
 
   const refund = await hitpay.createRefund({
-    paymentId: payment.provider_payment_id,
+    paymentId: payment.provider_charge_id,
     amountCents: payment.amount_cents,
   });
   const status = hitPayRefundStatus(refund.status);
@@ -211,10 +223,14 @@ interface PaymentRecord {
   order_id: string | null;
   preorder_id: string | null;
   provider_payment_id: string;
+  provider_charge_id: string | null;
   status: string;
   currency: string;
   amount_cents: number;
 }
+
+const paymentSelect =
+  "id, order_id, preorder_id, provider_payment_id, provider_charge_id, status, currency, amount_cents";
 
 async function paymentByRequest(
   supabase: SupabaseClient,
@@ -222,9 +238,7 @@ async function paymentByRequest(
 ): Promise<PaymentRecord | null> {
   const { data, error } = await supabase
     .from("payments")
-    .select(
-      "id, order_id, preorder_id, provider_payment_id, status, currency, amount_cents"
-    )
+    .select(paymentSelect)
     .eq("provider", "hitpay")
     .eq("provider_payment_id", requestId)
     .maybeSingle();
@@ -238,9 +252,7 @@ async function paymentById(
 ): Promise<PaymentRecord | null> {
   const { data, error } = await supabase
     .from("payments")
-    .select(
-      "id, order_id, preorder_id, provider_payment_id, status, currency, amount_cents"
-    )
+    .select(paymentSelect)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
