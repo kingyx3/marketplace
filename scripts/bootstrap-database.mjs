@@ -14,6 +14,8 @@ export const SEEDED_PUBLIC_TABLES = [
   "admin_access_grant_permissions",
   "admin_access_grants",
   "allocation_rules",
+  "api_idempotency_records",
+  "api_rate_limit_buckets",
   "audit_logs",
   "booster_box_skus",
   "control_permission_definitions",
@@ -53,7 +55,6 @@ const FIXTURE_IDS = Object.freeze({
   product: "10000000-0000-4000-8000-000000000006",
   variant: "10000000-0000-4000-8000-000000000007",
   sku: "10000000-0000-4000-8000-000000000008",
-  price: "10000000-0000-4000-8000-000000000009",
   inventory: "10000000-0000-4000-8000-000000000010",
   storefrontConfiguration: "10000000-0000-4000-8000-000000000012",
   deal: "10000000-0000-4000-8000-000000000013",
@@ -73,6 +74,7 @@ const FIXTURE_IDS = Object.freeze({
   paymentException: "10000000-0000-4000-8000-000000000027",
   waitlist: "10000000-0000-4000-8000-000000000028",
   audit: "10000000-0000-4000-8000-000000000029",
+  idempotency: "10000000-0000-4000-8000-000000000030",
 });
 
 const CATEGORY = Object.freeze({
@@ -89,25 +91,25 @@ const RELEASE = Object.freeze({
   description: "A released set used to verify catalog lifecycle and storefront visibility.",
 });
 
-const PRODUCT_TYPE = Object.freeze({
-  code: "bootstrap_box",
-  name: "Bootstrap box",
-});
-
+const PRODUCT_TYPE = Object.freeze({ code: "bootstrap_box", name: "Bootstrap box" });
+const PRODUCT_NAME = "Bootstrap Visibility Product";
 const SKU = "BOOTSTRAP-BST-BOX-EN";
 const CURRENCY = "SGD";
 const PRICE_CENTS = 19_900;
 const COMPARE_AT_CENTS = 22_000;
+const IDEMPOTENCY_KEY_HASH = "a".repeat(64);
+const IDEMPOTENCY_REQUEST_HASH = "b".repeat(64);
 
 export function discoverActivePublicTables(sqlByFilename) {
   const active = new Set();
   const entries = Object.entries(sqlByFilename).sort(([a], [b]) => a.localeCompare(b));
 
   for (const [, sql] of entries) {
-    for (const match of sql.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-z0-9_]+)/gi)) {
+    for (const match of sql.matchAll(
+      /create\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-z0-9_]+)/gi
+    )) {
       active.add(match[1].toLowerCase());
     }
-
     for (const statement of sql.matchAll(/drop\s+table\s+(?:if\s+exists\s+)?([^;]+);/gi)) {
       for (const table of statement[1].matchAll(/public\.([a-z0-9_]+)/gi)) {
         active.delete(table[1].toLowerCase());
@@ -138,450 +140,35 @@ async function main() {
   const publishableKey = requireEnvironment("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   const siteUrl = requireEnvironment("NEXT_PUBLIC_SITE_URL");
   const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
-
   assertTargetSafety(target, supabaseUrl, siteUrl);
 
   const secretClient = createClient(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
-
+  const now = new Date();
+  const dates = createFixtureDates(now);
   const actorEmail = `bootstrap-admin-${target}@example.com`;
   const customerEmail = `bootstrap-customer-${target}@example.com`;
   const actorUser = await ensureAuthUser(secretClient, actorEmail, "Database Bootstrap Admin");
-  const customerUser = await ensureAuthUser(secretClient, customerEmail, "Database Bootstrap Customer");
-  const now = new Date();
-  const startsAt = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
-  const endsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  const releaseDate = now.toISOString().slice(0, 10);
-  const expectedAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
-  const address = {
-    recipientName: "Bootstrap Customer",
-    line1: "1 Test Data Way",
-    line2: "",
-    city: "Singapore",
-    postalCode: "018989",
-    countryCode: "SG",
-  };
-
-  await upsert(secretClient, "staff_users", {
-    id: FIXTURE_IDS.staff,
-    auth_user_id: actorUser.id,
-    email: actorEmail,
-    role: "owner",
-    source: "database",
-    active: true,
-    last_seen_at: now.toISOString(),
-  });
-
-  await upsert(secretClient, "admin_access_grants", {
-    id: FIXTURE_IDS.grant,
-    email: actorEmail,
-    role: "owner",
-    active: true,
-    auth_user_id: actorUser.id,
-    created_by_staff_id: FIXTURE_IDS.staff,
-    accepted_at: now.toISOString(),
-    revoked_at: null,
-  });
-
-  await verifyReferenceRow(secretClient, "control_permission_definitions", "permission_key", "control.view");
-
-  const permissionKeys = await selectColumn(
+  const customerUser = await ensureAuthUser(
     secretClient,
-    "control_permission_definitions",
-    "permission_key"
-  );
-  await upsertMany(
-    secretClient,
-    "admin_access_grant_permissions",
-    permissionKeys.map((permissionKey) => ({
-      grant_id: FIXTURE_IDS.grant,
-      permission_key: permissionKey,
-      created_by_staff_id: FIXTURE_IDS.staff,
-    })),
-    "grant_id,permission_key"
+    customerEmail,
+    "Database Bootstrap Customer"
   );
 
-  await upsert(
+  await seedAdministrator(secretClient, actorUser, actorEmail, now);
+  await seedCatalogBase(secretClient, target, dates);
+  const customerId = await seedCustomerAndCommerce(
     secretClient,
-    "product_types",
-    {
-      id: FIXTURE_IDS.productType,
-      code: PRODUCT_TYPE.code,
-      name: PRODUCT_TYPE.name,
-      active: true,
-      sort_order: 999,
-    },
-    "code"
+    customerUser,
+    customerEmail,
+    target,
+    now,
+    dates
   );
-
-  await upsert(
-    secretClient,
-    "tcg_categories",
-    {
-      id: FIXTURE_IDS.category,
-      parent_id: null,
-      slug: CATEGORY.slug,
-      name: CATEGORY.name,
-      publisher: CATEGORY.publisher,
-      description: CATEGORY.description,
-      active: true,
-      sort_order: CATEGORY.sortOrder,
-    },
-    "slug"
-  );
-
-  await upsert(
-    secretClient,
-    "sets_releases",
-    {
-      id: FIXTURE_IDS.set,
-      category_id: FIXTURE_IDS.category,
-      name: RELEASE.name,
-      code: RELEASE.code,
-      description: RELEASE.description,
-      release_date: releaseDate,
-      preorder_open_at: null,
-      preorder_close_at: null,
-      status: "released",
-      active: true,
-      sort_order: 999,
-    },
-    "id"
-  );
-
-  await upsert(secretClient, "products", {
-    id: FIXTURE_IDS.product,
-    category_id: FIXTURE_IDS.category,
-    set_id: FIXTURE_IDS.set,
-    name: "Bootstrap Visibility Product",
-    product_type: PRODUCT_TYPE.code,
-    description:
-      "Visible bootstrap fixture. Its publication, active price, and sellable stock verify the storefront contract.",
-    language: "EN",
-    image_url: null,
-    active: true,
-  });
-
-  await upsert(
-    secretClient,
-    "product_variants",
-    {
-      id: FIXTURE_IDS.variant,
-      product_id: FIXTURE_IDS.product,
-      name: "default",
-      attributes: { bootstrap: true, target },
-    },
-    "product_id,name"
-  );
-
-  await upsert(
-    secretClient,
-    "booster_box_skus",
-    {
-      id: FIXTURE_IDS.sku,
-      product_variant_id: FIXTURE_IDS.variant,
-      sku: SKU,
-      barcode: "888800000001",
-      packs_per_box: 24,
-      cards_per_pack: 12,
-      msrp_cents: COMPARE_AT_CENTS,
-      price_cents: PRICE_CENTS,
-      currency: CURRENCY,
-      weight_grams: 900,
-      active: true,
-    },
-    "sku"
-  );
-
-  await upsert(secretClient, "sku_prices", {
-    id: FIXTURE_IDS.price,
-    sku_id: FIXTURE_IDS.sku,
-    currency: CURRENCY,
-    price_cents: PRICE_CENTS,
-    compare_at_cents: COMPARE_AT_CENTS,
-    starts_at: startsAt,
-    ends_at: null,
-    active: true,
-    created_by_staff_id: FIXTURE_IDS.staff,
-  });
-
-  await upsert(
-    secretClient,
-    "inventory",
-    {
-      id: FIXTURE_IDS.inventory,
-      sku_id: FIXTURE_IDS.sku,
-      location: "main",
-      on_hand: 24,
-      allocated: 0,
-      incoming: 6,
-      safety_stock: 2,
-    },
-    "sku_id,location"
-  );
-
-  await upsert(
-    secretClient,
-    "listing_items",
-    {
-      product_id: FIXTURE_IDS.product,
-      title_override: "Bootstrap Visibility Product",
-      badge_label: "Test data",
-      tags: ["bootstrap", "api-smoke-test"],
-      channels: ["b2c"],
-      max_per_customer: 4,
-      preorder_reserve: 0,
-      sort_priority: 999,
-      featured: true,
-      published: false,
-      availability_mode: "available_now",
-      order_open_at: null,
-      order_close_at: null,
-      release_date: releaseDate,
-    },
-    "product_id"
-  );
-
-  await upsert(
-    secretClient,
-    "storefront_configurations",
-    {
-      id: FIXTURE_IDS.storefrontConfiguration,
-      key: "bootstrap_fixture",
-      label: "Database bootstrap fixture",
-      description: "Records the most recent successful bootstrap target.",
-      value: { target, productId: FIXTURE_IDS.product, sku: SKU },
-      active: true,
-    },
-    "key"
-  );
-
-  await upsert(secretClient, "suppliers", {
-    id: FIXTURE_IDS.supplier,
-    name: "Bootstrap Test Distributor",
-    supplier_type: "distributor",
-    region: "SG",
-    contact: { email: "bootstrap-supplier@example.com" },
-    payment_terms: "prepaid",
-    min_order_cents: 10_000,
-    currency: CURRENCY,
-    notes: `Managed bootstrap fixture for ${target}.`,
-    active: true,
-  });
-
-  await upsert(secretClient, "purchase_orders", {
-    id: FIXTURE_IDS.purchaseOrder,
-    supplier_id: FIXTURE_IDS.supplier,
-    status: "draft",
-    currency: CURRENCY,
-    placed_at: null,
-    expected_at: expectedAt,
-    total_cents: 15_000,
-    notes: "Bootstrap purchase order fixture.",
-  });
-
-  await upsert(secretClient, "purchase_order_items", {
-    id: FIXTURE_IDS.purchaseOrderItem,
-    purchase_order_id: FIXTURE_IDS.purchaseOrder,
-    sku_id: FIXTURE_IDS.sku,
-    quantity: 2,
-    unit_cost_cents: 7_500,
-    received_quantity: 0,
-  });
-
-  const customer = await upsertAndSelect(
-    secretClient,
-    "customers",
-    {
-      auth_user_id: customerUser.id,
-      email: customerEmail,
-      name: "Bootstrap Customer",
-      phone: "+6590000000",
-      segment: "collector",
-      default_currency: CURRENCY,
-      marketing_opt_in: false,
-      provisioning_state: "active",
-      provisioning_error: null,
-    },
-    "auth_user_id",
-    "id"
-  );
-  const customerId = customer.id;
-
-  await upsert(secretClient, "preorders", {
-    id: FIXTURE_IDS.preorder,
-    customer_id: customerId,
-    sku_id: FIXTURE_IDS.sku,
-    channel: "b2c",
-    quantity: 1,
-    unit_price_cents: PRICE_CENTS,
-    deposit_cents: PRICE_CENTS,
-    balance_cents: 0,
-    currency: CURRENCY,
-    status: "paid",
-    allocated_qty: 0,
-    order_id: null,
-    notes: "Bootstrap fully-paid preorder fixture.",
-  });
-
-  await upsert(secretClient, "orders", {
-    id: FIXTURE_IDS.order,
-    customer_id: customerId,
-    channel: "b2c",
-    status: "paid",
-    currency: CURRENCY,
-    subtotal_cents: PRICE_CENTS,
-    discount_cents: 0,
-    discount_bps: 0,
-    shipping_cents: 0,
-    tax_cents: 1_643,
-    total_cents: PRICE_CENTS,
-    placed_at: now.toISOString(),
-    shipping_address: address,
-    shipping_service: "Bootstrap delivery",
-    shipping_policy_key: "bootstrap_fixture",
-  });
-
-  await upsert(secretClient, "order_items", {
-    id: FIXTURE_IDS.orderItem,
-    order_id: FIXTURE_IDS.order,
-    sku_id: FIXTURE_IDS.sku,
-    preorder_id: null,
-    quantity: 1,
-    unit_price_cents: PRICE_CENTS,
-  });
-
-  await upsert(
-    secretClient,
-    "payments",
-    {
-      id: FIXTURE_IDS.orderPayment,
-      order_id: FIXTURE_IDS.order,
-      preorder_id: null,
-      provider: "bootstrap",
-      provider_payment_id: `bootstrap-order-${target}`,
-      kind: "full",
-      amount_cents: PRICE_CENTS,
-      currency: CURRENCY,
-      status: "captured",
-      captured_at: now.toISOString(),
-    },
-    "provider,provider_payment_id"
-  );
-
-  await upsert(
-    secretClient,
-    "payments",
-    {
-      id: FIXTURE_IDS.preorderPayment,
-      order_id: null,
-      preorder_id: FIXTURE_IDS.preorder,
-      provider: "bootstrap",
-      provider_payment_id: `bootstrap-preorder-${target}`,
-      kind: "full",
-      amount_cents: PRICE_CENTS,
-      currency: CURRENCY,
-      status: "captured",
-      captured_at: now.toISOString(),
-    },
-    "provider,provider_payment_id"
-  );
-
-  await upsert(secretClient, "refunds", {
-    id: FIXTURE_IDS.refund,
-    payment_id: FIXTURE_IDS.orderPayment,
-    provider_refund_id: `bootstrap-refund-${target}`,
-    amount_cents: 100,
-    currency: CURRENCY,
-    reason: "Bootstrap pending refund fixture.",
-    status: "pending",
-  });
-
-  await upsert(secretClient, "shipments", {
-    id: FIXTURE_IDS.shipment,
-    order_id: FIXTURE_IDS.order,
-    carrier: "Bootstrap Carrier",
-    tracking_number: `BOOTSTRAP-${target.toUpperCase()}`,
-    status: "pending",
-    address,
-    shipped_at: null,
-    delivered_at: null,
-  });
-
-  await upsert(secretClient, "allocation_rules", {
-    id: FIXTURE_IDS.allocationRule,
-    set_id: null,
-    sku_id: FIXTURE_IDS.sku,
-    channel: "b2c",
-    priority: 100,
-    reserve_quantity: 0,
-    max_per_customer: 4,
-    active: true,
-  });
-
-  await upsert(secretClient, "notifications", {
-    id: FIXTURE_IDS.notification,
-    customer_id: customerId,
-    channel: "email",
-    template: "bootstrap_fixture",
-    payload: { target, sku: SKU },
-    status: "queued",
-    provider: null,
-    provider_message_id: null,
-    dedupe_key: `bootstrap-notification-${target}`,
-    sent_at: null,
-    error: null,
-  });
-
-  await upsert(
-    secretClient,
-    "webhook_events",
-    {
-      id: FIXTURE_IDS.webhookEvent,
-      provider: "bootstrap",
-      event_id: `bootstrap-event-${target}`,
-      event_type: "bootstrap.completed",
-      payload: { target, productId: FIXTURE_IDS.product },
-      processed_at: now.toISOString(),
-    },
-    "provider,event_id"
-  );
-
-  await upsert(secretClient, "payment_exceptions", {
-    id: FIXTURE_IDS.paymentException,
-    order_id: FIXTURE_IDS.order,
-    payment_id: FIXTURE_IDS.orderPayment,
-    exception_type: "manual_flag",
-    severity: "info",
-    status: "resolved",
-    detail: "Resolved bootstrap reconciliation fixture.",
-    actor: `staff:${actorUser.id}`,
-    resolved_at: now.toISOString(),
-  });
-
-  await upsert(
-    secretClient,
-    "waitlist_entries",
-    {
-      id: FIXTURE_IDS.waitlist,
-      customer_id: customerId,
-      sku_id: FIXTURE_IDS.sku,
-      channel: "email",
-      contact: customerEmail,
-      status: "active",
-      notified_at: null,
-    },
-    "customer_id,sku_id,channel"
-  );
-
-  await exerciseAdminMutationApis(secretClient, actorUser.id, {
-    releaseDate,
-    startsAt,
-    endsAt,
-  });
+  await seedServerLedgers(secretClient, actorUser.id, target, now, dates);
+  await exerciseAdminMutationApis(secretClient, actorUser.id, dates);
+  await verifyCompletedIdempotency(secretClient, actorUser.id);
 
   await upsert(secretClient, "audit_logs", {
     id: FIXTURE_IDS.audit,
@@ -593,6 +180,7 @@ async function main() {
     new_data: {
       target,
       product_id: FIXTURE_IDS.product,
+      customer_id: customerId,
       sku: SKU,
       visible: true,
     },
@@ -615,6 +203,453 @@ async function main() {
   await appendGithubSummary(summary);
 }
 
+function createFixtureDates(now) {
+  return {
+    releaseDate: now.toISOString().slice(0, 10),
+    startsAt: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
+    endsAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    expectedAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
+    ledgerExpiresAt: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+    expiredAt: new Date(now.getTime() - 1000).toISOString(),
+  };
+}
+
+async function seedAdministrator(client, actorUser, actorEmail, now) {
+  await upsert(client, "staff_users", {
+    id: FIXTURE_IDS.staff,
+    auth_user_id: actorUser.id,
+    email: actorEmail,
+    role: "owner",
+    source: "database",
+    active: true,
+    last_seen_at: now.toISOString(),
+  });
+  await upsert(client, "admin_access_grants", {
+    id: FIXTURE_IDS.grant,
+    email: actorEmail,
+    role: "owner",
+    active: true,
+    auth_user_id: actorUser.id,
+    created_by_staff_id: FIXTURE_IDS.staff,
+    accepted_at: now.toISOString(),
+    revoked_at: null,
+  });
+
+  await verifyReferenceRow(client, "control_permission_definitions", "permission_key", "control.view");
+  const permissionKeys = await selectColumn(client, "control_permission_definitions", "permission_key");
+  await upsertMany(
+    client,
+    "admin_access_grant_permissions",
+    permissionKeys.map((permissionKey) => ({
+      grant_id: FIXTURE_IDS.grant,
+      permission_key: permissionKey,
+      created_by_staff_id: FIXTURE_IDS.staff,
+    })),
+    "grant_id,permission_key"
+  );
+}
+
+async function seedCatalogBase(client, target, dates) {
+  await upsert(
+    client,
+    "product_types",
+    {
+      id: FIXTURE_IDS.productType,
+      code: PRODUCT_TYPE.code,
+      name: PRODUCT_TYPE.name,
+      active: true,
+      sort_order: 999,
+    },
+    "code"
+  );
+  await upsert(
+    client,
+    "tcg_categories",
+    {
+      id: FIXTURE_IDS.category,
+      parent_id: null,
+      slug: CATEGORY.slug,
+      name: CATEGORY.name,
+      publisher: CATEGORY.publisher,
+      description: CATEGORY.description,
+      active: true,
+      sort_order: CATEGORY.sortOrder,
+    },
+    "slug"
+  );
+  await upsert(client, "sets_releases", {
+    id: FIXTURE_IDS.set,
+    category_id: FIXTURE_IDS.category,
+    name: RELEASE.name,
+    code: RELEASE.code,
+    description: RELEASE.description,
+    release_date: dates.releaseDate,
+    preorder_open_at: null,
+    preorder_close_at: null,
+    status: "released",
+    active: true,
+    sort_order: 999,
+  });
+  await upsert(client, "products", {
+    id: FIXTURE_IDS.product,
+    category_id: FIXTURE_IDS.category,
+    set_id: FIXTURE_IDS.set,
+    name: PRODUCT_NAME,
+    product_type: PRODUCT_TYPE.code,
+    description:
+      "Visible bootstrap fixture. Its publication, active price, and sellable stock verify the storefront contract.",
+    language: "EN",
+    image_url: null,
+    active: true,
+  });
+  await upsert(
+    client,
+    "product_variants",
+    {
+      id: FIXTURE_IDS.variant,
+      product_id: FIXTURE_IDS.product,
+      name: "default",
+      attributes: { bootstrap: true, target },
+    },
+    "product_id,name"
+  );
+  await upsert(
+    client,
+    "booster_box_skus",
+    {
+      id: FIXTURE_IDS.sku,
+      product_variant_id: FIXTURE_IDS.variant,
+      sku: SKU,
+      barcode: "888800000001",
+      packs_per_box: 24,
+      cards_per_pack: 12,
+      msrp_cents: COMPARE_AT_CENTS,
+      price_cents: PRICE_CENTS,
+      currency: CURRENCY,
+      weight_grams: 900,
+      active: true,
+    },
+    "sku"
+  );
+  await deleteWhere(client, "sku_prices", "sku_id", FIXTURE_IDS.sku);
+  await upsert(
+    client,
+    "inventory",
+    {
+      id: FIXTURE_IDS.inventory,
+      sku_id: FIXTURE_IDS.sku,
+      location: "main",
+      on_hand: 24,
+      allocated: 0,
+      incoming: 6,
+      safety_stock: 2,
+    },
+    "sku_id,location"
+  );
+  await upsert(
+    client,
+    "listing_items",
+    {
+      product_id: FIXTURE_IDS.product,
+      title_override: PRODUCT_NAME,
+      badge_label: "Test data",
+      tags: ["bootstrap", "api-smoke-test"],
+      channels: ["b2c"],
+      max_per_customer: 4,
+      preorder_reserve: 0,
+      sort_priority: 999,
+      featured: true,
+      published: false,
+      availability_mode: "available_now",
+      order_open_at: null,
+      order_close_at: null,
+      release_date: dates.releaseDate,
+    },
+    "product_id"
+  );
+  await upsert(
+    client,
+    "storefront_configurations",
+    {
+      id: FIXTURE_IDS.storefrontConfiguration,
+      key: "bootstrap_fixture",
+      label: "Database bootstrap fixture",
+      description: "Records the most recent successful bootstrap target.",
+      value: { target, productId: FIXTURE_IDS.product, sku: SKU },
+      active: true,
+    },
+    "key"
+  );
+  await upsert(client, "suppliers", {
+    id: FIXTURE_IDS.supplier,
+    name: "Bootstrap Test Distributor",
+    supplier_type: "distributor",
+    region: "SG",
+    contact: { email: "bootstrap-supplier@example.com" },
+    payment_terms: "prepaid",
+    min_order_cents: 10_000,
+    currency: CURRENCY,
+    notes: `Managed bootstrap fixture for ${target}.`,
+    active: true,
+  });
+  await upsert(client, "purchase_orders", {
+    id: FIXTURE_IDS.purchaseOrder,
+    supplier_id: FIXTURE_IDS.supplier,
+    status: "draft",
+    currency: CURRENCY,
+    placed_at: null,
+    expected_at: dates.expectedAt,
+    total_cents: 15_000,
+    notes: "Bootstrap purchase order fixture.",
+  });
+  await upsert(client, "purchase_order_items", {
+    id: FIXTURE_IDS.purchaseOrderItem,
+    purchase_order_id: FIXTURE_IDS.purchaseOrder,
+    sku_id: FIXTURE_IDS.sku,
+    quantity: 2,
+    unit_cost_cents: 7_500,
+    received_quantity: 0,
+  });
+}
+
+async function seedCustomerAndCommerce(client, customerUser, customerEmail, target, now) {
+  const address = {
+    recipientName: "Bootstrap Customer",
+    line1: "1 Test Data Way",
+    line2: "",
+    city: "Singapore",
+    postalCode: "018989",
+    countryCode: "SG",
+  };
+  const customer = await upsertAndSelect(
+    client,
+    "customers",
+    {
+      auth_user_id: customerUser.id,
+      email: customerEmail,
+      name: "Bootstrap Customer",
+      phone: "+6590000000",
+      segment: "collector",
+      default_currency: CURRENCY,
+      marketing_opt_in: false,
+      provisioning_state: "active",
+      provisioning_error: null,
+    },
+    "auth_user_id",
+    "id"
+  );
+
+  await upsert(client, "preorders", {
+    id: FIXTURE_IDS.preorder,
+    customer_id: customer.id,
+    sku_id: FIXTURE_IDS.sku,
+    channel: "b2c",
+    quantity: 1,
+    unit_price_cents: PRICE_CENTS,
+    deposit_cents: PRICE_CENTS,
+    balance_cents: 0,
+    currency: CURRENCY,
+    status: "paid",
+    allocated_qty: 0,
+    order_id: null,
+    notes: "Bootstrap fully-paid preorder fixture.",
+  });
+  await upsert(client, "orders", {
+    id: FIXTURE_IDS.order,
+    customer_id: customer.id,
+    channel: "b2c",
+    status: "paid",
+    currency: CURRENCY,
+    subtotal_cents: PRICE_CENTS,
+    discount_cents: 0,
+    discount_bps: 0,
+    shipping_cents: 0,
+    tax_cents: 1_643,
+    total_cents: PRICE_CENTS,
+    placed_at: now.toISOString(),
+    shipping_address: address,
+    shipping_service: "Bootstrap delivery",
+    shipping_policy_key: "bootstrap_fixture",
+  });
+  await upsert(client, "order_items", {
+    id: FIXTURE_IDS.orderItem,
+    order_id: FIXTURE_IDS.order,
+    sku_id: FIXTURE_IDS.sku,
+    preorder_id: null,
+    quantity: 1,
+    unit_price_cents: PRICE_CENTS,
+  });
+  await upsert(
+    client,
+    "payments",
+    {
+      id: FIXTURE_IDS.orderPayment,
+      order_id: FIXTURE_IDS.order,
+      preorder_id: null,
+      provider: "bootstrap",
+      provider_payment_id: `bootstrap-order-${target}`,
+      kind: "full",
+      amount_cents: PRICE_CENTS,
+      currency: CURRENCY,
+      status: "captured",
+      captured_at: now.toISOString(),
+    },
+    "provider,provider_payment_id"
+  );
+  await upsert(
+    client,
+    "payments",
+    {
+      id: FIXTURE_IDS.preorderPayment,
+      order_id: null,
+      preorder_id: FIXTURE_IDS.preorder,
+      provider: "bootstrap",
+      provider_payment_id: `bootstrap-preorder-${target}`,
+      kind: "full",
+      amount_cents: PRICE_CENTS,
+      currency: CURRENCY,
+      status: "captured",
+      captured_at: now.toISOString(),
+    },
+    "provider,provider_payment_id"
+  );
+  await upsert(client, "refunds", {
+    id: FIXTURE_IDS.refund,
+    payment_id: FIXTURE_IDS.orderPayment,
+    provider_refund_id: `bootstrap-refund-${target}`,
+    amount_cents: 100,
+    currency: CURRENCY,
+    reason: "Bootstrap pending refund fixture.",
+    status: "pending",
+  });
+  await upsert(client, "shipments", {
+    id: FIXTURE_IDS.shipment,
+    order_id: FIXTURE_IDS.order,
+    carrier: "Bootstrap Carrier",
+    tracking_number: `BOOTSTRAP-${target.toUpperCase()}`,
+    status: "pending",
+    address,
+    shipped_at: null,
+    delivered_at: null,
+  });
+  await upsert(client, "allocation_rules", {
+    id: FIXTURE_IDS.allocationRule,
+    set_id: null,
+    sku_id: FIXTURE_IDS.sku,
+    channel: "b2c",
+    priority: 100,
+    reserve_quantity: 0,
+    max_per_customer: 4,
+    active: true,
+  });
+  await upsert(client, "notifications", {
+    id: FIXTURE_IDS.notification,
+    customer_id: customer.id,
+    channel: "email",
+    template: "bootstrap_fixture",
+    payload: { target, sku: SKU },
+    status: "queued",
+    provider: null,
+    provider_message_id: null,
+    dedupe_key: `bootstrap-notification-${target}`,
+    sent_at: null,
+    error: null,
+  });
+  await upsert(
+    client,
+    "webhook_events",
+    {
+      id: FIXTURE_IDS.webhookEvent,
+      provider: "bootstrap",
+      event_id: `bootstrap-event-${target}`,
+      event_type: "bootstrap.completed",
+      payload: { target, productId: FIXTURE_IDS.product },
+      processed_at: now.toISOString(),
+    },
+    "provider,event_id"
+  );
+  await upsert(client, "payment_exceptions", {
+    id: FIXTURE_IDS.paymentException,
+    order_id: FIXTURE_IDS.order,
+    payment_id: FIXTURE_IDS.orderPayment,
+    exception_type: "manual_flag",
+    severity: "info",
+    status: "resolved",
+    detail: "Resolved bootstrap reconciliation fixture.",
+    actor: `bootstrap:${target}`,
+    resolved_at: now.toISOString(),
+  });
+  await upsert(
+    client,
+    "waitlist_entries",
+    {
+      id: FIXTURE_IDS.waitlist,
+      customer_id: customer.id,
+      sku_id: FIXTURE_IDS.sku,
+      channel: "email",
+      contact: customerEmail,
+      status: "active",
+      notified_at: null,
+    },
+    "customer_id,sku_id,channel"
+  );
+
+  return customer.id;
+}
+
+async function seedServerLedgers(client, actorId, target, now, dates) {
+  const bucketKey = `bootstrap:${target}:rate-limit`;
+  await upsert(
+    client,
+    "api_rate_limit_buckets",
+    {
+      bucket_key: bucketKey,
+      window_started_at: now.toISOString(),
+      request_count: 0,
+      expires_at: dates.expiredAt,
+    },
+    "bucket_key"
+  );
+  const consumed = await rpc(client, "consume_api_rate_limit", {
+    p_bucket_key: bucketKey,
+    p_limit: 10,
+    p_window_seconds: 3600,
+  });
+  const result = one(consumed);
+  if (!result?.allowed || Number(result.remaining) !== 9) {
+    throw new Error("API rate-limit smoke test did not consume the isolated bootstrap bucket");
+  }
+
+  await upsert(
+    client,
+    "api_idempotency_records",
+    {
+      id: FIXTURE_IDS.idempotency,
+      scope: `bootstrap.${target}`,
+      actor_id: actorId,
+      idempotency_key_hash: IDEMPOTENCY_KEY_HASH,
+      request_hash: IDEMPOTENCY_REQUEST_HASH,
+      status: "processing",
+      response_status: null,
+      response_body: null,
+      locked_at: now.toISOString(),
+      expires_at: dates.ledgerExpiresAt,
+      updated_at: now.toISOString(),
+    },
+    "scope,actor_id,idempotency_key_hash"
+  );
+  await rpc(client, "complete_api_idempotency", {
+    p_scope: `bootstrap.${target}`,
+    p_actor_id: actorId,
+    p_idempotency_key_hash: IDEMPOTENCY_KEY_HASH,
+    p_request_hash: IDEMPOTENCY_REQUEST_HASH,
+    p_response_status: 200,
+    p_response_body: { ok: true, fixture: "database-bootstrap", target },
+  });
+}
+
 async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
   await rpc(client, "admin_upsert_category", {
     p_category_id: FIXTURE_IDS.category,
@@ -627,7 +662,6 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-
   await rpc(client, "admin_upsert_set_release", {
     p_set_id: FIXTURE_IDS.set,
     p_category_id: FIXTURE_IDS.category,
@@ -642,10 +676,9 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-
   await rpc(client, "admin_upsert_catalog_product_with_publication", {
     p_product_id: FIXTURE_IDS.product,
-    p_name: "Bootstrap Visibility Product",
+    p_name: PRODUCT_NAME,
     p_category_id: FIXTURE_IDS.category,
     p_set_id: FIXTURE_IDS.set,
     p_product_type: PRODUCT_TYPE.code,
@@ -657,7 +690,6 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_published: false,
     p_actor: `staff:${actorAuthUserId}`,
   });
-
   await rpc(client, "admin_upsert_catalog_sku", {
     p_sku_id: FIXTURE_IDS.sku,
     p_product_id: FIXTURE_IDS.product,
@@ -669,7 +701,13 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-
+  await rpc(client, "admin_set_sku_price", {
+    p_sku_id: FIXTURE_IDS.sku,
+    p_currency: CURRENCY,
+    p_price_cents: PRICE_CENTS,
+    p_compare_at_cents: COMPARE_AT_CENTS,
+    p_actor_auth_user_id: actorAuthUserId,
+  });
   await rpc(client, "admin_upsert_supplier", {
     p_supplier_id: FIXTURE_IDS.supplier,
     p_name: "Bootstrap Test Distributor",
@@ -683,10 +721,9 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-
   await rpc(client, "admin_upsert_storefront_listing", {
     p_product_id: FIXTURE_IDS.product,
-    p_title_override: "Bootstrap Visibility Product",
+    p_title_override: PRODUCT_NAME,
     p_badge_label: "Test data",
     p_tags: ["bootstrap", "api-smoke-test"],
     p_max_per_customer: 4,
@@ -699,7 +736,6 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_release_date: dates.releaseDate,
     p_actor_auth_user_id: actorAuthUserId,
   });
-
   await rpc(client, "admin_upsert_pricing_promotion", {
     p_deal_id: FIXTURE_IDS.deal,
     p_code: "bootstrap_launch",
@@ -714,12 +750,25 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-
   await rpc(client, "admin_set_listing_publication", {
     p_product_id: FIXTURE_IDS.product,
     p_published: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
+}
+
+async function verifyCompletedIdempotency(client, actorId) {
+  const { data, error } = await client
+    .from("api_idempotency_records")
+    .select("status,response_status,response_body")
+    .eq("scope", `bootstrap.${process.env.TARGET_ENV}`)
+    .eq("actor_id", actorId)
+    .eq("idempotency_key_hash", IDEMPOTENCY_KEY_HASH)
+    .single();
+  if (error) throw new Error(`Idempotency verification failed: ${error.message}`);
+  if (data.status !== "completed" || data.response_status !== 200 || data.response_body?.ok !== true) {
+    throw new Error("Idempotency completion API did not persist the bootstrap response");
+  }
 }
 
 async function verifySecretRead(client) {
@@ -735,15 +784,15 @@ async function verifySecretRead(client) {
   const listing = one(data.listing_items);
   const variant = one(data.product_variants);
   const sku = one(variant?.booster_box_skus);
-  const price = one(sku?.sku_prices);
+  const activePrice = (sku?.sku_prices ?? []).find((price) => price.active);
   const inventory = one(sku?.inventory);
   if (
     !data.active ||
     !listing?.published ||
     listing.availability_mode !== "available_now" ||
     !sku?.active ||
-    !price?.active ||
-    Number(price.price_cents) <= 0 ||
+    !activePrice ||
+    Number(activePrice.price_cents) <= 0 ||
     Number(inventory?.on_hand ?? 0) - Number(inventory?.allocated ?? 0) <=
       Number(inventory?.safety_stock ?? 0)
   ) {
@@ -775,15 +824,13 @@ async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) 
     headers["x-vercel-protection-bypass"] = vercelBypassSecret;
     headers["x-vercel-set-bypass-cookie"] = "true";
   }
-  const catalogResponse = await fetch(new URL("/products", base), {
-    headers,
-    redirect: "follow",
-  });
+
+  const catalogResponse = await fetch(new URL("/products", base), { headers, redirect: "follow" });
   if (!catalogResponse.ok) {
     throw new Error(`Hosted catalog verification failed with HTTP ${catalogResponse.status}`);
   }
   const catalogHtml = await catalogResponse.text();
-  if (!catalogHtml.includes("Bootstrap Visibility Product") && !catalogHtml.includes(productSlug)) {
+  if (!catalogHtml.includes(PRODUCT_NAME) && !catalogHtml.includes(productSlug)) {
     throw new Error("Hosted catalog did not render the bootstrap product");
   }
 
@@ -848,6 +895,11 @@ async function upsertAndSelect(client, table, row, onConflict, columns) {
   return data;
 }
 
+async function deleteWhere(client, table, column, value) {
+  const { error } = await client.from(table).delete().eq(column, value);
+  if (error) throw new Error(`Fixture cleanup failed for ${table}: ${error.message}`);
+}
+
 async function selectColumn(client, table, column) {
   const { data, error } = await client.from(table).select(column);
   if (error) throw new Error(`Read failed for ${table}.${column}: ${error.message}`);
@@ -861,8 +913,9 @@ async function verifyReferenceRow(client, table, column, value) {
 }
 
 async function rpc(client, name, args) {
-  const { error } = await client.rpc(name, args);
+  const { data, error } = await client.rpc(name, args);
   if (error) throw new Error(`API smoke test ${name} failed: ${error.message}`);
+  return data;
 }
 
 async function assertManifestCoversMigrations() {
@@ -873,8 +926,7 @@ async function assertManifestCoversMigrations() {
       filenames.map(async (filename) => [filename, await readFile(new URL(filename, directory), "utf8")])
     )
   );
-  const activeTables = discoverActivePublicTables(sqlByFilename);
-  const coverage = compareBootstrapCoverage(activeTables);
+  const coverage = compareBootstrapCoverage(discoverActivePublicTables(sqlByFilename));
   if (coverage.missing.length || coverage.stale.length) {
     throw new Error(
       [
@@ -902,7 +954,7 @@ function parseTarget(args, environmentTarget) {
 
 function assertTargetSafety(target, supabaseUrl, siteUrl) {
   if (target === "production") throw new Error("Production database bootstrap is prohibited");
-  const combined = `${supabaseUrl} ${siteUrl ?? ""}`.toLowerCase();
+  const combined = `${supabaseUrl} ${siteUrl}`.toLowerCase();
   if (/\bprod(?:uction)?\b/.test(combined)) {
     throw new Error(`Refusing to bootstrap ${target} with a production-looking URL`);
   }
