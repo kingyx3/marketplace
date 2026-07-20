@@ -133,6 +133,7 @@ describe("domain-based control console", () => {
     expect(migration).toContain("admin_upsert_access_grant_permissions");
     expect(migration).toContain("create table public.sku_prices");
     expect(migration).toContain("Current-price compatibility cache");
+    expect(migration).toContain("when msrp_cents >= price_cents then msrp_cents");
     expect(migration).toContain("availability_mode");
     expect(migration).toContain("admin_upsert_storefront_listing");
     expect(migration).toContain("storefront publication permission required");

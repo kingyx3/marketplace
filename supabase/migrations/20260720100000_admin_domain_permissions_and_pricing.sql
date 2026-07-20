@@ -398,7 +398,19 @@ create trigger audit_log after insert or update or delete on public.sku_prices
 insert into public.sku_prices (
   sku_id, currency, price_cents, compare_at_cents, active, starts_at
 )
-select id, upper(currency), price_cents, msrp_cents, true, created_at
+select
+  id,
+  upper(currency),
+  price_cents,
+  -- Legacy data did not require MSRP to be at least the selling price. Treat
+  -- inverted values as no comparison price so the forward migration remains
+  -- safe without changing the authoritative selling price.
+  case
+    when msrp_cents >= price_cents then msrp_cents
+    else null
+  end,
+  true,
+  created_at
 from public.booster_box_skus
 where price_cents > 0
 on conflict do nothing;
