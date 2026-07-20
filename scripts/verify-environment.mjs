@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { rm } from "node:fs/promises";
+
 import { ENV_CONTRACT } from "./generate-env.mjs";
 import {
   buildEnvironmentWithVercelFallback,
   fetchVercelEnvironmentRecords,
-  genericVercelEnvironmentRecords,
-  isUnreadableVercelEnvironmentRecord,
   resolveVercelProjectContext,
 } from "./lib/vercel-environment.mjs";
 import { buildVercelProtectionHeaders } from "./lib/vercel-protection.mjs";
@@ -35,17 +34,15 @@ async function main() {
     target: vercelEnvironment,
     decrypt: true,
   });
-  const recordsByKey = genericVercelEnvironmentRecords(records, vercelEnvironment);
-  const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);
+  const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map(
+    (entry) => entry.key
+  );
   const verificationEnvironment = buildEnvironmentWithVercelFallback({
     records,
     runtimeKeys,
     baseEnv: process.env,
     target: vercelEnvironment,
   });
-  if (isUnreadableVercelEnvironmentRecord(recordsByKey.get("STRIPE_WEBHOOK_SECRET"))) {
-    delete verificationEnvironment.STRIPE_WEBHOOK_SECRET;
-  }
   const siteUrl = verificationEnvironment.NEXT_PUBLIC_SITE_URL;
   if (!siteUrl && !skipHealth) {
     throw new Error("NEXT_PUBLIC_SITE_URL is required unless --skip-health is used");
@@ -65,7 +62,9 @@ async function main() {
       { allowedStatuses: [0, 2] }
     );
     if (plan.status === 2) {
-      throw new Error("Terraform drift detected. Reconcile and apply a reviewed exact plan before release.");
+      throw new Error(
+        "Terraform drift detected. Reconcile and apply a reviewed exact plan before release."
+      );
     }
 
     run(process.execPath, ["scripts/configure-providers.mjs", "--verify"], {
@@ -89,10 +88,12 @@ async function main() {
 
     if (!skipHealth) {
       await checkHealth(new URL("/api/health", siteUrl));
-      if (targetEnv !== "development") await checkHealth(new URL("/api/health?deep=1", siteUrl));
+      if (targetEnv !== "development") {
+        await checkHealth(new URL("/api/health?deep=1", siteUrl));
+      }
     }
     console.log(
-      `Environment ${targetEnv} is release-ready: no Terraform or provider drift detected, the runtime contract is satisfied (unreadable values verified by presence), and health checks ${skipHealth ? "were skipped" : "passed"}.`
+      `Environment ${targetEnv} is release-ready: no Terraform, HitPay, or OAuth provider drift was detected, the runtime contract is satisfied, and health checks ${skipHealth ? "were skipped" : "passed"}.`
     );
   } finally {
     await Promise.all([rm(runtimePath, { force: true }), rm(planPath, { force: true })]);
@@ -131,10 +132,15 @@ function healthError(url, response) {
 
 function run(command, args, options = {}) {
   const printable = [command, ...args]
-    .map((value) => (value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value))
+    .map((value) =>
+      value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value
+    )
     .join(" ");
   console.log(`\n$ ${printable}`);
-  const result = spawnSync(command, args, { env: options.env || process.env, stdio: "inherit" });
+  const result = spawnSync(command, args, {
+    env: options.env || process.env,
+    stdio: "inherit",
+  });
   if (result.error) throw new Error(`${command} failed to start: ${result.error.message}`);
   const allowedStatuses = options.allowedStatuses || [0];
   if (!allowedStatuses.includes(result.status ?? 1)) {
