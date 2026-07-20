@@ -33,6 +33,46 @@ $$;
 revoke all on function public.admin_text_array_is_valid(text[], integer, integer)
   from public, anon, authenticated;
 
+-- The original generic trigger assumed every audited table had a scalar id.
+-- Permission assignments use a composite key, so derive audit identity from
+-- JSON row data without dereferencing a field that may not exist.
+create or replace function public.write_audit_log()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_old_data jsonb;
+  v_new_data jsonb;
+  v_record_data jsonb;
+  v_record_id text;
+begin
+  if tg_op in ('UPDATE', 'DELETE') then v_old_data := to_jsonb(old); end if;
+  if tg_op in ('INSERT', 'UPDATE') then v_new_data := to_jsonb(new); end if;
+  v_record_data := coalesce(v_new_data, v_old_data, '{}'::jsonb);
+  v_record_id := coalesce(
+    v_record_data->>'id',
+    (v_record_data->>'grant_id') || ':' || (v_record_data->>'permission_key'),
+    v_record_data->>'key',
+    v_record_data->>'order_id',
+    v_record_data->>'product_id',
+    v_record_data->>'sku_id'
+  );
+
+  insert into public.audit_logs (actor, table_name, record_id, action, old_data, new_data)
+  values (
+    coalesce(auth.uid()::text, 'service'),
+    tg_table_name,
+    v_record_id,
+    tg_op,
+    v_old_data,
+    v_new_data
+  );
+  return coalesce(new, old);
+end;
+$$;
+
 alter table public.suppliers
   add constraint suppliers_admin_name_length
     check (char_length(trim(name)) between 2 and 160) not valid,
