@@ -1,0 +1,67 @@
+name: Agent HitPay migration
+
+on:
+  push:
+    branches:
+      - agent/migrate-payments-to-hitpay
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: ${{ !contains(github.event.head_commit.message, '[hitpay-migration-applied]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: agent/migrate-payments-to-hitpay
+          fetch-depth: 0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Preserve nested template expressions in migration source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          path = Path('scripts/agent-migrate-hitpay.mjs')
+          source = path.read_text()
+          source = re.sub(r'(?<!\\)\$\{', r'\\${', source)
+          path.write_text(source)
+          PY
+      - name: Apply provider migration
+        run: node scripts/agent-migrate-hitpay.mjs
+      - name: Regenerate dependency lock and environment artifacts
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          npm run env:artifacts:write
+      - name: Format and validate
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test-publishable-key
+          SUPABASE_SECRET_KEY: test-secret-key
+          HITPAY_API_KEY: test-hitpay-key
+          HITPAY_WEBHOOK_SALT: test-hitpay-salt
+          HITPAY_API_URL: https://api.sandbox.hit-pay.com
+          HITPAY_PAYMENT_METHODS: paynow_online
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          APP_NAME: Marketplace
+          TARGET_ENV: development
+        run: |
+          npm run format
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run config:check
+      - name: Commit migration
+        run: |
+          rm -f scripts/agent-migrate-hitpay.mjs .github/workflows/agent-hitpay-migration.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Migrate payments from Stripe to HitPay [hitpay-migration-applied]"
+          git push origin HEAD:agent/migrate-payments-to-hitpay
