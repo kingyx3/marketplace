@@ -150,7 +150,7 @@ begin
     when others then
       if sqlstate = '23503' then
         null;
-      elsif sqlstate = 'P0001'
+      elsif sqlstate = 'P0002'
         and sqlerrm = 'category, set, or product type relationship is invalid' then
         null;
       else
