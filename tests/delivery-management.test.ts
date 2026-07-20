@@ -42,11 +42,14 @@ describe("delivery management", () => {
     ).toBe(9_500);
   });
 
-  it("exposes delivery management only to order-management staff", async () => {
+  it("separates delivery review from fulfilment execution", async () => {
     const [indexPage, detailPage, actions, navigation] = await Promise.all([
-      readFile(new URL("../app/(shop)/control/deliveries/page.tsx", import.meta.url), "utf8"),
       readFile(
-        new URL("../app/(shop)/control/deliveries/[orderId]/page.tsx", import.meta.url),
+        new URL("../app/(shop)/control/fulfilment/deliveries/page.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL("../app/(shop)/control/fulfilment/deliveries/[orderId]/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(new URL("../app/actions/deliveries.ts", import.meta.url), "utf8"),
@@ -56,16 +59,19 @@ describe("delivery management", () => {
       ),
     ]);
 
-    expect(indexPage).toContain('requireControlPermission("manage_orders", "/control/deliveries")');
+    expect(indexPage).toContain('"fulfilment.view"');
+    expect(indexPage).toContain('"/control/fulfilment/deliveries"');
     expect(indexPage).toContain("listAdminDeliveryOrders");
-    expect(indexPage).toContain('href={`/control/deliveries/${order.id}`}');
-    expect(detailPage).toContain('requireControlPermission("manage_orders"');
+    expect(indexPage).toContain("href={`/control/fulfilment/deliveries/${order.id}`}");
+    expect(detailPage).toContain('"fulfilment.view"');
+    expect(detailPage).toContain("`/control/fulfilment/deliveries/${orderId}`");
+    expect(detailPage).toContain('hasControlPermission(staff, "fulfilment.manage")');
     expect(detailPage).toContain("DeliveryEditor");
-    expect(actions.match(/requireControlPermission\(\s*"manage_orders"/g)?.length).toBe(3);
+    expect(actions.match(/requireControlPermission\(\s*"fulfilment.manage"/g)?.length).toBe(3);
     expect(actions).toContain('rpc("admin_arrange_delivery"');
     expect(actions).toContain('rpc("admin_update_delivery_status"');
-    expect(navigation).toContain("/control/deliveries");
-    expect(navigation).toContain('permission: "manage_orders"');
+    expect(navigation).toContain("/control/fulfilment");
+    expect(navigation).toContain('permissions: ["fulfilment.view"]');
   });
 
   it("removes the misleading account-level billing status", async () => {

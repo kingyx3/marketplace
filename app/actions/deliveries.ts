@@ -10,8 +10,8 @@ import { createServiceClient } from "@/lib/supabase";
 export async function markDeliveryPacking(formData: FormData) {
   const orderId = requiredString(formData, "orderId");
   const { user } = await requireControlPermission(
-    "manage_orders",
-    `/control/deliveries/${orderId}`
+    "fulfilment.manage",
+    `/control/fulfilment/deliveries/${orderId}`
   );
 
   const { error } = await createServiceClient().rpc("admin_mark_order_packing", {
@@ -26,8 +26,8 @@ export async function markDeliveryPacking(formData: FormData) {
 export async function arrangeDelivery(formData: FormData) {
   const orderId = requiredString(formData, "orderId");
   const { user } = await requireControlPermission(
-    "manage_orders",
-    `/control/deliveries/${orderId}`
+    "fulfilment.manage",
+    `/control/fulfilment/deliveries/${orderId}`
   );
   const address = {
     recipientName: requiredString(formData, "recipientName"),
@@ -55,8 +55,8 @@ export async function arrangeDelivery(formData: FormData) {
 export async function updateDeliveryStatus(formData: FormData) {
   const orderId = requiredString(formData, "orderId");
   const { user } = await requireControlPermission(
-    "manage_orders",
-    `/control/deliveries/${orderId}`
+    "fulfilment.manage",
+    `/control/fulfilment/deliveries/${orderId}`
   );
   const status = requiredString(formData, "status");
 
@@ -77,8 +77,8 @@ export async function updateDeliveryStatus(formData: FormData) {
 
 function revalidateDeliveryPaths(orderId: string) {
   revalidatePath("/control");
-  revalidatePath("/control/deliveries");
-  revalidatePath(`/control/deliveries/${orderId}`);
+  revalidatePath("/control/fulfilment/deliveries");
+  revalidatePath(`/control/fulfilment/deliveries/${orderId}`);
   revalidatePath("/account");
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);

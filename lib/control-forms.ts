@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
+import { CONTROL_PERMISSION_DEFINITIONS, CONTROL_PERMISSION_KEYS } from "@/lib/control-permissions";
 
 const optionalText = z
   .string()
@@ -44,7 +45,11 @@ const supplierSchema = z.object({
   contactPhone: optionalText,
   paymentTerms: optionalText,
   minOrderCents: optionalNonNegativeInteger,
-  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),
+  currency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{3}$/),
   notes: optionalText,
   active: checkbox,
 });
@@ -52,9 +57,7 @@ const supplierSchema = z.object({
 const categorySchema = z.object({
   categoryId: optionalUuid,
   parentId: optionalUuid,
-  slug: z
-    .string()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Category name must produce a valid slug"),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Category name must produce a valid slug"),
   name: z.string().trim().min(1).max(160),
   publisher: optionalText,
   description: optionalText,
@@ -67,20 +70,12 @@ const setSchema = z
     setId: optionalUuid,
     categoryId: z.uuid(),
     name: z.string().trim().min(1).max(160),
-    code: z
-      .string()
-      .regex(/^[A-Z0-9][A-Z0-9_-]{1,15}$/, "Set name must produce a valid code"),
+    code: z.string().regex(/^[A-Z0-9][A-Z0-9_-]{1,15}$/, "Set name must produce a valid code"),
     description: optionalText,
     releaseDate: dateOrNull,
     preorderOpenAt: dateTimeOrNull,
     preorderCloseAt: dateTimeOrNull,
-    status: z.enum([
-      "announced",
-      "preorder_open",
-      "preorder_closed",
-      "released",
-      "out_of_print",
-    ]),
+    status: z.enum(["announced", "preorder_open", "preorder_closed", "released", "out_of_print"]),
     sortOrder: z.coerce.number().int().nonnegative(),
     active: checkbox,
   })
@@ -97,6 +92,15 @@ const accessGrantSchema = z.object({
   email: z.email().transform((value) => value.trim().toLowerCase()),
   role: z.enum(["viewer", "support", "catalog", "operations", "admin", "owner"]),
   active: checkbox,
+  permissions: z.array(z.string()).superRefine((permissions, context) => {
+    for (const permission of permissions) {
+      if (
+        !CONTROL_PERMISSION_KEYS.includes(permission as (typeof CONTROL_PERMISSION_KEYS)[number])
+      ) {
+        context.addIssue({ code: "custom", message: `Unknown permission: ${permission}` });
+      }
+    }
+  }),
 });
 
 const statusSchema = z.object({
@@ -153,11 +157,20 @@ export function controlSetFromForm(formData: FormData) {
 }
 
 export function controlAccessGrantFromForm(formData: FormData) {
+  const permissions = new Set(["control.view", ...formData.getAll("permissions").map(String)]);
+  for (const permission of CONTROL_PERMISSION_DEFINITIONS) {
+    if (!permissions.has(permission.key)) continue;
+    const viewPermission = CONTROL_PERMISSION_DEFINITIONS.find(
+      (candidate) => candidate.domain === permission.domain && candidate.key.endsWith(".view")
+    );
+    if (viewPermission) permissions.add(viewPermission.key);
+  }
   return accessGrantSchema.parse({
     grantId: String(formData.get("grantId") ?? ""),
     email: String(formData.get("email") ?? ""),
     role: String(formData.get("role") ?? "viewer"),
     active: checkboxValue(formData, "active"),
+    permissions: [...permissions],
   });
 }
 

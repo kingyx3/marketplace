@@ -19,16 +19,15 @@ export async function createCatalogProduct(
   _previousState: CatalogProductActionState,
   formData: FormData
 ): Promise<CatalogProductActionState> {
-  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   let createdProductId: string | undefined;
   let successMessage = "Product created.";
 
   try {
     const input = adminCatalogProductCreateFromForm(formData);
-    const published = booleanFormValue(formData, "published", true);
     const supabase = createServiceClient();
 
-    const { data, error } = await supabase.rpc("admin_create_catalog_product_with_publication", {
+    const { data, error } = await supabase.rpc("admin_create_catalog_product_hierarchy", {
       p_category_id: input.categoryId,
       p_new_category_slug: input.newCategorySlug,
       p_new_category_name: input.newCategoryName,
@@ -46,24 +45,21 @@ export async function createCatalogProduct(
       p_language: input.language,
       p_image_url: input.imageUrl,
       p_active: input.active,
-      p_published: published,
       p_actor_auth_user_id: user.id,
     });
 
     if (error) return catalogProductError(error);
 
-    const result = (data?.[0] ?? null) as
-      | {
-          product_id?: string;
-          category_name?: string;
-          category_created?: boolean;
-          set_name?: string;
-          set_created?: boolean;
-          product_type_name?: string;
-          product_type_created?: boolean;
-          product_slug?: string;
-        }
-      | null;
+    const result = (data?.[0] ?? null) as {
+      product_id?: string;
+      category_name?: string;
+      category_created?: boolean;
+      set_name?: string;
+      set_created?: boolean;
+      product_type_name?: string;
+      product_type_created?: boolean;
+      product_slug?: string;
+    } | null;
     const messages: string[] = [];
 
     if (result?.category_created && result.category_name) {
@@ -87,8 +83,8 @@ export async function createCatalogProduct(
     createdProductId = result?.product_id ?? undefined;
     successMessage = ["Product created.", ...messages].join(" ");
     revalidateCatalogPaths(createdProductId);
-    revalidatePath("/control/categories");
-    revalidatePath("/control/sets");
+    revalidatePath("/control/catalog/categories");
+    revalidatePath("/control/catalog/sets");
     revalidatePath("/orders");
   } catch (error) {
     return {
@@ -98,7 +94,7 @@ export async function createCatalogProduct(
   }
 
   if (validProductId(createdProductId ?? "")) {
-    redirect(`/control/operations/products/${createdProductId}`);
+    redirect(`/control/catalog/products/${createdProductId}`);
   }
 
   return {
@@ -108,11 +104,10 @@ export async function createCatalogProduct(
 }
 
 export async function upsertCatalogProduct(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   const input = adminCatalogProductFromForm(formData);
-  const published = booleanFormValue(formData, "published", true);
 
-  const { error } = await createServiceClient().rpc("admin_upsert_catalog_product_with_publication", {
+  const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
     p_product_id: input.productId,
     p_name: input.name,
     p_category_id: input.categoryId,
@@ -122,7 +117,6 @@ export async function upsertCatalogProduct(formData: FormData) {
     p_language: input.language,
     p_image_url: input.imageUrl,
     p_active: input.active,
-    p_published: published,
     p_actor: `staff:${user.id}`,
   });
 
@@ -136,7 +130,7 @@ export async function upsertCatalogProduct(formData: FormData) {
 }
 
 export async function setCatalogProductActive(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   const productId = String(formData.get("productId") ?? "");
   const active = String(formData.get("active") ?? "false") === "true";
 
@@ -151,15 +145,21 @@ export async function setCatalogProductActive(formData: FormData) {
 }
 
 export async function uploadCatalogProductImage(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   const productId = String(formData.get("productId") ?? "");
   const image = formData.get("image");
 
-  if (!(image instanceof File) || image.size === 0) throw new Error("Product image file is required");
+  if (!(image instanceof File) || image.size === 0)
+    throw new Error("Product image file is required");
   if (!image.type.startsWith("image/")) throw new Error("Product image must be an image file");
 
   const supabase = createServiceClient();
-  const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+  const extension =
+    image.name
+      .split(".")
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "bin";
   const path = `${productId}/${randomUUID()}.${extension}`;
   const { error: uploadError } = await supabase.storage
     .from("product-images")
@@ -182,26 +182,23 @@ export async function uploadCatalogProductImage(formData: FormData) {
 }
 
 export async function upsertCatalogSku(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   const operation = formData.get("skuId") ? "update" : "create";
   const productId = String(formData.get("productId") ?? "");
   let failure: unknown = null;
 
   try {
     const input = adminCatalogSkuFromForm(formData);
-    const { error } = await createServiceClient().rpc("admin_upsert_booster_box_sku", {
+    const { error } = await createServiceClient().rpc("admin_upsert_catalog_sku", {
       p_sku_id: input.skuId,
       p_product_id: input.productId,
       p_sku: input.sku,
       p_barcode: input.barcode,
       p_packs_per_box: input.packsPerBox,
       p_cards_per_pack: input.cardsPerPack,
-      p_msrp_cents: input.msrpCents,
-      p_price_cents: input.priceCents,
-      p_currency: input.currency,
       p_weight_grams: input.weightGrams,
       p_active: input.active,
-      p_actor: `staff:${user.id}`,
+      p_actor_auth_user_id: user.id,
     });
 
     if (error) {
@@ -216,8 +213,8 @@ export async function upsertCatalogSku(formData: FormData) {
 
   const errorCode = catalogSkuErrorCode(failure);
   const detailRoute = validProductId(productId)
-    ? `/control/operations/products/${productId}`
-    : "/control/operations";
+    ? `/control/catalog/products/${productId}`
+    : "/control/catalog";
   const context = {
     route: detailRoute,
     userId: user.id,
@@ -231,12 +228,14 @@ export async function upsertCatalogSku(formData: FormData) {
     logWarn("catalog.sku_save_rejected", context);
   }
 
-  const productQuery = validProductId(productId) ? `&productId=${encodeURIComponent(productId)}` : "";
-  redirect(`/control/operations/sku-error?code=${errorCode}${productQuery}`);
+  const productQuery = validProductId(productId)
+    ? `&productId=${encodeURIComponent(productId)}`
+    : "";
+  redirect(`/control/catalog/sku-error?code=${errorCode}${productQuery}`);
 }
 
 export async function setCatalogSkuActive(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   const skuId = String(formData.get("skuId") ?? "");
   const productId = String(formData.get("productId") ?? "");
   const active = String(formData.get("active") ?? "false") === "true";
@@ -253,23 +252,16 @@ export async function setCatalogSkuActive(formData: FormData) {
 
 function revalidateCatalogPaths(productId?: string) {
   revalidatePath("/control");
-  revalidatePath("/control/operations");
-  revalidatePath("/control/listings");
-  if (productId) revalidatePath(`/control/operations/products/${productId}`);
+  revalidatePath("/control/catalog");
+  revalidatePath("/control/pricing");
+  revalidatePath("/control/storefront");
+  revalidatePath("/control/storefront/listings");
+  if (productId) revalidatePath(`/control/catalog/products/${productId}`);
   revalidatePath("/products");
 }
 
-function booleanFormValue(formData: FormData, key: string, defaultValue: boolean): boolean {
-  const values = formData.getAll(key);
-  const selected = [...values].reverse().find((value): value is string => typeof value === "string");
-  if (selected === undefined) return defaultValue;
-  return selected === "true";
-}
-
 function validProductId(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value
-  );
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function catalogProductError(error: { code?: string; message: string }): CatalogProductActionState {
@@ -282,7 +274,10 @@ function catalogProductError(error: { code?: string; message: string }): Catalog
         "This display name generates a slug already used by another product. Choose a distinct display name; the other product details are preserved.",
     };
   }
-  if (message.includes("product already exists") || message.includes("product identity already exists")) {
+  if (
+    message.includes("product already exists") ||
+    message.includes("product identity already exists")
+  ) {
     return {
       status: "error",
       field: "productIdentity",

@@ -77,14 +77,11 @@ describe("retail preorder flow", () => {
   it("requires a reviewed allocation fingerprint and explicit confirmation", async () => {
     const [page, action, api] = await Promise.all([
       readFile(
-        new URL("../app/(shop)/control/preorders/page.tsx", import.meta.url),
+        new URL("../app/(shop)/control/orders/allocations/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(new URL("../app/actions/preorder-allocation.ts", import.meta.url), "utf8"),
-      readFile(
-        new URL("../app/api/admin/preorders/allocate/route.ts", import.meta.url),
-        "utf8"
-      ),
+      readFile(new URL("../app/api/admin/preorders/allocate/route.ts", import.meta.url), "utf8"),
     ]);
 
     expect(page).toContain("Confirm allocation and refunds");
@@ -117,10 +114,7 @@ describe("retail preorder flow", () => {
 
   it("removes the legacy preorder balance collection endpoint", async () => {
     const checkout = await readFile(new URL("../lib/checkout.ts", import.meta.url), "utf8");
-    const balanceRoute = new URL(
-      "../app/api/preorders/[id]/balance/route.ts",
-      import.meta.url
-    );
+    const balanceRoute = new URL("../app/api/preorders/[id]/balance/route.ts", import.meta.url);
 
     expect(checkout).not.toContain("createPreorderBalancePayment");
     await expect(access(balanceRoute)).rejects.toThrow();

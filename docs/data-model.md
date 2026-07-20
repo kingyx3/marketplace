@@ -7,7 +7,7 @@ The executable source of truth is [`supabase/migrations/`](../supabase/migration
 ```text
 product_types -------------------------> products
                                           ^
-tcg_categories -> sets_releases ---------+-> product_variants -> booster_box_skus
+tcg_categories -> sets_releases ---------+-> product_variants -> booster_box_skus -> sku_prices
                                           |                         |
                                           -> listing_items          |
                                                                     v
@@ -34,7 +34,9 @@ Money uses integer cents plus a currency code. Retail checkout quotes current SK
 
 Every product belongs to one category and one set. `product_types` stores the reusable administrator-managed type options shown in product forms. Product records do not require a separately entered name or slug: the database derives the display name from set, product type, and language, and derives the unique slug from category slug, set code, product type code, and language code. The canonical identity is therefore the category–set–type–language combination.
 
-`products` and `booster_box_skus` use active/archive state rather than destructive deletion. `listing_items` stores title overrides, badges, tags, customer limits, preorder reserve, featured ordering, and publish state. Active listings are retail-only and use `channels = ['b2c']`.
+`products` and `booster_box_skus` use active/archive state rather than destructive deletion. Physical SKU records contain identifiers and pack configuration; money is versioned separately in `sku_prices`. The legacy amount fields on `booster_box_skus` are trigger-maintained compatibility caches for existing checkout reads.
+
+`listing_items` stores title overrides, badges, tags, customer limits, preorder reserve, featured ordering, availability mode, optional order windows, release date, and publish state. New listings default to unpublished. Publication requires an active product, active SKU, current price, and configured availability; `available_now` also requires sellable inventory. Active listings are retail-only and use `channels = ['b2c']`.
 
 `limited_time_deals` attaches time-bounded public or member offers to SKUs. Deals are presented inside Products and are revalidated during checkout.
 
@@ -64,12 +66,14 @@ Customers own their account, orders, preorders, payments, shipments, notificatio
 
 ### Admin operations
 
-Catalog, product-type, SKU, image, listing, deal, inventory, purchase-order, preorder-allocation, order, refund, reconciliation, and exception changes use explicit service-role functions. Critical mutations are recorded in `audit_logs`.
+Catalog, product-type, SKU, pricing, image, listing, deal, inventory, purchase-order, preorder-allocation, order, refund, reconciliation, and exception changes use explicit service-role functions. Critical mutations are recorded in `audit_logs`.
 
-The preorder allocation workspace is available only to staff with `manage_full_operations`. It requires an explicit confirmation after the refund impact is shown. Direct allocation API calls require the same reviewed fingerprint and permission.
+Administrator coverage is stored as action-level rows in `admin_access_grant_permissions`. Roles remain provisioning templates. The UI and APIs authorize the exact permission for the owning domain, including separate `pricing.manage`, `storefront.publish`, `payments.reconcile`, and `refunds.manage` authority.
+
+The preorder allocation workspace requires both `preorders.allocate` and `refunds.manage`. It requires an explicit confirmation after the refund impact is shown. Direct allocation API calls require the same reviewed fingerprint and permissions.
 
 ## Row-level security
 
-RLS is enabled on customer-facing tables. Public reads are limited to active catalog data, availability, published listings, active deals, and active storefront configuration.
+RLS is enabled on customer-facing tables. Public reads are limited to active catalog data, current active prices, availability, published listings, active deals, and active storefront configuration.
 
-Authenticated customers can read their own customer, order, preorder, payment, shipment, notification, and waitlist rows. Supply-side and operational tables—including product types, suppliers, purchase orders, allocation rules, refunds, audit logs, webhook events, and payment exceptions—remain service-role only.
+Authenticated customers can read their own customer, order, preorder, payment, shipment, notification, and waitlist rows. Supply-side, authorization, and operational tables—including product types, suppliers, purchase orders, permission definitions, grant permissions, allocation rules, refunds, audit logs, webhook events, and payment exceptions—remain service-role only.

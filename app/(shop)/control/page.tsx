@@ -1,127 +1,139 @@
 import Link from "next/link";
 
-import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { MetricCard } from "@/app/_components/metric-card";
+import { PageHeader } from "@/app/_components/page-header";
+import { StatusBadge } from "@/app/_components/status-badge";
+import {
+  hasControlPermission,
+  requireControlPermission,
+  type ControlPermission,
+} from "@/lib/control-access";
+import { CONTROL_PERMISSION_DEFINITIONS } from "@/lib/control-permissions";
 
 export const dynamic = "force-dynamic";
 
-export default async function ControlOverviewPage() {
-  const { staff } = await requireControlPermission("view_control", "/control");
-  const supabase = createServiceClient();
-  const [products, suppliers, categories, sets, customers, deletedCustomers, administrators, audit] =
-    await Promise.all([
-      countRows(supabase.from("products").select("*", { count: "exact", head: true }).eq("active", true), "products"),
-      countRows(supabase.from("suppliers").select("*", { count: "exact", head: true }).eq("active", true), "suppliers"),
-      countRows(supabase.from("tcg_categories").select("*", { count: "exact", head: true }).eq("active", true), "categories"),
-      countRows(supabase.from("sets_releases").select("*", { count: "exact", head: true }).eq("active", true), "sets"),
-      countRows(supabase.from("customers").select("*", { count: "exact", head: true }), "customers"),
-      countRows(
-        supabase.from("customers").select("*", { count: "exact", head: true }).not("deleted_at", "is", null),
-        "deleted customers"
-      ),
-      countRows(supabase.from("staff_users").select("*", { count: "exact", head: true }).eq("active", true), "administrators"),
-      countRows(supabase.from("audit_logs").select("*", { count: "exact", head: true }), "audit records"),
-    ]);
+const workspaces: Array<{
+  href: string;
+  label: string;
+  detail: string;
+  permissions: ControlPermission[];
+}> = [
+  {
+    href: "/control/catalog",
+    label: "Catalog",
+    detail: "Product identity, taxonomy, media, and physical SKU definitions.",
+    permissions: ["catalog.view"],
+  },
+  {
+    href: "/control/pricing",
+    label: "Pricing",
+    detail: "Versioned base prices, comparison prices, and promotions.",
+    permissions: ["pricing.view"],
+  },
+  {
+    href: "/control/storefront",
+    label: "Storefront",
+    detail: "Availability, listing content, merchandising, review, and publication.",
+    permissions: ["storefront.view"],
+  },
+  {
+    href: "/control/supply",
+    label: "Supply",
+    detail: "Inventory, incoming stock, suppliers, and purchase orders.",
+    permissions: ["supply.view"],
+  },
+  {
+    href: "/control/orders",
+    label: "Orders",
+    detail: "Normal orders, preorders, lifecycle actions, and allocations.",
+    permissions: ["orders.view"],
+  },
+  {
+    href: "/control/fulfilment",
+    label: "Fulfilment",
+    detail: "Packing, shipment arrangement, tracking, and delivery exceptions.",
+    permissions: ["fulfilment.view"],
+  },
+  {
+    href: "/control/customers",
+    label: "Customers",
+    detail: "Customer context, account lifecycle, and communications.",
+    permissions: ["customers.view"],
+  },
+  {
+    href: "/control/finance",
+    label: "Finance",
+    detail: "Payment exceptions, refunds, and audited reconciliation.",
+    permissions: ["finance.view"],
+  },
+  {
+    href: "/control/governance",
+    label: "Governance",
+    detail: "Administrator coverage and immutable audit evidence.",
+    permissions: ["governance.view", "audit.view"],
+  },
+];
 
-  const destinations = [
-    {
-      href: "/control/operations",
-      label: "Operations",
-      detail: hasControlPermission(staff, "manage_full_operations")
-        ? "Create and maintain products, SKUs, inventory, purchasing, allocation, and order exceptions."
-        : "Create products, manage category and set relationships, and maintain SKUs.",
-      visible: hasControlPermission(staff, "manage_catalog"),
-    },
-    {
-      href: "/control/deliveries",
-      label: "Deliveries",
-      detail: "Arrange fully paid orders and maintain shipment progress manually.",
-      visible: hasControlPermission(staff, "manage_orders"),
-    },
-    {
-      href: "/control/suppliers",
-      label: "Suppliers",
-      detail: "Manage supplier profiles, contact details, terms, and lifecycle state.",
-      visible: hasControlPermission(staff, "manage_suppliers"),
-    },
-    {
-      href: "/control/customers",
-      label: "Customers",
-      detail: "Review account status and restore deleted customer access.",
-      visible: hasControlPermission(staff, "manage_customers"),
-    },
-    {
-      href: "/control/administrators",
-      label: "Administrators",
-      detail: "Delegate role-scoped access and revoke database-managed administrators.",
-      visible: hasControlPermission(staff, "manage_admins"),
-    },
-    {
-      href: "/control/audit",
-      label: "Audit log",
-      detail: "Review recent administrative mutations and affected records.",
-      visible: hasControlPermission(staff, "view_audit"),
-    },
-  ].filter((item) => item.visible);
+export default async function ControlOverviewPage() {
+  const { staff } = await requireControlPermission("control.view", "/control");
+  const visibleWorkspaces = workspaces.filter((workspace) =>
+    workspace.permissions.some((permission) => hasControlPermission(staff, permission))
+  );
+  const permissionCount = CONTROL_PERMISSION_DEFINITIONS.filter((permission) =>
+    hasControlPermission(staff, permission.key)
+  ).length;
+  const sensitiveCount = CONTROL_PERMISSION_DEFINITIONS.filter(
+    (permission) =>
+      "highRisk" in permission && permission.highRisk && hasControlPermission(staff, permission.key)
+  ).length;
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">Overview</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">Operations control</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-            Manage marketplace operations through server-authorized, audited workflows.
-          </p>
-        </div>
-        <span className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium capitalize text-zinc-700">
-          {staff.role}
-        </span>
-      </div>
+      <PageHeader
+        action={<StatusBadge tone="success">{staff.role} template</StatusBadge>}
+        description="Open the owning control centre for the task at hand. Each workspace keeps product, price, publication, supply, order, fulfilment, finance, and access authority separate."
+        eyebrow="Control"
+        title="Administrative overview"
+      />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Active products" value={products} />
-        <Metric label="Product structure" value={categories + sets} detail={`${categories} categories · ${sets} sets`} />
-        <Metric label="Customers" value={customers} detail={`${deletedCustomers} deleted`} />
-        <Metric label="Active suppliers" value={suppliers} />
-        <Metric label="Active staff" value={administrators} />
-        <Metric label="Audit records" value={audit} />
+      <section className="grid gap-4 sm:grid-cols-3">
+        <MetricCard
+          label="Assigned workspaces"
+          value={String(visibleWorkspaces.length)}
+          detail="Visible navigation domains"
+        />
+        <MetricCard
+          label="Granted actions"
+          value={String(permissionCount)}
+          detail="Explicit action coverage"
+        />
+        <MetricCard
+          label="Sensitive actions"
+          value={String(sensitiveCount)}
+          detail="High-impact authority"
+        />
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-zinc-950">Available workspaces</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-950">Your control centres</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            Only workspaces covered by your active grant appear here and in navigation.
+          </p>
+        </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {destinations.map((item) => (
+          {visibleWorkspaces.map((workspace) => (
             <Link
-              key={item.href}
               className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
-              href={item.href}
+              href={workspace.href}
+              key={workspace.href}
             >
-              <h3 className="font-semibold text-zinc-950">{item.label}</h3>
-              <p className="mt-2 text-sm leading-6 text-zinc-600">{item.detail}</p>
+              <h3 className="font-semibold text-zinc-950">{workspace.label}</h3>
+              <p className="mt-2 text-sm leading-6 text-zinc-600">{workspace.detail}</p>
             </Link>
           ))}
         </div>
       </section>
     </div>
   );
-}
-
-function Metric({ label, value, detail }: { label: string; value: number; detail?: string }) {
-  return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-zinc-500">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">{value}</p>
-      {detail ? <p className="mt-1 text-xs text-zinc-500">{detail}</p> : null}
-    </article>
-  );
-}
-
-async function countRows(
-  query: PromiseLike<{ count: number | null; error: { message: string } | null }>,
-  label: string
-): Promise<number> {
-  const result = await query;
-  if (result.error) throw new Error(`Unable to count ${label}: ${result.error.message}`);
-  return result.count ?? 0;
 }

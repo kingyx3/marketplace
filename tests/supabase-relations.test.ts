@@ -18,7 +18,10 @@ describe("Supabase relationship normalization", () => {
       readFile(new URL("../lib/control-catalog.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/catalog.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/(shop)/products/page.tsx", import.meta.url), "utf8"),
-      readFile(new URL("../app/(shop)/control/listings/page.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/storefront/listings/page.tsx", import.meta.url),
+        "utf8"
+      ),
     ]);
 
     for (const source of [controlCatalog, catalog, productsPage, listingsPage]) {

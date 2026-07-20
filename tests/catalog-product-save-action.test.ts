@@ -42,7 +42,7 @@ describe("catalog product save action", () => {
     mocks.requireControlPermission.mockResolvedValue({ user: { id: "staff-user-123" } });
   });
 
-  it("returns visible success feedback after publishing a product", async () => {
+  it("returns visible success feedback after saving product identity", async () => {
     const rpc = vi.fn(async () => ({ data: productId, error: null }));
     mocks.createServiceClient.mockReturnValue({ rpc });
 
@@ -53,23 +53,19 @@ describe("catalog product save action", () => {
 
     expect(result).toEqual({
       status: "success",
-      message:
-        "Product saved. Publication is enabled. Storefront visibility also requires an active product and an active SKU with a positive price.",
+      message: "Product details saved. Pricing and storefront publication remain unchanged.",
     });
     expect(rpc).toHaveBeenCalledWith(
-      "admin_upsert_catalog_product_with_publication",
+      "admin_upsert_catalog_product",
       expect.objectContaining({
         p_product_id: productId,
-        p_published: true,
         p_actor: "staff:staff-user-123",
       })
     );
-    expect(mocks.revalidatePath).toHaveBeenCalledWith(
-      `/control/operations/products/${productId}`
-    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(`/control/catalog/products/${productId}`);
   });
 
-  it("returns an actionable error instead of throwing when publication fails", async () => {
+  it("returns an error reference instead of throwing when the product save fails", async () => {
     const rpc = vi.fn(async () => ({
       data: null,
       error: {
@@ -84,20 +80,17 @@ describe("catalog product save action", () => {
       productForm({ published: true })
     );
 
-    expect(result).toEqual({
-      status: "error",
-      message:
-        "Product publication could not be saved because the database publication function is outdated. Deploy the latest migration and try again.",
-    });
+    expect(result).toMatchObject({ status: "error" });
+    expect(result.message).toContain("Product could not be saved. Error reference:");
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
     expect(mocks.logError).toHaveBeenCalledWith(
       "catalog.product_save_failed",
       expect.objectContaining({ code: "42702" }),
-      expect.objectContaining({ productId, published: true })
+      expect.objectContaining({ productId })
     );
   });
 
-  it("preserves an explicit unpublished selection", async () => {
+  it("ignores legacy publication inputs in the Catalog save", async () => {
     const rpc = vi.fn(async () => ({ data: productId, error: null }));
     mocks.createServiceClient.mockReturnValue({ rpc });
 
@@ -106,10 +99,12 @@ describe("catalog product save action", () => {
       productForm({ published: false })
     );
 
-    expect(result.message).toBe("Product saved as not published.");
+    expect(result.message).toBe(
+      "Product details saved. Pricing and storefront publication remain unchanged."
+    );
     expect(rpc).toHaveBeenCalledWith(
-      "admin_upsert_catalog_product_with_publication",
-      expect.objectContaining({ p_published: false })
+      "admin_upsert_catalog_product",
+      expect.not.objectContaining({ p_published: expect.anything() })
     );
   });
 });

@@ -67,7 +67,7 @@ describe("catalog product action", () => {
       message:
         "Product created. A new Pokémon category was created. A new Base Set set was created. Slug: pokemon-base-set-booster-box.",
     });
-    expect(rpc).toHaveBeenCalledWith("admin_create_catalog_product_with_publication", {
+    expect(rpc).toHaveBeenCalledWith("admin_create_catalog_product_hierarchy", {
       p_category_id: null,
       p_new_category_slug: "pokemon",
       p_new_category_name: "Pokémon",
@@ -85,14 +85,13 @@ describe("catalog product action", () => {
       p_language: "EN",
       p_image_url: null,
       p_active: true,
-      p_published: true,
       p_actor_auth_user_id: "staff-user-123",
     });
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/operations");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/control/catalog");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/products");
   });
 
-  it("creates an unpublished product when publication is unticked", async () => {
+  it("creates a draft product without accepting publication authority", async () => {
     const rpc = vi.fn(async () => ({
       data: [{ product_id: "product-123", product_slug: "hidden-product" }],
       error: null,
@@ -105,8 +104,8 @@ describe("catalog product action", () => {
     );
 
     expect(rpc).toHaveBeenCalledWith(
-      "admin_create_catalog_product_with_publication",
-      expect.objectContaining({ p_published: false })
+      "admin_create_catalog_product_hierarchy",
+      expect.not.objectContaining({ p_published: expect.anything() })
     );
   });
 
@@ -148,7 +147,7 @@ describe("catalog product action", () => {
         "Product created. A new Destined Rivals set was created. Slug: pokemon-destined-rivals-booster-box.",
     });
     expect(rpc).toHaveBeenCalledWith(
-      "admin_create_catalog_product_with_publication",
+      "admin_create_catalog_product_hierarchy",
       expect.objectContaining({
         p_name: "Pokémon Destined Rivals Booster Box",
         p_category_id: "category-123",
@@ -157,7 +156,6 @@ describe("catalog product action", () => {
         p_new_set_code: "DESTINED-RIVALS",
         p_new_set_release_date: "2026-08-01",
         p_new_set_status: "preorder_open",
-        p_published: true,
       })
     );
   });
@@ -199,13 +197,12 @@ describe("catalog product action", () => {
         "Product created. Premium Collection Box was added to the product type list. Slug: pokemon-destined-rivals-premium-collection-box.",
     });
     expect(rpc).toHaveBeenCalledWith(
-      "admin_create_catalog_product_with_publication",
+      "admin_create_catalog_product_hierarchy",
       expect.objectContaining({
         p_name: "Pokémon Destined Rivals Premium Collection Box",
         p_product_type: null,
         p_new_product_type_name: "Premium Collection Box",
         p_new_product_type_code: "premium_collection_box",
-        p_published: true,
       })
     );
   });
@@ -220,10 +217,7 @@ describe("catalog product action", () => {
     }));
     mocks.createServiceClient.mockReturnValue({ rpc });
 
-    const result = await createCatalogProduct(
-      initialCatalogProductActionState,
-      productForm()
-    );
+    const result = await createCatalogProduct(initialCatalogProductActionState, productForm());
 
     expect(result).toMatchObject({ status: "error", field: "productIdentity" });
     expect(result.message).toContain("category, set, type, and language");
@@ -241,10 +235,7 @@ describe("catalog product action", () => {
     }));
     mocks.createServiceClient.mockReturnValue({ rpc });
 
-    const result = await createCatalogProduct(
-      initialCatalogProductActionState,
-      productForm()
-    );
+    const result = await createCatalogProduct(initialCatalogProductActionState, productForm());
 
     expect(result).toMatchObject({ status: "error", field: "name" });
     expect(result.message).toContain("Choose a distinct display name");
@@ -281,7 +272,10 @@ describe("catalog product action", () => {
   it("surfaces duplicate generated set codes on the set name", async () => {
     const rpc = vi.fn(async () => ({
       data: null,
-      error: { code: "23505", message: "set code already exists for category; select existing set" },
+      error: {
+        code: "23505",
+        message: "set code already exists for category; select existing set",
+      },
     }));
     mocks.createServiceClient.mockReturnValue({ rpc });
 

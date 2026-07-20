@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const auth = await requireApiPermission(request, "manage_orders");
+    const auth = await requireApiPermission(request, "orders.view");
     const query = listQuerySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
     const preorders = await listAdminPreorders(auth.supabase, query.limit);
     return NextResponse.json({ preorders });

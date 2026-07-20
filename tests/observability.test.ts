@@ -32,12 +32,7 @@ vi.mock("@sentry/nextjs", () => ({
 
 import { NextResponse } from "next/server";
 import { badRequest, rateLimited, toErrorResponse } from "@/lib/api/errors";
-import {
-  logError,
-  requestIdFrom,
-  sanitizeLogValue,
-  withRequestId,
-} from "@/lib/observability";
+import { logError, requestIdFrom, sanitizeLogValue, withRequestId } from "@/lib/observability";
 
 describe("observability helpers", () => {
   beforeEach(() => {
@@ -145,7 +140,7 @@ describe("observability helpers", () => {
           details: "It could refer to either a PL/pgSQL variable or a table column.",
           hint: "Qualify the intended reference.",
         },
-        { route: "/control/operations", operation: "create" }
+        { route: "/control/catalog", operation: "create" }
       );
     } finally {
       consoleError.mockRestore();

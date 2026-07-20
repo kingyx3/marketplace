@@ -39,7 +39,8 @@ export function CatalogProductEditor({
         <div>
           <h2 className="text-xl font-semibold text-zinc-950">Product details</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            Update the customer-facing product, its structured catalog relationships, image, publication, and availability.
+            Update the customer-facing product, its structured catalog relationships, image,
+            publication, and availability.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -102,7 +103,7 @@ export function CatalogProductEditor({
             required
           />
         </div>
-        <div className="grid gap-4 sm:grid-cols-[7rem_1fr_auto_auto]">
+        <div className="grid gap-4 sm:grid-cols-[7rem_1fr_auto]">
           <AdminTextField
             defaultValue={product.language}
             example="EN"
@@ -124,10 +125,9 @@ export function CatalogProductEditor({
             type="url"
           />
           <BooleanField checked={product.active} label="Active" name="active" />
-          <BooleanField checked={product.published} label="Published" name="published" />
         </div>
         <p className="text-xs text-zinc-500">
-          A published product appears on the storefront only while it has an active SKU with a positive price.
+          Pricing and publication are managed in their dedicated control domains.
         </p>
         <AdminTextareaField
           defaultValue={product.description ?? ""}
@@ -141,7 +141,10 @@ export function CatalogProductEditor({
       </form>
 
       <div className="mt-6 grid gap-4 border-t border-zinc-200 pt-6 sm:grid-cols-[1fr_auto] sm:items-end">
-        <form action={uploadCatalogProductImage} className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <form
+          action={uploadCatalogProductImage}
+          className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
+        >
           <input name="productId" type="hidden" value={product.id} />
           <AdminFileField
             accept="image/*"
@@ -258,35 +261,11 @@ function SkuFields({ sku }: { sku?: ControlCatalogSku }) {
           name="barcode"
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-4">
-        <AdminNumberField
-          defaultValue={sku?.priceCents}
-          example="18900"
-          label="Price cents"
-          min={1}
-          name="priceCents"
-          required
-        />
-        <AdminNumberField
-          defaultValue={sku?.msrpCents ?? undefined}
-          example="19900"
-          label="MSRP cents"
-          min={0}
-          name="msrpCents"
-        />
-        <AdminTextField
-          defaultValue={sku?.currency ?? "SGD"}
-          example="SGD"
-          hint="Use a three-letter ISO currency code."
-          label="Currency"
-          maxLength={3}
-          minLength={3}
-          name="currency"
-          pattern="[A-Za-z]{3}"
-          patternMessage="Currency must be a 3-letter code, such as SGD."
-          required
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
         <BooleanField checked={sku?.skuActive ?? true} label="Active" name="active" />
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600">
+          Save the physical SKU here, then set its commercial price in Pricing.
+        </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <AdminNumberField

@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  isAdminEmailAllowed,
-  parseAdminEmailAllowlist,
-} from "@/lib/admin-email-allowlist";
+import { isAdminEmailAllowed, parseAdminEmailAllowlist } from "@/lib/admin-email-allowlist";
 import type { StaffProfile } from "@/lib/admin-staff";
+import { permissionsForRole } from "@/lib/control-permissions";
 import {
   extractBearerToken,
   isAdminRole,
@@ -104,10 +102,10 @@ describe("auth helpers", () => {
     });
 
     await expect(
-      requireApiPermission(adminRequest(), "manage_orders", state.client as never)
+      requireApiPermission(adminRequest(), "orders.view", state.client as never)
     ).resolves.toMatchObject({ staff: { role: "operations" } });
     await expect(
-      requireApiPermission(adminRequest(), "manage_admins", state.client as never)
+      requireApiPermission(adminRequest(), "governance.manage", state.client as never)
     ).rejects.toThrow("Insufficient administrator permission");
   });
 
@@ -276,6 +274,8 @@ interface FakeGrant {
   role: StaffProfile["role"];
   active: boolean;
   created_by_staff_id: string | null;
+  permissions?: string[];
+  admin_access_grant_permissions?: Array<{ permission_key: string }>;
 }
 
 function adminRequest() {
@@ -294,7 +294,14 @@ function fakeAdminSupabase(initial?: { staff?: StaffProfile; grant?: FakeGrant }
     };
   } = {
     staff: initial?.staff ?? null,
-    grant: initial?.grant ?? null,
+    grant: initial?.grant
+      ? {
+          ...initial.grant,
+          admin_access_grant_permissions: (
+            initial.grant.permissions ?? permissionsForRole(initial.grant.role)
+          ).map((permission_key) => ({ permission_key })),
+        }
+      : null,
     client: null as never,
   };
 

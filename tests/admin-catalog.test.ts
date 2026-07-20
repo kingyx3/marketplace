@@ -89,7 +89,7 @@ describe("admin catalog management", () => {
     );
   });
 
-  it("rejects invalid product types, malformed SKU currency, and zero selling prices", () => {
+  it("rejects invalid product types and negative physical SKU attributes", () => {
     const product = new FormData();
     product.set("name", "Example Booster Box");
     product.set("categoryId", "22222222-2222-4222-8222-222222222222");
@@ -101,14 +101,10 @@ describe("admin catalog management", () => {
     const sku = new FormData();
     sku.set("productId", "11111111-1111-4111-8111-111111111111");
     sku.set("sku", "box-1");
-    sku.set("priceCents", "19900");
-    sku.set("currency", "SG");
-
-    expect(() => adminCatalogSkuFromForm(sku)).toThrow("currency must be a 3-letter code");
-
-    sku.set("currency", "SGD");
-    sku.set("priceCents", "0");
-    expect(() => adminCatalogSkuFromForm(sku)).toThrow("priceCents must be positive");
+    sku.set("packsPerBox", "-1");
+    expect(() => adminCatalogSkuFromForm(sku)).toThrow(
+      "packsPerBox must be a non-negative integer"
+    );
   });
 
   it("maps SKU save failures to actionable operator guidance", () => {
@@ -153,9 +149,7 @@ describe("admin catalog management", () => {
     });
 
     form.set("reasonCode", "surprise");
-    expect(() => adminInventoryAdjustmentFromForm(form)).toThrow(
-      "invalid inventory reason code"
-    );
+    expect(() => adminInventoryAdjustmentFromForm(form)).toThrow("invalid inventory reason code");
   });
 
   it("keeps catalog admin mutations service-role-only and audited", async () => {
@@ -172,7 +166,7 @@ describe("admin catalog management", () => {
     );
     const action = await readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8");
     const skuErrorPage = await readFile(
-      new URL("../app/(shop)/control/operations/sku-error/page.tsx", import.meta.url),
+      new URL("../app/(shop)/control/catalog/sku-error/page.tsx", import.meta.url),
       "utf8"
     );
 
@@ -188,7 +182,7 @@ describe("admin catalog management", () => {
     expect(displayNameMigration).toContain("'name', v_name");
     expect(displayNameMigration).toContain("'slug', v_product_slug");
     expect(action).toContain("catalog.sku_save_rejected");
-    expect(action).toContain("/control/operations/sku-error?code=${errorCode}");
+    expect(action).toContain("/control/catalog/sku-error?code=${errorCode}");
     expect(skuErrorPage).toContain("SKU could not be saved");
   });
 });

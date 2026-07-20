@@ -2,29 +2,54 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { ControlMobileNavigation } from "@/app/(shop)/control/_components/control-mobile-navigation";
+import { ControlNavigationLink } from "@/app/(shop)/control/_components/control-navigation-link";
 import { hasControlPermission, type ControlPermission } from "@/lib/control-access";
 import type { StaffProfile } from "@/lib/admin-staff";
 
-const links: Array<{ href: string; label: string; permission: ControlPermission }> = [
-  { href: "/control", label: "Overview", permission: "view_control" },
-  { href: "/control/operations", label: "Operations", permission: "manage_catalog" },
-  { href: "/control/preorders", label: "Preorder allocation", permission: "manage_full_operations" },
-  { href: "/control/deliveries", label: "Deliveries", permission: "manage_orders" },
-  { href: "/control/suppliers", label: "Suppliers", permission: "manage_suppliers" },
-  { href: "/control/deals", label: "Deals", permission: "manage_catalog" },
-  { href: "/control/customers", label: "Customers", permission: "manage_customers" },
-  { href: "/control/administrators", label: "Administrators", permission: "manage_admins" },
-  { href: "/control/audit", label: "Audit log", permission: "view_audit" },
+type ControlLink = {
+  href: string;
+  label: string;
+  group: "Work" | "Commerce" | "Oversight";
+  permissions: ControlPermission[];
+};
+
+const links: ControlLink[] = [
+  { href: "/control", label: "Overview", group: "Work", permissions: ["control.view"] },
+  { href: "/control/catalog", label: "Catalog", group: "Commerce", permissions: ["catalog.view"] },
+  { href: "/control/pricing", label: "Pricing", group: "Commerce", permissions: ["pricing.view"] },
+  {
+    href: "/control/storefront",
+    label: "Storefront",
+    group: "Commerce",
+    permissions: ["storefront.view"],
+  },
+  { href: "/control/supply", label: "Supply", group: "Commerce", permissions: ["supply.view"] },
+  { href: "/control/orders", label: "Orders", group: "Commerce", permissions: ["orders.view"] },
+  {
+    href: "/control/fulfilment",
+    label: "Fulfilment",
+    group: "Commerce",
+    permissions: ["fulfilment.view"],
+  },
+  {
+    href: "/control/customers",
+    label: "Customers",
+    group: "Commerce",
+    permissions: ["customers.view"],
+  },
+  { href: "/control/finance", label: "Finance", group: "Oversight", permissions: ["finance.view"] },
+  {
+    href: "/control/governance",
+    label: "Governance",
+    group: "Oversight",
+    permissions: ["governance.view", "audit.view"],
+  },
 ];
 
-export function ControlShell({
-  children,
-  staff,
-}: {
-  children: ReactNode;
-  staff: StaffProfile;
-}) {
-  const visibleLinks = links.filter((link) => hasControlPermission(staff, link.permission));
+export function ControlShell({ children, staff }: { children: ReactNode; staff: StaffProfile }) {
+  const visibleLinks = links.filter((link) =>
+    link.permissions.some((permission) => hasControlPermission(staff, permission))
+  );
   const mobileLinks = visibleLinks.map(({ href, label }) => ({ href, label }));
 
   return (
@@ -47,19 +72,21 @@ export function ControlShell({
           </div>
         </div>
 
-        <nav
-          aria-label="Control navigation"
-          className="hidden gap-1 px-4 pb-4 lg:grid"
-        >
-          {visibleLinks.map((link) => (
-            <Link
-              key={link.href}
-              className="inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-              href={link.href}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <nav aria-label="Control navigation" className="hidden gap-1 px-4 pb-4 lg:grid">
+          {(["Work", "Commerce", "Oversight"] as const).map((group) => {
+            const groupLinks = visibleLinks.filter((link) => link.group === group);
+            if (groupLinks.length === 0) return null;
+            return (
+              <div className="grid gap-1" key={group}>
+                <p className="px-3 pb-1 pt-3 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                  {group}
+                </p>
+                {groupLinks.map((link) => (
+                  <ControlNavigationLink key={link.href} href={link.href} label={link.label} />
+                ))}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="hidden border-t border-zinc-800 p-4 lg:block">

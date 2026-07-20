@@ -92,7 +92,8 @@ export function ProductIntakeForm({
         <div>
           <h3 className="font-semibold text-zinc-950">Product</h3>
           <p className="mt-1 text-xs text-zinc-500">
-            The display name is customer-facing. Its URL slug is generated automatically and cannot duplicate another product slug.
+            The display name is customer-facing. Its URL slug is generated automatically and cannot
+            duplicate another product slug.
           </p>
         </div>
 
@@ -128,7 +129,9 @@ export function ProductIntakeForm({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h4 className="text-sm font-semibold text-zinc-950">Product type</h4>
-              <p className="mt-1 text-xs text-zinc-500">Choose a reusable type or add one inline.</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Choose a reusable type or add one inline.
+              </p>
             </div>
             <div className="flex rounded-md border border-zinc-300 bg-zinc-50 p-1 text-xs font-semibold">
               <ModeButton
@@ -208,7 +211,9 @@ export function ProductIntakeForm({
         <div className="grid gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Step 1</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                Step 1
+              </p>
               <h3 className="font-semibold text-zinc-950">Category</h3>
             </div>
             <div className="flex rounded-md border border-zinc-300 bg-white p-1 text-xs font-semibold">
@@ -272,10 +277,13 @@ export function ProductIntakeForm({
         <div className="grid gap-4 border-t border-zinc-200 pt-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Step 2</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                Step 2
+              </p>
               <h3 className="font-semibold text-zinc-950">Set</h3>
               <p className="mt-1 text-xs text-zinc-500">
-                Required. The set remains a structured relationship and does not overwrite the display name.
+                Required. The set remains a structured relationship and does not overwrite the
+                display name.
               </p>
             </div>
             <div className="flex flex-wrap rounded-md border border-zinc-300 bg-white p-1 text-xs font-semibold">
@@ -362,14 +370,10 @@ export function ProductIntakeForm({
               <input defaultChecked name="active" type="checkbox" value="true" />
               Active
             </label>
-            <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700">
-              <input name="published" type="hidden" value="false" />
-              <input defaultChecked name="published" type="checkbox" value="true" />
-              Published
-            </label>
           </div>
           <p className="max-w-2xl text-xs text-zinc-500">
-            Published is selected by default. The product becomes visible only after it has an active SKU with a positive price.
+            New products start as internal drafts. Add a physical SKU, price it, configure supply,
+            and complete the listing before publication.
           </p>
         </div>
         <SubmitButton disabled={duplicateSlug || generatedSlug === ""} />

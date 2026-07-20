@@ -27,10 +27,7 @@ export async function setCustomerAccountDeleted(
   _previousState: CustomerLifecycleActionState,
   formData: FormData
 ): Promise<CustomerLifecycleActionState> {
-  const { user: actor } = await requireControlPermission(
-    "manage_customers",
-    "/control/customers"
-  );
+  const { user: actor } = await requireControlPermission("customers.manage", "/control/customers");
 
   try {
     const customerId = String(formData.get("customerId") ?? "").trim();
@@ -155,7 +152,7 @@ export async function setCustomerAccountDeleted(
 
     revalidatePath("/control");
     revalidatePath("/control/customers");
-    revalidatePath("/control/audit");
+    revalidatePath("/control/governance/audit");
 
     return success(deleted ? "Account disabled" : "Account restored");
   } catch (error) {

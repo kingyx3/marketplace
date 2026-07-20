@@ -88,12 +88,14 @@ describe("customer account management", () => {
       readFile(new URL("../app/actions/customer-admin.ts", import.meta.url), "utf8"),
     ]);
 
-    expect(permissions).toContain('"manage_customers"');
+    expect(permissions).toContain('"customers.manage"');
     expect(shell).toContain('href: "/control/customers"');
-    expect(indexPage).toContain('requireControlPermission("manage_customers"');
+    expect(indexPage).toContain('requireControlPermission("customers.view"');
     expect(indexPage).toContain("href={`/control/customers/${customer.id}`}");
     expect(indexPage).not.toContain("CustomerLifecycleControl");
-    expect(detailPage).toContain('requireControlPermission("manage_customers"');
+    expect(detailPage).toContain('"customers.view"');
+    expect(detailPage).toContain("`/control/customers/${customerId}`");
+    expect(detailPage).toContain('hasControlPermission(staff, "customers.manage")');
     expect(detailPage).toContain("CustomerLifecycleControl");
     expect(detailPage).toContain("retained for audit only");
     expect(control).toContain("useActionState");

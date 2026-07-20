@@ -5,10 +5,7 @@ describe("product image upload flow", () => {
   it("uploads images directly to storage instead of sending file bodies through Server Actions", async () => {
     const [page, editor, uploader, route, constraints, migration, nextConfig] = await Promise.all([
       readFile(
-        new URL(
-          "../app/(shop)/control/operations/products/[productId]/page.tsx",
-          import.meta.url
-        ),
+        new URL("../app/(shop)/control/catalog/products/[productId]/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
@@ -19,10 +16,7 @@ describe("product image upload flow", () => {
         "utf8"
       ),
       readFile(
-        new URL(
-          "../app/(shop)/control/_components/product-image-uploader.tsx",
-          import.meta.url
-        ),
+        new URL("../app/(shop)/control/_components/product-image-uploader.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
@@ -49,7 +43,7 @@ describe("product image upload flow", () => {
     expect(uploader).toContain("uploadToSignedUrl");
     expect(route).not.toContain("request.formData()");
 
-    expect(route).toContain('requireApiPermission(request, "manage_catalog")');
+    expect(route).toContain('requireApiPermission(request, "catalog.manage")');
     expect(route).toContain("createSignedUploadUrl");
     expect(route).toContain("admin_set_product_image");
     expect(route).toContain("productImagePathBelongsToProduct");

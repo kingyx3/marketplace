@@ -13,36 +13,30 @@ export async function saveCatalogProduct(
   _previousState: CatalogProductActionState,
   formData: FormData
 ): Promise<CatalogProductActionState> {
-  const { user } = await requireControlPermission("manage_catalog", "/control/operations");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   const productId = String(formData.get("productId") ?? "");
-  const published = booleanFormValue(formData, "published", true);
   const context = {
     route: validProductId(productId)
-      ? `/control/operations/products/${productId}`
-      : "/control/operations",
+      ? `/control/catalog/products/${productId}`
+      : "/control/catalog",
     userId: user.id,
     productId,
-    published,
   };
 
   try {
     const input = adminCatalogProductFromForm(formData);
-    const { error } = await createServiceClient().rpc(
-      "admin_upsert_catalog_product_with_publication",
-      {
-        p_product_id: input.productId,
-        p_name: input.name,
-        p_category_id: input.categoryId,
-        p_set_id: input.setId,
-        p_product_type: input.productType,
-        p_description: input.description,
-        p_language: input.language,
-        p_image_url: input.imageUrl,
-        p_active: input.active,
-        p_published: published,
-        p_actor: `staff:${user.id}`,
-      }
-    );
+    const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
+      p_product_id: input.productId,
+      p_name: input.name,
+      p_category_id: input.categoryId,
+      p_set_id: input.setId,
+      p_product_type: input.productType,
+      p_description: input.description,
+      p_language: input.language,
+      p_image_url: input.imageUrl,
+      p_active: input.active,
+      p_actor: `staff:${user.id}`,
+    });
 
     if (error) {
       const state = productSaveError(error);
@@ -61,9 +55,7 @@ export async function saveCatalogProduct(
     revalidateCatalogPaths(input.productId ?? undefined);
     return {
       status: "success",
-      message: published
-        ? "Product saved. Publication is enabled. Storefront visibility also requires an active product and an active SKU with a positive price."
-        : "Product saved as not published.",
+      message: "Product details saved. Pricing and storefront publication remain unchanged.",
     };
   } catch (error) {
     const requestId = randomUUID();
@@ -82,14 +74,6 @@ export async function saveCatalogProduct(
 
 function productSaveError(error: { code?: string; message: string }): CatalogProductActionState {
   const message = error.message.toLowerCase();
-
-  if (message.includes("product_id") && message.includes("ambiguous")) {
-    return {
-      status: "error",
-      message:
-        "Product publication could not be saved because the database publication function is outdated. Deploy the latest migration and try again.",
-    };
-  }
 
   if (message.includes("display name") && message.includes("slug")) {
     return {
@@ -131,23 +115,15 @@ function isActionableValidationMessage(message: string): boolean {
   return /required|invalid|not found|already exists|must be|select /i.test(message);
 }
 
-function booleanFormValue(formData: FormData, key: string, defaultValue: boolean): boolean {
-  const values = formData.getAll(key);
-  const selected = [...values].reverse().find((value): value is string => typeof value === "string");
-  if (selected === undefined) return defaultValue;
-  return selected === "true";
-}
-
 function validProductId(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value
-  );
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function revalidateCatalogPaths(productId?: string): void {
   revalidatePath("/control");
-  revalidatePath("/control/operations");
-  revalidatePath("/control/listings");
-  if (productId) revalidatePath(`/control/operations/products/${productId}`);
+  revalidatePath("/control/catalog");
+  revalidatePath("/control/pricing");
+  revalidatePath("/control/storefront/listings");
+  if (productId) revalidatePath(`/control/catalog/products/${productId}`);
   revalidatePath("/products");
 }

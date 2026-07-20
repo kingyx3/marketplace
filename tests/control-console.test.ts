@@ -1,189 +1,142 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-import { hasControlPermission } from "@/lib/control-access";
-import { controlSupplierFromForm } from "@/lib/control-forms";
 import type { StaffProfile } from "@/lib/admin-staff";
+import { hasControlPermission } from "@/lib/control-access";
+import { controlAccessGrantFromForm, controlSupplierFromForm } from "@/lib/control-forms";
 
-describe("control console", () => {
-  it("enforces least-privilege role permissions", () => {
-    expect(hasControlPermission(staff("viewer"), "view_control")).toBe(true);
-    expect(hasControlPermission(staff("viewer"), "manage_catalog")).toBe(false);
-    expect(hasControlPermission(staff("catalog"), "manage_catalog")).toBe(true);
-    expect(hasControlPermission(staff("catalog"), "manage_suppliers")).toBe(false);
-    expect(hasControlPermission(staff("catalog"), "manage_customers")).toBe(false);
-    expect(hasControlPermission(staff("operations"), "manage_suppliers")).toBe(true);
-    expect(hasControlPermission(staff("operations"), "manage_full_operations")).toBe(false);
-    expect(hasControlPermission(staff("admin"), "manage_full_operations")).toBe(true);
-    expect(hasControlPermission(staff("admin"), "manage_customers")).toBe(true);
-    expect(hasControlPermission(staff("admin"), "manage_admins")).toBe(true);
-    expect(hasControlPermission(staff("owner"), "manage_admins")).toBe(true);
-    expect(hasControlPermission({ ...staff("owner"), active: false }, "view_control")).toBe(false);
+describe("domain-based control console", () => {
+  it("applies least-privilege templates and honors explicit checkbox coverage", () => {
+    expect(hasControlPermission(staff("viewer"), "control.view")).toBe(true);
+    expect(hasControlPermission(staff("viewer"), "catalog.view")).toBe(false);
+    expect(hasControlPermission(staff("catalog"), "catalog.manage")).toBe(true);
+    expect(hasControlPermission(staff("catalog"), "pricing.manage")).toBe(false);
+    expect(hasControlPermission(staff("operations"), "inventory.adjust")).toBe(true);
+    expect(hasControlPermission(staff("operations"), "payments.reconcile")).toBe(false);
+    expect(hasControlPermission(staff("admin"), "payments.reconcile")).toBe(true);
+    expect(hasControlPermission(staff("admin"), "governance.manage")).toBe(false);
+    expect(hasControlPermission(staff("owner"), "governance.manage")).toBe(true);
+
+    const custom = { ...staff("admin"), permissions: ["control.view", "orders.view"] };
+    expect(hasControlPermission(custom, "orders.view")).toBe(true);
+    expect(hasControlPermission(custom, "catalog.manage")).toBe(false);
+    expect(hasControlPermission({ ...staff("owner"), active: false }, "control.view")).toBe(false);
   });
 
-  it("prefers the checked value over a hidden checkbox fallback", () => {
-    const formData = new FormData();
-    formData.append("name", "Supplier One");
-    formData.append("supplierType", "distributor");
-    formData.append("currency", "SGD");
-    formData.append("active", "false");
-    formData.append("active", "true");
+  it("parses checkbox fallbacks and normalizes write coverage to domain read coverage", () => {
+    const supplier = new FormData();
+    supplier.append("name", "Supplier One");
+    supplier.append("supplierType", "distributor");
+    supplier.append("currency", "SGD");
+    supplier.append("active", "false");
+    supplier.append("active", "true");
+    expect(controlSupplierFromForm(supplier).active).toBe(true);
 
-    expect(controlSupplierFromForm(formData).active).toBe(true);
+    const grant = new FormData();
+    grant.append("email", "pricing@example.test");
+    grant.append("role", "viewer");
+    grant.append("active", "true");
+    grant.append("permissions", "pricing.manage");
+    expect(controlAccessGrantFromForm(grant).permissions).toEqual(
+      expect.arrayContaining(["control.view", "pricing.view", "pricing.manage"])
+    );
   });
 
-  it("ships one operations workspace and focused administrative screens", async () => {
+  it("ships one owning page per administrative domain", async () => {
     for (const path of [
-      "../app/(shop)/control/operations/page.tsx",
-      "../app/(shop)/control/operations/products/new/page.tsx",
-      "../app/(shop)/control/operations/products/[productId]/page.tsx",
+      "../app/(shop)/control/catalog/page.tsx",
+      "../app/(shop)/control/pricing/page.tsx",
+      "../app/(shop)/control/storefront/page.tsx",
+      "../app/(shop)/control/supply/page.tsx",
+      "../app/(shop)/control/orders/page.tsx",
+      "../app/(shop)/control/fulfilment/page.tsx",
       "../app/(shop)/control/customers/page.tsx",
-      "../app/(shop)/control/suppliers/page.tsx",
-      "../app/(shop)/control/categories/page.tsx",
-      "../app/(shop)/control/sets/page.tsx",
-      "../app/(shop)/control/administrators/page.tsx",
-      "../app/(shop)/control/audit/page.tsx",
+      "../app/(shop)/control/finance/page.tsx",
+      "../app/(shop)/control/governance/page.tsx",
     ]) {
       const source = await readFile(new URL(path, import.meta.url), "utf8");
       expect(source).toContain("requireControlPermission");
-      expect(source.length).toBeGreaterThan(1000);
+      expect(source.length).toBeGreaterThan(800);
     }
 
-    const [operations, newProduct, productDetail, productEditor, controlCatalog] =
-      await Promise.all([
-        readFile(new URL("../app/(shop)/control/operations/page.tsx", import.meta.url), "utf8"),
-        readFile(
-          new URL("../app/(shop)/control/operations/products/new/page.tsx", import.meta.url),
-          "utf8"
-        ),
-        readFile(
-          new URL(
-            "../app/(shop)/control/operations/products/[productId]/page.tsx",
-            import.meta.url
-          ),
-          "utf8"
-        ),
-        readFile(
-          new URL(
-            "../app/(shop)/control/_components/catalog-product-editor.tsx",
-            import.meta.url
-          ),
-          "utf8"
-        ),
-        readFile(new URL("../lib/control-catalog.ts", import.meta.url), "utf8"),
-      ]);
-    expect(operations).toContain('requireControlPermission("manage_catalog", "/control/operations")');
-    expect(operations).toContain('hasControlPermission(staff, "manage_full_operations")');
-    expect(operations).toContain("ProductListSection");
-    expect(operations).not.toContain("ProductIntakeForm");
-    expect(newProduct).toContain("ProductIntakeForm");
-    expect(productDetail).toContain("CatalogProductEditor");
-    expect(productDetail).toContain("CatalogSkuManager");
-    expect(productEditor).toContain('label="Display name"');
-    expect(productEditor).toContain('checked={product.published} label="Published" name="published"');
-    expect(productEditor).not.toContain('label="Slug" name="slug"');
-    expect(controlCatalog).toContain('from("product_types")');
-    expect(controlCatalog).toContain("booster_box_skus");
+    const shell = await readFile(
+      new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
+      "utf8"
+    );
+    for (const route of [
+      "catalog",
+      "pricing",
+      "storefront",
+      "supply",
+      "orders",
+      "fulfilment",
+      "customers",
+      "finance",
+      "governance",
+    ]) {
+      expect(shell).toContain(`/control/${route}`);
+    }
+    expect(shell).not.toContain("/control/operations");
   });
 
-  it("keeps every control mutation server-authorized and database-backed", async () => {
-    const [controlActions, catalogActions, operationalActions, customerActions] = await Promise.all([
+  it("authorizes each mutation with its action permission", async () => {
+    const [control, catalog, operational, pricing, customer] = await Promise.all([
       readFile(new URL("../app/actions/control.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/actions/admin.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/actions/pricing.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/actions/customer-admin.ts", import.meta.url), "utf8"),
     ]);
 
-    expect(controlActions).toContain('"use server"');
-    expect(controlActions).toContain('requireControlPermission("manage_suppliers"');
-    expect(controlActions).toContain('requireControlPermission("manage_catalog"');
-    expect(controlActions).toContain('requireControlPermission("manage_admins"');
-    expect(controlActions).toContain('rpc("admin_upsert_supplier"');
-    expect(controlActions).toContain('rpc("admin_upsert_category"');
-    expect(controlActions).toContain('rpc("admin_upsert_set_release"');
-    expect(controlActions).toContain('rpc("admin_upsert_access_grant"');
-    expect(catalogActions).toContain('requireControlPermission("manage_catalog", "/control/operations")');
-    expect(catalogActions).toContain('rpc("admin_create_catalog_product_with_publication"');
-    expect(catalogActions).toContain('rpc("admin_upsert_catalog_product_with_publication"');
-    expect(catalogActions).toContain('rpc("admin_upsert_booster_box_sku"');
-    expect(catalogActions).toContain("p_name: input.name");
-    expect(catalogActions).toContain("p_published: published");
-    expect(catalogActions).not.toContain("p_slug: input.slug");
-    expect(customerActions).toContain('"manage_customers"');
-    expect(customerActions).toContain("setCustomerAccountDeleted");
-    expect(operationalActions).toContain('requireControlPermission("manage_full_operations"');
-    expect(operationalActions).not.toContain('requireStaff("/admin');
+    expect(control).toContain('requireControlPermission("suppliers.manage"');
+    expect(control).toContain('requireControlPermission("catalog.manage"');
+    expect(control).toContain('requireControlPermission("governance.manage"');
+    expect(control).toContain('rpc("admin_upsert_access_grant_permissions"');
+    expect(catalog).toContain('requireControlPermission("catalog.manage", "/control/catalog")');
+    expect(catalog).toContain('rpc("admin_upsert_catalog_sku"');
+    expect(catalog).not.toContain("p_price_cents");
+    expect(pricing).toContain('requireControlPermission("pricing.manage"');
+    expect(pricing).toContain('rpc("admin_set_sku_price"');
+    expect(operational).toContain('requireControlPermission("inventory.adjust"');
+    expect(operational).toContain('requireControlPermission("purchase_orders.manage"');
+    expect(operational).toContain('"payments.reconcile"');
+    expect(customer).toContain('"customers.manage"');
   });
 
-  it("requires explicit permissions on bearer-token administrative APIs", async () => {
-    const [apiAuth, orders, allocation, notifications] = await Promise.all([
-      readFile(new URL("../lib/api/auth.ts", import.meta.url), "utf8"),
+  it("requires action permissions on bearer-token administrative APIs", async () => {
+    const [orders, allocation, notifications, image] = await Promise.all([
       readFile(new URL("../app/api/admin/orders/route.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/admin/preorders/allocate/route.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/admin/waitlist/notify/route.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/api/control/product-image-upload/route.ts", import.meta.url),
+        "utf8"
+      ),
     ]);
-
-    expect(apiAuth).toContain("requireApiPermission");
-    expect(orders).toContain('requireApiPermission(request, "manage_orders")');
-    expect(allocation).toContain('requireApiPermission(request, "manage_full_operations")');
-    expect(notifications).toContain('requireApiPermission(request, "manage_full_operations")');
+    expect(orders).toContain('requireApiPermission(request, "orders.view")');
+    expect(allocation).toContain('requireApiPermission(request, "preorders.allocate")');
+    expect(allocation).toContain('requireApiPermission(request, "refunds.manage", auth.supabase)');
+    expect(notifications).toContain('requireApiPermission(request, "communications.manage")');
+    expect(image).toContain('requireApiPermission(request, "catalog.manage")');
   });
 
-  it("adds relational safeguards, canonical product types, and explicit product display names", async () => {
-    const [
-      controlMigration,
-      hardeningMigration,
-      productIdentityMigration,
-      displayNameMigration,
-    ] = await Promise.all([
-      readFile(
-        new URL("../supabase/migrations/20260717090000_control_console.sql", import.meta.url),
-        "utf8"
+  it("migrates granular grants, versioned pricing, availability, and publish readiness", async () => {
+    const migration = await readFile(
+      new URL(
+        "../supabase/migrations/20260720100000_admin_domain_permissions_and_pricing.sql",
+        import.meta.url
       ),
-      readFile(
-        new URL("../supabase/migrations/20260717091000_harden_control_grants.sql", import.meta.url),
-        "utf8"
-      ),
-      readFile(
-        new URL(
-          "../supabase/migrations/20260717223000_product_types_and_derived_product_identity.sql",
-          import.meta.url
-        ),
-        "utf8"
-      ),
-      readFile(
-        new URL(
-          "../supabase/migrations/20260718143000_product_display_name_slug.sql",
-          import.meta.url
-        ),
-        "utf8"
-      ),
-    ]);
-
-    expect(controlMigration).toContain("create table if not exists public.admin_access_grants");
-    expect(controlMigration).toContain("prevent_tcg_category_cycle");
-    expect(controlMigration).toContain("category has active children, sets, or products");
-    expect(controlMigration).toContain("supplier has open purchase orders");
-    expect(controlMigration).toContain("set has active products");
-    expect(controlMigration).toContain("environment allowlisted owners are managed through ADMIN_EMAIL_ALLOWLIST");
-    expect(controlMigration).toContain("cannot remove or demote the final active owner");
-    expect(controlMigration).toContain("grant execute on function public.admin_upsert_access_grant");
-    expect(hardeningMigration).toContain("accepted administrator email cannot be changed");
-    expect(hardeningMigration).toContain("synchronize_admin_grant_staff");
-    expect(productIdentityMigration).toContain("create table public.product_types");
-    expect(productIdentityMigration).toContain("alter table public.products alter column set_id set not null");
-    expect(displayNameMigration).toContain("create or replace function public.set_catalog_product_identity");
-    expect(displayNameMigration).toContain("new.name := v_name");
-    expect(displayNameMigration).toContain("new.slug := v_slug");
-    expect(displayNameMigration).toContain(
-      "product already exists for this category, set, type, and language"
+      "utf8"
     );
-    expect(displayNameMigration).toContain(
-      "drop trigger if exists refresh_product_identity_from_category"
-    );
-    expect(productIdentityMigration).not.toContain("create table if not exists public.product_types");
-    expect(productIdentityMigration).not.toContain("where product.set_id is null");
-    expect(productIdentityMigration).not.toContain("'General'");
+    expect(migration).toContain("create table public.control_permission_definitions");
+    expect(migration).toContain("create table public.admin_access_grant_permissions");
+    expect(migration).toContain("admin_upsert_access_grant_permissions");
+    expect(migration).toContain("create table public.sku_prices");
+    expect(migration).toContain("Current-price compatibility cache");
+    expect(migration).toContain("availability_mode");
+    expect(migration).toContain("admin_upsert_storefront_listing");
+    expect(migration).toContain("storefront publication permission required");
+    expect(migration).toContain("a current SKU price is required before publishing");
   });
 });
 

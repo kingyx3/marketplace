@@ -9,7 +9,10 @@ export interface AdminListingItemInput {
   preorderReserve: number;
   sortPriority: number;
   featured: boolean;
-  published: boolean;
+  availabilityMode: "available_now" | "preorder" | "coming_soon" | "unavailable";
+  orderOpenAt: string | null;
+  orderCloseAt: string | null;
+  releaseDate: string | null;
 }
 
 export interface AdminStorefrontConfigurationInput {
@@ -89,6 +92,18 @@ export function adminLimitedTimeDealStatusFromForm(formData: FormData) {
 }
 
 export function adminListingItemFromForm(formData: FormData): AdminListingItemInput {
+  const availabilityMode = requiredString(formData, "availabilityMode");
+  if (!isAvailabilityMode(availabilityMode)) {
+    throw badRequest(
+      "availabilityMode must be available now, preorder, coming soon, or unavailable"
+    );
+  }
+  const orderOpenAt = optionalDateTimeFromForm(formData, "orderOpenAt");
+  const orderCloseAt = optionalDateTimeFromForm(formData, "orderCloseAt");
+  if (orderOpenAt && orderCloseAt && new Date(orderCloseAt) <= new Date(orderOpenAt)) {
+    throw badRequest("orderCloseAt must be after orderOpenAt");
+  }
+
   return {
     productId: requiredString(formData, "productId"),
     titleOverride: optionalString(formData, "titleOverride") ?? null,
@@ -98,7 +113,10 @@ export function adminListingItemFromForm(formData: FormData): AdminListingItemIn
     preorderReserve: optionalNonNegativeInteger(formData, "preorderReserve") ?? 0,
     sortPriority: optionalInteger(formData, "sortPriority") ?? 0,
     featured: booleanField(formData, "featured", false),
-    published: booleanField(formData, "published", true),
+    availabilityMode,
+    orderOpenAt,
+    orderCloseAt,
+    releaseDate: optionalDateFromForm(formData, "releaseDate"),
   };
 }
 
@@ -134,7 +152,14 @@ export function adminStorefrontConfigurationFromForm(
 function tagsFromForm(formData: FormData): string[] {
   const raw = optionalString(formData, "tags");
   if (!raw) return [];
-  return [...new Set(raw.split(/[\n,]/).map((tag) => tag.trim()).filter(Boolean))].slice(0, 12);
+  return [
+    ...new Set(
+      raw
+        .split(/[\n,]/)
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+    ),
+  ].slice(0, 12);
 }
 
 function requiredString(formData: FormData, key: string): string {
@@ -192,4 +217,25 @@ function singaporeDateTimeFromForm(formData: FormData, key: string): string {
   const parsed = new Date(localDateTime);
   if (Number.isNaN(parsed.getTime())) throw badRequest(`${key} must be a valid date and time`);
   return parsed.toISOString();
+}
+
+function optionalDateTimeFromForm(formData: FormData, key: string): string | null {
+  if (!optionalString(formData, key)) return null;
+  return singaporeDateTimeFromForm(formData, key);
+}
+
+function optionalDateFromForm(formData: FormData, key: string): string | null {
+  const value = optionalString(formData, key);
+  if (!value) return null;
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+    Number.isNaN(new Date(`${value}T00:00:00Z`).getTime())
+  ) {
+    throw badRequest(`${key} must be a valid date`);
+  }
+  return value;
+}
+
+function isAvailabilityMode(value: string): value is AdminListingItemInput["availabilityMode"] {
+  return ["available_now", "preorder", "coming_soon", "unavailable"].includes(value);
 }
