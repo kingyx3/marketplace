@@ -118,9 +118,10 @@ Full create and edit forms are not repeated inside resource directories.
 ## Audit review
 
 1. Review recent explicit administrative actions under `/control/audit`.
-2. Confirm the actor, action, target table, record identifier, timestamp, and safe summary.
-3. Use the protected database audit record for detailed before-and-after analysis; the UI intentionally omits arbitrary or sensitive fields.
-4. Never copy secrets, payment credentials, tokens, or unnecessary personal information into notes or logs.
+2. Search by a recognizable record name, SKU, labeled identifier, action, or administrator email, and narrow the list by operational area when investigating a workflow.
+3. Confirm the human-readable action and record label, then use the selectable system action, record ID, actor reference, and exact timestamp to correlate logs or support context.
+4. Review the safe before-and-after operational fields shown in the result. Use the protected database audit record for deeper analysis; the UI intentionally omits arbitrary or sensitive fields.
+5. Never copy secrets, payment credentials, tokens, or unnecessary personal information into notes or logs.
 
 ## Deploy incident
 
