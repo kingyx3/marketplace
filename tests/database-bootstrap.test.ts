@@ -30,6 +30,8 @@ describe("database bootstrap", () => {
       missing: [],
       stale: [],
     });
+    expect(SEEDED_PUBLIC_TABLES).toContain("api_rate_limit_buckets");
+    expect(SEEDED_PUBLIC_TABLES).toContain("api_idempotency_records");
   });
 
   it("runs through GitHub Environments and verifies the public product path", async () => {
@@ -55,9 +57,12 @@ describe("database bootstrap", () => {
     expect(script).toContain('rpc(client, "admin_upsert_set_release"');
     expect(script).toContain('rpc(client, "admin_upsert_catalog_product_with_publication"');
     expect(script).toContain('rpc(client, "admin_upsert_catalog_sku"');
+    expect(script).toContain('rpc(client, "admin_set_sku_price"');
     expect(script).toContain('rpc(client, "admin_upsert_supplier"');
     expect(script).toContain('rpc(client, "admin_upsert_storefront_listing"');
     expect(script).toContain('rpc(client, "admin_set_listing_publication"');
+    expect(script).toContain('rpc(client, "consume_api_rate_limit"');
+    expect(script).toContain('rpc(client, "complete_api_idempotency"');
     expect(script).toContain("verifyAnonymousRead");
     expect(script).toContain("verifyHostedStorefront");
   });
