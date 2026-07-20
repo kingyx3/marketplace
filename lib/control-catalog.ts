@@ -94,7 +94,7 @@ const CONTROL_PRODUCT_SELECT = `
   active,
   listing_items(published),
   tcg_categories(name),
-  sets_releases(name, code),
+  sets_releases!products_set_belongs_to_category(name, code),
   product_variants(
     booster_box_skus(
       id,

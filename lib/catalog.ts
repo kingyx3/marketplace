@@ -100,7 +100,7 @@ const CATALOG_SELECT = `
     featured
   ),
   tcg_categories(name),
-  sets_releases(name, code, status, release_date),
+  sets_releases!products_set_belongs_to_category(name, code, status, release_date),
   product_variants(
     booster_box_skus(
       id,
