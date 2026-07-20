@@ -22,10 +22,12 @@ import { performAdminOrderAction } from "@/lib/orders";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function upsertLimitedTimeDeal(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/deals");
+  const sourceId = optionalFormId(formData, "dealId");
+  const returnPath = sourceId ? `/control/deals/${sourceId}` : "/control/deals/new";
+  const { user } = await requireControlPermission("manage_catalog", returnPath);
   const input = adminLimitedTimeDealFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_upsert_limited_time_deal", {
+  const { data, error } = await createServiceClient().rpc("admin_upsert_limited_time_deal", {
     p_deal_id: input.dealId,
     p_code: input.code,
     p_sku_id: input.skuId,
@@ -40,12 +42,24 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
     p_actor: `staff:${user.id}`,
   });
 
+  if (error?.code === "23505") {
+    redirect(`${returnPath}?error=duplicate-deal`);
+  }
   if (error) throw new Error(`Limited-time deal save failed: ${error.message}`);
-  revalidateDealPaths();
+
+  const dealId = readRpcId(data, "deal_id") ?? input.dealId;
+  if (!dealId) throw new Error("Limited-time deal save failed: the database did not return a deal ID");
+
+  revalidateDealPaths(dealId);
+  redirect(`/control/deals/${dealId}?saved=1`);
 }
 
 export async function setLimitedTimeDealActive(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/deals");
+  const dealId = String(formData.get("dealId") ?? "");
+  const { user } = await requireControlPermission(
+    "manage_catalog",
+    dealId ? `/control/deals/${dealId}` : "/control/deals"
+  );
   const input = adminLimitedTimeDealStatusFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_set_limited_time_deal_active", {
@@ -55,17 +69,23 @@ export async function setLimitedTimeDealActive(formData: FormData) {
   });
 
   if (error) throw new Error(`Limited-time deal status update failed: ${error.message}`);
-  revalidateDealPaths();
+  revalidateDealPaths(input.dealId);
 }
 
-function revalidateDealPaths() {
+function revalidateDealPaths(dealId?: string) {
   revalidatePath("/");
+  revalidatePath("/control");
   revalidatePath("/control/deals");
+  if (dealId) revalidatePath(`/control/deals/${dealId}`);
   revalidatePath("/products");
 }
 
 export async function upsertListingItem(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/listings");
+  const productId = String(formData.get("productId") ?? "");
+  const { user } = await requireControlPermission(
+    "manage_catalog",
+    productId ? `/control/listings/${productId}` : "/control/listings"
+  );
   const input = adminListingItemFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_upsert_listing_item", {
@@ -86,11 +106,17 @@ export async function upsertListingItem(formData: FormData) {
   revalidatePath("/control");
   revalidatePath("/control/operations");
   revalidatePath("/control/listings");
+  revalidatePath(`/control/listings/${input.productId}`);
   revalidatePath("/products");
+  redirect(`/control/listings/${input.productId}?saved=1`);
 }
 
 export async function upsertStorefrontConfiguration(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/listings");
+  const key = String(formData.get("key") ?? "");
+  const { user } = await requireControlPermission(
+    "manage_catalog",
+    key ? `/control/listings/configurations/${encodeURIComponent(key)}` : "/control/listings"
+  );
   const input = adminStorefrontConfigurationFromForm(formData);
 
   const { error } = await createServiceClient().rpc("admin_upsert_storefront_configuration", {
@@ -106,7 +132,9 @@ export async function upsertStorefrontConfiguration(formData: FormData) {
 
   revalidatePath("/control");
   revalidatePath("/control/listings");
+  revalidatePath(`/control/listings/configurations/${encodeURIComponent(input.key)}`);
   revalidatePath("/products");
+  redirect(`/control/listings/configurations/${encodeURIComponent(input.key)}?saved=1`);
 }
 
 export async function updateInventory(formData: FormData) {
@@ -306,4 +334,18 @@ export async function runPreorderAllocation(formData: FormData) {
   await requireControlPermission("manage_full_operations", "/control/preorders");
   const skuId = String(formData.get("skuId") ?? "");
   redirect(`/control/preorders?sku=${encodeURIComponent(skuId)}`);
+}
+
+function readRpcId(data: unknown, key: string): string | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") return null;
+  const value = (row as Record<string, unknown>)[key];
+  return typeof value === "string" && value ? value : null;
+}
+
+function optionalFormId(formData: FormData, key: string): string | null {
+  const value = formData.get(key);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
 }

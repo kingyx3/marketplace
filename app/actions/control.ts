@@ -14,7 +14,9 @@ import { requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function upsertControlSupplier(formData: FormData) {
-  const { user } = await requireControlPermission("manage_suppliers", "/control/suppliers");
+  const sourceId = optionalFormId(formData, "supplierId");
+  const returnPath = sourceId ? `/control/suppliers/${sourceId}` : "/control/suppliers/new";
+  const { user } = await requireControlPermission("manage_suppliers", returnPath);
   const input = controlSupplierFromForm(formData);
   const contact = {
     name: input.contactName,
@@ -22,7 +24,7 @@ export async function upsertControlSupplier(formData: FormData) {
     phone: input.contactPhone,
   };
 
-  const { error } = await createServiceClient().rpc("admin_upsert_supplier", {
+  const { data, error } = await createServiceClient().rpc("admin_upsert_supplier", {
     p_supplier_id: input.supplierId,
     p_name: input.name,
     p_supplier_type: input.supplierType,
@@ -37,7 +39,15 @@ export async function upsertControlSupplier(formData: FormData) {
   });
 
   if (error) throw new Error(`Supplier save failed: ${error.message}`);
-  revalidateControlPaths("/control/suppliers", "/control/operations");
+  const supplierId = readRpcId(data, "supplier_id") ?? input.supplierId;
+  if (!supplierId) throw new Error("Supplier save failed: the database did not return a supplier ID");
+
+  revalidateControlPaths(
+    "/control/suppliers",
+    `/control/suppliers/${supplierId}`,
+    "/control/operations"
+  );
+  redirect(`/control/suppliers/${supplierId}?saved=1`);
 }
 
 export async function setControlSupplierActive(formData: FormData) {
@@ -50,11 +60,17 @@ export async function setControlSupplierActive(formData: FormData) {
   });
 
   if (error) throw new Error(`Supplier status update failed: ${error.message}`);
-  revalidateControlPaths("/control/suppliers", "/control/operations");
+  revalidateControlPaths(
+    "/control/suppliers",
+    `/control/suppliers/${input.id}`,
+    "/control/operations"
+  );
 }
 
 export async function upsertControlCategory(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/categories");
+  const sourceId = optionalFormId(formData, "categoryId");
+  const returnPath = sourceId ? `/control/categories/${sourceId}` : "/control/categories/new";
+  const { user } = await requireControlPermission("manage_catalog", returnPath);
   const input = controlCategoryFromForm(formData);
   const supabase = createServiceClient();
   let duplicateQuery = supabase
@@ -64,11 +80,9 @@ export async function upsertControlCategory(formData: FormData) {
   if (input.categoryId) duplicateQuery = duplicateQuery.neq("id", input.categoryId);
   const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
   if (duplicateError) throw new Error(`Category duplicate check failed: ${duplicateError.message}`);
-  if (duplicate) {
-    redirectToCategoryConflict(input.name, duplicate.name);
-  }
+  if (duplicate) redirectToCategoryConflict(input, duplicate.name);
 
-  const { error } = await supabase.rpc("admin_upsert_category", {
+  const { data, error } = await supabase.rpc("admin_upsert_category", {
     p_category_id: input.categoryId,
     p_parent_id: input.parentId,
     p_slug: input.slug,
@@ -80,16 +94,20 @@ export async function upsertControlCategory(formData: FormData) {
     p_actor_auth_user_id: user.id,
   });
 
-  if (error?.code === "23505") {
-    redirectToCategoryConflict(input.name, "another category");
-  }
+  if (error?.code === "23505") redirectToCategoryConflict(input, "another category");
   if (error) throw new Error(`Category save failed: ${error.message}`);
+
+  const categoryId = readRpcId(data, "category_id") ?? input.categoryId;
+  if (!categoryId) throw new Error("Category save failed: the database did not return a category ID");
+
   revalidateControlPaths(
     "/control/categories",
+    `/control/categories/${categoryId}`,
     "/control/sets",
     "/control/operations",
     "/products"
   );
+  redirect(`/control/categories/${categoryId}?saved=1`);
 }
 
 export async function setControlCategoryActive(formData: FormData) {
@@ -104,6 +122,7 @@ export async function setControlCategoryActive(formData: FormData) {
   if (error) throw new Error(`Category status update failed: ${error.message}`);
   revalidateControlPaths(
     "/control/categories",
+    `/control/categories/${input.id}`,
     "/control/sets",
     "/control/operations",
     "/products"
@@ -111,9 +130,11 @@ export async function setControlCategoryActive(formData: FormData) {
 }
 
 export async function upsertControlSet(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/sets");
+  const sourceId = optionalFormId(formData, "setId");
+  const returnPath = sourceId ? `/control/sets/${sourceId}` : "/control/sets/new";
+  const { user } = await requireControlPermission("manage_catalog", returnPath);
   const input = controlSetFromForm(formData);
-  const { error } = await createServiceClient().rpc("admin_upsert_set_release", {
+  const { data, error } = await createServiceClient().rpc("admin_upsert_set_release", {
     p_set_id: input.setId,
     p_category_id: input.categoryId,
     p_name: input.name,
@@ -128,11 +149,20 @@ export async function upsertControlSet(formData: FormData) {
     p_actor_auth_user_id: user.id,
   });
 
-  if (error?.code === "23505") {
-    throw new Error("Set save failed: another set in this category uses the generated code; rename the set or edit the existing record");
-  }
+  if (error?.code === "23505") redirectToSetConflict(input);
   if (error) throw new Error(`Set save failed: ${error.message}`);
-  revalidateControlPaths("/control/sets", "/control/operations", "/products", "/preorders");
+
+  const setId = readRpcId(data, "set_id") ?? input.setId;
+  if (!setId) throw new Error("Set save failed: the database did not return a set ID");
+
+  revalidateControlPaths(
+    "/control/sets",
+    `/control/sets/${setId}`,
+    "/control/operations",
+    "/products",
+    "/preorders"
+  );
+  redirect(`/control/sets/${setId}?saved=1`);
 }
 
 export async function setControlSetActive(formData: FormData) {
@@ -145,13 +175,23 @@ export async function setControlSetActive(formData: FormData) {
   });
 
   if (error) throw new Error(`Set status update failed: ${error.message}`);
-  revalidateControlPaths("/control/sets", "/control/operations", "/products", "/preorders");
+  revalidateControlPaths(
+    "/control/sets",
+    `/control/sets/${input.id}`,
+    "/control/operations",
+    "/products",
+    "/preorders"
+  );
 }
 
 export async function upsertControlAccessGrant(formData: FormData) {
-  const { user } = await requireControlPermission("manage_admins", "/control/administrators");
+  const sourceId = optionalFormId(formData, "grantId");
+  const returnPath = sourceId
+    ? `/control/administrators/${sourceId}`
+    : "/control/administrators/new";
+  const { user } = await requireControlPermission("manage_admins", returnPath);
   const input = controlAccessGrantFromForm(formData);
-  const { error } = await createServiceClient().rpc("admin_upsert_access_grant", {
+  const { data, error } = await createServiceClient().rpc("admin_upsert_access_grant", {
     p_grant_id: input.grantId,
     p_email: input.email,
     p_role: input.role,
@@ -160,16 +200,71 @@ export async function upsertControlAccessGrant(formData: FormData) {
   });
 
   if (error) throw new Error(`Administrator access update failed: ${error.message}`);
-  revalidateControlPaths("/control/administrators", "/control/audit");
+  const grantId = readRpcId(data, "grant_id") ?? input.grantId;
+  if (!grantId) {
+    throw new Error("Administrator access update failed: the database did not return a grant ID");
+  }
+
+  revalidateControlPaths(
+    "/control/administrators",
+    `/control/administrators/${grantId}`,
+    "/control/audit"
+  );
+  redirect(`/control/administrators/${grantId}?saved=1`);
 }
 
-function redirectToCategoryConflict(name: string, existingName: string): never {
+function redirectToCategoryConflict(
+  input: {
+    categoryId: string | null;
+    name: string;
+    publisher: string | null;
+    parentId: string | null;
+    sortOrder: number;
+    active: boolean;
+  },
+  existingName: string
+): never {
   const search = new URLSearchParams({
     error: "duplicate-category",
-    name,
+    name: input.name,
     existing: existingName,
+    sortOrder: String(input.sortOrder),
+    active: String(input.active),
   });
-  redirect(`/control/categories?${search.toString()}`);
+  if (input.publisher) search.set("publisher", input.publisher);
+  if (input.parentId) search.set("parentId", input.parentId);
+  const path = input.categoryId
+    ? `/control/categories/${input.categoryId}`
+    : "/control/categories/new";
+  redirect(`${path}?${search.toString()}`);
+}
+
+function redirectToSetConflict(input: {
+  setId: string | null;
+  name: string;
+  categoryId: string;
+}): never {
+  const search = new URLSearchParams({
+    error: "duplicate-set",
+    name: input.name,
+    categoryId: input.categoryId,
+  });
+  const path = input.setId ? `/control/sets/${input.setId}` : "/control/sets/new";
+  redirect(`${path}?${search.toString()}`);
+}
+
+function readRpcId(data: unknown, key: string): string | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") return null;
+  const value = (row as Record<string, unknown>)[key];
+  return typeof value === "string" && value ? value : null;
+}
+
+function optionalFormId(formData: FormData, key: string): string | null {
+  const value = formData.get(key);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
 }
 
 function revalidateControlPaths(...paths: string[]) {

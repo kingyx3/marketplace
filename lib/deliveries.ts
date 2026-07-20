@@ -65,7 +65,25 @@ export async function listAdminDeliveryOrders(
 
   return ((data ?? []) as unknown as RawDeliveryOrder[])
     .map(mapDeliveryOrder)
-    .filter((order) => order.capturedCents >= order.totalCents);
+    .filter(isFullyPaidDeliveryOrder);
+}
+
+export async function getAdminDeliveryOrder(
+  supabase: SupabaseClient,
+  orderId: string
+): Promise<AdminDeliveryOrder | null> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select(deliveryOrderSelect)
+    .eq("id", orderId)
+    .in("status", ["paid", "packing", "shipped", "delivered"])
+    .maybeSingle();
+
+  if (error) throw new Error(`Delivery order lookup failed: ${error.message}`);
+  if (!data) return null;
+
+  const order = mapDeliveryOrder(data as unknown as RawDeliveryOrder);
+  return isFullyPaidDeliveryOrder(order) ? order : null;
 }
 
 export function netCapturedPaymentTotal(
@@ -87,6 +105,10 @@ export function netCapturedPaymentTotal(
 
     return sum + Math.max(0, Number(payment.amount_cents ?? 0) - refundedCents);
   }, 0);
+}
+
+function isFullyPaidDeliveryOrder(order: AdminDeliveryOrder): boolean {
+  return order.capturedCents >= order.totalCents;
 }
 
 function mapDeliveryOrder(row: RawDeliveryOrder): AdminDeliveryOrder {
