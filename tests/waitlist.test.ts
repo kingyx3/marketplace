@@ -4,7 +4,7 @@ import { joinWaitlist, normalizeWaitlistContact, notifyDropForSku } from "@/lib/
 const SKU_ID = "00000000-0000-4000-8000-000000000001";
 const CUSTOMER_ID = "00000000-0000-4000-8000-000000000002";
 
-describe("waitlist drop alerts", () => {
+describe("waitlist restock alerts", () => {
   it("normalizes channel-specific contacts", () => {
     expect(normalizeWaitlistContact("email", undefined, "Buyer@Example.Test")).toBe(
       "buyer@example.test"
@@ -58,9 +58,10 @@ describe("waitlist drop alerts", () => {
 
   it("claims, sends, and marks active drop notifications as notified", async () => {
     const { supabase, calls } = fakeSupabase();
-    const fetcher = vi.fn(async () =>
-      Response.json({ ok: true, result: { message_id: 42 } }, { status: 200 })
-    );
+    const fetcher = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      void args;
+      return Response.json({ ok: true, result: { message_id: 42 } }, { status: 200 });
+    });
 
     const results = await notifyDropForSku(supabase as never, SKU_ID, {
       env: {
@@ -95,6 +96,10 @@ describe("waitlist drop alerts", () => {
       "https://api.telegram.org/bottelegram-token/sendMessage",
       expect.objectContaining({ method: "POST" })
     );
+    const [, requestInit] = fetcher.mock.calls[0] as [RequestInfo | URL, RequestInit];
+    const message = JSON.parse(String(requestInit.body));
+    expect(message.text).toContain("Card Vault restock alert");
+    expect(message.text).not.toContain("SKU:");
     expect(calls.updates).toContainEqual({
       table: "notifications",
       update: {

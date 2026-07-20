@@ -327,7 +327,7 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
   revalidatePath("/control");
   revalidatePath("/control/operations");
   revalidatePath("/products");
-  revalidatePath("/preorders");
+  revalidatePath("/orders");
 }
 
 export async function runPreorderAllocation(formData: FormData) {

@@ -26,6 +26,19 @@ describe("live customer pages", () => {
     }
   });
 
+  it("consolidates preorder history under orders", async () => {
+    const [ordersPage, preorderRedirect, header] = await Promise.all([
+      readFile(new URL("../app/(shop)/orders/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/(shop)/preorders/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/_components/site-header.tsx", import.meta.url), "utf8"),
+    ]);
+
+    expect(ordersPage).toContain("listCustomerPreorders");
+    expect(ordersPage).toContain('id="preorders"');
+    expect(preorderRedirect).toContain('redirect("/orders#preorders")');
+    expect(header).not.toContain('href="/preorders"');
+  });
+
   it("derives customer order display fields from live Supabase-shaped rows", () => {
     const order: LiveOrder = {
       id: "order-live",

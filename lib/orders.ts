@@ -67,10 +67,10 @@ export const preorderStatusUpdateSchema = z.object({
 });
 
 const orderSelect =
-  "id, channel, status, currency, subtotal_cents, discount_cents, discount_bps, shipping_cents, tax_cents, total_cents, placed_at, created_at, updated_at, order_items(id, sku_id, quantity, unit_price_cents, booster_box_skus(sku, product_variants(products(slug, name)))), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at), shipments(id, carrier, tracking_number, status, shipped_at, delivered_at, created_at)";
+  "id, channel, status, currency, subtotal_cents, discount_cents, discount_bps, shipping_cents, shipping_address, shipping_service, tax_cents, total_cents, placed_at, created_at, updated_at, order_items(id, sku_id, quantity, unit_price_cents, booster_box_skus(sku, product_variants(products(slug, name)))), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at), shipments(id, carrier, tracking_number, status, shipped_at, delivered_at, created_at)";
 
 const preorderSelect =
-  "id, sku_id, channel, quantity, unit_price_cents, deposit_cents, balance_cents, currency, status, allocated_qty, order_id, created_at, updated_at, booster_box_skus(sku, product_variants(products(slug, name))), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at)";
+  "id, sku_id, channel, quantity, unit_price_cents, deposit_cents, balance_cents, allocation_refund_cents, allocation_confirmed_at, currency, status, allocated_qty, order_id, created_at, updated_at, booster_box_skus(sku, product_variants(products(slug, name))), payments(id, provider, provider_payment_id, kind, amount_cents, currency, status, captured_at, created_at)";
 
 const openPaymentExceptionSelect =
   "id, order_id, payment_id, exception_type, severity, status, detail, actor, created_at, updated_at";

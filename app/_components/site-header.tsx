@@ -24,7 +24,9 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
     const previousBodyOverflow = document.body.style.overflow;
     const previousDocumentOverflow = document.documentElement.style.overflow;
     const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : menuButtonRef.current;
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : menuButtonRef.current;
 
     const closeOnKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -184,13 +186,6 @@ export function SiteHeader({ appName, viewer }: { appName: string; viewer: Curre
                   {signedIn ? (
                     <>
                       <MobileLink
-                        href="/preorders"
-                        icon={<PreordersIcon />}
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        Preorders
-                      </MobileLink>
-                      <MobileLink
                         href="/orders"
                         icon={<OrdersIcon />}
                         onClick={() => setMobileOpen(false)}
@@ -231,14 +226,9 @@ function PrimaryLinks({ signedIn }: { signedIn: boolean }) {
         Products
       </Link>
       {signedIn ? (
-        <>
-          <Link href="/preorders" className={baseLinkClass}>
-            Preorders
-          </Link>
-          <Link href="/orders" className={baseLinkClass}>
-            Orders
-          </Link>
-        </>
+        <Link href="/orders" className={baseLinkClass}>
+          Orders
+        </Link>
       ) : null}
     </>
   );
@@ -289,7 +279,10 @@ function MobileLink({
       href={href}
       onClick={onClick}
     >
-      <span aria-hidden="true" className="inline-flex size-6 items-center justify-center text-zinc-500">
+      <span
+        aria-hidden="true"
+        className="inline-flex size-6 items-center justify-center text-zinc-500"
+      >
         {icon}
       </span>
       {children}
@@ -310,7 +303,11 @@ function CartIcon() {
       strokeWidth="1.8"
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h1.5l1.5 9h10.5l1.5-6.75H6" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 18.75h.008v.008H9v-.008Zm7.5 0h.008v.008H16.5v-.008Z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 18.75h.008v.008H9v-.008Zm7.5 0h.008v.008H16.5v-.008Z"
+      />
     </svg>
   );
 }
@@ -355,24 +352,12 @@ function ProductsIcon() {
       stroke="currentColor"
       strokeWidth="1.8"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 7.5 7.5-4 7.5 4v9L12 20.5l-7.5-4v-9Z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m4.5 7.5 7.5-4 7.5 4v9L12 20.5l-7.5-4v-9Z"
+      />
       <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 7.5 7.5 4 7.5-4M12 11.5v9" />
-    </svg>
-  );
-}
-
-function PreordersIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className={iconClassName}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <circle cx="12" cy="12" r="8.25" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.75v4.75l3 1.75" />
     </svg>
   );
 }
@@ -387,7 +372,11 @@ function OrdersIcon() {
       stroke="currentColor"
       strokeWidth="1.8"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M7 3.75h10v16.5l-2.5-1.5-2.5 1.5-2.5-1.5-2.5 1.5V3.75Z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7 3.75h10v16.5l-2.5-1.5-2.5 1.5-2.5-1.5-2.5 1.5V3.75Z"
+      />
       <path strokeLinecap="round" d="M9 8h6M9 12h6M9 16h3" />
     </svg>
   );
@@ -404,7 +393,11 @@ function AccountIcon() {
       strokeWidth="1.8"
     >
       <circle cx="12" cy="8.25" r="3.25" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5.75 19.5c.75-3.5 2.85-5.25 6.25-5.25s5.5 1.75 6.25 5.25" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5.75 19.5c.75-3.5 2.85-5.25 6.25-5.25s5.5 1.75 6.25 5.25"
+      />
     </svg>
   );
 }
@@ -419,7 +412,11 @@ function SignInIcon() {
       stroke="currentColor"
       strokeWidth="1.8"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 5.25H7.25A2.25 2.25 0 0 0 5 7.5v9A2.25 2.25 0 0 0 7.25 18.75h6.25" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M13.5 5.25H7.25A2.25 2.25 0 0 0 5 7.5v9A2.25 2.25 0 0 0 7.25 18.75h6.25"
+      />
       <path strokeLinecap="round" strokeLinejoin="round" d="m13 8 4 4-4 4M9 12h8" />
     </svg>
   );

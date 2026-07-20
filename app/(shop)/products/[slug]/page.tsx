@@ -8,12 +8,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
 import { addToCart } from "@/app/actions/cart";
-import {
-  formatMoney,
-  formatStatus,
-  getProduct,
-  type MarketplaceProduct,
-} from "@/app/_data/marketplace-fixtures";
+import { formatMoney, getProduct, type MarketplaceProduct } from "@/app/_data/marketplace-fixtures";
 import { getCurrentViewer } from "@/lib/auth";
 import { getCatalogProduct, type CatalogProduct } from "@/lib/catalog";
 import { formatDealDiscount, getStorefrontDealForSku } from "@/lib/deals";
@@ -39,7 +34,8 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
   return {
     title: productName ?? "Product",
-    description: liveProduct?.description ?? "Sealed trading card product details and availability.",
+    description:
+      liveProduct?.description ?? "Sealed trading card product details and availability.",
   };
 }
 
@@ -59,15 +55,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     ? await getStorefrontDealForSku({ signedIn: Boolean(viewer.user), skuId })
     : null;
   const availability = getStorefrontAvailability(product);
-  const maxPurchaseQuantity = Math.min(
-    availability.available,
-    product.maxPerCustomer ?? 24,
-    24
-  );
+  const maxPurchaseQuantity = Math.min(availability.available, product.maxPerCustomer ?? 24, 24);
   const preorderTimeline = [
     { label: "Paid in full", date: "Today", state: "current" as const },
     { label: "Allocation", date: "After supplier confirmation", state: "upcoming" as const },
-    { label: "Shortfall refund", date: "If allocation is below your quantity", state: "upcoming" as const },
+    {
+      label: "Shortfall refund",
+      date: "If allocation is below your quantity",
+      state: "upcoming" as const,
+    },
     { label: "Ship", date: `After ${product.releaseDate}`, state: "upcoming" as const },
   ];
 
@@ -78,20 +74,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         title={product.name}
         description={product.description}
         action={
-          <div className="flex flex-wrap gap-2">
-            <StatusBadge tone={product.setStatus === "preorder_open" ? "success" : "neutral"}>
-              {formatStatus(product.setStatus)}
-            </StatusBadge>
-            <StatusBadge tone={availabilityTone(availability.kind)}>
-              {availability.label}
-            </StatusBadge>
-          </div>
+          <StatusBadge tone={availabilityTone(availability.kind)}>{availability.label}</StatusBadge>
         }
       />
 
       {query.cart === "unavailable" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          This item is no longer available in the requested quantity. Stock is confirmed again at checkout.
+          This item is no longer available in the requested quantity. Stock is confirmed again at
+          checkout.
         </div>
       ) : null}
 
@@ -108,10 +98,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             />
           </div>
 
-          <section className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-            <ProductFact label="SKU" value={product.sku} />
+          <section className="grid gap-4 sm:grid-cols-3">
             <ProductFact label="Release" value={product.releaseDate} />
-            <ProductFact label="Pack layout" value={`${product.packsPerBox} × ${product.cardsPerPack}`} />
+            <ProductFact
+              label="Pack layout"
+              value={`${product.packsPerBox} × ${product.cardsPerPack}`}
+            />
             <ProductFact label="Language" value={product.language} />
           </section>
 
@@ -133,7 +125,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 label="Per-customer limit"
               />
               <Metric
-                value={availability.mode === "preorder" ? "After release" : availability.mode === "order" ? "Ready to ship" : "Unavailable"}
+                value={
+                  availability.mode === "preorder"
+                    ? "After release"
+                    : availability.mode === "order"
+                      ? "Ready to ship"
+                      : "Unavailable"
+                }
                 label="Fulfilment"
               />
               <Metric value={product.releaseDate} label="Release date" />
@@ -187,7 +185,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               {skuId && availability.mode === "preorder" && availability.purchasable ? (
                 <>
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
-                    Preorders are charged 100% upfront. If confirmed supplier allocation is lower than your requested quantity, the difference is refunded through Stripe.
+                    Preorders are charged 100% upfront. If confirmed supplier allocation is lower
+                    than your requested quantity, the difference is refunded through Stripe.
                   </div>
                   <CartCheckoutPanel
                     authRedirectPath={`/products/${product.slug}`}
@@ -195,10 +194,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     items={[{ skuId, quantity: 1 }]}
                     mode="preorder"
                     publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                    returnPath="/preorders?checkout=processing"
-                    startLabel="Pay preorder in full"
-                    successHref="/preorders"
-                    successLabel="View preorders"
+                    returnPath="/orders?checkout=processing#preorders"
+                    startLabel="Place Order"
+                    successHref="/orders#preorders"
+                    successLabel="View pre-order"
                     supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
                     supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
                   />

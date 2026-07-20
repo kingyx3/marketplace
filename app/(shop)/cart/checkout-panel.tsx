@@ -86,7 +86,7 @@ export function CartCheckoutPanel({
   clearCartOnSuccess = true,
   authRedirectPath = "/cart",
   returnPath = "/cart?checkout=processing",
-  startLabel = "Pay securely",
+  startLabel = "Place Order",
   successHref,
   successLabel,
   disabled = false,

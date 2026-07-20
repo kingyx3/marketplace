@@ -33,7 +33,6 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
     revalidatePath("/control");
     revalidatePath("/control/preorders");
     revalidatePath("/control/operations");
-    revalidatePath("/preorders");
     revalidatePath("/orders");
     summary = `${result.finalized}-${result.refundsCreated}-${result.refundCents}`;
   } catch (error) {

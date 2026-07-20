@@ -160,7 +160,7 @@ export async function upsertControlSet(formData: FormData) {
     `/control/sets/${setId}`,
     "/control/operations",
     "/products",
-    "/preorders"
+    "/orders"
   );
   redirect(`/control/sets/${setId}?saved=1`);
 }
@@ -180,7 +180,7 @@ export async function setControlSetActive(formData: FormData) {
     `/control/sets/${input.id}`,
     "/control/operations",
     "/products",
-    "/preorders"
+    "/orders"
   );
 }
 

@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { CookiePreferences } from "@/app/_components/cookie-preferences";
-
 const footerLinks = [
   ["Shipping", "/shipping"],
   ["Returns", "/returns"],
@@ -23,19 +21,16 @@ export function SiteFooter({ appName }: { appName: string }) {
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 lg:items-end">
-          <nav
-            aria-label="Footer navigation"
-            className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-zinc-600"
-          >
-            {footerLinks.map(([label, href]) => (
-              <Link key={href} href={href} className="hover:text-zinc-950">
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <CookiePreferences />
-        </div>
+        <nav
+          aria-label="Footer navigation"
+          className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-zinc-600 lg:justify-end"
+        >
+          {footerLinks.map(([label, href]) => (
+            <Link key={href} href={href} className="hover:text-zinc-950">
+              {label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </footer>
   );

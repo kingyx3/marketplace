@@ -3,19 +3,39 @@ import { describe, expect, it } from "vitest";
 
 describe("customer account management", () => {
   it("keeps sign out and deletion controls on the account page", async () => {
-    const [header, accountPage] = await Promise.all([
+    const [header, accountPage, deleteDialog] = await Promise.all([
       readFile(new URL("../app/_components/site-header.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/(shop)/account/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/(shop)/account/delete-account-dialog.tsx", import.meta.url), "utf8"),
     ]);
 
     expect(header).not.toContain("Home");
     expect(header).not.toContain("Sign out");
     expect(accountPage).toContain('action="/auth/sign-out"');
     expect(accountPage).toContain("Delete account");
-    expect(accountPage).toContain("confirmDeletion");
+    expect(accountPage).toContain("Delivery addresses");
+    expect(accountPage).toContain("Account settings");
     expect(accountPage.indexOf('action="/auth/sign-out"')).toBeGreaterThan(
-      accountPage.indexOf("Recent orders")
+      accountPage.indexOf("Order history")
     );
+    expect(deleteDialog).toContain("showModal()");
+    expect(deleteDialog).toContain("confirmDeletion");
+    expect(deleteDialog).toContain('value="yes"');
+    expect(deleteDialog).toContain("Yes, delete account");
+    expect(deleteDialog).not.toContain('type="checkbox"');
+  });
+
+  it("lets customers update profile and marketing preferences", async () => {
+    const [accountPage, action] = await Promise.all([
+      readFile(new URL("../app/(shop)/account/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/actions/account.ts", import.meta.url), "utf8"),
+    ]);
+
+    expect(accountPage).toContain("updateAccountSettings");
+    expect(accountPage).toContain('name="marketingOptIn"');
+    expect(action).toContain("export async function updateAccountSettings");
+    expect(action).toContain("marketing_opt_in");
+    expect(action).toContain('revalidatePath("/account")');
   });
 
   it("uses a reversible application soft delete and blocks deleted-account access", async () => {
@@ -55,10 +75,7 @@ describe("customer account management", () => {
       ),
       readFile(new URL("../app/(shop)/control/customers/page.tsx", import.meta.url), "utf8"),
       readFile(
-        new URL(
-          "../app/(shop)/control/customers/[customerId]/page.tsx",
-          import.meta.url
-        ),
+        new URL("../app/(shop)/control/customers/[customerId]/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
@@ -74,7 +91,7 @@ describe("customer account management", () => {
     expect(permissions).toContain('"manage_customers"');
     expect(shell).toContain('href: "/control/customers"');
     expect(indexPage).toContain('requireControlPermission("manage_customers"');
-    expect(indexPage).toContain('href={`/control/customers/${customer.id}`}');
+    expect(indexPage).toContain("href={`/control/customers/${customer.id}`}");
     expect(indexPage).not.toContain("CustomerLifecycleControl");
     expect(detailPage).toContain('requireControlPermission("manage_customers"');
     expect(detailPage).toContain("CustomerLifecycleControl");
