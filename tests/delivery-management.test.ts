@@ -43,8 +43,12 @@ describe("delivery management", () => {
   });
 
   it("exposes delivery management only to order-management staff", async () => {
-    const [page, actions, navigation] = await Promise.all([
+    const [indexPage, detailPage, actions, navigation] = await Promise.all([
       readFile(new URL("../app/(shop)/control/deliveries/page.tsx", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/(shop)/control/deliveries/[orderId]/page.tsx", import.meta.url),
+        "utf8"
+      ),
       readFile(new URL("../app/actions/deliveries.ts", import.meta.url), "utf8"),
       readFile(
         new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
@@ -52,12 +56,15 @@ describe("delivery management", () => {
       ),
     ]);
 
-    expect(page).toContain('requireControlPermission("manage_orders", "/control/deliveries")');
-    expect(page).toContain("listAdminDeliveryOrders");
-    expect(actions).toContain('requireControlPermission("manage_orders"');
+    expect(indexPage).toContain('requireControlPermission("manage_orders", "/control/deliveries")');
+    expect(indexPage).toContain("listAdminDeliveryOrders");
+    expect(indexPage).toContain('href={`/control/deliveries/${order.id}`}');
+    expect(detailPage).toContain('requireControlPermission("manage_orders"');
+    expect(detailPage).toContain("DeliveryEditor");
+    expect(actions.match(/requireControlPermission\(\s*"manage_orders"/g)?.length).toBe(3);
     expect(actions).toContain('rpc("admin_arrange_delivery"');
     expect(actions).toContain('rpc("admin_update_delivery_status"');
-    expect(navigation).toContain('/control/deliveries');
+    expect(navigation).toContain("/control/deliveries");
     expect(navigation).toContain('permission: "manage_orders"');
   });
 
