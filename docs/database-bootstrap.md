@@ -4,13 +4,21 @@ The database bootstrap is an idempotent hosted-environment smoke test. It upsert
 
 Supabase-managed `auth` and `storage` tables are provider-owned rather than application fixture tables. The workflow provisions its two fixture identities through the Supabase Auth Admin API. Server-only rate-limit and idempotency tables are included with isolated bootstrap keys so their atomic RPCs are tested without affecting normal application traffic.
 
-## Run from GitHub Actions
+## CI/CD execution
 
-Open **Actions → Bootstrap Database Test Data → Run workflow**, then select `development` or `staging`. Production is intentionally not an option.
+The reusable database-bootstrap workflow is called automatically by the deployment pipeline after a successful development or staging deployment. Production deployments never call it.
 
-The job binds to the selected GitHub Environment and uses the repository's existing Terraform and environment-resolution workflow to obtain that environment's Supabase URL, active publishable and secret keys, and deployed site URL. The selected environment must already be provisioned, migrated, and deployed. Staging also requires `ENABLE_RELEASE_TOPOLOGY=true`.
+The deployment workflow passes the immutable deployment URL directly to the bootstrap workflow. The bootstrap then reads the already-provisioned platform Terraform state and resolves the selected environment's Supabase URL, publishable key, and secret key through the existing environment resolver. This avoids maintaining a second copy of application runtime variables and secrets solely for test-data creation.
 
-The workflow needs the same environment inputs as the existing hosted bootstrap, including access to Terraform state, Supabase management, and Vercel. It does not print resolved secret values.
+The bootstrap stage itself consumes only:
+
+- `GCP_TERRAFORM_CREDENTIALS_JSON`, used to read the existing Terraform state;
+- `SUPABASE_ACCESS_TOKEN`, used to resolve the active project-scoped API keys;
+- optional `VERCEL_AUTOMATION_BYPASS_SECRET` when deployment protection is enabled.
+
+`GCP_PROJECT_ID`, `PROJECT_SLUG`, `TF_STATE_BUCKET_NAME`, and `TF_STATE_BUCKET_LOCATION` remain optional overrides. They are otherwise derived from the Google credential, repository name, and repository conventions. The stage does not require separately configured `APP_NAME`, site URL, Supabase runtime keys, Stripe settings, Google OAuth settings, or Vercel deployment credentials.
+
+A bootstrap failure fails the development or staging deployment workflow before its final smoke check. This makes the data bootstrap and public-product visibility check part of the normal CI/CD release contract.
 
 ## Run from a trusted shell
 
