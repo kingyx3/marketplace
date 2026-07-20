@@ -6,144 +6,144 @@
 [1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/marketplace/marketplace[39m
 
  [31m❯[39m tests/vercel-sensitive-environment.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 408[2mms[22m[39m
-     [32m✓[39m filters target and branch records while distinguishing unreadable values[32m 46[2mms[22m[39m
-     [32m✓[39m requests decrypted target-scoped values from the authoritative Vercel API[32m 37[2mms[22m[39m
-     [32m✓[39m rejects encrypted ciphertext as a readable runtime value[32m 45[2mms[22m[39m
-     [32m✓[39m creates readable encrypted records, uses the documented edit endpoint, and refuses cross-target mutations[32m 45[2mms[22m[39m
-     [32m✓[39m uses only decrypted Vercel values as fallback and disables local dotenv loading[32m 45[2mms[22m[39m
-     [32m✓[39m does not load dotenv files in authoritative hosted child processes[32m 53[2mms[22m[39m
-     [32m✓[39m shares conditional requiredness between validation and Vercel reconciliation[32m 54[2mms[22m[39m
-[31m     [31m×[31m does not replace a matching HitPay webhook when Vercel stores an unreadable signing secret[39m[32m 45[2mms[22m[39m
-[31m     [31m×[31m uses authoritative API reads and avoids vercel env run precedence[39m[32m 35[2mms[22m[39m
- [32m✓[39m tests/deploy-workflow.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 32[2mms[22m[39m
- [31m❯[39m tests/env.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[33m 750[2mms[22m[39m
-[31m     [31m×[31m accepts a minimal valid runtime/deploy environment[39m[32m 59[2mms[22m[39m
-     [32m✓[39m requires OAuth credentials only when the capability is enabled[32m 44[2mms[22m[39m
-     [32m✓[39m requires a valid admin email allowlist for production[32m 100[2mms[22m[39m
-[31m     [31m×[31m allows the generated HitPay signing secret to be absent only during pre-provision checks[39m[32m 106[2mms[22m[39m
-     [32m✓[39m never writes deploy-only keys into runtime dotenv[32m 49[2mms[22m[39m
+     [32m✓[39m filters target and branch records while distinguishing unreadable values[32m 47[2mms[22m[39m
+     [32m✓[39m requests decrypted target-scoped values from the authoritative Vercel API[32m 38[2mms[22m[39m
+     [32m✓[39m rejects encrypted ciphertext as a readable runtime value[32m 31[2mms[22m[39m
+     [32m✓[39m creates readable encrypted records, uses the documented edit endpoint, and refuses cross-target mutations[32m 50[2mms[22m[39m
+     [32m✓[39m uses only decrypted Vercel values as fallback and disables local dotenv loading[32m 51[2mms[22m[39m
+     [32m✓[39m does not load dotenv files in authoritative hosted child processes[32m 54[2mms[22m[39m
+     [32m✓[39m shares conditional requiredness between validation and Vercel reconciliation[32m 56[2mms[22m[39m
+[31m     [31m×[31m does not replace a matching HitPay webhook when Vercel stores an unreadable signing secret[39m[32m 48[2mms[22m[39m
+[31m     [31m×[31m uses authoritative API reads and avoids vercel env run precedence[39m[32m 30[2mms[22m[39m
+ [32m✓[39m tests/deploy-workflow.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [31m❯[39m tests/env.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[33m 734[2mms[22m[39m
+[31m     [31m×[31m accepts a minimal valid runtime/deploy environment[39m[32m 69[2mms[22m[39m
+     [32m✓[39m requires OAuth credentials only when the capability is enabled[32m 46[2mms[22m[39m
+     [32m✓[39m requires a valid admin email allowlist for production[32m 96[2mms[22m[39m
+[31m     [31m×[31m allows the generated HitPay signing secret to be absent only during pre-provision checks[39m[32m 120[2mms[22m[39m
+     [32m✓[39m never writes deploy-only keys into runtime dotenv[32m 46[2mms[22m[39m
      [32m✓[39m loads local dotenv without overriding exported values[32m 67[2mms[22m[39m
-[31m     [31m×[31m resolves Terraform outputs without overriding explicit environment values[39m[32m 49[2mms[22m[39m
-     [32m✓[39m reconciles Supabase keys against the Terraform-selected project for every target[32m 52[2mms[22m[39m
-[31m     [31m×[31m reconciles stale Supabase keys from the selected project, including legacy service_role keys[39m[32m 73[2mms[22m[39m
-[31m     [31m×[31m rejects a Supabase key that does not authenticate against the selected project[39m[32m 56[2mms[22m[39m
-[31m     [31m×[31m keeps generated artifacts in sync with every contract key[39m[32m 93[2mms[22m[39m
- [32m✓[39m tests/control-resource-navigation.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 37[2mms[22m[39m
- [32m✓[39m tests/notifications.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 74[2mms[22m[39m
- [32m✓[39m tests/auth.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 27[2mms[22m[39m
- [31m❯[39m tests/config-contract.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 57[2mms[22m[39m
-     [32m✓[39m defines production-safe Vercel headers and API no-store caching[32m 15[2mms[22m[39m
-     [32m✓[39m keeps database/storage/admin state in migrations[32m 7[2mms[22m[39m
+[31m     [31m×[31m resolves Terraform outputs without overriding explicit environment values[39m[32m 53[2mms[22m[39m
+     [32m✓[39m reconciles Supabase keys against the Terraform-selected project for every target[32m 45[2mms[22m[39m
+[31m     [31m×[31m reconciles stale Supabase keys from the selected project, including legacy service_role keys[39m[32m 59[2mms[22m[39m
+[31m     [31m×[31m rejects a Supabase key that does not authenticate against the selected project[39m[32m 46[2mms[22m[39m
+[31m     [31m×[31m keeps generated artifacts in sync with every contract key[39m[32m 86[2mms[22m[39m
+ [32m✓[39m tests/control-resource-navigation.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32m✓[39m tests/notifications.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 66[2mms[22m[39m
+ [32m✓[39m tests/auth.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [31m❯[39m tests/config-contract.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 105[2mms[22m[39m
+     [32m✓[39m defines production-safe Vercel headers and API no-store caching[32m 7[2mms[22m[39m
+     [32m✓[39m keeps database/storage/admin state in migrations[32m 9[2mms[22m[39m
      [32m✓[39m uses one machine-readable environment contract and generated mirrors[32m 6[2mms[22m[39m
-[31m     [31m×[31m exposes development-default hosted bootstrap plus staging and recovery commands[39m[32m 23[2mms[22m[39m
-     [32m✓[39m pins Terraform core/providers and enforces committed lockfiles[32m 3[2mms[22m[39m
- [32m✓[39m tests/catalog-action.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 22[2mms[22m[39m
- [31m❯[39m tests/bootstrap-convergence.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 325[2mms[22m[39m
-     [32m✓[39m uses one HitPay desired-state implementation from every entry point[32m 4[2mms[22m[39m
-     [32m✓[39m lets Vercel populate values masked by empty GitHub placeholders[32m 48[2mms[22m[39m
-     [32m✓[39m hydrates hosted child processes without vercel env run precedence[32m 22[2mms[22m[39m
-[31m     [31m×[31m performs zero provider writes when the HitPay endpoint already matches[39m[32m 48[2mms[22m[39m
-[31m     [31m×[31m binds HitPay config before constructing the default client[39m[32m 86[2mms[22m[39m
-     [32m✓[39m fails closed on Terraform state errors that are not explicit absence[32m 69[2mms[22m[39m
-     [32m✓[39m exports the derived state bucket for both Terraform resources and backend initialization[32m 45[2mms[22m[39m
- [32m✓[39m tests/checkout.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
- [32m✓[39m tests/customer-lifecycle-actions.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 16[2mms[22m[39m
- [32m✓[39m tests/admin-catalog.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 15[2mms[22m[39m
- [32m✓[39m tests/waitlist.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 17[2mms[22m[39m
- [32m✓[39m tests/control-console.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+[31m     [31m×[31m exposes development-default hosted bootstrap plus staging and recovery commands[39m[32m 77[2mms[22m[39m
+     [32m✓[39m pins Terraform core/providers and enforces committed lockfiles[32m 5[2mms[22m[39m
+ [32m✓[39m tests/catalog-action.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [31m❯[39m tests/bootstrap-convergence.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 354[2mms[22m[39m
+     [32m✓[39m uses one HitPay desired-state implementation from every entry point[32m 14[2mms[22m[39m
+     [32m✓[39m lets Vercel populate values masked by empty GitHub placeholders[32m 67[2mms[22m[39m
+     [32m✓[39m hydrates hosted child processes without vercel env run precedence[32m 1[2mms[22m[39m
+[31m     [31m×[31m performs zero provider writes when the HitPay endpoint already matches[39m[32m 50[2mms[22m[39m
+[31m     [31m×[31m binds HitPay config before constructing the default client[39m[32m 100[2mms[22m[39m
+     [32m✓[39m fails closed on Terraform state errors that are not explicit absence[32m 66[2mms[22m[39m
+     [32m✓[39m exports the derived state bucket for both Terraform resources and backend initialization[32m 52[2mms[22m[39m
+ [32m✓[39m tests/checkout.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m tests/customer-lifecycle-actions.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/admin-catalog.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/control-console.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/waitlist.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 21[2mms[22m[39m
  [32m✓[39m tests/admin-staff.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
- [32m✓[39m tests/commerce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 19[2mms[22m[39m
- [31m❯[39m tests/admin-orders.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 25[2mms[22m[39m
-     [32m✓[39m rejects arbitrary direct paid status updates[32m 6[2mms[22m[39m
-     [32m✓[39m routes manual reconciliation through the audited database function[32m 3[2mms[22m[39m
-     [32m✓[39m routes cancellation through the audited allocation-release function[32m 1[2mms[22m[39m
-[31m     [31m×[31m identifies manual, stale, failed-allocation, and orphan-provider exceptions[39m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/commerce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/frontend-access.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [31m❯[39m tests/admin-orders.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 40[2mms[22m[39m
+     [32m✓[39m rejects arbitrary direct paid status updates[32m 13[2mms[22m[39m
+     [32m✓[39m routes manual reconciliation through the audited database function[32m 7[2mms[22m[39m
+     [32m✓[39m routes cancellation through the audited allocation-release function[32m 2[2mms[22m[39m
+[31m     [31m×[31m identifies manual, stale, failed-allocation, and orphan-provider exceptions[39m[32m 10[2mms[22m[39m
      [32m✓[39m keeps manual reconciliation from reusing another record's payment reference[32m 1[2mms[22m[39m
      [32m✓[39m builds manual reconciliation actions from required admin form fields[32m 2[2mms[22m[39m
      [32m✓[39m rejects reconciliation forms without a positive integer amount[32m 1[2mms[22m[39m
- [32m✓[39m tests/frontend-access.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 52[2mms[22m[39m
- [32m✓[39m tests/customer-provisioning.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m tests/account-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 25[2mms[22m[39m
- [32m✓[39m tests/admin-workflow-production-readiness.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m tests/customer-provisioning.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/account-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m tests/admin-workflow-production-readiness.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 55[2mms[22m[39m
 [90mstderr[2m | tests/observability.test.ts[2m > [22m[2mobservability helpers[2m > [22m[2mcorrelates API error responses without exposing internals
-[22m[39m{"timestamp":"2026-07-20T18:11:46.136Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/checkout","method":"POST","status":400,"errorCode":"bad_request","retryable":false}
+[22m[39m{"timestamp":"2026-07-20T18:12:56.028Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/checkout","method":"POST","status":400,"errorCode":"bad_request","retryable":false}
 
 [90mstderr[2m | tests/observability.test.ts[2m > [22m[2mobservability helpers[2m > [22m[2mmarks rate limits as retryable and publishes Retry-After
-[22m[39m{"timestamp":"2026-07-20T18:11:46.142Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/waitlist","method":"POST","status":429,"errorCode":"rate_limited","retryable":true}
+[22m[39m{"timestamp":"2026-07-20T18:12:56.034Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/waitlist","method":"POST","status":429,"errorCode":"rate_limited","retryable":true}
 
- [32m✓[39m tests/observability.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/observability.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/admin-value-validation.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 19[2mms[22m[39m
 [90mstderr[2m | tests/api-protections.test.ts[2m > [22m[2mAPI request protections[2m > [22m[2mkeeps the claim when completion persistence fails after the side effect
-[22m[39m{"timestamp":"2026-07-20T18:11:46.252Z","level":"error","event":"api.idempotency.complete_failed","service":"marketplace","environment":"development","scope":"checkout.create","actorId":"00000000-0000-4000-8000-000000000001","error":{"name":"Error","message":"database unavailable"}}
+[22m[39m{"timestamp":"2026-07-20T18:12:56.128Z","level":"error","event":"api.idempotency.complete_failed","service":"marketplace","environment":"development","scope":"checkout.create","actorId":"00000000-0000-4000-8000-000000000001","error":{"name":"Error","message":"database unavailable"}}
 
- [32m✓[39m tests/api-protections.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 29[2mms[22m[39m
- [32m✓[39m tests/live-customer-pages.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 43[2mms[22m[39m
- [32m✓[39m tests/tcgplayer-catalog.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 46[2mms[22m[39m
- [32m✓[39m tests/admin-value-validation.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 20[2mms[22m[39m
- [32m✓[39m tests/delivery-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 21[2mms[22m[39m
- [32m✓[39m tests/catalog-product-save-action.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [31m❯[39m tests/preorder-flow.test.ts [2m([22m[2m6 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 44[2mms[22m[39m
-     [32m✓[39m allocates retail preorders FIFO while respecting customer caps[32m 2[2mms[22m[39m
-     [32m✓[39m does not allocate more than the available quantity[32m 0[2mms[22m[39m
-     [32m✓[39m keeps the server allocation query retail-only and fully paid[32m 6[2mms[22m[39m
-     [32m✓[39m requires a reviewed allocation fingerprint and explicit confirmation[32m 6[2mms[22m[39m
-[31m     [31m×[31m creates idempotent HitPay refunds for allocation shortfalls[39m[32m 22[2mms[22m[39m
-     [32m✓[39m removes the legacy preorder balance collection endpoint[32m 5[2mms[22m[39m
- [32m✓[39m tests/hosted-release-gates.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 24[2mms[22m[39m
- [32m✓[39m tests/database-bootstrap.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 36[2mms[22m[39m
- [32m✓[39m tests/api-architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 99[2mms[22m[39m
- [31m❯[39m tests/deployment-idempotency.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 69[2mms[22m[39m
+ [32m✓[39m tests/api-protections.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m tests/live-customer-pages.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32m✓[39m tests/tcgplayer-catalog.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m tests/delivery-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/catalog-product-save-action.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [31m❯[39m tests/preorder-flow.test.ts [2m([22m[2m6 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 80[2mms[22m[39m
+     [32m✓[39m allocates retail preorders FIFO while respecting customer caps[32m 4[2mms[22m[39m
+     [32m✓[39m does not allocate more than the available quantity[32m 1[2mms[22m[39m
+     [32m✓[39m keeps the server allocation query retail-only and fully paid[32m 1[2mms[22m[39m
+     [32m✓[39m requires a reviewed allocation fingerprint and explicit confirmation[32m 20[2mms[22m[39m
+[31m     [31m×[31m creates idempotent HitPay refunds for allocation shortfalls[39m[32m 41[2mms[22m[39m
+     [32m✓[39m removes the legacy preorder balance collection endpoint[32m 8[2mms[22m[39m
+ [32m✓[39m tests/hosted-release-gates.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/database-bootstrap.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m tests/api-architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 129[2mms[22m[39m
+ [31m❯[39m tests/deployment-idempotency.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 55[2mms[22m[39m
      [32m✓[39m serializes shared infrastructure and target deployments[32m 4[2mms[22m[39m
-     [32m✓[39m uses one convergent infrastructure path and applies the exact generated plan[32m 17[2mms[22m[39m
-     [32m✓[39m keeps only one code-change deployment workflow[32m 3[2mms[22m[39m
-     [32m✓[39m turns unchanged Vercel configuration and deployments into no-ops[32m 1[2mms[22m[39m
-[31m     [31m×[31m keeps HitPay checkout and webhooks limited to PayNow lifecycle events[39m[32m 42[2mms[22m[39m
- [32m✓[39m tests/out-of-stock-behaviour.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 30[2mms[22m[39m
- [32m✓[39m tests/catalog-admin-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 23[2mms[22m[39m
- [32m✓[39m tests/vercel-preview-auth.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 54[2mms[22m[39m
- [32m✓[39m tests/control-operations-surface.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m tests/telemetry.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m tests/catalog-filters.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 20[2mms[22m[39m
- [32m✓[39m tests/database-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 16[2mms[22m[39m
- [32m✓[39m tests/hitpay.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 22[2mms[22m[39m
- [32m✓[39m tests/api-protection-migrations.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m tests/deals.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+     [32m✓[39m uses one convergent infrastructure path and applies the exact generated plan[32m 8[2mms[22m[39m
+     [32m✓[39m keeps only one code-change deployment workflow[32m 2[2mms[22m[39m
+     [32m✓[39m turns unchanged Vercel configuration and deployments into no-ops[32m 5[2mms[22m[39m
+[31m     [31m×[31m keeps HitPay checkout and webhooks limited to PayNow lifecycle events[39m[32m 34[2mms[22m[39m
+ [32m✓[39m tests/out-of-stock-behaviour.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/catalog-admin-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/control-operations-surface.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/vercel-preview-auth.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 48[2mms[22m[39m
+ [32m✓[39m tests/catalog-filters.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m tests/telemetry.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/database-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/hitpay.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m tests/api-protection-migrations.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/deals.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 16[2mms[22m[39m
 [90mstdout[2m | tests/operational-alerts.test.ts[2m > [22m[2moperational alert delivery[2m > [22m[2msigns privacy-safe alert payloads
-[22m[39m{"timestamp":"2026-07-20T18:11:49.595Z","level":"info","event":"operational_alert.delivered","service":"marketplace","environment":"production","alertEvent":"hitpay.webhook.processing_failed","severity":"critical","status":200}
+[22m[39m{"timestamp":"2026-07-20T18:12:59.378Z","level":"info","event":"operational_alert.delivered","service":"marketplace","environment":"production","alertEvent":"hitpay.webhook.processing_failed","severity":"critical","status":200}
 
 [90mstdout[2m | tests/operational-alerts.test.ts[2m > [22m[2moperational alert delivery[2m > [22m[2mallows local development without an external alert provider
-[22m[39m{"timestamp":"2026-07-20T18:11:49.602Z","level":"info","event":"operational_alert.skipped","service":"marketplace","environment":"development","alertEvent":"test","reason":"not_configured_outside_production"}
+[22m[39m{"timestamp":"2026-07-20T18:12:59.382Z","level":"info","event":"operational_alert.skipped","service":"marketplace","environment":"development","alertEvent":"test","reason":"not_configured_outside_production"}
 
- [32m✓[39m tests/operational-alerts.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 40[2mms[22m[39m
- [32m✓[39m tests/storefront-ui.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 36[2mms[22m[39m
- [32m✓[39m tests/purchase-orders.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m tests/control-audit-history.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m tests/vercel-protection-bypass.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 55[2mms[22m[39m
- [32m✓[39m tests/sentry-config-contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 15[2mms[22m[39m
- [32m✓[39m tests/product-image-upload-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
- [31m❯[39m tests/health.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/operational-alerts.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m tests/storefront-ui.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/control-audit-history.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/purchase-orders.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/vercel-protection-bypass.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m tests/product-image-upload-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/sentry-config-contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [31m❯[39m tests/health.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 24[2mms[22m[39m
      [32m✓[39m keeps shallow health dependency-free[32m 3[2mms[22m[39m
-[31m     [31m×[31m fails deep readiness safely when critical dependencies are missing[39m[32m 10[2mms[22m[39m
-[31m     [31m×[31m passes deep readiness with configured HitPay and a successful Supabase probe[39m[32m 3[2mms[22m[39m
+[31m     [31m×[31m fails deep readiness safely when critical dependencies are missing[39m[32m 12[2mms[22m[39m
+[31m     [31m×[31m passes deep readiness with configured HitPay and a successful Supabase probe[39m[32m 7[2mms[22m[39m
  [32m✓[39m tests/product-publication-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
- [32m✓[39m tests/tcgplayer-catalog-admin-flow.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
- [32m✓[39m tests/allocation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m tests/products-route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 73[2mms[22m[39m
- [32m✓[39m tests/catalog-readiness.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 16[2mms[22m[39m
- [31m❯[39m tests/vercel-provisioned-secret-safety.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m tests/tcgplayer-catalog-admin-flow.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/allocation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/products-route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+ [32m✓[39m tests/catalog-readiness.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [31m❯[39m tests/vercel-provisioned-secret-safety.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 58[2mms[22m[39m
      [32m✓[39m preserves an unreadable one-time secret unless rotation is explicit[32m 3[2mms[22m[39m
-[31m     [31m×[31m removes stale workflow webhook secrets and rotates only newly issued credentials[39m[32m 29[2mms[22m[39m
-[31m     [31m×[31m keeps readiness checks non-mutating for optional and provisioned sensitive values[39m[32m 27[2mms[22m[39m
- [32m✓[39m tests/storefront-deals.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
- [32m✓[39m tests/production-payment-guards.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m tests/supabase-relations.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m tests/docs-release-topology.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+[31m     [31m×[31m removes stale workflow webhook secrets and rotates only newly issued credentials[39m[32m 27[2mms[22m[39m
+[31m     [31m×[31m keeps readiness checks non-mutating for optional and provisioned sensitive values[39m[32m 25[2mms[22m[39m
+ [32m✓[39m tests/storefront-deals.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/production-payment-guards.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/supabase-relations.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/docs-release-topology.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
  [32m✓[39m tests/catalog-identifiers.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
  [32m✓[39m tests/catalog-duplicate-migration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
- [32m✓[39m tests/product-publication-save-feedback.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
- [32m✓[39m tests/preview-fixtures.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m tests/product-publication-save-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
- [32m✓[39m tests/shipping.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m tests/storefront-product-relationships.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/product-publication-save-feedback.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/product-publication-save-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/preview-fixtures.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/shipping.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/storefront-product-relationships.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
  [32m✓[39m tests/deploy-migration-ordering.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
  [32m✓[39m tests/app-config.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
 
@@ -1536,8 +1536,8 @@ Node.js v22.17.0
 
 [2m Test Files [22m [1m[31m9 failed[39m[22m[2m | [22m[1m[32m61 passed[39m[22m[90m (70)[39m
 [2m      Tests [22m [1m[31m18 failed[39m[22m[2m | [22m[1m[32m310 passed[39m[22m[90m (328)[39m
-[2m   Start at [22m 18:11:38
-[2m   Duration [22m 13.55s[2m (transform 1.30s, setup 0ms, import 24.93s, tests 3.13s, environment 14ms)[22m
+[2m   Start at [22m 18:12:48
+[2m   Duration [22m 13.78s[2m (transform 1.50s, setup 0ms, import 25.55s, tests 3.28s, environment 10ms)[22m
 
 
 ::error file=/home/runner/work/marketplace/marketplace/tests/admin-orders.test.ts,title=tests/admin-orders.test.ts > admin order actions > identifies manual%2C stale%2C failed-allocation%2C and orphan-provider exceptions,line=127,column=75::AssertionError: expected [ 'failed_payment_allocation', …(2) ] to deeply equal [ 'failed_payment_allocation', …(3) ]%0A%0A- Expected%0A+ Received%0A%0A  [%0A    "failed_payment_allocation",%0A    "manual_flag",%0A-   "orphan_provider_payment",%0A    "stale_pending_payment",%0A  ]%0A%0A ❯ tests/admin-orders.test.ts:127:75%0A%0A
