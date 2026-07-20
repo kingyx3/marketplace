@@ -16,6 +16,16 @@ export interface CategoryOption {
   active: boolean;
 }
 
+type SetStatus = "announced" | "preorder_open" | "preorder_closed" | "released" | "out_of_print";
+
+const setStatusOptions: Array<{ value: SetStatus; label: string }> = [
+  { value: "announced", label: "Announced" },
+  { value: "preorder_open", label: "Preorder open" },
+  { value: "preorder_closed", label: "Preorder closed" },
+  { value: "released", label: "Released" },
+  { value: "out_of_print", label: "Out of print" },
+];
+
 export interface SetRecord {
   id: string;
   category_id: string;
@@ -25,7 +35,7 @@ export interface SetRecord {
   release_date: string | null;
   preorder_open_at: string | null;
   preorder_close_at: string | null;
-  status: "announced" | "preorder_open" | "preorder_closed" | "released" | "out_of_print";
+  status: SetStatus;
   sort_order: number;
   active: boolean;
 }
@@ -46,6 +56,10 @@ export function SetForm({
   draft?: SetDraft;
   error?: string;
 }) {
+  const currentStatusIndex = set
+    ? setStatusOptions.findIndex((option) => option.value === set.status)
+    : -1;
+
   return (
     <ControlActionForm
       action={upsertControlSet}
@@ -88,16 +102,13 @@ export function SetForm({
         <AdminSelectField
           defaultValue={set?.status ?? "announced"}
           example="Announced"
-          hint="Controls the release lifecycle shown to operations staff."
+          hint="Lifecycle status can move forward but cannot be rolled back after saving."
           label="Status"
           name="status"
-          options={[
-            { value: "announced", label: "Announced" },
-            { value: "preorder_open", label: "Preorder open" },
-            { value: "preorder_closed", label: "Preorder closed" },
-            { value: "released", label: "Released" },
-            { value: "out_of_print", label: "Out of print" },
-          ]}
+          options={setStatusOptions.map((option, index) => ({
+            ...option,
+            disabled: Boolean(set) && index < currentStatusIndex,
+          }))}
           required
         />
       </div>
