@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type Stripe from "stripe";
 
 import type { ApiCustomerContext } from "@/lib/api/auth";
 import { badRequest, conflict, internalError } from "@/lib/api/errors";
@@ -14,8 +13,8 @@ import {
   createCheckoutPayment as createPreorderCheckoutPayment,
   type CheckoutResult,
 } from "@/lib/checkout";
+import { applicationUrl, createHitPayClient, type HitPayClient } from "@/lib/hitpay";
 import { shippingAddressSchema, type ShippingAddress } from "@/lib/shipping";
-import { createStripeClient } from "@/lib/stripe";
 
 export function checkoutResponseBody(result: CheckoutResult) {
   return baseCheckoutResponseBody(result);
@@ -24,11 +23,11 @@ export function checkoutResponseBody(result: CheckoutResult) {
 export async function createCheckoutPayment(
   auth: ApiCustomerContext,
   body: unknown,
-  stripe: Stripe = createStripeClient()
+  hitpay: HitPayClient = createHitPayClient()
 ): Promise<CheckoutResult> {
   const request = checkoutRequestSchema.parse(body) as CheckoutRequest;
   if (request.mode === "preorder") {
-    return createPreorderCheckoutPayment(auth, request, stripe);
+    return createPreorderCheckoutPayment(auth, request, hitpay);
   }
 
   const shippingAddress = shippingAddressSchema.parse(request.shippingAddress);
@@ -36,7 +35,7 @@ export async function createCheckoutPayment(
   if (quote.totalCents <= 0) throw badRequest("Checkout total must be greater than zero");
 
   let orderId: string | null = null;
-  let paymentIntentId: string | null = null;
+  let paymentRequestId: string | null = null;
 
   try {
     const order = await auth.supabase
@@ -57,48 +56,45 @@ export async function createCheckoutPayment(
     const reservationExpiresAt =
       orderData.reservation_expires_at ?? new Date(Date.now() + 15 * 60_000).toISOString();
 
-    const intent = await stripe.paymentIntents.create(
-      {
-        amount: quote.totalCents,
-        currency: quote.currency.toLowerCase(),
-        automatic_payment_methods: { enabled: true },
-        receipt_email: auth.customer.email,
-        shipping: stripeShippingAddress(shippingAddress),
-        metadata: {
-          kind: "full",
-          order_id: orderId,
-          customer_id: auth.customer.id,
-          reservation_expires_at: reservationExpiresAt,
-        },
-      },
-      { idempotencyKey: `order-checkout:${orderId}` }
-    );
-    paymentIntentId = intent.id;
+    const paymentRequest = await hitpay.createPaymentRequest({
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+      email: auth.customer.email,
+      name: shippingAddress.recipientName || auth.customer.name,
+      phone: shippingAddress.phone,
+      purpose: `Marketplace order ${orderId}`,
+      referenceNumber: `order:${orderId}`,
+      redirectUrl: applicationUrl(
+        `/cart?checkout=processing&order=${encodeURIComponent(orderId)}`
+      ),
+      expiresAfter: "15 minutes",
+    });
+    paymentRequestId = paymentRequest.id;
 
     const payment = await insertPayment(auth.supabase, {
       orderId,
-      providerPaymentId: intent.id,
+      providerPaymentId: paymentRequest.id,
       amountCents: quote.totalCents,
       currency: quote.currency,
     });
-
-    if (!intent.client_secret) {
-      throw internalError("Payment intent is missing a client secret");
-    }
 
     return {
       mode: "order",
       orderId,
       paymentId: payment.id,
-      paymentIntentId: intent.id,
-      clientSecret: intent.client_secret,
+      paymentRequestId: paymentRequest.id,
+      checkoutUrl: paymentRequest.url,
       publishableCurrency: quote.currency,
       amountCents: quote.totalCents,
       quote,
       reservationExpiresAt,
     };
   } catch (error) {
-    await rollbackFailedOrderCheckout(auth.supabase, { orderId, paymentIntentId, stripe });
+    await rollbackFailedOrderCheckout(auth.supabase, {
+      orderId,
+      paymentRequestId,
+      hitpay,
+    });
     throw error instanceof Error ? error : internalError();
   }
 }
@@ -143,23 +139,6 @@ function checkoutConflict(message: string): Error {
   return new Error(message);
 }
 
-function stripeShippingAddress(
-  address: ShippingAddress
-): Stripe.PaymentIntentCreateParams.Shipping {
-  return {
-    name: address.recipientName,
-    phone: address.phone || undefined,
-    address: {
-      line1: address.line1,
-      line2: address.line2 || undefined,
-      city: address.city || undefined,
-      state: address.region || undefined,
-      postal_code: address.postalCode,
-      country: address.countryCode,
-    },
-  };
-}
-
 async function insertPayment(
   supabase: SupabaseClient,
   input: {
@@ -173,6 +152,7 @@ async function insertPayment(
     .from("payments")
     .insert({
       order_id: input.orderId,
+      provider: "hitpay",
       provider_payment_id: input.providerPaymentId,
       kind: "full",
       amount_cents: input.amountCents,
@@ -190,15 +170,15 @@ async function rollbackFailedOrderCheckout(
   supabase: SupabaseClient,
   input: {
     orderId: string | null;
-    paymentIntentId: string | null;
-    stripe: Stripe;
+    paymentRequestId: string | null;
+    hitpay: HitPayClient;
   }
 ): Promise<void> {
-  if (input.paymentIntentId) {
+  if (input.paymentRequestId) {
     try {
-      await input.stripe.paymentIntents.cancel(input.paymentIntentId);
+      await input.hitpay.cancelPaymentRequest(input.paymentRequestId);
     } catch {
-      // The reservation expiry and webhook reconciliation remain authoritative.
+      // Reservation expiry and signed webhook reconciliation remain authoritative.
     }
   }
 
