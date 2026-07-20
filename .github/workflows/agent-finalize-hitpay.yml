@@ -39,22 +39,22 @@ jobs:
         run: |
           set +e
           mkdir -p tmp/hitpay-ci
-          npm run lint > tmp/hitpay-ci/lint.log 2>&1
+          npm run lint > tmp/hitpay-ci/lint.txt 2>&1
           lint_code=$?
-          npm run typecheck > tmp/hitpay-ci/typecheck.log 2>&1
+          npm run typecheck > tmp/hitpay-ci/typecheck.txt 2>&1
           typecheck_code=$?
-          npm test > tmp/hitpay-ci/unit-tests.log 2>&1
+          npm test > tmp/hitpay-ci/unit-tests.txt 2>&1
           tests_code=$?
-          npm run config:check > tmp/hitpay-ci/config-check.log 2>&1
+          npm run config:check > tmp/hitpay-ci/config-check.txt 2>&1
           config_code=$?
           printf 'lint=%s\ntypecheck=%s\nunit_tests=%s\nconfig_check=%s\n' \
             "$lint_code" "$typecheck_code" "$tests_code" "$config_code" \
             > tmp/hitpay-ci/summary.txt
           exit 0
-      - name: Publish diagnostic logs to branch
+      - name: Publish diagnostic output to branch
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add tmp/hitpay-ci
-          git commit -m "Add temporary HitPay validation diagnostics"
+          git add -f tmp/hitpay-ci/*.txt
+          git commit -m "Refresh temporary HitPay validation diagnostics"
           git push origin HEAD:agent/migrate-payments-to-hitpay
