@@ -29,7 +29,7 @@ jobs:
           import json
           import re
 
-          roots = [Path('app'), Path('lib'), Path('scripts'), Path('tests'), Path('.github')]
+          roots = [Path('app'), Path('lib'), Path('scripts'), Path('tests')]
           explicit = [
             Path('AGENTS.md'), Path('README.md'), Path('docs/security.md'),
             Path('docs/local-dev.md'), Path('docs/bootstrap.md'), Path('docs/environments.md'),
@@ -43,7 +43,7 @@ jobs:
                 path for path in root.rglob('*')
                 if path.is_file()
                 and 'node_modules' not in path.parts
-                and path.suffix in {'.ts', '.tsx', '.js', '.mjs', '.json', '.yml', '.yaml', '.md'}
+                and path.suffix in {'.ts', '.tsx', '.js', '.mjs', '.json', '.md'}
               )
 
           replacements = [
@@ -105,17 +105,13 @@ jobs:
         run: npx prettier --write scripts --log-level silent
       - name: Format tests
         run: npx prettier --write tests --log-level silent
-      - name: Format workflows and configuration
-        run: npx prettier --write .github package.json package-lock.json config --log-level silent
+      - name: Format configuration
+        run: npx prettier --write package.json package-lock.json config --log-level silent
       - name: Format active documentation
         run: npx prettier --write AGENTS.md README.md docs/security.md docs/local-dev.md docs/bootstrap.md docs/environments.md docs/architecture.md docs/data-model.md docs/provisioning.md docs/cost-controls.md docs/observability.md docs/testing.md docs/generated --log-level silent
-      - name: Remove one-shot migration helpers
-        run: |
-          rm -f scripts/agent-migrate-hitpay.mjs
-          rm -f .github/workflows/agent-hitpay-migration.yml
-          rm -f .github/workflows/agent-finalize-hitpay.yml
       - name: Commit finalized migration
         run: |
+          git restore --source=HEAD -- .github/workflows
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
