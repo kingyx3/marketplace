@@ -106,7 +106,7 @@ jobs:
       - name: Format tests
         run: npx prettier --write tests --log-level silent
       - name: Format workflows and configuration
-        run: npx prettier --write .github package.json package-lock.json config .env.example --log-level silent
+        run: npx prettier --write .github package.json package-lock.json config --log-level silent
       - name: Format active documentation
         run: npx prettier --write AGENTS.md README.md docs/security.md docs/local-dev.md docs/bootstrap.md docs/environments.md docs/architecture.md docs/data-model.md docs/provisioning.md docs/cost-controls.md docs/observability.md docs/testing.md docs/generated --log-level silent
       - name: Remove one-shot migration helpers
