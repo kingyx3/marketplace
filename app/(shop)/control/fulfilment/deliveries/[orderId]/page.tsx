@@ -1,0 +1,50 @@
+import { notFound } from "next/navigation";
+
+import { ControlBackLink } from "@/app/(shop)/control/_components/control-resource-ui";
+import { DeliveryEditor } from "@/app/(shop)/control/_components/delivery-editor";
+import { PageHeader } from "@/app/_components/page-header";
+import { StatusBadge } from "@/app/_components/status-badge";
+import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
+import { getAdminDeliveryOrder } from "@/lib/deliveries";
+import { createServiceClient } from "@/lib/supabase";
+
+export const dynamic = "force-dynamic";
+
+export default async function DeliveryDetailPage({
+  params,
+}: {
+  params: Promise<{ orderId: string }>;
+}) {
+  const { orderId } = await params;
+  const { staff } = await requireControlPermission(
+    "fulfilment.view",
+    `/control/fulfilment/deliveries/${orderId}`
+  );
+  const order = await getAdminDeliveryOrder(createServiceClient(), orderId);
+  if (!order) notFound();
+
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        action={
+          <>
+            <StatusBadge tone="success">Fully paid</StatusBadge>
+            <ControlBackLink href="/control/fulfilment/deliveries">
+              Back to deliveries
+            </ControlBackLink>
+          </>
+        }
+        description={order.customer?.email ?? order.id}
+        eyebrow="Control · Delivery"
+        title={order.customer?.name || "Delivery order"}
+      />
+      {hasControlPermission(staff, "fulfilment.manage") ? (
+        <DeliveryEditor order={order} />
+      ) : (
+        <section className="rounded-xl border border-zinc-200 bg-white p-5 text-sm leading-6 text-zinc-600 shadow-sm">
+          Delivery execution is read only for your current domain coverage.
+        </section>
+      )}
+    </div>
+  );
+}

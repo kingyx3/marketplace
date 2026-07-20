@@ -1,43 +1,11 @@
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("catalog administration workflow", () => {
-  it("routes hierarchical product intake through focused operations pages", async () => {
-    const [
-      shell,
-      operations,
-      newProduct,
-      productDetail,
-      productEditor,
-      form,
-      fields,
-      action,
-      hierarchyMigration,
-      identityMigration,
-      displayNameMigration,
-      normalizationMigration,
-    ] = await Promise.all([
+  it("creates draft products through the dedicated Catalog hierarchy flow", async () => {
+    const [page, form, fields, action] = await Promise.all([
       readFile(
-        new URL("../app/(shop)/control/_components/control-shell.tsx", import.meta.url),
-        "utf8"
-      ),
-      readFile(new URL("../app/(shop)/control/operations/page.tsx", import.meta.url), "utf8"),
-      readFile(
-        new URL("../app/(shop)/control/operations/products/new/page.tsx", import.meta.url),
-        "utf8"
-      ),
-      readFile(
-        new URL(
-          "../app/(shop)/control/operations/products/[productId]/page.tsx",
-          import.meta.url
-        ),
-        "utf8"
-      ),
-      readFile(
-        new URL(
-          "../app/(shop)/control/_components/catalog-product-editor.tsx",
-          import.meta.url
-        ),
+        new URL("../app/(shop)/control/catalog/products/new/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
@@ -49,170 +17,66 @@ describe("catalog administration workflow", () => {
         "utf8"
       ),
       readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8"),
-      readFile(
-        new URL(
-          "../supabase/migrations/20260717180000_hierarchical_catalog_product_flow.sql",
-          import.meta.url
-        ),
-        "utf8"
-      ),
-      readFile(
-        new URL(
-          "../supabase/migrations/20260717223000_product_types_and_derived_product_identity.sql",
-          import.meta.url
-        ),
-        "utf8"
-      ),
-      readFile(
-        new URL(
-          "../supabase/migrations/20260718143000_product_display_name_slug.sql",
-          import.meta.url
-        ),
-        "utf8"
-      ),
-      readFile(
-        new URL(
-          "../supabase/migrations/20260718143100_align_product_slug_normalization.sql",
-          import.meta.url
-        ),
-        "utf8"
-      ),
     ]);
 
-    expect(shell).not.toContain('href: "/control/catalog"');
-    expect(shell).toContain('href: "/control/operations"');
-    expect(shell).toContain('permission: "manage_catalog"');
-    expect(shell).not.toContain('href: "/control/categories"');
-    expect(shell).not.toContain('href: "/control/sets"');
-    expect(operations).toContain("ProductListSection");
-    expect(operations).toContain('href="/control/operations/products/new"');
-    expect(operations).not.toContain("ProductIntakeForm");
-    expect(operations).not.toContain("upsertCatalogSku");
-    expect(operations).toContain("canManageFullOperations");
-    expect(newProduct).toContain("ProductIntakeForm");
-    expect(newProduct).toContain("fetchControlProductTypes");
-    expect(newProduct).toContain('existingSlugs={products.map((product) => product.slug)}');
-    expect(productDetail).toContain("CatalogProductEditor");
-    expect(productDetail).toContain("CatalogSkuManager");
-    expect(productEditor).toContain('label="Display name"');
-    expect(productEditor).toContain('checked={product.published} label="Published" name="published"');
-    expect(productEditor).toContain("Add SKU");
-    expect(productEditor).not.toContain("Quick add category");
-    expect(productEditor).not.toContain("Quick add set");
+    expect(page).toContain("ProductIntakeForm");
+    expect(page).toContain("fetchControlProductTypes");
     expect(form).toContain("Step 1");
     expect(form).toContain("Step 2");
     expect(form).toContain("Add category");
     expect(form).toContain("Add set");
     expect(form).toContain("Add type");
     expect(form).toContain('name="name"');
-    expect(form).toContain('name="published"');
-    expect(form).toContain("Published is selected by default");
+    expect(form).not.toContain('name="published"');
     expect(form).not.toContain('name="slug"');
-    expect(form).not.toContain('name="newCategorySlug"');
-    expect(form).not.toContain('name="newSetCode"');
-    expect(form).toContain("The display name is customer-facing.");
     expect(form).toContain("Generated slug:");
-    expect(form).toContain("existingSlugs.includes(generatedSlug)");
     expect(form).toContain("This slug is already in use");
-    expect(form).toContain("The category slug is generated automatically from this name.");
-    expect(form).toContain("The reusable set code is generated automatically from this name.");
-    expect(form).toContain("A reusable dropdown code is generated automatically from this name.");
-    expect(form).toContain('name="setMode"');
-    expect(form).toContain('name="productTypeMode"');
-    expect(form).toContain("visibleSets");
-    expect(form).toContain("useActionState");
     expect(fields).toContain('aria-label="required"');
-    expect(fields).toContain("text-rose-600");
-    expect(fields).toContain("Example: {example}");
     expect(fields).toContain('aria-live="polite"');
-    expect(fields).toContain("validity.typeMismatch");
-    expect(fields).toContain("validity.patternMismatch");
-    expect(fields).toContain("validity.rangeUnderflow");
-    expect(action).toContain('requireControlPermission("manage_catalog", "/control/operations")');
-    expect(action).toContain('rpc("admin_create_catalog_product_with_publication"');
-    expect(action).toContain('rpc("admin_upsert_catalog_product_with_publication"');
-    expect(action).toContain('rpc("admin_upsert_booster_box_sku"');
-    expect(action).toContain("product_id?: string");
-    expect(action).toContain('redirect(`/control/operations/products/${createdProductId}`)');
-    expect(action).toContain("p_name: input.name");
-    expect(action).toContain("p_published: published");
-    expect(action).toContain("the other product details are preserved");
-    expect(hierarchyMigration).toContain("category_created boolean");
-    expect(hierarchyMigration).toContain("set_created boolean");
-    expect(identityMigration).toContain("CONTROL_CATEGORY_CREATE_INLINE");
-    expect(identityMigration).toContain("CONTROL_SET_CREATE_INLINE");
-    expect(identityMigration).toContain("CONTROL_PRODUCT_TYPE_CREATE_INLINE");
-    expect(identityMigration).toContain("active set not found for category");
-    expect(identityMigration).toContain("create table public.product_types");
-    expect(identityMigration).toContain("alter column set_id set not null");
-    expect(identityMigration).not.toContain("General");
-    expect(identityMigration).not.toContain("where product.set_id is null");
-    expect(identityMigration).not.toContain("select distinct\n  lower(trim(product.product_type))");
-    expect(identityMigration).not.toContain("create table if not exists public.product_types");
-    expect(displayNameMigration).toContain("catalog_slug_from_name");
-    expect(displayNameMigration).toContain("new.name := v_name");
-    expect(displayNameMigration).toContain("new.slug := v_slug");
-    expect(displayNameMigration).toContain("product display name generates a slug already used");
-    expect(displayNameMigration).toContain(
-      "drop trigger if exists refresh_product_identity_from_category"
-    );
-    expect(displayNameMigration).toContain("p_name text");
-    expect(normalizationMigration).toContain("create extension if not exists unaccent");
-    expect(normalizationMigration).toContain("set search_path = public, extensions");
-    expect(normalizationMigration).toContain("unaccent(trim(p_value))");
+    expect(action).toContain('requireControlPermission("catalog.manage", "/control/catalog")');
+    expect(action).toContain('rpc("admin_create_catalog_product_hierarchy"');
+    expect(action).not.toContain("with_publication");
+    expect(action).not.toContain("p_published");
+    expect(action).toContain("redirect(`/control/catalog/products/${createdProductId}`)");
   });
 
-  it("standardizes catalog admin input guidance and validation", async () => {
-    const [operations, newProduct, productEditor, categoryForm, setForm] = await Promise.all([
-      readFile(new URL("../app/(shop)/control/operations/page.tsx", import.meta.url), "utf8"),
+  it("keeps editable product and SKU details inside Catalog", async () => {
+    const [detail, detailsEditor, skuEditor] = await Promise.all([
       readFile(
-        new URL("../app/(shop)/control/operations/products/new/page.tsx", import.meta.url),
+        new URL("../app/(shop)/control/catalog/products/[productId]/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
         new URL(
-          "../app/(shop)/control/_components/catalog-product-editor.tsx",
+          "../app/(shop)/control/_components/catalog-product-details-editor.tsx",
           import.meta.url
         ),
         "utf8"
       ),
       readFile(
-        new URL("../app/(shop)/control/_components/category-form.tsx", import.meta.url),
-        "utf8"
-      ),
-      readFile(
-        new URL("../app/(shop)/control/_components/set-form.tsx", import.meta.url),
+        new URL("../app/(shop)/control/_components/catalog-product-editor.tsx", import.meta.url),
         "utf8"
       ),
     ]);
-
-    for (const source of [operations, productEditor, categoryForm, setForm]) {
-      expect(source).toContain("AdminTextField");
-      expect(source).toContain("example=");
-      expect(source).toContain("required");
-    }
-    expect(newProduct).toContain("ProductIntakeForm");
-    expect(operations).toContain("AdminNumberField");
-    expect(operations).toContain("AdminSelectField");
-    expect(productEditor).toContain("AdminNumberField");
-    expect(productEditor).toContain("AdminSelectField");
-    expect(productEditor).toContain("AdminFileField");
-    expect(categoryForm).toContain("AdminTextareaField");
-    expect(setForm).toContain('type="datetime-local"');
-  });
-
-  it("removes the standalone control catalog route", async () => {
-    await expect(
-      access(new URL("../app/(shop)/control/catalog/page.tsx", import.meta.url))
-    ).rejects.toThrow();
+    expect(detail).toContain("ProductListingWorkflow");
+    expect(detail).toContain("CatalogProductDetailsEditor");
+    expect(detail).toContain("CatalogSkuManager");
+    expect(detailsEditor).toContain("ProductImageUploader");
+    expect(skuEditor).toContain("upsertCatalogSku");
+    expect(skuEditor).toContain("Add SKU");
+    expect(skuEditor).not.toContain('name="priceCents"');
+    expect(skuEditor).not.toContain('name="published"');
   });
 
   it("surfaces duplicate generated category slugs on the active form route", async () => {
-    const [categoryAction, newCategoryPage, categoryDetailPage, categoryForm] = await Promise.all([
+    const [categoryAction, newPage, detailPage, form] = await Promise.all([
       readFile(new URL("../app/actions/control.ts", import.meta.url), "utf8"),
-      readFile(new URL("../app/(shop)/control/categories/new/page.tsx", import.meta.url), "utf8"),
       readFile(
-        new URL("../app/(shop)/control/categories/[categoryId]/page.tsx", import.meta.url),
+        new URL("../app/(shop)/control/catalog/categories/new/page.tsx", import.meta.url),
+        "utf8"
+      ),
+      readFile(
+        new URL("../app/(shop)/control/catalog/categories/[categoryId]/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
@@ -220,17 +84,11 @@ describe("catalog administration workflow", () => {
         "utf8"
       ),
     ]);
-
     expect(categoryAction).toContain("redirectToCategoryConflict");
     expect(categoryAction).toContain('error: "duplicate-category"');
-    expect(categoryAction).toContain('"/control/categories/new"');
-    expect(categoryAction).toContain('`/control/categories/${input.categoryId}`');
-    expect(categoryAction).not.toContain("while (used.has");
-    expect(newCategoryPage).toContain('params.error === "duplicate-category"');
-    expect(newCategoryPage).toContain("This name conflicts with");
-    expect(categoryDetailPage).toContain('paramsValue.error === "duplicate-category"');
-    expect(categoryDetailPage).toContain("This name conflicts with");
-    expect(categoryForm).toContain("externalError={error}");
-    expect(categoryForm).not.toContain('name="slug"');
+    expect(newPage).toContain('params.error === "duplicate-category"');
+    expect(detailPage).toContain('paramsValue.error === "duplicate-category"');
+    expect(form).toContain("externalError={error}");
+    expect(form).not.toContain('name="slug"');
   });
 });

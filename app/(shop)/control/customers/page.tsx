@@ -32,7 +32,7 @@ export default async function ControlCustomersPage({
 }: {
   searchParams?: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  const { staff } = await requireControlPermission("manage_customers", "/control/customers");
+  const { staff } = await requireControlPermission("customers.view", "/control/customers");
   const params = (await searchParams) ?? {};
   const query = params.q?.trim() ?? "";
   const status =
@@ -78,10 +78,26 @@ export default async function ControlCustomersPage({
       />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Matching" value={String(total)} detail="Current search and status filter" />
-        <MetricCard label="Visible" value={String(customers.length)} detail={`Page ${page} of ${totalPages}`} />
-        <MetricCard label="Deleted on page" value={String(deletedCount)} detail="Retained for audit" />
-        <MetricCard label="Recoverable on page" value={String(recoverableCount)} detail="Linked identities available" />
+        <MetricCard
+          label="Matching"
+          value={String(total)}
+          detail="Current search and status filter"
+        />
+        <MetricCard
+          label="Visible"
+          value={String(customers.length)}
+          detail={`Page ${page} of ${totalPages}`}
+        />
+        <MetricCard
+          label="Deleted on page"
+          value={String(deletedCount)}
+          detail="Retained for audit"
+        />
+        <MetricCard
+          label="Recoverable on page"
+          value={String(recoverableCount)}
+          detail="Linked identities available"
+        />
       </section>
 
       <form className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
@@ -133,9 +149,13 @@ export default async function ControlCustomersPage({
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <h3 className="truncate font-semibold text-zinc-950">{customer.name || "Customer"}</h3>
+                      <h3 className="truncate font-semibold text-zinc-950">
+                        {customer.name || "Customer"}
+                      </h3>
                       <p className="mt-1 break-all text-sm text-zinc-600">{customer.email}</p>
-                      <p className="mt-1 break-all font-mono text-xs text-zinc-400">{customer.id}</p>
+                      <p className="mt-1 break-all font-mono text-xs text-zinc-400">
+                        {customer.id}
+                      </p>
                     </div>
                     <StatusBadge tone={deleted ? "danger" : "success"}>
                       {deleted ? "Deleted" : "Active"}
@@ -143,7 +163,10 @@ export default async function ControlCustomersPage({
                   </div>
                   <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
                     <ControlData label="Orders" value={String(customer.orders?.length ?? 0)} />
-                    <ControlData label="Preorders" value={String(customer.preorders?.length ?? 0)} />
+                    <ControlData
+                      label="Preorders"
+                      value={String(customer.preorders?.length ?? 0)}
+                    />
                     <ControlData label="Updated" value={formatDate(customer.updated_at)} />
                   </dl>
                 </Link>
@@ -180,7 +203,11 @@ function PaginationLink({
   children: React.ReactNode;
 }) {
   if (disabled) {
-    return <span className="rounded-md border border-zinc-200 px-4 py-2 text-sm text-zinc-400">{children}</span>;
+    return (
+      <span className="rounded-md border border-zinc-200 px-4 py-2 text-sm text-zinc-400">
+        {children}
+      </span>
+    );
   }
   return (
     <Link

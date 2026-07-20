@@ -1,12 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type StaffRole =
-  | "viewer"
-  | "support"
-  | "catalog"
-  | "operations"
-  | "admin"
-  | "owner";
+export type StaffRole = "viewer" | "support" | "catalog" | "operations" | "admin" | "owner";
 
 export interface StaffProfile {
   id: string;
@@ -16,6 +10,7 @@ export interface StaffProfile {
   source?: "database" | "environment";
   created_by_staff_id?: string | null;
   last_seen_at?: string | null;
+  permissions?: string[];
 }
 
 interface ResolveAdminStaffInput {
@@ -29,10 +24,10 @@ interface AccessGrant {
   role: StaffRole;
   active: boolean;
   created_by_staff_id: string | null;
+  permissions: string[];
 }
 
-const STAFF_COLUMNS =
-  "id, role, active, email, source, created_by_staff_id, last_seen_at";
+const STAFF_COLUMNS = "id, role, active, email, source, created_by_staff_id, last_seen_at";
 
 /**
  * Resolve the active operations profile for a signed-in user.
@@ -89,7 +84,7 @@ export async function resolveAdminStaff(
     throw new Error(`Administrator grant acceptance failed: ${accepted.error.message}`);
   }
 
-  return profile;
+  return { ...profile, permissions: grant.permissions };
 }
 
 /** Compatibility wrapper for older call sites and focused unit tests. */
@@ -116,7 +111,7 @@ async function readAccessGrant(
 ): Promise<AccessGrant | null> {
   const result = await supabase
     .from("admin_access_grants")
-    .select("id, role, active, created_by_staff_id")
+    .select("id, role, active, created_by_staff_id, admin_access_grant_permissions(permission_key)")
     .eq("email", email)
     .eq("active", true)
     .maybeSingle();
@@ -125,7 +120,19 @@ async function readAccessGrant(
     throw new Error(`Administrator grant lookup failed: ${result.error.message}`);
   }
 
-  return result.data as AccessGrant | null;
+  if (!result.data) return null;
+  const row = result.data as unknown as Omit<AccessGrant, "permissions"> & {
+    admin_access_grant_permissions: Array<{ permission_key: string }> | null;
+  };
+  return {
+    id: row.id,
+    role: row.role,
+    active: row.active,
+    created_by_staff_id: row.created_by_staff_id,
+    permissions: (row.admin_access_grant_permissions ?? []).map(
+      (permission) => permission.permission_key
+    ),
+  };
 }
 
 async function updateEnvironmentOwner(
@@ -147,7 +154,9 @@ async function updateEnvironmentOwner(
     .single();
 
   if (result.error || !result.data) {
-    throw new Error(`Environment owner synchronization failed: ${result.error?.message ?? "row missing"}`);
+    throw new Error(
+      `Environment owner synchronization failed: ${result.error?.message ?? "row missing"}`
+    );
   }
 
   return result.data as StaffProfile;
@@ -173,21 +182,19 @@ async function synchronizeDelegatedStaff(
     .single();
 
   if (result.error || !result.data) {
-    throw new Error(`Delegated staff synchronization failed: ${result.error?.message ?? "row missing"}`);
+    throw new Error(
+      `Delegated staff synchronization failed: ${result.error?.message ?? "row missing"}`
+    );
   }
 
-  return result.data as StaffProfile;
+  return { ...(result.data as StaffProfile), permissions: grant.permissions };
 }
 
 async function insertStaffProfile(
   supabase: SupabaseClient,
   input: Record<string, unknown>
 ): Promise<StaffProfile> {
-  const inserted = await supabase
-    .from("staff_users")
-    .insert(input)
-    .select(STAFF_COLUMNS)
-    .single();
+  const inserted = await supabase.from("staff_users").insert(input).select(STAFF_COLUMNS).single();
 
   if (inserted.error?.code === "23505") {
     const concurrent = await readStaffProfile(supabase, String(input.auth_user_id));

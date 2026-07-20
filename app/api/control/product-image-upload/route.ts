@@ -28,7 +28,7 @@ const finalizeUploadSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireApiPermission(request, "manage_catalog");
+    const auth = await requireApiPermission(request, "catalog.manage");
     const input = createUploadSchema.parse(await request.json());
     await assertProductExists(auth.supabase, input.productId);
 
@@ -47,13 +47,16 @@ export async function POST(request: Request) {
       maxSizeBytes: MAX_PRODUCT_IMAGE_BYTES,
     });
   } catch (error) {
-    return toErrorResponse(error, { route: "/api/control/product-image-upload", operation: "create" });
+    return toErrorResponse(error, {
+      route: "/api/control/product-image-upload",
+      operation: "create",
+    });
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const auth = await requireApiPermission(request, "manage_catalog");
+    const auth = await requireApiPermission(request, "catalog.manage");
     const input = finalizeUploadSchema.parse(await request.json());
     await assertProductExists(auth.supabase, input.productId);
 
@@ -97,7 +100,10 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ publicUrl: publicUrlData.publicUrl });
   } catch (error) {
-    return toErrorResponse(error, { route: "/api/control/product-image-upload", operation: "finalize" });
+    return toErrorResponse(error, {
+      route: "/api/control/product-image-upload",
+      operation: "finalize",
+    });
   }
 }
 
@@ -105,7 +111,11 @@ async function assertProductExists(
   supabase: Awaited<ReturnType<typeof requireApiPermission>>["supabase"],
   productId: string
 ): Promise<void> {
-  const { data, error } = await supabase.from("products").select("id").eq("id", productId).maybeSingle();
+  const { data, error } = await supabase
+    .from("products")
+    .select("id")
+    .eq("id", productId)
+    .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw notFound("Product not found");
 }

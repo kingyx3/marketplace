@@ -26,8 +26,8 @@ export function CatalogProductDetailsEditor({
         <div>
           <h2 className="text-xl font-semibold text-zinc-950">Product details</h2>
           <p className="mt-1 text-sm text-zinc-600">
-            Update the customer-facing product, its structured catalog relationships, image,
-            publication, and availability.
+            Maintain product identity, structured catalog relationships, media, and lifecycle.
+            Pricing and storefront publication are managed separately.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -4,7 +4,7 @@ import { CustomerLifecycleControl } from "@/app/(shop)/control/_components/custo
 import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { requireControlPermission } from "@/lib/control-access";
+import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { createServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,10 @@ export default async function CustomerDetailPage({
   params: Promise<{ customerId: string }>;
 }) {
   const { customerId } = await params;
-  await requireControlPermission("manage_customers", `/control/customers/${customerId}`);
+  const { staff } = await requireControlPermission(
+    "customers.view",
+    `/control/customers/${customerId}`
+  );
   const { data, error } = await createServiceClient()
     .from("customers")
     .select(
@@ -73,7 +76,10 @@ export default async function CustomerDetailPage({
       <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
         <h2 className="font-semibold text-zinc-950">Account lifecycle</h2>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-          <ControlData label="Customer ID" value={<span className="font-mono text-xs">{customer.id}</span>} />
+          <ControlData
+            label="Customer ID"
+            value={<span className="font-mono text-xs">{customer.id}</span>}
+          />
           <ControlData label="Updated" value={formatDateTime(customer.updated_at)} />
           <ControlData
             label="Deleted"
@@ -84,7 +90,10 @@ export default async function CustomerDetailPage({
             label="Restored"
             value={customer.restored_at ? formatDateTime(customer.restored_at) : "Not recorded"}
           />
-          <ControlData label="Restoration actor" value={customer.restoration_actor ?? "Not recorded"} />
+          <ControlData
+            label="Restoration actor"
+            value={customer.restoration_actor ?? "Not recorded"}
+          />
         </dl>
 
         {deleted && !recoverable ? (
@@ -93,11 +102,17 @@ export default async function CustomerDetailPage({
           </div>
         ) : null}
 
-        <CustomerLifecycleControl
-          customerId={customer.id}
-          deleted={deleted}
-          recoverable={recoverable}
-        />
+        {hasControlPermission(staff, "customers.manage") ? (
+          <CustomerLifecycleControl
+            customerId={customer.id}
+            deleted={deleted}
+            recoverable={recoverable}
+          />
+        ) : (
+          <p className="mt-5 text-sm text-zinc-500">
+            Account lifecycle controls are read only for your current coverage.
+          </p>
+        )}
       </section>
     </div>
   );

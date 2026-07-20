@@ -38,7 +38,12 @@ const REQUIRED_STORAGE_MIGRATION_MARKERS = [
   'drop policy if exists "staff can delete product images" on storage.objects',
   "create table if not exists public.listing_items",
   "create table if not exists public.storefront_configurations",
-  "admin_upsert_listing_item",
+  "admin_upsert_storefront_listing",
+  "admin_set_listing_publication",
+  "admin_upsert_catalog_sku",
+  "admin_set_sku_price",
+  "admin_upsert_pricing_promotion",
+  "admin_set_pricing_promotion_active",
   "admin_upsert_storefront_configuration",
   "published listing items readable",
   "active storefront configurations readable",
@@ -108,7 +113,10 @@ function publicTablesFromMigrations(sql) {
 }
 
 function hasRlsEnablement(sql, table) {
-  const explicit = new RegExp(`alter\\s+table\\s+public\\.${table}\\s+enable\\s+row\\s+level\\s+security`, "i");
+  const explicit = new RegExp(
+    `alter\\s+table\\s+public\\.${table}\\s+enable\\s+row\\s+level\\s+security`,
+    "i"
+  );
   if (explicit.test(sql)) return true;
 
   const quoted = new RegExp(`[']${table}[']|["]${table}["]`, "i");

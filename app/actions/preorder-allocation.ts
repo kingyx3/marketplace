@@ -9,13 +9,19 @@ import { createStripeClient } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function confirmPreorderAllocation(formData: FormData): Promise<void> {
-  const { user } = await requireControlPermission("manage_full_operations", "/control/preorders");
+  const { user } = await requireControlPermission(
+    "preorders.allocate",
+    "/control/orders/allocations"
+  );
+  await requireControlPermission("refunds.manage", "/control/orders/allocations");
   const skuId = String(formData.get("skuId") ?? "").trim();
   const fingerprint = String(formData.get("fingerprint") ?? "").trim();
   const confirmed = String(formData.get("confirm") ?? "") === "yes";
 
   if (!confirmed) {
-    redirect(`/control/preorders?sku=${encodeURIComponent(skuId)}&error=confirmation-required`);
+    redirect(
+      `/control/orders/allocations/${encodeURIComponent(skuId)}?error=confirmation-required`
+    );
   }
 
   let summary: string;
@@ -31,16 +37,16 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
     );
 
     revalidatePath("/control");
-    revalidatePath("/control/preorders");
-    revalidatePath("/control/operations");
+    revalidatePath("/control/orders/allocations");
+    revalidatePath("/control/orders");
     revalidatePath("/orders");
     summary = `${result.finalized}-${result.refundsCreated}-${result.refundCents}`;
   } catch (error) {
     const code = allocationErrorCode(error);
-    redirect(`/control/preorders?sku=${encodeURIComponent(skuId)}&error=${code}`);
+    redirect(`/control/orders/allocations/${encodeURIComponent(skuId)}?error=${code}`);
   }
 
-  redirect(`/control/preorders?success=${encodeURIComponent(summary)}`);
+  redirect(`/control/orders/allocations?success=${encodeURIComponent(summary)}`);
 }
 
 function allocationErrorCode(error: unknown): string {

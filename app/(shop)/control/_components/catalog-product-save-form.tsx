@@ -40,7 +40,6 @@ export function CatalogProductSaveForm({
   const [language, setLanguage] = useState(product.language);
   const [imageUrl, setImageUrl] = useState(product.imageUrl ?? "");
   const [active, setActive] = useState(product.active);
-  const [published, setPublished] = useState(product.published);
   const [description, setDescription] = useState(product.description ?? "");
 
   useEffect(() => {
@@ -102,7 +101,7 @@ export function CatalogProductSaveForm({
           value={productType}
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-[7rem_1fr_auto_auto]">
+      <div className="grid gap-4 sm:grid-cols-[7rem_1fr_auto]">
         <AdminTextField
           example="EN"
           hint="Use a 2–8 letter language code."
@@ -126,15 +125,10 @@ export function CatalogProductSaveForm({
           value={imageUrl}
         />
         <BooleanField checked={active} label="Active" name="active" onChange={setActive} />
-        <BooleanField
-          checked={published}
-          label="Published"
-          name="published"
-          onChange={setPublished}
-        />
       </div>
       <p className="text-xs text-zinc-500">
-        Published records become visible on the storefront when they also have an active SKU with a positive price.
+        Product identity is managed here. Pricing and publication are controlled in their dedicated
+        workspaces.
       </p>
       <AdminTextareaField
         example="English booster box containing 36 packs."

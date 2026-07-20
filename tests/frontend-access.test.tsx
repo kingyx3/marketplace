@@ -59,7 +59,7 @@ describe("audience-aware frontend access", () => {
       readFile(new URL("../app/_components/site-header.tsx", import.meta.url), "utf8"),
     ]);
 
-    expect(controlLayout).toContain('requireControlPermission("view_control", "/control")');
+    expect(controlLayout).toContain('requireControlPermission("control.view", "/control")');
     expect(pageAuth).toContain("resolveAdminStaff");
     expect(apiAuth).toContain("resolveAdminStaff");
     expect(proxy).not.toContain('request.nextUrl.pathname === "/admin"');
@@ -101,10 +101,7 @@ describe("audience-aware frontend access", () => {
         "utf8"
       ),
       readFile(
-        new URL(
-          "../app/(shop)/control/_components/control-mobile-navigation.tsx",
-          import.meta.url
-        ),
+        new URL("../app/(shop)/control/_components/control-mobile-navigation.tsx", import.meta.url),
         "utf8"
       ),
       readFile(new URL("../app/(shop)/catalog/catalog-browser.tsx", import.meta.url), "utf8"),

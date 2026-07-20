@@ -15,8 +15,10 @@ import { createServiceClient } from "@/lib/supabase";
 
 export async function upsertControlSupplier(formData: FormData) {
   const sourceId = optionalFormId(formData, "supplierId");
-  const returnPath = sourceId ? `/control/suppliers/${sourceId}` : "/control/suppliers/new";
-  const { user } = await requireControlPermission("manage_suppliers", returnPath);
+  const returnPath = sourceId
+    ? `/control/supply/suppliers/${sourceId}`
+    : "/control/supply/suppliers/new";
+  const { user } = await requireControlPermission("suppliers.manage", returnPath);
   const input = controlSupplierFromForm(formData);
   const contact = {
     name: input.contactName,
@@ -40,18 +42,19 @@ export async function upsertControlSupplier(formData: FormData) {
 
   if (error) throw new Error(`Supplier save failed: ${error.message}`);
   const supplierId = readRpcId(data, "supplier_id") ?? input.supplierId;
-  if (!supplierId) throw new Error("Supplier save failed: the database did not return a supplier ID");
+  if (!supplierId)
+    throw new Error("Supplier save failed: the database did not return a supplier ID");
 
   revalidateControlPaths(
-    "/control/suppliers",
-    `/control/suppliers/${supplierId}`,
-    "/control/operations"
+    "/control/supply/suppliers",
+    `/control/supply/suppliers/${supplierId}`,
+    "/control/supply"
   );
-  redirect(`/control/suppliers/${supplierId}?saved=1`);
+  redirect(`/control/supply/suppliers/${supplierId}?saved=1`);
 }
 
 export async function setControlSupplierActive(formData: FormData) {
-  const { user } = await requireControlPermission("manage_suppliers", "/control/suppliers");
+  const { user } = await requireControlPermission("suppliers.manage", "/control/supply/suppliers");
   const input = controlStatusFromForm(formData);
   const { error } = await createServiceClient().rpc("admin_set_supplier_active", {
     p_supplier_id: input.id,
@@ -61,16 +64,18 @@ export async function setControlSupplierActive(formData: FormData) {
 
   if (error) throw new Error(`Supplier status update failed: ${error.message}`);
   revalidateControlPaths(
-    "/control/suppliers",
-    `/control/suppliers/${input.id}`,
-    "/control/operations"
+    "/control/supply/suppliers",
+    `/control/supply/suppliers/${input.id}`,
+    "/control/supply"
   );
 }
 
 export async function upsertControlCategory(formData: FormData) {
   const sourceId = optionalFormId(formData, "categoryId");
-  const returnPath = sourceId ? `/control/categories/${sourceId}` : "/control/categories/new";
-  const { user } = await requireControlPermission("manage_catalog", returnPath);
+  const returnPath = sourceId
+    ? `/control/catalog/categories/${sourceId}`
+    : "/control/catalog/categories/new";
+  const { user } = await requireControlPermission("catalog.manage", returnPath);
   const input = controlCategoryFromForm(formData);
   const supabase = createServiceClient();
   let duplicateQuery = supabase
@@ -98,20 +103,21 @@ export async function upsertControlCategory(formData: FormData) {
   if (error) throw new Error(`Category save failed: ${error.message}`);
 
   const categoryId = readRpcId(data, "category_id") ?? input.categoryId;
-  if (!categoryId) throw new Error("Category save failed: the database did not return a category ID");
+  if (!categoryId)
+    throw new Error("Category save failed: the database did not return a category ID");
 
   revalidateControlPaths(
-    "/control/categories",
-    `/control/categories/${categoryId}`,
-    "/control/sets",
-    "/control/operations",
+    "/control/catalog/categories",
+    `/control/catalog/categories/${categoryId}`,
+    "/control/catalog/sets",
+    "/control/catalog",
     "/products"
   );
-  redirect(`/control/categories/${categoryId}?saved=1`);
+  redirect(`/control/catalog/categories/${categoryId}?saved=1`);
 }
 
 export async function setControlCategoryActive(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/categories");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog/categories");
   const input = controlStatusFromForm(formData);
   const { error } = await createServiceClient().rpc("admin_set_category_active", {
     p_category_id: input.id,
@@ -121,18 +127,18 @@ export async function setControlCategoryActive(formData: FormData) {
 
   if (error) throw new Error(`Category status update failed: ${error.message}`);
   revalidateControlPaths(
-    "/control/categories",
-    `/control/categories/${input.id}`,
-    "/control/sets",
-    "/control/operations",
+    "/control/catalog/categories",
+    `/control/catalog/categories/${input.id}`,
+    "/control/catalog/sets",
+    "/control/catalog",
     "/products"
   );
 }
 
 export async function upsertControlSet(formData: FormData) {
   const sourceId = optionalFormId(formData, "setId");
-  const returnPath = sourceId ? `/control/sets/${sourceId}` : "/control/sets/new";
-  const { user } = await requireControlPermission("manage_catalog", returnPath);
+  const returnPath = sourceId ? `/control/catalog/sets/${sourceId}` : "/control/catalog/sets/new";
+  const { user } = await requireControlPermission("catalog.manage", returnPath);
   const input = controlSetFromForm(formData);
   const { data, error } = await createServiceClient().rpc("admin_upsert_set_release", {
     p_set_id: input.setId,
@@ -156,17 +162,17 @@ export async function upsertControlSet(formData: FormData) {
   if (!setId) throw new Error("Set save failed: the database did not return a set ID");
 
   revalidateControlPaths(
-    "/control/sets",
-    `/control/sets/${setId}`,
-    "/control/operations",
+    "/control/catalog/sets",
+    `/control/catalog/sets/${setId}`,
+    "/control/catalog",
     "/products",
     "/orders"
   );
-  redirect(`/control/sets/${setId}?saved=1`);
+  redirect(`/control/catalog/sets/${setId}?saved=1`);
 }
 
 export async function setControlSetActive(formData: FormData) {
-  const { user } = await requireControlPermission("manage_catalog", "/control/sets");
+  const { user } = await requireControlPermission("catalog.manage", "/control/catalog/sets");
   const input = controlStatusFromForm(formData);
   const { error } = await createServiceClient().rpc("admin_set_set_release_active", {
     p_set_id: input.id,
@@ -176,9 +182,9 @@ export async function setControlSetActive(formData: FormData) {
 
   if (error) throw new Error(`Set status update failed: ${error.message}`);
   revalidateControlPaths(
-    "/control/sets",
-    `/control/sets/${input.id}`,
-    "/control/operations",
+    "/control/catalog/sets",
+    `/control/catalog/sets/${input.id}`,
+    "/control/catalog",
     "/products",
     "/orders"
   );
@@ -187,14 +193,15 @@ export async function setControlSetActive(formData: FormData) {
 export async function upsertControlAccessGrant(formData: FormData) {
   const sourceId = optionalFormId(formData, "grantId");
   const returnPath = sourceId
-    ? `/control/administrators/${sourceId}`
-    : "/control/administrators/new";
-  const { user } = await requireControlPermission("manage_admins", returnPath);
+    ? `/control/governance/administrators/${sourceId}`
+    : "/control/governance/administrators/new";
+  const { user } = await requireControlPermission("governance.manage", returnPath);
   const input = controlAccessGrantFromForm(formData);
-  const { data, error } = await createServiceClient().rpc("admin_upsert_access_grant", {
+  const { data, error } = await createServiceClient().rpc("admin_upsert_access_grant_permissions", {
     p_grant_id: input.grantId,
     p_email: input.email,
     p_role: input.role,
+    p_permissions: input.permissions,
     p_active: input.active,
     p_actor_auth_user_id: user.id,
   });
@@ -206,11 +213,11 @@ export async function upsertControlAccessGrant(formData: FormData) {
   }
 
   revalidateControlPaths(
-    "/control/administrators",
-    `/control/administrators/${grantId}`,
-    "/control/audit"
+    "/control/governance/administrators",
+    `/control/governance/administrators/${grantId}`,
+    "/control/governance/audit"
   );
-  redirect(`/control/administrators/${grantId}?saved=1`);
+  redirect(`/control/governance/administrators/${grantId}?saved=1`);
 }
 
 function redirectToCategoryConflict(
@@ -234,8 +241,8 @@ function redirectToCategoryConflict(
   if (input.publisher) search.set("publisher", input.publisher);
   if (input.parentId) search.set("parentId", input.parentId);
   const path = input.categoryId
-    ? `/control/categories/${input.categoryId}`
-    : "/control/categories/new";
+    ? `/control/catalog/categories/${input.categoryId}`
+    : "/control/catalog/categories/new";
   redirect(`${path}?${search.toString()}`);
 }
 
@@ -249,7 +256,7 @@ function redirectToSetConflict(input: {
     name: input.name,
     categoryId: input.categoryId,
   });
-  const path = input.setId ? `/control/sets/${input.setId}` : "/control/sets/new";
+  const path = input.setId ? `/control/catalog/sets/${input.setId}` : "/control/catalog/sets/new";
   redirect(`${path}?${search.toString()}`);
 }
 

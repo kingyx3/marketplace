@@ -4,10 +4,25 @@ begin;
 
 do $$
 declare
+  v_actor_auth_user_id uuid := '10000000-0000-4000-8000-000000000099';
   v_product_id uuid;
   v_sku_id uuid;
+  v_price_id uuid;
   v_updated_sku_id uuid;
 begin
+  insert into auth.users (id, email)
+  values (v_actor_auth_user_id, 'admin-sku-contract@example.test');
+
+  insert into public.staff_users (
+    auth_user_id, role, active, email, source
+  ) values (
+    v_actor_auth_user_id,
+    'owner',
+    true,
+    'admin-sku-contract@example.test',
+    'environment'
+  );
+
   select p.id
     into v_product_id
   from public.products p
@@ -20,19 +35,16 @@ begin
 
   select result.sku_id
     into v_sku_id
-  from public.admin_upsert_booster_box_sku(
+  from public.admin_upsert_catalog_sku(
     null,
     v_product_id,
     'CI-ADMIN-SKU-CREATE',
     'CI-ADMIN-SKU-BARCODE',
     36,
     10,
-    22000,
-    19900,
-    'SGD',
     900,
     true,
-    'ci:admin-sku-creation'
+    v_actor_auth_user_id
   ) as result;
 
   if v_sku_id is null then
@@ -48,21 +60,40 @@ begin
     raise exception 'admin SKU creation did not provision main inventory';
   end if;
 
+  select result.price_id
+    into v_price_id
+  from public.admin_set_sku_price(
+    v_sku_id,
+    'SGD',
+    19900,
+    22000,
+    v_actor_auth_user_id
+  ) as result;
+
+  if v_price_id is null or not exists (
+    select 1
+    from public.sku_prices price
+    where price.id = v_price_id
+      and price.sku_id = v_sku_id
+      and price.price_cents = 19900
+      and price.compare_at_cents = 22000
+      and price.active
+  ) then
+    raise exception 'admin SKU pricing was not persisted independently';
+  end if;
+
   select result.sku_id
     into v_updated_sku_id
-  from public.admin_upsert_booster_box_sku(
+  from public.admin_upsert_catalog_sku(
     v_sku_id,
     v_product_id,
     'CI-ADMIN-SKU-CREATE',
     'CI-ADMIN-SKU-BARCODE',
     36,
     10,
-    22000,
-    18900,
-    'SGD',
-    900,
+    950,
     true,
-    'ci:admin-sku-update'
+    v_actor_auth_user_id
   ) as result;
 
   if v_updated_sku_id is distinct from v_sku_id then
@@ -73,10 +104,11 @@ begin
     select 1
     from public.booster_box_skus s
     where s.id = v_sku_id
-      and s.price_cents = 18900
+      and s.weight_grams = 950
+      and s.price_cents = 19900
       and s.active
   ) then
-    raise exception 'admin SKU update was not persisted';
+    raise exception 'admin SKU update was not persisted or changed pricing';
   end if;
 
   if (

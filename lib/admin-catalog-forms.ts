@@ -1,9 +1,5 @@
 import { badRequest } from "@/lib/api/errors";
-import {
-  productTypeCodeFromName,
-  setCodeFromName,
-  slugFromName,
-} from "@/lib/catalog-identifiers";
+import { productTypeCodeFromName, setCodeFromName, slugFromName } from "@/lib/catalog-identifiers";
 
 export interface AdminCatalogProductInput {
   productId: string | null;
@@ -17,8 +13,10 @@ export interface AdminCatalogProductInput {
   active: boolean;
 }
 
-export interface AdminCatalogProductCreateInput
-  extends Omit<AdminCatalogProductInput, "productId" | "categoryId" | "setId" | "productType"> {
+export interface AdminCatalogProductCreateInput extends Omit<
+  AdminCatalogProductInput,
+  "productId" | "categoryId" | "setId" | "productType"
+> {
   categoryId: string | null;
   newCategoryName: string | null;
   newCategorySlug: string | null;
@@ -40,9 +38,6 @@ export interface AdminCatalogSkuInput {
   barcode: string | null;
   packsPerBox: number | null;
   cardsPerPack: number | null;
-  msrpCents: number | null;
-  priceCents: number;
-  currency: string;
   weightGrams: number | null;
   active: boolean;
 }
@@ -60,7 +55,6 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SET_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,15}$/;
 const PRODUCT_TYPE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const LANGUAGE_PATTERN = /^[A-Z]{2,8}$/;
 const SKU_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const SET_STATUSES = [
@@ -94,9 +88,10 @@ export function adminCatalogProductCreateFromForm(
   formData: FormData
 ): AdminCatalogProductCreateInput {
   const categoryMode = optionalString(formData, "categoryMode") ?? "existing";
-  const categoryId = categoryMode === "new" ? null : optionalString(formData, "categoryId") ?? null;
+  const categoryId =
+    categoryMode === "new" ? null : (optionalString(formData, "categoryId") ?? null);
   const newCategoryName =
-    categoryMode === "new" ? optionalString(formData, "newCategoryName") ?? null : null;
+    categoryMode === "new" ? (optionalString(formData, "newCategoryName") ?? null) : null;
   const newCategorySlug = newCategoryName ? slugFromName(newCategoryName) : null;
 
   if (!categoryId && !newCategoryName) {
@@ -150,9 +145,7 @@ export function adminCatalogProductCreateFromForm(
     if (!PRODUCT_TYPE_PATTERN.test(productType)) throw badRequest("Select a valid product type");
   } else {
     newProductTypeName = optionalString(formData, "newProductTypeName") ?? null;
-    newProductTypeCode = newProductTypeName
-      ? productTypeCodeFromName(newProductTypeName)
-      : null;
+    newProductTypeCode = newProductTypeName ? productTypeCodeFromName(newProductTypeName) : null;
     if (!newProductTypeName) throw badRequest("New product type name is required");
     if (newProductTypeName.length > 160) {
       throw badRequest("New product type name must be 160 characters or fewer");
@@ -167,7 +160,7 @@ export function adminCatalogProductCreateFromForm(
     newCategoryName,
     newCategorySlug,
     newCategoryPublisher:
-      categoryMode === "new" ? optionalString(formData, "newCategoryPublisher") ?? null : null,
+      categoryMode === "new" ? (optionalString(formData, "newCategoryPublisher") ?? null) : null,
     setId,
     newSetName,
     newSetCode,
@@ -236,14 +229,11 @@ function commonProductFieldsFromForm(
 }
 
 export function adminCatalogSkuFromForm(formData: FormData): AdminCatalogSkuInput {
-  const currency = requiredString(formData, "currency").toUpperCase();
-  if (!CURRENCY_PATTERN.test(currency)) {
-    throw badRequest("currency must be a 3-letter code");
-  }
-
   const sku = requiredString(formData, "sku").toUpperCase();
   if (!SKU_PATTERN.test(sku)) {
-    throw badRequest("SKU must be 1-64 characters using letters, numbers, dots, hyphens, or underscores");
+    throw badRequest(
+      "SKU must be 1-64 characters using letters, numbers, dots, hyphens, or underscores"
+    );
   }
 
   const barcode = optionalString(formData, "barcode") ?? null;
@@ -256,9 +246,6 @@ export function adminCatalogSkuFromForm(formData: FormData): AdminCatalogSkuInpu
     barcode,
     packsPerBox: optionalNonNegativeInteger(formData, "packsPerBox"),
     cardsPerPack: optionalNonNegativeInteger(formData, "cardsPerPack"),
-    msrpCents: optionalNonNegativeInteger(formData, "msrpCents"),
-    priceCents: requiredPositiveInteger(formData, "priceCents"),
-    currency,
     weightGrams: optionalNonNegativeInteger(formData, "weightGrams"),
     active: booleanField(formData, "active", true),
   };
@@ -313,14 +300,6 @@ function requiredNonNegativeInteger(formData: FormData, key: string): number {
   const value = requiredInteger(formData, key);
   if (value < 0) {
     throw badRequest(`${key} must be non-negative`);
-  }
-  return value;
-}
-
-function requiredPositiveInteger(formData: FormData, key: string): number {
-  const value = requiredInteger(formData, key);
-  if (value <= 0) {
-    throw badRequest(`${key} must be positive`);
   }
   return value;
 }

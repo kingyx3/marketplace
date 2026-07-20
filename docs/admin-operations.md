@@ -1,139 +1,94 @@
-# Control operations
+# Administrative control centres
 
-The protected `/control` console supports catalog, category, set, listing, deal, inventory, supplier, purchase-order, preorder-allocation, order, payment-exception, administrator, customer, delivery, and audit workflows. It is intentionally absent from storefront navigation and is protected on every server-rendered page and mutation.
+The protected `/control` console is organized by ownership domain. Each task has one canonical control centre, one read permission, and distinct action permissions. Pages, Server Actions, and administrative APIs authorize the specific action; navigation only exposes domains covered by the administrator's active grant.
 
-## Access model
+## Domain map
 
-- Emails in `ADMIN_EMAIL_ALLOWLIST` are authoritative environment owners. They are normalized case-insensitively, synchronized as active `owner` staff records, and managed through the GitHub repository variable rather than the UI.
-- An active `admin` or `owner` may add another email under `/control/administrators/new` and assign a scoped role.
-- Delegated grants are listed at `/control/administrators` and edited at `/control/administrators/[grantId]`.
-- A delegated administrator receives access after signing in with the exact normalized email. First sign-in binds the grant to the Supabase auth user and provisions the corresponding `staff_users` row.
-- Revoked database-managed staff remain denied. Environment owners cannot be revoked or demoted through the console.
-- The final active owner cannot remove or demote themself.
-- Roles follow least privilege: `viewer`, `support`, `catalog`, `operations`, `admin`, and `owner`.
+| Domain     | Canonical route       | Owns                                                                      | Does not own                             |
+| ---------- | --------------------- | ------------------------------------------------------------------------- | ---------------------------------------- |
+| Catalog    | `/control/catalog`    | Product identity, taxonomy, media, physical SKU attributes                | Price, stock, availability, publication  |
+| Pricing    | `/control/pricing`    | Versioned base/compare-at prices and promotions                           | Product identity, inventory, publication |
+| Storefront | `/control/storefront` | Listing content, availability, selling windows, release date, publication | Physical SKU or price                    |
+| Supply     | `/control/supply`     | Suppliers, purchase orders, on-hand/incoming/safety stock                 | Customer orders or fulfilment            |
+| Orders     | `/control/orders`     | Normal orders, preorders, order lifecycle, allocation                     | Payment reconciliation or shipping       |
+| Fulfilment | `/control/fulfilment` | Packing, shipment arrangement, tracking, delivery exceptions              | Payment decisions                        |
+| Customers  | `/control/customers`  | Customer context, account lifecycle, communications                       | Order financial state                    |
+| Finance    | `/control/finance`    | Payment exceptions, reconciliation, refunds                               | Order fulfilment                         |
+| Governance | `/control/governance` | Administrator access and audit evidence                                   | Commerce mutations                       |
 
-## Admin navigation pattern
+Do not add a second mutation surface for a resource in another domain. Cross-domain pages may link to the owning control centre and show read-only readiness state.
 
-Resource-management workspaces use a consistent list-first flow:
+## List-first interaction model
 
-1. Open the resource index to search, filter, and review status.
-2. Select **Add** to open a dedicated `/new` form.
-3. Select a record to open its stable ID-based detail page.
-4. Save changes on the detail page and confirm the explicit success result.
-5. Use compact archive, restore, activate, or revoke actions only when the underlying business rule allows the transition.
+Every control centre opens on its record list, queue, or dashboard. Administrators should retain the surrounding list context while working:
 
-Full create and edit forms are not repeated inside resource directories.
+- Use a **Create …** action on the owning list to open a creation form in a route-addressable modal.
+- Make the complete record card or row the edit/view target. Clicking it opens that record in the same modal layer.
+- Do not place create, edit, lifecycle, reconciliation, inventory, allocation, or fulfilment mutation forms directly in list pages. Search and filter forms are the only forms that belong on an index.
+- Close with the modal button, `Escape`, the backdrop, or browser back to restore the unchanged list and filters. The record's **Back to …** action returns to the canonical unfiltered list and also supports direct-route fallbacks.
+- Canonical detail routes remain refreshable and bookmarkable; client-side navigation from a control list is intercepted into the modal layer.
+- Read-only administrators use the same record modal without mutation controls. Permissions continue to be checked by the record page and again by every Server Action or RPC.
 
-## Operating model
+This model applies to products, categories, sets, SKU prices, promotions, listings, storefront configurations, inventory, suppliers, purchase orders, orders, preorders, allocation queues, deliveries, customers, payment exceptions, reconciliation, and administrator grants. Audit evidence remains a read-only table because it has no create or edit workflow.
 
-- Git, GitHub Environments, Supabase, Stripe, Vercel, and Terraform hold deployment and provider configuration.
-- Runtime commerce data lives in Supabase Postgres.
-- Stripe-confirmed state and verified webhooks drive payment transitions. Never mark an order paid from browser-provided state.
-- Admin reconciliation requires provider, payment reference, amount, currency, reason, and actor.
-- Product, SKU, category, set, listing, deal, inventory, supplier, purchasing, allocation, refund, payment, administrator, delivery, and customer-communication changes require review in production.
-- Significant control changes write explicit records to `audit_logs`; core table triggers retain before-and-after row images.
+## Access provisioning
 
-## Categories and sets
+- `ADMIN_EMAIL_ALLOWLIST` is authoritative for protected environment owners.
+- Owners provision delegated administrators at `/control/governance/administrators/new`.
+- A role (`viewer`, `support`, `catalog`, `operations`, `admin`, or `owner`) is a starting template, not the authorization decision.
+- The owner then selects whole domains or individual action checkboxes. Selecting write coverage retains the domain's read permission.
+- Explicit rows in `admin_access_grant_permissions` are the effective database-managed coverage. Existing grants are backfilled from their former role.
+- Only an owner may grant `governance.manage`, create another owner, demote an owner, or revoke owner coverage.
+- Environment owners cannot be revoked in the UI, and the final active owner cannot remove themself.
+- First sign-in with the exact normalized email binds the grant to the Supabase Auth identity and synchronizes `staff_users`.
 
-1. Review categories under `/control/categories`.
-2. Create a category at `/control/categories/new`.
-3. Edit a category at `/control/categories/[categoryId]`.
-4. Use a parent category only when the relationship is meaningful. The database rejects self-parenting and recursive cycles.
-5. Archive dependent child categories, sets, and products before archiving their parent category.
-6. Review releases under `/control/sets`, create them at `/control/sets/new`, and edit them at `/control/sets/[setId]`.
-7. A set with active products cannot be archived.
-8. Verify affected catalog filters and product pages after changing relationships or publication state.
+Sensitive permissions are intentionally separate: `pricing.approve`, `storefront.publish`, `inventory.adjust`, `purchase_orders.manage`, `preorders.allocate`, `customers.manage`, `payments.reconcile`, `refunds.manage`, and `governance.manage`.
 
-## Catalog and listings
+## Product-to-listing flow
 
-1. Confirm product, set, SKU, price, currency, stock, visibility, and customer limit.
-2. Use `/control/operations` to review products.
-3. Use `/control/operations/products/new` to create a product.
-4. Use `/control/operations/products/[productId]` to update product details, publication, image, and related SKUs.
-5. Use `/control/listings` to review storefront listing state.
-6. Use `/control/listings/[productId]` for title overrides, badges, tags, featured order, publish state, customer limits, and preorder reserve.
-7. Use `/control/listings/configurations/[configurationKey]` for storefront copy and configuration.
-8. Listings are retail-only. Do not add alternate sales channels directly in the database.
-9. Verify the public catalog and product page after the change.
+1. **Product** — Select **Create product** from `/control/catalog`; the modal sets identity, category, release, type, language, description, and media.
+2. **Physical SKU** — Select the product record from `/control/catalog`, then add the SKU code, barcode, box/pack configuration, weight, and active state in its modal.
+3. **Pricing** — Select a SKU from `/control/pricing` to open its versioned base and optional compare-at price form. Catalog SKU saves never write money.
+4. **Supply** — Select an inventory record from `/control/supply`, or use **Create purchase order**, to update stock and incoming commitments in a modal.
+5. **Availability and listing** — Select the product from `/control/storefront/listings` to set `available_now`, `preorder`, `coming_soon`, or `unavailable`, plus optional order windows, release date, merchandising, and customer limits.
+6. **Readiness review** — Review product, SKU, current price, supply, availability, and storefront content from the guided product workflow.
+7. **Publish** — An administrator with `storefront.publish` makes the final customer-facing decision.
 
-## Deals
+Publication is rejected unless the product is active, an active physical SKU and current price exist, and availability is not `unavailable`. `available_now` also requires inventory above safety stock. New products and listings default to unpublished.
 
-1. Review promotions under `/control/deals`.
-2. Create a promotion at `/control/deals/new`.
-3. Edit a promotion at `/control/deals/[dealId]`.
-4. Confirm the SKU, title, discount, visibility, start, end, and priority.
-5. Confirm the product card on `/products` shows the intended sale badge, original price, and eligible sale price.
-6. Verify checkout applies the best eligible active deal from current server data.
+## Pricing and promotions
 
-## Suppliers and purchase orders
+- `sku_prices` is the versioned pricing source. `booster_box_skus.price_cents`, `msrp_cents`, and `currency` are compatibility caches maintained by a database trigger for existing checkout reads.
+- Saving a new current price closes the previous open price and writes an audit record.
+- Promotion drafts require `pricing.manage`; activating a promotion additionally requires `pricing.approve`.
+- Verify the effective price and eligible promotion in the public product and checkout flows after a change.
 
-1. Review suppliers under `/control/suppliers`.
-2. Create a supplier at `/control/suppliers/new`.
-3. Edit supplier contact, region, type, payment terms, minimum order, currency, notes, and lifecycle state at `/control/suppliers/[supplierId]`.
-4. A supplier with an open purchase order cannot be archived. Complete or cancel the dependent order first.
-5. Confirm supplier, SKU, quantity, unit cost, currency, expected date, and reviewer approval before recording a purchase order.
-6. Record purchase orders through `/control/operations`.
-7. Confirm the purchase order appears and incoming inventory increases by the recorded quantity.
+## Supply and preorder allocation
 
-## Customers
+- Inventory adjustments require a reason code and optional reviewer note in the selected `/control/supply` inventory modal.
+- **Create purchase order** opens purchase-order intake as a modal and records the order and incoming inventory transactionally.
+- Suppliers with open purchase orders cannot be archived.
+- Preorder allocation begins with the queue list at `/control/orders/allocations`; selecting a SKU opens the reviewed plan and confirmation in a modal. It requires both `preorders.allocate` and `refunds.manage` because partial allocation can create Stripe refunds.
+- Allocation remains FIFO, fingerprints the reviewed queue, rejects stale confirmations, and is idempotent for refunds.
 
-1. Search customer accounts under `/control/customers`.
-2. Open `/control/customers/[customerId]` to review lifecycle history.
-3. Disable or restore access only from the selected customer page.
-4. Deleted customer records remain retained for audit.
-5. A deleted record without a linked Auth identity cannot be restored through the console.
+## Orders, finance, and fulfilment
 
-## Deliveries
+- `/control/orders` is the commercial order context and non-financial lifecycle workspace.
+- `/control/finance` owns provider exceptions and manual reconciliation. Selecting an exception or **Create reconciliation** opens the modal form, which requires provider, payment reference, amount, currency, reason, and actor.
+- `/control/fulfilment` owns packing and shipment mutations for fully captured orders.
+- A single order action maps to exactly one owning permission: `orders.manage`, `fulfilment.manage`, or `payments.reconcile`.
 
-1. Review fully paid orders under `/control/deliveries`.
-2. Open `/control/deliveries/[orderId]` to arrange shipment or update delivery status.
-3. Arrange delivery only after the full order value is captured.
-4. Confirm the recipient address, carrier, and tracking information before saving.
-5. Maintain shipment status manually until provider automation is introduced.
+## Customers and communications
 
-## Inventory correction
+- `customers.view` can search and inspect retained lifecycle context.
+- `customers.manage` is required to disable or restore access.
+- `communications.manage` is required for operational and restock notifications.
+- Deleted customer rows remain retained for audit; a row without a linked Auth identity cannot be restored through the console.
 
-1. Confirm the SKU and physical or supplier-backed quantity.
-2. Use the protected inventory form under `/control/operations` and select the closest reason code.
-3. Verify `allocated <= on_hand + incoming` remains true.
-4. Do not separately adjust incoming stock for a purchase order already recorded through the PO form.
+## Audit and operational safety
 
-## Preorder allocation
-
-1. Confirm incoming stock, safety stock, customer limits, and current preorder data.
-2. Run the SKU-scoped allocation action from `/control/operations` only after inventory is current.
-3. Review and confirm the FIFO allocation plan under `/control/preorders`.
-4. Allocation is retail FIFO and only considers outstanding quantity.
-5. Customers pay 100% upfront. Partial allocation issues automatic Stripe refunds for every unallocated unit.
-6. Record partial fills or skipped customers for support follow-up.
-
-## Payment or webhook exception
-
-1. Find the Stripe event or payment reference.
-2. Confirm webhook state in `webhook_events` and payment state in `payments`.
-3. Preserve idempotency when retrying verified events.
-4. Use the reconciliation form under `/control/operations` when a reviewed manual correction is unavoidable.
-5. Use the payment-exception queue for stale, orphaned, failed, or manually flagged cases.
-
-## Audit review
-
-1. Review recent explicit administrative actions under `/control/audit`.
-2. Search by a recognizable record name, SKU, labeled identifier, action, or administrator email, and narrow the list by operational area when investigating a workflow.
-3. Confirm the human-readable action and record label, then use the selectable system action, record ID, actor reference, and exact timestamp to correlate logs or support context.
-4. Review the safe before-and-after operational fields shown in the result. Use the protected database audit record for deeper analysis; the UI intentionally omits arbitrary or sensitive fields.
-5. Never copy secrets, payment credentials, tokens, or unnecessary personal information into notes or logs.
-
-## Deploy incident
-
-1. Pause production approval in the GitHub Environment.
-2. Roll back the Vercel deployment when the application revision caused the issue.
-3. Correct schema mistakes with a new forward migration; never edit an applied migration.
-4. Reconcile environment configuration and rerun deployment.
-5. Re-run the relevant provider workflow or environment bootstrap when external provider settings changed.
-
-## Remaining enhancements
-
-- Sell-through, margin, and preorder-conversion analytics
-- Deeper allocation review and customer communication tools
-- Fine-grained per-action permission overrides beyond the current role matrix
-- Expanded authenticated administrator, RLS, Stripe, and provider integration coverage
+- Review administrative evidence at `/control/governance/audit` with `audit.view`.
+- Core table triggers preserve before/after row images; explicit control actions include the actor and business action.
+- Never copy secrets, tokens, payment credentials, or unnecessary personal data into operational notes.
+- Correct applied schema mistakes with a new forward migration.
+- Stripe-confirmed state and verified webhooks remain authoritative for payment transitions; browser-provided state never marks an order paid.

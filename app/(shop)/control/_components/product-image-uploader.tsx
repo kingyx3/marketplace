@@ -36,10 +36,13 @@ export function ProductImageUploader({ productId }: { productId: string }) {
     () =>
       createApiClient({
         getAccessToken: () => session.getAccessToken(),
-        onUnauthorized: () => router.push("/sign-in?next=/control/operations"),
+        onUnauthorized: () =>
+          router.push(
+            `/sign-in?next=${encodeURIComponent(`/control/catalog/products/${productId}`)}`
+          ),
         timeoutMs: 30_000,
       }),
-    [router, session]
+    [productId, router, session]
   );
   const busy = ["requesting", "uploading", "finalizing"].includes(phase);
 
@@ -160,9 +163,7 @@ async function uploadToSignedUrl(uploadUrl: string, image: File): Promise<void> 
 
 function uploadErrorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
-    return error.requestId
-      ? `${error.message} Error reference: ${error.requestId}`
-      : error.message;
+    return error.requestId ? `${error.message} Error reference: ${error.requestId}` : error.message;
   }
   if (error instanceof DOMException && error.name === "AbortError") {
     return "The image upload timed out. Try again with a smaller file or a more stable connection.";

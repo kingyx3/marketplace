@@ -65,9 +65,7 @@ export function DealForm({
           options={skus.map((sku) => ({
             value: sku.id,
             label: `${sku.productName} — ${sku.sku}${sku.active && sku.productActive ? "" : " (archived)"}`,
-            disabled:
-              (!sku.active || !sku.productActive) &&
-              sku.id !== deal?.sku_id,
+            disabled: (!sku.active || !sku.productActive) && sku.id !== deal?.sku_id,
           }))}
           required
         />
@@ -146,11 +144,12 @@ export function DealForm({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-700">
-          <input name="active" type="hidden" value="false" />
-          <input defaultChecked={deal?.active ?? true} name="active" type="checkbox" value="true" />
-          Active
-        </label>
+        <input name="active" type="hidden" value={deal?.active ? "true" : "false"} />
+        <p className="text-sm text-zinc-500">
+          {deal?.active
+            ? "This active promotion requires pricing approval to save changes."
+            : "Save as a draft, then use the separate pricing approval control to activate it."}
+        </p>
         <ControlSaveButton>{deal ? "Save deal" : "Create deal"}</ControlSaveButton>
       </div>
     </form>

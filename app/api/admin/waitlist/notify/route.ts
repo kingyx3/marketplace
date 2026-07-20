@@ -14,7 +14,7 @@ const notifyRequestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireApiPermission(request, "manage_full_operations");
+    const auth = await requireApiPermission(request, "communications.manage");
     const input = notifyRequestSchema.parse(await readJsonBody(request));
     const results = await notifyDropForSku(auth.supabase, input.skuId);
     return NextResponse.json({

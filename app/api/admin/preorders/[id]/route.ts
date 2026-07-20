@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export async function PATCH(request: Request) {
   try {
-    await requireApiPermission(request, "manage_orders");
+    await requireApiPermission(request, "orders.view");
     return NextResponse.json(
       {
         error: {

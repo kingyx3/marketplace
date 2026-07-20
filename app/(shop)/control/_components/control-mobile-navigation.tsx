@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -17,6 +18,7 @@ export function ControlMobileNavigation({
   role: string;
 }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
   const drawerId = useId();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
@@ -27,8 +29,9 @@ export function ControlMobileNavigation({
 
     const previousBodyOverflow = document.body.style.overflow;
     const previousDocumentOverflow = document.documentElement.style.overflow;
+    const menuButton = menuButtonRef.current;
     const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : menuButtonRef.current;
+      document.activeElement instanceof HTMLElement ? document.activeElement : menuButton;
 
     const closeOnKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -76,7 +79,7 @@ export function ControlMobileNavigation({
         if (previouslyFocused?.isConnected) {
           previouslyFocused.focus();
         } else {
-          menuButtonRef.current?.focus();
+          menuButton?.focus();
         }
       });
     };
@@ -120,7 +123,9 @@ export function ControlMobileNavigation({
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
                       Control
                     </p>
-                    <p className="truncate text-sm font-semibold capitalize text-zinc-200">{role}</p>
+                    <p className="truncate text-sm font-semibold capitalize text-zinc-200">
+                      {role}
+                    </p>
                   </div>
                   <button
                     aria-label="Close control navigation"
@@ -139,7 +144,12 @@ export function ControlMobileNavigation({
                 >
                   {links.map((link) => (
                     <Link
-                      className="flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                      aria-current={isActivePath(pathname, link.href) ? "page" : undefined}
+                      className={`flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+                        isActivePath(pathname, link.href)
+                          ? "bg-zinc-800 text-white"
+                          : "text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                      }`}
                       href={link.href}
                       key={link.href}
                       onClick={() => setOpen(false)}
@@ -173,6 +183,12 @@ export function ControlMobileNavigation({
         : null}
     </>
   );
+}
+
+function isActivePath(pathname: string, href: string): boolean {
+  return href === "/control"
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 const iconClassName = "size-5 shrink-0";
@@ -235,7 +251,11 @@ function StorefrontIcon() {
       stroke="currentColor"
       strokeWidth="1.8"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 10.5 12 4l8 6.5M6.5 9.5v10h11v-10M9.5 19.5v-5h5v5" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 10.5 12 4l8 6.5M6.5 9.5v10h11v-10M9.5 19.5v-5h5v5"
+      />
     </svg>
   );
 }
@@ -250,7 +270,11 @@ function SignOutIcon() {
       stroke="currentColor"
       strokeWidth="1.8"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 5.25H6.75A2.25 2.25 0 0 0 4.5 7.5v9a2.25 2.25 0 0 0 2.25 2.25h3.75" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.5 5.25H6.75A2.25 2.25 0 0 0 4.5 7.5v9a2.25 2.25 0 0 0 2.25 2.25h3.75"
+      />
       <path strokeLinecap="round" strokeLinejoin="round" d="m14 8 4 4-4 4M9 12h9" />
     </svg>
   );
