@@ -7,9 +7,14 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { getCurrentUser } from "@/lib/auth";
 import { getSkuQuote } from "@/lib/catalog";
 import { getStorefrontDealForSku } from "@/lib/deals";
+import { applicationUrl } from "@/lib/hitpay";
 import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Buy now",
+  robots: { index: false, follow: false },
+};
 
 export default async function BuyNowPage({
   searchParams,
@@ -130,6 +135,12 @@ export default async function BuyNowPage({
               disabled={hasAvailabilityIssue}
               initialRecipientName={recipientName}
               items={items}
+              paymentBody={{
+                mode: "order",
+                channel: "b2c",
+                items,
+                successUrl: applicationUrl("/orders"),
+              }}
               startLabel="Buy now with HitPay"
               supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
               supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}

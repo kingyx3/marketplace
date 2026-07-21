@@ -122,7 +122,14 @@ export function CartCheckoutPanel({
   }, [api, requiresShipping]);
 
   async function beginCheckout() {
-    if (disabled || items.length === 0 || phase === "creating") return;
+    if (
+      disabled ||
+      items.length === 0 ||
+      phase === "creating" ||
+      (requiresShipping && addressLoadState === "loading")
+    ) {
+      return;
+    }
 
     const accessToken = await session.getAccessToken();
     if (!accessToken) {
@@ -191,15 +198,25 @@ export function CartCheckoutPanel({
     }
   }
 
-  const canCreate = !disabled && items.length > 0 && phase !== "creating";
-  const primaryActionDisabled =
-    !canCreate || (requiresShipping && addressLoadState === "loading");
+  const canCreate =
+    !disabled &&
+    items.length > 0 &&
+    phase !== "creating" &&
+    !(requiresShipping && addressLoadState === "loading");
+  const primaryActionDisabled = !canCreate;
   const actionLabel =
     phase === "creating"
       ? "Opening HitPay"
       : requiresShipping && addressLoadState === "loading"
         ? "Preparing checkout"
         : startLabel;
+  const actionHint = !requiresShipping
+    ? "Continue to HitPay's secure hosted checkout."
+    : addressLoadState === "loading"
+      ? "Loading your saved delivery address before checkout."
+      : savedAddresses.length > 0
+        ? "Continue with the saved address below, or review and update it before payment."
+        : "Enter or review your delivery address below before payment.";
 
   return (
     <form
@@ -219,9 +236,7 @@ export function CartCheckoutPanel({
         >
           {actionLabel}
         </button>
-        <p className="text-xs leading-5 text-emerald-900">
-          Continue with the saved address below, or review and update it before payment.
-        </p>
+        <p className="text-xs leading-5 text-emerald-900">{actionHint}</p>
       </div>
 
       {requiresShipping ? (
@@ -286,10 +301,10 @@ export function CartCheckoutPanel({
 
       <button
         className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
-        disabled={!canCreate}
+        disabled={primaryActionDisabled}
         type="submit"
       >
-        {phase === "creating" ? "Opening HitPay" : startLabel}
+        {actionLabel}
       </button>
 
       {message ? (

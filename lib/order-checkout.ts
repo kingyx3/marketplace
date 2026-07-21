@@ -21,6 +21,36 @@ export function checkoutResponseBody(result: CheckoutResult) {
   return baseCheckoutResponseBody(result);
 }
 
+export function checkoutReturnUrl(
+  requestedUrl: string | undefined,
+  orderId: string,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const appUrl = new URL(applicationUrl("/", env));
+  let target = new URL("/cart", appUrl);
+
+  if (requestedUrl) {
+    try {
+      const requested = new URL(requestedUrl);
+      if (requested.origin === appUrl.origin) {
+        if (requested.pathname === "/orders") {
+          target = new URL(`/orders/${encodeURIComponent(orderId)}`, appUrl);
+        } else if (requested.pathname === "/cart") {
+          target = new URL(`${requested.pathname}${requested.search}${requested.hash}`, appUrl);
+        }
+      }
+    } catch {
+      // Fall back to the cart for malformed or untrusted return URLs.
+    }
+  }
+
+  target.searchParams.set("checkout", "processing");
+  if (target.pathname === "/cart") {
+    target.searchParams.set("order", orderId);
+  }
+  return target.toString();
+}
+
 export async function createCheckoutPayment(
   auth: ApiCustomerContext,
   body: unknown,
@@ -65,7 +95,7 @@ export async function createCheckoutPayment(
       phone: shippingAddress.phone,
       purpose: `Marketplace order ${orderId}`,
       referenceNumber: `order:${orderId}`,
-      redirectUrl: applicationUrl(`/cart?checkout=processing&order=${encodeURIComponent(orderId)}`),
+      redirectUrl: checkoutReturnUrl(request.successUrl, orderId),
       expiresAfter: "15 minutes",
     });
     paymentRequestId = paymentRequest.id;

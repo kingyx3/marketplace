@@ -19,14 +19,19 @@ describe("checkout production readiness", () => {
     expect(cartActions).not.toContain("writeCart(directItems)");
     expect(buyNowPage).toContain("Your saved cart is unchanged");
     expect(buyNowPage).toContain('startLabel="Buy now with HitPay"');
+    expect(buyNowPage).toContain('successUrl: applicationUrl("/orders")');
+    expect(buyNowPage).toContain("robots: { index: false, follow: false }");
   });
 
-  it("puts the primary checkout action before delivery details and focuses invalid fields", async () => {
+  it("keeps both checkout actions synchronized and focuses invalid fields", async () => {
     const checkoutPanel = await read("app/(shop)/cart/checkout-panel.tsx");
 
     expect(checkoutPanel.indexOf("primaryActionDisabled")).toBeLessThan(
       checkoutPanel.indexOf("<ShippingAddressFields")
     );
+    expect(checkoutPanel.match(/disabled=\{primaryActionDisabled\}/g)).toHaveLength(2);
+    expect(checkoutPanel.match(/\{actionLabel\}/g)).toHaveLength(2);
+    expect(checkoutPanel).toContain('addressLoadState === "loading"');
     expect(checkoutPanel).toContain("focusFirstIncompleteShippingField(shippingAddress)");
     expect(checkoutPanel).toContain('document.getElementById(targetId)?.focus()');
   });
