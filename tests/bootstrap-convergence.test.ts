@@ -14,14 +14,13 @@ describe("bootstrap convergence", () => {
       new URL("../scripts/configure-hitpay.mjs", import.meta.url),
       "utf8"
     );
-    const provision = await readFile(
-      new URL("../scripts/configure-hitpay.mjs", import.meta.url),
+    const providers = await readFile(
+      new URL("../scripts/configure-providers.mjs", import.meta.url),
       "utf8"
     );
     expect(configure).toContain("./lib/hitpay-webhook.mjs");
-    expect(provision).toContain("./lib/hitpay-webhook.mjs");
+    expect(providers).toContain("configure-hitpay.mjs");
     expect(configure).not.toContain("webhookEndpoints.update(");
-    expect(provision).not.toContain("webhookEndpoints.update(");
   });
 
   it("lets Vercel populate values masked by empty GitHub placeholders", () => {
@@ -56,48 +55,46 @@ describe("bootstrap convergence", () => {
   it("performs zero provider writes when the HitPay endpoint already matches", () => {
     const result = runModule<{
       action: string;
-      updates: number;
-      creates: number;
-      deletes: number;
-      credentials: number;
+      requests: Array<{ method: string; url: string }>;
     }>(`
-      import { buildHitPayWebhookConfig, desiredHitPayWebhookMetadata, reconcileHitPayWebhook } from './scripts/lib/hitpay-webhook.mjs';
+      import { buildHitPayWebhookConfig, reconcileHitPayWebhook } from './scripts/lib/hitpay-webhook.mjs';
       const config = buildHitPayWebhookConfig({
-        APP_NAME: 'Marketplace', TARGET_ENV: 'development', NEXT_PUBLIC_SITE_URL: 'https://dev.example.com',
-        HITPAY_API_KEY: 'sk_test_x', HITPAY_WEBHOOK_SALT: 'whsec_x',
-        HITPAY_WEBHOOK_ENABLED_EVENTS: 'payment_request.completed payment_request.failed charge.refunded'
+        APP_NAME: 'Marketplace',
+        TARGET_ENV: 'development',
+        NEXT_PUBLIC_SITE_URL: 'https://dev.example.com',
+        HITPAY_API_KEY: 'sk_test_x'
       });
-      const endpoint = { id: 'we_1', url: config.webhookUrl, status: 'enabled', description: config.description,
-        enabled_events: config.enabledEvents, metadata: desiredHitPayWebhookMetadata(config) };
-      const calls = { updates: 0, creates: 0, deletes: 0, credentials: 0 };
-      const hitpay = { webhookEndpoints: {
-        retrieve: async () => endpoint,
-        list: async () => ({ data: [endpoint], has_more: false }),
-        update: async () => { calls.updates += 1; return endpoint; },
-        create: async () => { calls.creates += 1; return endpoint; },
-        del: async () => { calls.deletes += 1; },
-      }};
-      const reconciled = await reconcileHitPayWebhook({ hitpay, config, allowCreate: true,
-        onCredentials: async () => { calls.credentials += 1; } });
-      console.log(JSON.stringify({ action: reconciled.action, ...calls }));
+      const endpoint = {
+        id: 'we_1',
+        name: config.webhookName,
+        url: config.webhookUrl,
+        event_types: config.enabledEvents
+      };
+      const requests = [];
+      globalThis.fetch = async (input, init = {}) => {
+        requests.push({ method: init.method || 'GET', url: String(input) });
+        return new Response(JSON.stringify([endpoint]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      };
+      const reconciled = await reconcileHitPayWebhook(config);
+      console.log(JSON.stringify({ action: reconciled.action, requests }));
     `);
-    expect(result).toEqual({
-      action: "unchanged",
-      updates: 0,
-      creates: 0,
-      deletes: 0,
-      credentials: 1,
-    });
+    expect(result.action).toBe("unchanged");
+    expect(result.requests).toEqual([
+      { method: "GET", url: "https://api.sandbox.hit-pay.com/v1/webhook-events" },
+    ]);
   });
 
-  it("binds HitPay config before constructing the default client", () => {
+  it("fails before calling HitPay when required provider inputs are absent", () => {
     const result = runModule<Record<string, string>>(`
       import { buildHitPayWebhookConfig, reconcileHitPayWebhook, verifyHitPayWebhook } from './scripts/lib/hitpay-webhook.mjs';
-      const config = buildHitPayWebhookConfig({ HITPAY_API_KEY: 'sk_test_x' });
+      const config = buildHitPayWebhookConfig({ TARGET_ENV: '' });
       const errors = {};
       for (const [name, operation] of Object.entries({
-        reconcile: () => reconcileHitPayWebhook({ config, allowCreate: true }),
-        verify: () => verifyHitPayWebhook({ config }),
+        reconcile: () => reconcileHitPayWebhook(config),
+        verify: () => verifyHitPayWebhook(config),
       })) {
         try { await operation(); }
         catch (error) { errors[name] = error.message; }
@@ -105,8 +102,8 @@ describe("bootstrap convergence", () => {
       console.log(JSON.stringify(errors));
     `);
     expect(result).toEqual({
-      reconcile: "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",
-      verify: "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",
+      reconcile: "Cannot reconcile HitPay webhook. Missing: HITPAY_API_KEY, NEXT_PUBLIC_SITE_URL",
+      verify: "Cannot reconcile HitPay webhook. Missing: HITPAY_API_KEY, NEXT_PUBLIC_SITE_URL",
     });
   });
 
