@@ -13,7 +13,7 @@ import {
   PUBLIC_DEAL_PREVIEW_LIMIT,
 } from "@/lib/deals";
 
- describe("limited-time deals", () => {
+describe("limited-time deals", () => {
   it("calculates integer-cent savings and enforces a small public preview", () => {
     expect(PUBLIC_DEAL_PREVIEW_LIMIT).toBe(3);
     expect(calculateDealSavings(19900, 750)).toBe(1492);
