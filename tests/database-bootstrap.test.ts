@@ -106,6 +106,12 @@ describe("database bootstrap", () => {
       "accepted_at: existingGrant?.accepted_at ?? now.toISOString()"
     );
 
+    expect(script).not.toContain("listing_items!listing_items_product_id_key");
+    expect(script).toContain('.from("listing_items")');
+    expect(script).toContain('.eq("product_id", FIXTURE_IDS.product)');
+    expect(script).toContain("Bootstrap listing verification query failed");
+    expect(script).toContain("Anonymous listing read failed");
+
     expect(script).toContain("assertTargetSafety(target, supabaseUrl);");
     expect(script).not.toContain("assertTargetSafety(target, supabaseUrl, siteUrl);");
     expect(script).toContain('rpc(client, "admin_upsert_category"');
