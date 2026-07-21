@@ -112,6 +112,11 @@ describe("database bootstrap", () => {
     expect(script).toContain("Bootstrap listing verification query failed");
     expect(script).toContain("Anonymous listing read failed");
 
+    expect(script.match(/const HOSTED_FETCH_ATTEMPTS = 5;/g)).toHaveLength(1);
+    expect(script.match(/const HOSTED_FETCH_TIMEOUT_MS = 15_000;/g)).toHaveLength(1);
+    expect(script).toContain("AbortSignal.timeout(HOSTED_FETCH_TIMEOUT_MS)");
+    expect(script).toContain("fetch failed after ${HOSTED_FETCH_ATTEMPTS} attempts");
+
     expect(script).toContain("assertTargetSafety(target, supabaseUrl);");
     expect(script).not.toContain("assertTargetSafety(target, supabaseUrl, siteUrl);");
     expect(script).toContain('rpc(client, "admin_upsert_category"');
