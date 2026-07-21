@@ -53,7 +53,9 @@ export interface HitPayClient {
 
 export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPayClient {
   const apiKey = env.HITPAY_API_KEY?.trim();
-  const apiUrl = (env.HITPAY_API_URL || "https://api.sandbox.hit-pay.com").replace(/\/$/, "");
+  const defaultApiUrl =
+    env.TARGET_ENV === "production" ? "https://api.hit-pay.com" : "https://api.sandbox.hit-pay.com";
+  const apiUrl = (env.HITPAY_API_URL || defaultApiUrl).replace(/\/$/, "");
   if (!apiKey) throw new Error("HitPay is not configured (HITPAY_API_KEY)");
   if (!/^https:\/\//i.test(apiUrl)) throw new Error("HITPAY_API_URL must use HTTPS");
 
