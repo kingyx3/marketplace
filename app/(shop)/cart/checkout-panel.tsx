@@ -71,7 +71,7 @@ export function CartCheckoutPanel({
   const [shippingAddress, setShippingAddress] = useState(() => blankAddress(initialRecipientName));
   const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([]);
   const [addressLoadState, setAddressLoadState] = useState<"idle" | "loading" | "failed">(
-    "idle"
+    mode === "order" ? "loading" : "idle"
   );
   const [selectedAddressId, setSelectedAddressId] = useState("custom");
   const checkoutIdempotencyKey = useRef<string | null>(null);
@@ -97,7 +97,6 @@ export function CartCheckoutPanel({
   useEffect(() => {
     if (!requiresShipping) return;
     let active = true;
-    setAddressLoadState("loading");
 
     void api
       .request<SavedAddressesResponse>("/api/account/addresses", { method: "GET" })
