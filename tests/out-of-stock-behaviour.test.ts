@@ -76,17 +76,17 @@ describe("storefront availability", () => {
   it("applies the same rules across product, cart, and checkout surfaces", async () => {
     const [productPage, productCard, dealCard, cartPage, cartAction, catalog, reservations] =
       await Promise.all([
-        readFile(
-          new URL("../app/(shop)/products/[slug]/page.tsx", import.meta.url),
-          "utf8"
-        ),
+        readFile(new URL("../app/(shop)/products/[slug]/page.tsx", import.meta.url), "utf8"),
         readFile(new URL("../app/_components/product-card.tsx", import.meta.url), "utf8"),
         readFile(new URL("../app/_components/deal-card.tsx", import.meta.url), "utf8"),
         readFile(new URL("../app/(shop)/cart/page.tsx", import.meta.url), "utf8"),
         readFile(new URL("../app/actions/cart.ts", import.meta.url), "utf8"),
         readFile(new URL("../lib/catalog.ts", import.meta.url), "utf8"),
         readFile(
-          new URL("../supabase/migrations/20260718150100_checkout_reservations.sql", import.meta.url),
+          new URL(
+            "../supabase/migrations/20260718150100_checkout_reservations.sql",
+            import.meta.url
+          ),
           "utf8"
         ),
       ]);

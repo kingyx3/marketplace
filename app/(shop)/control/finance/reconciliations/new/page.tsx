@@ -16,7 +16,7 @@ export default async function NewReconciliationPage({
     <div className="space-y-8">
       <PageHeader
         action={<ControlBackLink href="/control/finance">Back to finance</ControlBackLink>}
-        description="Use only after independently verifying the Stripe reference, amount, currency, and order."
+        description="Use only after independently verifying the HitPay reference, amount, currency, and order."
         eyebrow="Control · Finance"
         title="Create manual reconciliation"
       />

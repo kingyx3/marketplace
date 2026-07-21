@@ -5,7 +5,7 @@ import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/c
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { listAdminOrderExceptions } from "@/lib/orders";
+import { listAdminOrderExceptions } from "@/lib/order-exceptions";
 import { createServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,7 @@ export default async function PaymentExceptionPage({
   );
   if (!exception) notFound();
   const canReconcile = hasControlPermission(staff, "payments.reconcile");
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -75,6 +76,7 @@ function Summary({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-SG", {
     dateStyle: "medium",

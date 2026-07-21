@@ -6,11 +6,7 @@ const cronSecret = required("CRON_SECRET");
 const monitorSecret = required("SYNTHETIC_MONITOR_SECRET");
 const operationsOwner = required("OPERATIONS_OWNER");
 const incidentEscalationUrl = requiredUrl("INCIDENT_ESCALATION_URL");
-const checkoutAvailabilitySlo = boundedNumber(
-  "CHECKOUT_AVAILABILITY_SLO_PERCENT",
-  99,
-  100
-);
+const checkoutAvailabilitySlo = boundedNumber("CHECKOUT_AVAILABILITY_SLO_PERCENT", 99, 100);
 const checkoutLatencySloMs = boundedInteger("CHECKOUT_LATENCY_SLO_MS", 100, 60_000);
 const paymentReconciliationSloMinutes = boundedInteger(
   "PAYMENT_RECONCILIATION_SLO_MINUTES",
@@ -20,18 +16,8 @@ const paymentReconciliationSloMinutes = boundedInteger(
 
 await verifyHealth("/api/health");
 await verifyHealth("/api/health?deep=1");
-await verifyProtectedEndpoint(
-  "/api/cron/invoice-expiry",
-  "GET",
-  cronSecret,
-  "expiredOrders"
-);
-await verifyProtectedEndpoint(
-  "/api/observability/test-alert",
-  "POST",
-  monitorSecret,
-  "delivered"
-);
+await verifyProtectedEndpoint("/api/cron/invoice-expiry", "GET", cronSecret, "expiredOrders");
+await verifyProtectedEndpoint("/api/observability/test-alert", "POST", monitorSecret, "delivered");
 
 console.log(
   JSON.stringify(
@@ -87,10 +73,7 @@ async function verifyProtectedEndpoint(path, method, secret, expectedKey) {
       Accept: "application/json",
     },
   });
-  assert(
-    unauthenticated.status === 401,
-    `${path} accepted an invalid bearer secret`
-  );
+  assert(unauthenticated.status === 401, `${path} accepted an invalid bearer secret`);
 
   const requestId = `release-gate-${randomUUID()}`;
   const response = await retryFetch(new URL(path, appUrl), {

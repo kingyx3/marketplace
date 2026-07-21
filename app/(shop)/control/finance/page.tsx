@@ -4,7 +4,7 @@ import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { listAdminOrderExceptions } from "@/lib/orders";
+import { listAdminOrderExceptions } from "@/lib/order-exceptions";
 import { createServiceClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -83,10 +83,9 @@ export default async function ControlFinancePage({
                 </StatusBadge>
               </div>
               <p className="mt-3 text-sm leading-6 text-zinc-600">{exception.detail}</p>
-              {exception.orderId ? (
-                <p className="mt-2 font-mono text-xs text-zinc-400">Order {exception.orderId}</p>
-              ) : null}
-              <p className="mt-4 text-sm font-semibold text-emerald-700">Review exception →</p>
+              <p className="mt-3 text-xs text-zinc-500">
+                {exception.orderId ? `Order ${exception.orderId}` : "Provider-only exception"}
+              </p>
             </Link>
           ))}
         </div>

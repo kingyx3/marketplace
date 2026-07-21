@@ -6,6 +6,6 @@ export function formatMoney(cents: number, currency = "SGD"): string {
   }).format(cents / 100);
 }
 
-export function stripeCurrency(currency: string): string {
+export function hitpayCurrency(currency: string): string {
   return currency.toLowerCase();
 }

@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 import { createHash, createHmac } from "node:crypto";
 import { appendFile, readFile } from "node:fs/promises";
-import {
-  ENV_CONTRACT,
-  isRequiredEnvironmentEntry,
-  parseDotenv,
-} from "./generate-env.mjs";
+import { ENV_CONTRACT, isRequiredEnvironmentEntry, parseDotenv } from "./generate-env.mjs";
 import {
   createVercelEnvironmentRecord,
   deleteVercelEnvironmentRecord,
@@ -66,11 +62,16 @@ async function main() {
     if (value === undefined || value === "") {
       if (entry.provisioned && currentExists) {
         if (rotateProvisioned) {
-          fail(`Cannot rotate provisioned Vercel environment variable without a desired value: ${entry.key}`);
+          fail(
+            `Cannot rotate provisioned Vercel environment variable without a desired value: ${entry.key}`
+          );
         }
-        expectedStates.set(entry.key, currentFingerprint === undefined
-          ? { mode: "exists" }
-          : { mode: "value", fingerprint: currentFingerprint });
+        expectedStates.set(
+          entry.key,
+          currentFingerprint === undefined
+            ? { mode: "exists" }
+            : { mode: "value", fingerprint: currentFingerprint }
+        );
         preserved += 1;
         continue;
       }
@@ -78,9 +79,14 @@ async function main() {
         fail(`Missing required desired Vercel environment variable: ${entry.key}`);
       }
       if (preserveUnsetOptional) {
-        expectedStates.set(entry.key, currentFingerprint === undefined
-          ? currentExists ? { mode: "exists" } : { mode: "absent" }
-          : { mode: "value", fingerprint: currentFingerprint });
+        expectedStates.set(
+          entry.key,
+          currentFingerprint === undefined
+            ? currentExists
+              ? { mode: "exists" }
+              : { mode: "absent" }
+            : { mode: "value", fingerprint: currentFingerprint }
+        );
         preserved += 1;
         continue;
       }
@@ -164,7 +170,8 @@ function parseArguments(values) {
       value === "--preserve-unset-optional" ||
       value === "--rotate-provisioned" ||
       value === "--check-only"
-    ) continue;
+    )
+      continue;
     if (value.startsWith("--")) fail(`Unknown option: ${value}`);
     if (sawDotenvPath) fail(`Unexpected positional argument: ${value}`);
     dotenvPath = value;

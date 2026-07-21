@@ -169,8 +169,7 @@ export async function quoteCheckout(
       total + calculateDealSavings(line.lineTotalCents, dealDiscounts.get(line.skuId) ?? 0),
     0
   );
-  const discountBps =
-    subtotalCents > 0 ? Math.floor((discountCents * 10000) / subtotalCents) : 0;
+  const discountBps = subtotalCents > 0 ? Math.floor((discountCents * 10000) / subtotalCents) : 0;
   const merchandiseTotalCents = subtotalCents - discountCents;
   const shipping =
     request.mode === "order"

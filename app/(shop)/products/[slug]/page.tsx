@@ -186,18 +186,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 <>
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
                     Preorders are charged 100% upfront. If confirmed supplier allocation is lower
-                    than your requested quantity, the difference is refunded through Stripe.
+                    than your requested quantity, the difference is refunded through HitPay.
                   </div>
                   <CartCheckoutPanel
                     authRedirectPath={`/products/${product.slug}`}
-                    clearCartOnSuccess={false}
                     items={[{ skuId, quantity: 1 }]}
                     mode="preorder"
-                    publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
-                    returnPath="/orders?checkout=processing#preorders"
                     startLabel="Place Order"
-                    successHref="/orders#preorders"
-                    successLabel="View pre-order"
                     supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
                     supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
                   />

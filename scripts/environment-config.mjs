@@ -44,15 +44,17 @@ export async function exportPublicEnvironmentForGithubActions(env = process.env,
 }
 
 export function normalizeValue(value) {
-  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean).join(",");
+  if (Array.isArray(value))
+    return value
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+      .join(",");
   if (value === null || value === undefined) return "";
   return String(value).trim();
 }
 
 function pickEnvKeys(values) {
-  return Object.fromEntries(
-    Object.entries(values).filter(([key]) => ENV_KEY.test(key))
-  );
+  return Object.fromEntries(Object.entries(values).filter(([key]) => ENV_KEY.test(key)));
 }
 
 function hasValue(value) {

@@ -47,8 +47,8 @@ export default function ContactPage() {
         <p>
           Describe the issue, page or product involved, desired outcome, and any relevant order
           reference. For delivery damage, keep the packaging and attach clear photos. For a privacy
-          request, identify the account email and request type without sending more personal data than
-          necessary.
+          request, identify the account email and request type without sending more personal data
+          than necessary.
         </p>
       </PolicySection>
     </PolicyPage>

@@ -18,23 +18,23 @@ export default function TermsPage() {
     >
       <PolicySection title="Accounts and acceptable use">
         <p>
-          Provide accurate information, keep account access secure, and be legally capable of entering
-          the transaction or act with a parent or guardian. Do not misuse the service, interfere with
-          security, automate abusive purchases, evade customer limits, impersonate another person, or
-          access administrative functions without permission.
+          Provide accurate information, keep account access secure, and be legally capable of
+          entering the transaction or act with a parent or guardian. Do not misuse the service,
+          interfere with security, automate abusive purchases, evade customer limits, impersonate
+          another person, or access administrative functions without permission.
         </p>
       </PolicySection>
 
       <PolicySection title="Catalog, prices, and availability">
         <p>
-          Product prices are public. Member-eligible deals are shown to the audience entitled to them
-          and revalidated on the server at checkout. Prices are displayed in the stated currency and
-          include GST where applicable; delivery charges are shown before payment. Obvious display
-          errors may be corrected before an order is accepted.
+          Product prices are public. Member-eligible deals are shown to the audience entitled to
+          them and revalidated on the server at checkout. Prices are displayed in the stated
+          currency and include GST where applicable; delivery charges are shown before payment.
+          Obvious display errors may be corrected before an order is accepted.
         </p>
         <p>
-          Stock and incoming allocations can change. Adding an item to a cart does not reserve it. An
-          order is accepted only after payment succeeds and inventory is allocated.
+          Stock and incoming allocations can change. Adding an item to a cart does not reserve it.
+          An order is accepted only after payment succeeds and inventory is allocated.
         </p>
       </PolicySection>
 

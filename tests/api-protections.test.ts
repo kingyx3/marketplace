@@ -2,10 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api/errors";
-import {
-  requireIdempotencyKey,
-  runIdempotentJsonOperation,
-} from "@/lib/api/idempotency";
+import { requireIdempotencyKey, runIdempotentJsonOperation } from "@/lib/api/idempotency";
 import { readJsonBody } from "@/lib/api/request";
 
 describe("API request protections", () => {
@@ -50,9 +47,9 @@ describe("API request protections", () => {
       )
     ).toBe("checkout-12345678");
 
-    expect(() =>
-      requireIdempotencyKey(new Request("https://example.test/api/checkout"))
-    ).toThrow(ApiError);
+    expect(() => requireIdempotencyKey(new Request("https://example.test/api/checkout"))).toThrow(
+      ApiError
+    );
   });
 
   it("stores and replays successful idempotent responses", async () => {
@@ -139,11 +136,7 @@ describe("API request protections", () => {
         }
       )
     ).rejects.toThrow("operation failed");
-    expect(supabase.rpc).toHaveBeenNthCalledWith(
-      2,
-      "release_api_idempotency",
-      expect.any(Object)
-    );
+    expect(supabase.rpc).toHaveBeenNthCalledWith(2, "release_api_idempotency", expect.any(Object));
   });
 
   it("keeps the claim when completion persistence fails after the side effect", async () => {
@@ -165,10 +158,7 @@ describe("API request protections", () => {
       )
     ).rejects.toMatchObject({ code: "service_unavailable" });
     expect(supabase.rpc).toHaveBeenCalledTimes(2);
-    expect(supabase.rpc).not.toHaveBeenCalledWith(
-      "release_api_idempotency",
-      expect.any(Object)
-    );
+    expect(supabase.rpc).not.toHaveBeenCalledWith("release_api_idempotency", expect.any(Object));
   });
 });
 

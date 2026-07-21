@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiCustomer } from "@/lib/api/auth";
 import { withApiHandler } from "@/lib/api/handler";
-import {
-  requireIdempotencyKey,
-  runIdempotentJsonOperation,
-} from "@/lib/api/idempotency";
+import { requireIdempotencyKey, runIdempotentJsonOperation } from "@/lib/api/idempotency";
 import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { readJsonBody } from "@/lib/api/request";
 import { checkoutResponseBody, createCheckoutPayment } from "@/lib/order-checkout";

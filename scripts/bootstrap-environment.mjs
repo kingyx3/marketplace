@@ -7,9 +7,20 @@ import { pinnedNpxPackage } from "./tool-versions.mjs";
 await loadLocalDotenv(process.env);
 await applyVersionedEnvironmentConfig(process.env);
 
-run(process.execPath, ["scripts/reconcile-runtime-environment.mjs", "--providers", "apply-if-configured"]);
-if (!process.env.SUPABASE_PROJECT_REF) fail("SUPABASE_PROJECT_REF is required after environment resolution");
-run("npx", ["--yes", pinnedNpxPackage("supabase"), "link", "--project-ref", process.env.SUPABASE_PROJECT_REF]);
+run(process.execPath, [
+  "scripts/reconcile-runtime-environment.mjs",
+  "--providers",
+  "apply-if-configured",
+]);
+if (!process.env.SUPABASE_PROJECT_REF)
+  fail("SUPABASE_PROJECT_REF is required after environment resolution");
+run("npx", [
+  "--yes",
+  pinnedNpxPackage("supabase"),
+  "link",
+  "--project-ref",
+  process.env.SUPABASE_PROJECT_REF,
+]);
 run("npx", ["--yes", pinnedNpxPackage("supabase"), "db", "push"]);
 console.log(`Environment ${process.env.TARGET_ENV} bootstrapped successfully.`);
 

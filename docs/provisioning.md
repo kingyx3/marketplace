@@ -2,14 +2,14 @@
 
 ## Ownership
 
-| Layer | Owner |
-| --- | --- |
-| GCS Terraform state bucket | `infra/terraform/bootstrap` |
-| Primary and optional staging Vercel projects plus hosted Supabase project shells | `infra/terraform/platform` |
-| Provider/runtime reconciliation | `scripts/reconcile-runtime-environment.mjs` and provider libraries |
-| Vercel runtime values | generated contract + `scripts/sync-vercel-env.mjs` |
-| Database schema/storage/RLS/RPCs | Supabase migrations |
-| Operator secrets, release evidence, and approval boundaries | GitHub Environments and Actions |
+| Layer                                                                            | Owner                                                              |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| GCS Terraform state bucket                                                       | `infra/terraform/bootstrap`                                        |
+| Primary and optional staging Vercel projects plus hosted Supabase project shells | `infra/terraform/platform`                                         |
+| Provider/runtime reconciliation                                                  | `scripts/reconcile-runtime-environment.mjs` and provider libraries |
+| Vercel runtime values                                                            | generated contract + `scripts/sync-vercel-env.mjs`                 |
+| Database schema/storage/RLS/RPCs                                                 | Supabase migrations                                                |
+| Operator secrets, release evidence, and approval boundaries                      | GitHub Environments and Actions                                    |
 
 ## Normal provisioning path
 
@@ -60,7 +60,7 @@ The state bootstrap starts with local state because the GCS backend bucket may n
 
 ## Provider reconciliation
 
-Stripe uses one library for discovery, diffing, create/update/replacement, metadata, rollback, and verification. Google Auth reads current Supabase hosted auth configuration, applies only changed supported fields, and verifies enablement, site URL, and redirect allow-list.
+HitPay uses one library for discovery, diffing, create/update/replacement, metadata, rollback, and verification. Google Auth reads current Supabase hosted auth configuration, applies only changed supported fields, and verifies enablement, site URL, and redirect allow-list.
 
 Vercel values are reconciled per environment and skipped when keyed fingerprints match. Supabase project keys and database topology are resolved from Terraform and provider APIs rather than copied into committed configuration.
 
@@ -68,7 +68,7 @@ Vercel values are reconciled per environment and skipped when keyed fingerprints
 
 - Provider account creation, organization membership, billing, and plan selection.
 - Google OAuth consent-screen/client ownership and external redirect registration.
-- Stripe account-level PayNow, branding, tax, and compliance controls.
+- HitPay account-level PayNow, branding, tax, and compliance controls.
 - GitHub credential entry when the trusted local bootstrap CLI is not used.
 - Resend sender/domain verification and external alert endpoint ownership.
 - Supabase compute sizing until the pinned provider exposes a tested stable resource argument.

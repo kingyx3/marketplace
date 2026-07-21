@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   staging-identity-payment-operations:
-    name: Staging Auth, RLS, Stripe, OAuth, notifications, recovery, and operations
+    name: Staging Auth, RLS, HitPay, OAuth, notifications, recovery, and operations
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: staging
@@ -30,15 +30,17 @@ jobs:
       VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
       ADMIN_EMAIL_ALLOWLIST: ${{ vars.ADMIN_EMAIL_ALLOWLIST }}
       NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      HITPAY_API_URL: ${{ vars.HITPAY_API_URL }}
+      HITPAY_PAYMENT_METHODS: ${{ vars.HITPAY_PAYMENT_METHODS }}
+      HITPAY_WEBHOOK_ID: ${{ vars.HITPAY_WEBHOOK_ID }}
+      HITPAY_WEBHOOK_ENABLED_EVENTS: ${{ vars.HITPAY_WEBHOOK_ENABLED_EVENTS }}
       GOOGLE_AUTH_ENABLED: ${{ vars.GOOGLE_AUTH_ENABLED }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
-      STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      HITPAY_API_KEY: ${{ secrets.HITPAY_API_KEY }}
+      HITPAY_WEBHOOK_SALT: ${{ secrets.HITPAY_WEBHOOK_SALT }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
       SYNTHETIC_MONITOR_SECRET: ${{ secrets.SYNTHETIC_MONITOR_SECRET }}
@@ -83,11 +85,8 @@ jobs:
         run: node scripts/verify-hosted-supabase.mjs 2>&1 | tee hosted-supabase.log
       - name: Verify hosted Google OAuth redirect flow
         run: node scripts/verify-google-oauth-staging.mjs 2>&1 | tee hosted-oauth.log
-      - name: Verify real Stripe test mode, signed webhooks, refunds, and delivered email
-        run: |
-          VERCEL_CLI=$(node -e 'const v=require("./config/tool-versions.json"); process.stdout.write(v.vercelCli)')
-          npx --yes "vercel@$VERCEL_CLI" env run --environment production --token "$VERCEL_TOKEN" -- \
-            node scripts/verify-stripe-staging.mjs 2>&1 | tee hosted-stripe.log
+      - name: Verify HitPay sandbox, signed webhooks, and refund readiness
+        run: node scripts/verify-hitpay-staging.mjs 2>&1 | tee hosted-hitpay.log
       - name: Verify deep readiness, cron, SLOs, ownership, correlation, and alert delivery
         run: node scripts/verify-hosted-operations.mjs 2>&1 | tee hosted-operations.log
       - name: Run timed hosted restore drill
@@ -101,7 +100,7 @@ jobs:
           path: |
             hosted-supabase.log
             hosted-oauth.log
-            hosted-stripe.log
+            hosted-hitpay.log
             hosted-operations.log
             hosted-restore.log
           retention-days: 90

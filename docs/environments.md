@@ -16,7 +16,7 @@ Hosted jobs resolve values in this order:
 
 1. GitHub Environment/repository vars and secrets already in the job.
 2. Terraform outputs.
-3. Supabase, Vercel, and Stripe APIs.
+3. Supabase, Vercel, and HitPay APIs.
 4. Stable defaults in `config/environments.json`.
 
 Committed defaults never override explicit values.
@@ -45,7 +45,7 @@ The admin allowlist and Sentry settings are shared repository settings. They are
 Common variables:
 
 - `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `HITPAY_API_URL`
 - `GOOGLE_AUTH_ENABLED` (`true` by default)
 - `GOOGLE_OAUTH_CLIENT_ID` when Google Auth is enabled
 - `RESEND_FROM_EMAIL`
@@ -53,10 +53,10 @@ Common variables:
 
 Common secrets:
 
-- `STRIPE_SECRET_KEY`
+- `HITPAY_API_KEY`
 - `GOOGLE_OAUTH_CLIENT_SECRET` when Google Auth is enabled
 - `SUPABASE_SECRET_KEY` only as a fallback when it cannot be resolved through the Management API
-- `STRIPE_WEBHOOK_SECRET` only as an optional recovery override
+- `HITPAY_WEBHOOK_SALT` only as an optional recovery override
 - `CRON_SECRET`, `SYNTHETIC_MONITOR_SECRET`, `OPERATIONAL_ALERT_WEBHOOK_URL`, `OPERATIONAL_ALERT_WEBHOOK_SECRET`, and `RESEND_API_KEY`; optional in development and required by bootstrap intake for staging and production
 
 The shared DSN sends all deployment targets to one Sentry project. Environment names come from deployment metadata, so events remain separated as `development`, `staging`, or `production`. Releases use the Vercel Git commit SHA, trace sampling defaults to `1.0` outside production and `0.1` in production, background replay is disabled, and replay-on-error is enabled.
@@ -68,8 +68,8 @@ Staging additionally carries recovery-project/database inputs, operations owners
 - `SUPABASE_PROJECT_REF`, URL, database password, and project topology from Terraform.
 - Supabase publishable key and, when available, modern server secret key from the Management API.
 - Vercel project/scope metadata from Terraform and Vercel APIs.
-- Stripe endpoint id by exact URL match.
-- Stripe signing secret during transactional create/replacement, persisted directly to Vercel.
+- HitPay endpoint id by exact URL match.
+- HitPay signing secret during transactional create/replacement, persisted directly to Vercel.
 - Sentry environment names and releases from deployment metadata.
 
 ## Hosted topology

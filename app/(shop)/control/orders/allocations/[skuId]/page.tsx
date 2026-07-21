@@ -45,7 +45,7 @@ export default async function AllocationPage({
         <Metric label="Available" value={String(preview.availableQty)} />
         <Metric label="Requested" value={String(preview.requestedQty)} />
         <Metric label="Allocated" value={String(preview.allocatedQty)} />
-        <Metric label="Stripe refunds" value={formatMoney(preview.refundCents, preview.currency)} />
+        <Metric label="HitPay refunds" value={formatMoney(preview.refundCents, preview.currency)} />
       </dl>
       <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="min-w-full divide-y divide-zinc-200 text-sm">
@@ -84,7 +84,7 @@ export default async function AllocationPage({
         className="rounded-lg border border-amber-200 bg-amber-50 p-5"
         confirmation={{
           title: "Finalize allocation and refunds?",
-          description: `This finalizes ${preview.allocatedQty} allocated units and creates ${formatMoney(preview.refundCents, preview.currency)} in Stripe refunds. The reviewed fingerprint must still match.`,
+          description: `This finalizes ${preview.allocatedQty} allocated units and creates ${formatMoney(preview.refundCents, preview.currency)} in HitPay refunds. The reviewed fingerprint must still match.`,
           confirmLabel: "Finalize allocation",
           requireText: "ALLOCATE",
           tone: "danger",
@@ -98,7 +98,7 @@ export default async function AllocationPage({
           <input className="mt-1" name="confirm" required type="checkbox" value="yes" />
           <span>
             <strong>I confirm this allocation.</strong> This creates orders for allocated quantities
-            and sends Stripe refunds for every unallocated unit.
+            and sends HitPay refunds for every unallocated unit.
           </span>
         </label>
         <div className="mt-4">
@@ -124,7 +124,7 @@ function ErrorMessage({ code }: { code: string }) {
     "confirmation-required": "Confirm the allocation and refund effects before submitting.",
     "stale-preview":
       "Stock or the preorder queue changed. Review the refreshed allocation before confirming again.",
-    "refund-failed": "Stripe did not confirm every required refund. Review Stripe before retrying.",
+    "refund-failed": "HitPay did not confirm every required refund. Review HitPay before retrying.",
     "payment-missing":
       "A preorder is missing its captured full-payment record and cannot be allocated.",
     "allocation-failed": "The allocation could not be completed.",

@@ -14,14 +14,17 @@ async function main() {
   const deployWorkflow = await readText(".github/workflows/deploy.yml", errors);
   const bootstrapWorkflow = await readText(".github/workflows/bootstrap-environment.yml", errors);
   const runtimeReconciler = await readText("scripts/reconcile-runtime-environment.mjs", errors);
+  const providerReconciler = await readText("scripts/configure-providers.mjs", errors);
   const syncScript = await readText("scripts/sync-vercel-env.mjs", errors);
   const deployScript = await readText("scripts/deploy-vercel.mjs", errors);
   const toolVersions = await readJson("config/tool-versions.json", errors);
 
   if (vercel) {
     if (vercel.framework !== "nextjs") errors.push("vercel.json must set framework=nextjs");
-    if (vercel.installCommand !== "npm ci") errors.push("vercel.json must set installCommand=npm ci");
-    if (vercel.buildCommand !== "npm run build") errors.push("vercel.json must set buildCommand=npm run build");
+    if (vercel.installCommand !== "npm ci")
+      errors.push("vercel.json must set installCommand=npm ci");
+    if (vercel.buildCommand !== "npm run build")
+      errors.push("vercel.json must set buildCommand=npm run build");
     const allHeaders = flattenHeaders(vercel.headers);
     for (const [key, value] of REQUIRED_SECURITY_HEADERS) {
       if (allHeaders.get(key) !== value) errors.push(`vercel.json missing security header ${key}`);
@@ -41,7 +44,8 @@ async function main() {
     "node scripts/reconcile-runtime-environment.mjs --providers apply-if-configured",
     "node scripts/deploy-vercel.mjs",
   ]) {
-    if (!deployWorkflow.includes(marker)) errors.push(`deploy workflow missing required marker: ${marker}`);
+    if (!deployWorkflow.includes(marker))
+      errors.push(`deploy workflow missing required marker: ${marker}`);
   }
   for (const marker of [
     "vars.NEXT_PUBLIC_SUPABASE_URL",
@@ -50,11 +54,16 @@ async function main() {
     "npx vercel pull",
     "Generate runtime env from resolved config",
   ]) {
-    if (deployWorkflow.includes(marker)) errors.push(`deploy workflow contains deprecated marker: ${marker}`);
+    if (deployWorkflow.includes(marker))
+      errors.push(`deploy workflow contains deprecated marker: ${marker}`);
   }
 
-  if (!runtimeReconciler.includes("provision-stripe-webhook.mjs") || !runtimeReconciler.includes("sync-vercel-env.mjs")) {
-    errors.push("runtime reconciler must own Stripe provisioning and Vercel environment sync");
+  if (
+    !runtimeReconciler.includes("scripts/configure-providers.mjs") ||
+    !runtimeReconciler.includes("sync-vercel-env.mjs") ||
+    !providerReconciler.includes("configure-hitpay.mjs")
+  ) {
+    errors.push("runtime reconciler must own HitPay provisioning and Vercel environment sync");
   }
   for (const marker of [
     "fetchVercelEnvironmentRecords",
@@ -62,12 +71,14 @@ async function main() {
     "updateVercelEnvironmentRecord",
     'type: "encrypted"',
   ]) {
-    if (!syncScript.includes(marker)) errors.push(`Vercel env sync missing authoritative API marker: ${marker}`);
+    if (!syncScript.includes(marker))
+      errors.push(`Vercel env sync missing authoritative API marker: ${marker}`);
   }
   if (syncScript.includes('pinnedNpxPackage("vercel")') || syncScript.includes('"env", "run"')) {
     errors.push("Vercel env sync must not use CLI-based mutation or readback");
   }
-  if (!deployScript.includes('pinnedNpxPackage("vercel")')) errors.push("Vercel deployment must use the pinned CLI");
+  if (!deployScript.includes('pinnedNpxPackage("vercel")'))
+    errors.push("Vercel deployment must use the pinned CLI");
   if (!toolVersions?.vercelCli) errors.push("config/tool-versions.json must pin vercelCli");
 
   if (bootstrapWorkflow.includes("uses: ./.github/workflows/deploy.yml")) {
@@ -86,16 +97,25 @@ async function main() {
 }
 
 async function readJson(path, errors) {
-  try { return JSON.parse(await readFile(path, "utf8")); }
-  catch (error) { errors.push(`${path} is missing or invalid JSON: ${error.message}`); return null; }
+  try {
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    errors.push(`${path} is missing or invalid JSON: ${error.message}`);
+    return null;
+  }
 }
 async function readText(path, errors) {
-  try { return await readFile(path, "utf8"); }
-  catch (error) { errors.push(`${path} is missing: ${error.message}`); return ""; }
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    errors.push(`${path} is missing: ${error.message}`);
+    return "";
+  }
 }
 function flattenHeaders(entries = []) {
   const headers = new Map();
-  for (const entry of entries) for (const header of entry.headers ?? []) headers.set(header.key, header.value);
+  for (const entry of entries)
+    for (const header of entry.headers ?? []) headers.set(header.key, header.value);
   return headers;
 }
 function headersForSource(entries = [], source) {

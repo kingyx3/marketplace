@@ -25,9 +25,9 @@ export const emptyShippingAddress: ShippingAddressInput = {
 export function isShippingAddressComplete(address: ShippingAddressInput): boolean {
   return Boolean(
     address.recipientName.trim() &&
-      address.line1.trim() &&
-      address.postalCode.trim() &&
-      /^[A-Za-z]{2}$/.test(address.countryCode.trim())
+    address.line1.trim() &&
+    address.postalCode.trim() &&
+    /^[A-Za-z]{2}$/.test(address.countryCode.trim())
   );
 }
 

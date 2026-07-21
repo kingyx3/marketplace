@@ -1,7 +1,4 @@
-import type {
-  MarketplaceProduct,
-  SetStatus,
-} from "@/app/_data/marketplace-fixtures";
+import type { MarketplaceProduct, SetStatus } from "@/app/_data/marketplace-fixtures";
 
 export const ALL_CATALOG_FILTERS = "all" as const;
 
@@ -42,9 +39,7 @@ export const EMPTY_CATALOG_FILTERS: CatalogFilters = {
   status: ALL_CATALOG_FILTERS,
 };
 
-export function createCatalogFilterProduct(
-  product: MarketplaceProduct
-): CatalogFilterProduct {
+export function createCatalogFilterProduct(product: MarketplaceProduct): CatalogFilterProduct {
   return {
     slug: product.slug,
     name: product.name,

@@ -17,7 +17,9 @@ describe("product publication save migration", () => {
     expect(migration).toContain(
       "create or replace function public.admin_upsert_catalog_product_with_publication"
     );
-    expect(migration.match(/on conflict on constraint listing_items_product_id_key/g)).toHaveLength(2);
+    expect(migration.match(/on conflict on constraint listing_items_product_id_key/g)).toHaveLength(
+      2
+    );
     expect(migration).not.toContain("on conflict (product_id)");
   });
 });

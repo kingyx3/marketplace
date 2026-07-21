@@ -14,7 +14,7 @@
 7. Per-environment mutations use `marketplace-environment-<environment>` locks.
 8. Terraform `plan` is read-only. Imports/state removal occur only in `reconcile`; `apply` must use the exact reviewed plan artifact/run id.
 9. Provider reconcilers implement discover, diff, minimal apply, verify, and safe rerun behavior.
-10. Stripe desired state lives only in `scripts/lib/stripe-webhook.mjs`.
+10. HitPay desired state lives only in `scripts/lib/hitpay-webhook.mjs`.
 11. Database changes are forward-only migrations; never edit an applied migration.
 12. Production remains protected by GitHub Environment reviewers.
 

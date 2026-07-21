@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { quoteCheckout, type CheckoutQuote } from "@/lib/commerce";
 import { cancelPendingCheckoutPayment } from "@/lib/checkout";
 import { checkoutResponseBody, createCheckoutPayment } from "@/lib/order-checkout";
@@ -12,6 +13,7 @@ vi.mock("@/lib/commerce", async (importOriginal) => {
 });
 
 const mockedQuoteCheckout = vi.mocked(quoteCheckout);
+const requestId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const shippingAddress = {
   recipientName: "Buyer",
   line1: "1 Market Street",
@@ -48,24 +50,22 @@ const quote: CheckoutQuote = {
   balanceCents: 0,
 };
 
-describe("checkout PaymentIntent flow", () => {
+describe("hosted HitPay checkout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedQuoteCheckout.mockResolvedValue(quote);
   });
 
-  it("creates an idempotent shipping-aware PaymentIntent with a stock deadline", async () => {
+  it("creates a shipping-aware HitPay payment request with a stock deadline", async () => {
     const reservationExpiresAt = "2026-07-18T07:15:00.000Z";
-    const { auth, supabase } = fakeAuthContext({
+    const { auth, supabase, calls } = fakeAuthContext({
       rpcSingle: {
         data: { order_id: "order-123", reservation_expires_at: reservationExpiresAt },
         error: null,
       },
       paymentInsert: { data: { id: "payment-123" }, error: null },
     });
-    const stripe = fakeStripe({
-      createResult: { id: "pi_123", client_secret: "pi_123_secret_abc" },
-    });
+    const hitpay = fakeHitPay();
 
     const result = await createCheckoutPayment(
       auth as never,
@@ -75,7 +75,7 @@ describe("checkout PaymentIntent flow", () => {
         shippingAddress,
         items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
       },
-      stripe as never
+      hitpay as never
     );
 
     expect(mockedQuoteCheckout).toHaveBeenCalledWith(
@@ -86,35 +86,34 @@ describe("checkout PaymentIntent flow", () => {
       }),
       auth.customer
     );
-    expect(stripe.paymentIntents.create).toHaveBeenCalledWith(
+    expect(hitpay.createPaymentRequest).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: 20700,
-        currency: "sgd",
-        automatic_payment_methods: { enabled: true },
-        shipping: expect.objectContaining({
-          name: "Buyer",
-          address: expect.objectContaining({
-            line1: "1 Market Street",
-            postal_code: "048940",
-            country: "SG",
-          }),
-        }),
-        metadata: expect.objectContaining({
-          kind: "full",
-          order_id: "order-123",
-          customer_id: auth.customer.id,
-          reservation_expires_at: reservationExpiresAt,
-        }),
-      }),
-      { idempotencyKey: "order-checkout:order-123" }
+        amountCents: 20700,
+        currency: "SGD",
+        email: "buyer@example.com",
+        name: "Buyer",
+        purpose: "Marketplace order order-123",
+        referenceNumber: "order:order-123",
+        expiresAfter: "15 minutes",
+      })
     );
+    expect(calls.inserts).toContainEqual({
+      table: "payments",
+      row: expect.objectContaining({
+        order_id: "order-123",
+        provider: "hitpay",
+        provider_payment_id: requestId,
+        amount_cents: 20700,
+        status: "pending",
+      }),
+    });
     expect(checkoutResponseBody(result)).toEqual(
       expect.objectContaining({
         mode: "order",
         orderId: "order-123",
         paymentId: "payment-123",
-        paymentIntentId: "pi_123",
-        clientSecret: "pi_123_secret_abc",
+        paymentRequestId: requestId,
+        checkoutUrl: "https://securecheckout.sandbox.hit-pay.com/example",
         amountCents: 20700,
         currency: "SGD",
         reservationExpiresAt,
@@ -123,14 +122,14 @@ describe("checkout PaymentIntent flow", () => {
     );
   });
 
-  it("returns actionable stock conflict feedback before Stripe is called", async () => {
+  it("returns actionable stock conflict feedback before HitPay is called", async () => {
     const { auth } = fakeAuthContext({
       rpcSingle: {
         data: null,
         error: { message: "insufficient inventory for sku" },
       },
     });
-    const stripe = fakeStripe();
+    const hitpay = fakeHitPay();
 
     await expect(
       createCheckoutPayment(
@@ -141,21 +140,18 @@ describe("checkout PaymentIntent flow", () => {
           shippingAddress,
           items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
         },
-        stripe as never
+        hitpay as never
       )
     ).rejects.toThrow("currently reserved by another checkout or has sold out");
 
-    expect(stripe.paymentIntents.create).not.toHaveBeenCalled();
+    expect(hitpay.createPaymentRequest).not.toHaveBeenCalled();
   });
 
-  it("rolls back allocation when Stripe returns an unusable PaymentIntent", async () => {
+  it("releases allocation when HitPay payment-request creation fails", async () => {
     const { auth, calls } = fakeAuthContext({
       rpcSingle: { data: { order_id: "order-rollback" }, error: null },
-      paymentInsert: { data: { id: "payment-rollback" }, error: null },
     });
-    const stripe = fakeStripe({
-      createResult: { id: "pi_without_secret" },
-    });
+    const hitpay = fakeHitPay({ createError: new Error("HitPay unavailable") });
 
     await expect(
       createCheckoutPayment(
@@ -166,18 +162,17 @@ describe("checkout PaymentIntent flow", () => {
           shippingAddress,
           items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
         },
-        stripe as never
+        hitpay as never
       )
-    ).rejects.toThrow("Payment intent is missing a client secret");
+    ).rejects.toThrow("HitPay unavailable");
 
-    expect(stripe.paymentIntents.cancel).toHaveBeenCalledWith("pi_without_secret");
     expect(calls.rpc).toContainEqual({
       name: "release_order_allocation",
       params: { p_order_id: "order-rollback" },
     });
   });
 
-  it("cancels a pending checkout attempt and releases the held allocation", async () => {
+  it("cancels a pending checkout and releases the held allocation", async () => {
     const { auth, calls } = fakeAuthContext({
       paymentLookup: {
         data: {
@@ -188,15 +183,22 @@ describe("checkout PaymentIntent flow", () => {
         },
         error: null,
       },
-      orderLookup: { data: { id: "order-cancel", status: "pending_payment" }, error: null },
+      orderLookup: {
+        data: { id: "order-cancel", status: "pending_payment" },
+        error: null,
+      },
     });
-    const stripe = fakeStripe();
+    const hitpay = fakeHitPay();
 
     await expect(
-      cancelPendingCheckoutPayment(auth as never, { paymentIntentId: "pi_cancel" }, stripe as never)
-    ).resolves.toEqual({ cancelled: true, orderId: "order-cancel", preorderId: undefined });
+      cancelPendingCheckoutPayment(auth as never, { paymentRequestId: requestId }, hitpay as never)
+    ).resolves.toEqual({
+      cancelled: true,
+      orderId: "order-cancel",
+      preorderId: undefined,
+    });
 
-    expect(stripe.paymentIntents.cancel).toHaveBeenCalledWith("pi_cancel");
+    expect(hitpay.cancelPaymentRequest).toHaveBeenCalledWith(requestId);
     expect(calls.rpc).toContainEqual({
       name: "release_order_allocation",
       params: { p_order_id: "order-cancel" },
@@ -244,7 +246,6 @@ interface FakeSupabaseOptions {
 
 function fakeSupabase(options: FakeSupabaseOptions) {
   const calls: FakeCalls = { rpc: [], inserts: [], updates: [] };
-
   const supabase = {
     rpc: vi.fn((name: string, params: unknown) => {
       calls.rpc.push({ name, params });
@@ -257,7 +258,6 @@ function fakeSupabase(options: FakeSupabaseOptions) {
     }),
     from: vi.fn((table: string) => tableBuilder(table, calls, options)),
   };
-
   return { supabase: supabase as never, calls };
 }
 
@@ -265,7 +265,6 @@ function tableBuilder(table: string, calls: FakeCalls, options: FakeSupabaseOpti
   const filters: unknown[] = [];
   const inFilters: unknown[] = [];
   let updatePayload: unknown;
-
   const builder = {
     select: vi.fn(() => builder),
     insert: vi.fn((row: unknown) => {
@@ -296,7 +295,6 @@ function tableBuilder(table: string, calls: FakeCalls, options: FakeSupabaseOpti
       return { data: null, error: null };
     }),
   };
-
   return builder;
 }
 
@@ -311,13 +309,20 @@ interface FakeCalls {
   }>;
 }
 
-function fakeStripe(options: { createResult?: unknown } = {}) {
+function fakeHitPay(options: { createError?: Error } = {}) {
   return {
-    paymentIntents: {
-      create: vi.fn(
-        async () => options.createResult ?? { id: "pi_default", client_secret: "secret" }
-      ),
-      cancel: vi.fn(async () => ({ id: "pi_cancelled", status: "canceled" })),
-    },
+    createPaymentRequest: vi.fn(async () => {
+      if (options.createError) throw options.createError;
+      return {
+        id: requestId,
+        status: "pending",
+        amount: "207.00",
+        currency: "SGD",
+        url: "https://securecheckout.sandbox.hit-pay.com/example",
+      };
+    }),
+    getPaymentRequest: vi.fn(),
+    cancelPaymentRequest: vi.fn(async () => undefined),
+    createRefund: vi.fn(),
   };
 }

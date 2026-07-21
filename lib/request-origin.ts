@@ -45,8 +45,9 @@ function getVercelPreviewOrigin(
   if (trustedOrigins.length === 0) return null;
 
   const trustedOriginSet = new Set(trustedOrigins);
-  const visibleOrigins = [getForwardedRequestOrigin(request), parseHttpOrigin(request.url)]
-    .filter((origin): origin is string => Boolean(origin));
+  const visibleOrigins = [getForwardedRequestOrigin(request), parseHttpOrigin(request.url)].filter(
+    (origin): origin is string => Boolean(origin)
+  );
 
   for (const origin of visibleOrigins) {
     if (trustedOriginSet.has(origin)) return origin;

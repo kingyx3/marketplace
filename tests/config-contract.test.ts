@@ -38,15 +38,31 @@ describe("platform config contract", () => {
   });
 
   it("uses one machine-readable environment contract and generated mirrors", async () => {
-    const contract = JSON.parse(await readFile(new URL("../config/environment-contract.json", import.meta.url), "utf8"));
-    const generator = await readFile(new URL("../scripts/generate-environment-artifacts.mjs", import.meta.url), "utf8");
-    const envScript = await readFile(new URL("../scripts/generate-env.mjs", import.meta.url), "utf8");
+    const contract = JSON.parse(
+      await readFile(new URL("../config/environment-contract.json", import.meta.url), "utf8")
+    );
+    const generator = await readFile(
+      new URL("../scripts/generate-environment-artifacts.mjs", import.meta.url),
+      "utf8"
+    );
+    const envScript = await readFile(
+      new URL("../scripts/generate-env.mjs", import.meta.url),
+      "utf8"
+    );
     const runtime = await readFile(new URL("../lib/env.ts", import.meta.url), "utf8");
-    const generatedRuntime = await readFile(new URL("../lib/env-contract.generated.ts", import.meta.url), "utf8");
+    const generatedRuntime = await readFile(
+      new URL("../lib/env-contract.generated.ts", import.meta.url),
+      "utf8"
+    );
     const example = await readFile(new URL("../.env.example", import.meta.url), "utf8");
-    const reference = await readFile(new URL("../docs/generated/environment-reference.md", import.meta.url), "utf8");
+    const reference = await readFile(
+      new URL("../docs/generated/environment-reference.md", import.meta.url),
+      "utf8"
+    );
 
-    expect(contract.some((entry: { key: string }) => entry.key === "GOOGLE_AUTH_ENABLED")).toBe(true);
+    expect(contract.some((entry: { key: string }) => entry.key === "GOOGLE_AUTH_ENABLED")).toBe(
+      true
+    );
     expect(
       contract.find((entry: { key: string }) => entry.key === "TARGET_ENV")?.validator?.values
     ).toEqual(["development", "staging", "production"]);
@@ -62,14 +78,37 @@ describe("platform config contract", () => {
 
   it("exposes development-default hosted bootstrap plus staging and recovery commands", async () => {
     const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-    const versions = JSON.parse(await readFile(new URL("../config/tool-versions.json", import.meta.url), "utf8"));
-    const hostedBootstrap = await readFile(new URL("../scripts/bootstrap-hosted.mjs", import.meta.url), "utf8");
-    const bootstrap = await readFile(new URL("../scripts/bootstrap-environment.mjs", import.meta.url), "utf8");
-    const runtime = await readFile(new URL("../scripts/reconcile-runtime-environment.mjs", import.meta.url), "utf8");
-    const github = await readFile(new URL("../scripts/bootstrap-github.mjs", import.meta.url), "utf8");
-    const governance = await readFile(new URL("../scripts/configure-github-governance.mjs", import.meta.url), "utf8");
-    const verification = await readFile(new URL("../scripts/verify-environment.mjs", import.meta.url), "utf8");
-    const bootstrapWorkflow = await readFile(new URL("../.github/workflows/bootstrap-environment.yml", import.meta.url), "utf8");
+    const versions = JSON.parse(
+      await readFile(new URL("../config/tool-versions.json", import.meta.url), "utf8")
+    );
+    const hostedBootstrap = await readFile(
+      new URL("../scripts/bootstrap-hosted.mjs", import.meta.url),
+      "utf8"
+    );
+    const bootstrap = await readFile(
+      new URL("../scripts/bootstrap-environment.mjs", import.meta.url),
+      "utf8"
+    );
+    const runtime = await readFile(
+      new URL("../scripts/reconcile-runtime-environment.mjs", import.meta.url),
+      "utf8"
+    );
+    const github = await readFile(
+      new URL("../scripts/bootstrap-github.mjs", import.meta.url),
+      "utf8"
+    );
+    const governance = await readFile(
+      new URL("../scripts/configure-github-governance.mjs", import.meta.url),
+      "utf8"
+    );
+    const verification = await readFile(
+      new URL("../scripts/verify-environment.mjs", import.meta.url),
+      "utf8"
+    );
+    const bootstrapWorkflow = await readFile(
+      new URL("../.github/workflows/bootstrap-environment.yml", import.meta.url),
+      "utf8"
+    );
 
     expect(pkg.packageManager).toBe(`npm@${versions.npm}`);
     expect(pkg.scripts.bootstrap).toBe("node scripts/bootstrap-hosted.mjs");
@@ -80,17 +119,17 @@ describe("platform config contract", () => {
     expect(pkg.scripts["bootstrap:verify"]).toContain("verify-environment.mjs");
     expect(pkg.scripts["runtime:reconcile"]).toBeDefined();
     expect(pkg.scripts["verify:hosted:supabase"]).toBeDefined();
-    expect(pkg.scripts["verify:hosted:stripe"]).toBeDefined();
+    expect(pkg.scripts["verify:hosted:hitpay"]).toBeDefined();
     expect(pkg.scripts["verify:hosted:restore"]).toBeDefined();
     expect(pkg.scripts["config:check"]).toContain("generate-environment-artifacts.mjs --check");
     expect(hostedBootstrap).toContain('|| "development"');
     expect(hostedBootstrap).toContain('["development", "staging", "production"]');
     expect(hostedBootstrap).not.toContain('"all"');
     expect(hostedBootstrap).toContain("bootstrap.yml");
-    expect(hostedBootstrap).toContain("gh\", [\"run\", \"watch\"");
+    expect(hostedBootstrap).toContain('gh", ["run", "watch"');
     expect(hostedBootstrap).toContain("--exit-status");
     expect(bootstrap).toContain("reconcile-runtime-environment.mjs");
-    expect(runtime).toContain("provision-stripe-webhook.mjs");
+    expect(runtime).toContain("configure-providers.mjs");
     expect(runtime).toContain("sync-vercel-env.mjs");
     expect(github).toContain('|| "development"');
     expect(github).toContain('if (environment === "development") return ["**"]');
@@ -112,11 +151,26 @@ describe("platform config contract", () => {
   });
 
   it("pins Terraform core/providers and enforces committed lockfiles", async () => {
-    const bootstrapVersions = await readFile(new URL("../infra/terraform/bootstrap/versions.tf", import.meta.url), "utf8");
-    const platformVersions = await readFile(new URL("../infra/terraform/platform/versions.tf", import.meta.url), "utf8");
-    const bootstrapLock = await readFile(new URL("../infra/terraform/bootstrap/.terraform.lock.hcl", import.meta.url), "utf8");
-    const platformLock = await readFile(new URL("../infra/terraform/platform/.terraform.lock.hcl", import.meta.url), "utf8");
-    const dependabot = await readFile(new URL("../.github/dependabot.yml", import.meta.url), "utf8");
+    const bootstrapVersions = await readFile(
+      new URL("../infra/terraform/bootstrap/versions.tf", import.meta.url),
+      "utf8"
+    );
+    const platformVersions = await readFile(
+      new URL("../infra/terraform/platform/versions.tf", import.meta.url),
+      "utf8"
+    );
+    const bootstrapLock = await readFile(
+      new URL("../infra/terraform/bootstrap/.terraform.lock.hcl", import.meta.url),
+      "utf8"
+    );
+    const platformLock = await readFile(
+      new URL("../infra/terraform/platform/.terraform.lock.hcl", import.meta.url),
+      "utf8"
+    );
+    const dependabot = await readFile(
+      new URL("../.github/dependabot.yml", import.meta.url),
+      "utf8"
+    );
     const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
     expect(bootstrapVersions).toContain('required_version = "= 1.15.8"');
     expect(platformVersions).toContain('required_version = "= 1.15.8"');
@@ -135,10 +189,15 @@ describe("platform config contract", () => {
 });
 
 function flattenHeaders(entries: Array<{ headers?: Array<{ key: string; value: string }> }>) {
-  return Object.fromEntries(entries.flatMap((entry) => (entry.headers ?? []).map((header) => [header.key, header.value])));
+  return Object.fromEntries(
+    entries.flatMap((entry) => (entry.headers ?? []).map((header) => [header.key, header.value]))
+  );
 }
 
-function headersForSource(entries: Array<{ source: string; headers?: Array<{ key: string; value: string }> }>, source: string) {
+function headersForSource(
+  entries: Array<{ source: string; headers?: Array<{ key: string; value: string }> }>,
+  source: string
+) {
   const entry = entries.find((candidate) => candidate.source === source);
   return Object.fromEntries((entry?.headers ?? []).map((header) => [header.key, header.value]));
 }

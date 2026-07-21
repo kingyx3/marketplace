@@ -41,8 +41,8 @@ describe("Vercel preview OAuth redirects", () => {
   });
 
   it("resolves a team slug through the authenticated Vercel API", async () => {
-    const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ slug: "marketplace-team" }), { status: 200 })
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ slug: "marketplace-team" }), { status: 200 })
     );
 
     await expect(
@@ -63,8 +63,8 @@ describe("Vercel preview OAuth redirects", () => {
   });
 
   it("resolves a personal account username when no team is configured", async () => {
-    const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ user: { username: "kingyx3" } }), { status: 200 })
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ user: { username: "kingyx3" } }), { status: 200 })
     );
 
     await expect(
@@ -76,20 +76,17 @@ describe("Vercel preview OAuth redirects", () => {
         fetchImpl
       )
     ).resolves.toBe("https://*-kingyx3.vercel.app/auth/callback**");
-    expect(fetchImpl).toHaveBeenCalledWith(
-      "https://api.vercel.com/v2/user",
-      expect.any(Object)
-    );
+    expect(fetchImpl).toHaveBeenCalledWith("https://api.vercel.com/v2/user", expect.any(Object));
   });
 
   it("fails closed when the Vercel account lookup fails", async () => {
-    const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ error: { message: "forbidden" } }), { status: 403 })
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ error: { message: "forbidden" } }), { status: 403 })
     );
 
-    await expect(
-      resolveVercelAccountSlug({ VERCEL_TOKEN: "token" }, fetchImpl)
-    ).rejects.toThrow("Vercel account lookup failed (403): forbidden");
+    await expect(resolveVercelAccountSlug({ VERCEL_TOKEN: "token" }, fetchImpl)).rejects.toThrow(
+      "Vercel account lookup failed (403): forbidden"
+    );
   });
 
   it("rejects an unsafe account slug", async () => {

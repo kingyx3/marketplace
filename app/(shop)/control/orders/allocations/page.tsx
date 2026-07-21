@@ -77,7 +77,7 @@ function SuccessMessage({ value }: { value: string }) {
   const [finalized = "0", refunds = "0", cents = "0"] = value.split("-");
   return (
     <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-      Allocation completed for {finalized} preorder{finalized === "1" ? "" : "s"}. Stripe accepted{" "}
+      Allocation completed for {finalized} preorder{finalized === "1" ? "" : "s"}. HitPay accepted{" "}
       {refunds} refund{refunds === "1" ? "" : "s"} totalling {formatMoney(Number(cents), "SGD")}.
     </div>
   );

@@ -1,6 +1,6 @@
 # Marketplace
 
-A retail marketplace for sealed trading-card products, limited-time deals, preorders, orders, and stock alerts. The application uses Next.js, Supabase, Stripe, Vercel, Terraform, and GitHub Actions.
+A retail marketplace for sealed trading-card products, limited-time deals, preorders, orders, and stock alerts. The application uses Next.js, Supabase, HitPay, Vercel, Terraform, and GitHub Actions.
 
 ## Product structure
 
@@ -17,7 +17,7 @@ The storefront does not advertise or link to the console.
 nvm use
 npm run bootstrap:doctor
 npm run bootstrap:local
-# add Stripe test values to .env.local when reported as missing
+# add HitPay test values to .env.local when reported as missing
 npm run dev
 ```
 
