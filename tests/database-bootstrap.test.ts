@@ -98,7 +98,10 @@ describe("database bootstrap", () => {
     expect(script).not.toContain("assertTargetSafety(target, supabaseUrl, siteUrl);");
     expect(script).toContain('rpc(client, "admin_upsert_category"');
     expect(script).toContain('rpc(client, "admin_upsert_set_release"');
-    expect(script).toContain('rpc(client, "admin_upsert_catalog_product_with_publication"');
+    expect(script).toContain('rpc(client, "admin_upsert_catalog_product"');
+    expect(script).not.toContain(
+      'rpc(client, "admin_upsert_catalog_product_with_publication"'
+    );
     expect(script).toContain('rpc(client, "admin_upsert_catalog_sku"');
     expect(script).toContain('rpc(client, "admin_set_sku_price"');
     expect(script).toContain('rpc(client, "admin_upsert_supplier"');
