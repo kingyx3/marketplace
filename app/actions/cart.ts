@@ -12,7 +12,16 @@ export async function addToCart(formData: FormData) {
   const returnPath = safeReturnPath(String(formData.get("returnPath") ?? "/products"));
   const nextCart = addCartItem(await readCart(), skuId, quantity);
 
-  if (!(await requestedQuantityIsAvailable(nextCart, skuId))) {
+  let requestedQuantityAvailable = false;
+  try {
+    const quote = await getSkuQuote(nextCart);
+    const line = quote.lines.find((item) => item.skuId === skuId);
+    requestedQuantityAvailable = Boolean(line && line.available >= line.quantity);
+  } catch {
+    requestedQuantityAvailable = false;
+  }
+
+  if (!requestedQuantityAvailable) {
     redirect(withCartError(returnPath));
   }
 
