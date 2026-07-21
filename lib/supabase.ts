@@ -8,9 +8,11 @@ const nonPersistentAuth = {
   detectSessionInUrl: false,
 } as const;
 
-type SupabaseServerKeyEnvironment = Partial<
-  Record<"SUPABASE_SECRET_KEY" | "SUPABASE_SERVICE_ROLE_KEY", string | undefined>
->;
+interface SupabaseServerKeyEnvironment {
+  SUPABASE_SECRET_KEY?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+  [key: string]: string | undefined;
+}
 
 /**
  * Publishable-key database client for server-side public and RLS-scoped reads.
