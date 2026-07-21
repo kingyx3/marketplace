@@ -85,7 +85,9 @@ export default async function HomePage({
 
           <div className="grid gap-3 sm:grid-cols-3">
             <TrustPoint title="Upfront pricing">See prices before signing in.</TrustPoint>
-            <TrustPoint title="Verified checkout">Stock and totals are rechecked at payment.</TrustPoint>
+            <TrustPoint title="Verified checkout">
+              Stock and totals are rechecked at payment.
+            </TrustPoint>
             <TrustPoint title="Secure accounts">Orders and preorders stay private.</TrustPoint>
           </div>
         </div>

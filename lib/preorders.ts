@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type Stripe from "stripe";
 import { z } from "zod";
 
 import { allocate, type AllocationRule, type PendingPreorder } from "@/lib/allocation";
 import { badRequest, conflict } from "@/lib/api/errors";
+import { hitPayRefundStatus, type HitPayClient } from "@/lib/hitpay";
 
 export const preorderAllocationRequestSchema = z.object({
   skuId: z.string().uuid(),
@@ -78,7 +78,7 @@ interface StagedAllocationRow {
   allocated_qty: number;
   refund_cents: number;
   payment_id: string;
-  provider_payment_id: string;
+  provider_charge_id: string;
   currency: string;
 }
 
@@ -109,9 +109,9 @@ export async function listPreorderAllocationSkus(
 
   return (skus ?? []).map((row) => {
     const variant = one(row.product_variants as unknown);
-    const product = one(
-      (variant as { products?: unknown } | null)?.products as unknown
-    ) as { name?: string } | null;
+    const product = one((variant as { products?: unknown } | null)?.products as unknown) as {
+      name?: string;
+    } | null;
     return {
       skuId: String(row.id),
       sku: String(row.sku),
@@ -211,7 +211,7 @@ export async function previewPreorderAllocationForSku(
 
 export async function executePreorderAllocationForSku(
   supabase: SupabaseClient,
-  stripe: Stripe,
+  hitpay: HitPayClient,
   input: { skuId: string; fingerprint: string; actor: string }
 ): Promise<PreorderAllocationExecution> {
   const parsed = preorderAllocationRequestSchema.parse(input);
@@ -251,25 +251,19 @@ export async function executePreorderAllocationForSku(
     let refundStatus: string | null = null;
 
     if (row.refund_cents > 0) {
-      const refund = await stripe.refunds.create(
-        {
-          payment_intent: row.provider_payment_id,
-          amount: row.refund_cents,
-          metadata: {
-            preorder_id: row.preorder_id,
-            allocation_fingerprint: parsed.fingerprint,
-            reason: "preorder_allocation_shortfall",
-          },
-        },
-        {
-          idempotencyKey: `preorder-allocation-refund:${row.preorder_id}:${parsed.fingerprint}`,
-        }
-      );
-      if (refund.status === "failed" || refund.status === "canceled") {
-        throw conflict(`Stripe rejected the allocation refund for preorder ${row.preorder_id}`);
+      if (!row.provider_charge_id) {
+        throw conflict(`HitPay charge is missing for preorder ${row.preorder_id}`);
+      }
+      const refund = await hitpay.createRefund({
+        paymentId: row.provider_charge_id,
+        amountCents: row.refund_cents,
+      });
+      const normalizedStatus = hitPayRefundStatus(refund.status);
+      if (normalizedStatus === "failed") {
+        throw conflict(`HitPay rejected the allocation refund for preorder ${row.preorder_id}`);
       }
       refundId = refund.id;
-      refundStatus = refund.status;
+      refundStatus = normalizedStatus;
       refundsCreated += 1;
       refundCents += row.refund_cents;
     }
@@ -327,10 +321,7 @@ async function loadAllocationRules(
   }));
 }
 
-async function loadPaidPreorders(
-  supabase: SupabaseClient,
-  skuId: string
-): Promise<PreorderRow[]> {
+async function loadPaidPreorders(supabase: SupabaseClient, skuId: string): Promise<PreorderRow[]> {
   const { data, error } = await supabase
     .from("preorders")
     .select(
@@ -380,8 +371,9 @@ async function loadStagedAllocations(
   const ids = preorders.map((preorder) => String(preorder.id));
   const { data: payments, error: paymentError } = await supabase
     .from("payments")
-    .select("id, preorder_id, provider_payment_id")
+    .select("id, preorder_id, provider_charge_id")
     .in("preorder_id", ids)
+    .eq("provider", "hitpay")
     .eq("kind", "full")
     .eq("status", "captured");
   if (paymentError) throw new Error(paymentError.message);
@@ -392,14 +384,17 @@ async function loadStagedAllocations(
   return preorders.map((preorder) => {
     const payment = paymentByPreorder.get(String(preorder.id));
     if (!payment) {
-      throw conflict(`Captured payment is missing for preorder ${preorder.id}`);
+      throw conflict(`Captured HitPay payment is missing for preorder ${preorder.id}`);
+    }
+    if (!payment.provider_charge_id) {
+      throw conflict(`HitPay charge is missing for preorder ${preorder.id}`);
     }
     return {
       preorder_id: String(preorder.id),
       allocated_qty: Number(preorder.allocated_qty),
       refund_cents: Number(preorder.allocation_refund_cents),
       payment_id: String(payment.id),
-      provider_payment_id: String(payment.provider_payment_id),
+      provider_charge_id: String(payment.provider_charge_id),
       currency: String(preorder.currency),
     };
   });

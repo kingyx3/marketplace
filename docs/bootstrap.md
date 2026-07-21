@@ -24,7 +24,7 @@ Repository code cannot create every account-level trust boundary. Confirm:
 - A Google Cloud project and credential allowed to manage the Terraform state bucket.
 - A Vercel API token.
 - A Supabase access token and organization access.
-- Stripe test/live keys with PayNow enabled at the account level.
+- HitPay test/live keys with PayNow enabled at the account level.
 - Google OAuth consent-screen and Web-client ownership when Google Auth is enabled.
 - A Sentry organization/project plus a least-privilege release/source-map auth token for staging and production.
 - Verified Resend sender/domain and operational alert destinations for hosted release gates.
@@ -37,16 +37,16 @@ Bootstrap reads values from the current shell and writes them to repository or E
 
 ### Shared repository settings
 
-| Shell input | GitHub setting | Requirement |
-| --- | --- | --- |
-| `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret | Required |
-| `VERCEL_TOKEN` | Repository secret | Required |
-| `SUPABASE_ACCESS_TOKEN` | Repository secret | Required |
-| `ADMIN_EMAIL_ALLOWLIST` | Repository variable | Required for production; comma-separated emails |
-| `NEXT_PUBLIC_SENTRY_DSN` | Repository variable | Required for staging/production runtime capture |
-| `SENTRY_ORG` | Repository variable | Required for staging/production source maps |
-| `SENTRY_PROJECT` | Repository variable | Required for staging/production source maps |
-| `SENTRY_AUTH_TOKEN` | Repository secret | Required for staging/production source maps |
+| Shell input                      | GitHub setting      | Requirement                                     |
+| -------------------------------- | ------------------- | ----------------------------------------------- |
+| `GCP_TERRAFORM_CREDENTIALS_JSON` | Repository secret   | Required                                        |
+| `VERCEL_TOKEN`                   | Repository secret   | Required                                        |
+| `SUPABASE_ACCESS_TOKEN`          | Repository secret   | Required                                        |
+| `ADMIN_EMAIL_ALLOWLIST`          | Repository variable | Required for production; comma-separated emails |
+| `NEXT_PUBLIC_SENTRY_DSN`         | Repository variable | Required for staging/production runtime capture |
+| `SENTRY_ORG`                     | Repository variable | Required for staging/production source maps     |
+| `SENTRY_PROJECT`                 | Repository variable | Required for staging/production source maps     |
+| `SENTRY_AUTH_TOKEN`              | Repository secret   | Required for staging/production source maps     |
 
 `ADMIN_EMAIL_ALLOWLIST` is a shared, server-only authorization input. The Sentry values are shared observability settings, not per-environment application configuration. The DSN and organization/project slugs are non-secret identifiers. The auth token must be scoped only to the release/source-map permissions required by the build.
 
@@ -62,39 +62,39 @@ Prefix values with `DEVELOPMENT_`, `STAGING_`, or `PRODUCTION_`. Bootstrap remov
 
 Common values:
 
-| Suffix | GitHub setting | Requirement |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Environment variable | Required |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Environment variable | Required |
-| `GOOGLE_AUTH_ENABLED` | Environment variable | Defaults to `true` |
-| `GOOGLE_OAUTH_CLIENT_ID` | Environment variable | Required when Google Auth is enabled |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Environment secret | Required when Google Auth is enabled |
-| `STRIPE_SECRET_KEY` | Environment secret | Required |
-| `RESEND_FROM_EMAIL` | Environment variable | Required |
-| `SUPPORT_EMAIL` | Environment variable | Required for production |
-| `SUPABASE_SECRET_KEY` | Environment secret | Optional fallback |
-| `STRIPE_WEBHOOK_SECRET` | Environment secret | Optional recovery override |
-| `CRON_SECRET` | Environment secret | Required for staging/production |
-| `SYNTHETIC_MONITOR_SECRET` | Environment secret | Required for staging/production |
-| `OPERATIONAL_ALERT_WEBHOOK_URL` | Environment secret | Required for staging/production |
-| `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret | Required for staging/production |
-| `RESEND_API_KEY` | Environment secret | Required for staging/production |
+| Suffix                             | GitHub setting       | Requirement                          |
+| ---------------------------------- | -------------------- | ------------------------------------ |
+| `NEXT_PUBLIC_SITE_URL`             | Environment variable | Required                             |
+| `HITPAY_API_URL`                   | Environment variable | Required                             |
+| `GOOGLE_AUTH_ENABLED`              | Environment variable | Defaults to `true`                   |
+| `GOOGLE_OAUTH_CLIENT_ID`           | Environment variable | Required when Google Auth is enabled |
+| `GOOGLE_OAUTH_CLIENT_SECRET`       | Environment secret   | Required when Google Auth is enabled |
+| `HITPAY_API_KEY`                   | Environment secret   | Required                             |
+| `RESEND_FROM_EMAIL`                | Environment variable | Required                             |
+| `SUPPORT_EMAIL`                    | Environment variable | Required for production              |
+| `SUPABASE_SECRET_KEY`              | Environment secret   | Optional fallback                    |
+| `HITPAY_WEBHOOK_SALT`              | Environment secret   | Optional recovery override           |
+| `CRON_SECRET`                      | Environment secret   | Required for staging/production      |
+| `SYNTHETIC_MONITOR_SECRET`         | Environment secret   | Required for staging/production      |
+| `OPERATIONAL_ALERT_WEBHOOK_URL`    | Environment secret   | Required for staging/production      |
+| `OPERATIONAL_ALERT_WEBHOOK_SECRET` | Environment secret   | Required for staging/production      |
+| `RESEND_API_KEY`                   | Environment secret   | Required for staging/production      |
 
 Environment naming, release identification, trace sampling, and replay sampling use safe code defaults and deployment metadata. No target-prefixed Sentry setting is required.
 
 Staging release-gate values:
 
-| Shell input | Stored setting |
-| --- | --- |
-| `STAGING_RECOVERY_PROJECT_REF` | Environment variable `RECOVERY_PROJECT_REF` |
-| `STAGING_STAGING_DATABASE_URL` | Environment secret `STAGING_DATABASE_URL` |
-| `STAGING_RECOVERY_DATABASE_URL` | Environment secret `RECOVERY_DATABASE_URL` |
-| `STAGING_OPERATIONS_OWNER` | Environment variable `OPERATIONS_OWNER` |
-| `STAGING_INCIDENT_ESCALATION_URL` | Environment variable `INCIDENT_ESCALATION_URL` |
-| `STAGING_RESTORE_RTO_SECONDS` | Environment variable `RESTORE_RTO_SECONDS` |
-| `STAGING_CHECKOUT_AVAILABILITY_SLO_PERCENT` | Environment variable |
-| `STAGING_CHECKOUT_LATENCY_SLO_MS` | Environment variable |
-| `STAGING_PAYMENT_RECONCILIATION_SLO_MINUTES` | Environment variable |
+| Shell input                                  | Stored setting                                 |
+| -------------------------------------------- | ---------------------------------------------- |
+| `STAGING_RECOVERY_PROJECT_REF`               | Environment variable `RECOVERY_PROJECT_REF`    |
+| `STAGING_STAGING_DATABASE_URL`               | Environment secret `STAGING_DATABASE_URL`      |
+| `STAGING_RECOVERY_DATABASE_URL`              | Environment secret `RECOVERY_DATABASE_URL`     |
+| `STAGING_OPERATIONS_OWNER`                   | Environment variable `OPERATIONS_OWNER`        |
+| `STAGING_INCIDENT_ESCALATION_URL`            | Environment variable `INCIDENT_ESCALATION_URL` |
+| `STAGING_RESTORE_RTO_SECONDS`                | Environment variable `RESTORE_RTO_SECONDS`     |
+| `STAGING_CHECKOUT_AVAILABILITY_SLO_PERCENT`  | Environment variable                           |
+| `STAGING_CHECKOUT_LATENCY_SLO_MS`            | Environment variable                           |
+| `STAGING_PAYMENT_RECONCILIATION_SLO_MINUTES` | Environment variable                           |
 
 Production values include `PRODUCTION_OPERATIONS_OWNER`, `PRODUCTION_INCIDENT_ESCALATION_URL`, `PRODUCTION_SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS`, `PRODUCTION_SUPABASE_ADVISOR_ALLOWLIST`, and the production SLO variables.
 
@@ -170,7 +170,7 @@ Enabling the extended topology later adds staging and recovery resources without
 - Existing state buckets and provider resources are safely adopted before planning.
 - Terraform creates and applies the exact binary plan in the same protected run.
 - Shared infrastructure uses one global concurrency lock and committed read-only provider lockfiles.
-- Stripe webhook configuration uses one desired-state implementation.
+- HitPay webhook configuration uses one desired-state implementation.
 - Supabase Google Auth, site URL, redirects, and migrations are reconciled through the environment bootstrap.
 - The shared Sentry DSN and source-map build settings are reconciled once at repository scope; environment labels come from the deployment target.
 - Vercel runtime values are fingerprinted; unchanged values are not rewritten.

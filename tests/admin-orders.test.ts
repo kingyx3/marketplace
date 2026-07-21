@@ -23,11 +23,11 @@ describe("admin order actions", () => {
       "11111111-1111-4111-8111-111111111111",
       {
         action: "record_manual_reconciliation",
-        provider: "stripe",
+        provider: "hitpay",
         providerPaymentId: "pi_manual_123",
         amountCents: 19900,
         currency: "sgd",
-        reason: "operator matched Stripe dashboard payment",
+        reason: "operator matched HitPay dashboard payment",
       },
       "admin:auth-user"
     );
@@ -36,11 +36,11 @@ describe("admin order actions", () => {
       name: "admin_record_manual_reconciliation",
       params: {
         p_order_id: "11111111-1111-4111-8111-111111111111",
-        p_provider: "stripe",
+        p_provider: "hitpay",
         p_provider_payment_id: "pi_manual_123",
         p_amount_cents: 19900,
         p_currency: "SGD",
-        p_reason: "operator matched Stripe dashboard payment",
+        p_reason: "operator matched HitPay dashboard payment",
         p_actor: "admin:auth-user",
       },
     });
@@ -117,9 +117,9 @@ describe("admin order actions", () => {
         {
           id: "event-1",
           event_id: "evt_1",
-          event_type: "payment_intent.succeeded",
+          event_type: "payment_request.completed",
           processed_at: "2026-07-04T09:00:00.000Z",
-          payload: { data: { object: { id: "pi_orphan" } } },
+          payload: { id: "pi_orphan" },
         },
       ],
     });
@@ -153,21 +153,21 @@ describe("admin order actions", () => {
     const form = new FormData();
     form.set("action", "record_manual_reconciliation");
     form.set("orderId", "11111111-1111-4111-8111-111111111111");
-    form.set("provider", "stripe");
+    form.set("provider", "hitpay");
     form.set("providerPaymentId", "pi_manual_123");
     form.set("amountCents", "19900");
     form.set("currency", "sgd");
-    form.set("reason", "operator matched Stripe dashboard payment");
+    form.set("reason", "operator matched HitPay dashboard payment");
 
     expect(adminOrderActionFromForm(form)).toEqual({
       orderId: "11111111-1111-4111-8111-111111111111",
       body: {
         action: "record_manual_reconciliation",
-        provider: "stripe",
+        provider: "hitpay",
         providerPaymentId: "pi_manual_123",
         amountCents: 19900,
         currency: "SGD",
-        reason: "operator matched Stripe dashboard payment",
+        reason: "operator matched HitPay dashboard payment",
       },
     });
   });
@@ -176,11 +176,11 @@ describe("admin order actions", () => {
     const form = new FormData();
     form.set("action", "record_manual_reconciliation");
     form.set("orderId", "11111111-1111-4111-8111-111111111111");
-    form.set("provider", "stripe");
+    form.set("provider", "hitpay");
     form.set("providerPaymentId", "pi_manual_123");
     form.set("amountCents", "0");
     form.set("currency", "SGD");
-    form.set("reason", "operator matched Stripe dashboard payment");
+    form.set("reason", "operator matched HitPay dashboard payment");
 
     expect(() => adminOrderActionFromForm(form)).toThrow("amountCents must be at least 1");
   });

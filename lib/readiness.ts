@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { getAppName } from "@/lib/app-config";
 import { configuredChannels } from "@/lib/notifications";
 import { createSecretClient } from "@/lib/supabase";
@@ -8,8 +9,10 @@ type CheckStatus = "ok" | "fail" | "disabled" | "configured";
 interface EnvLike {
   NEXT_PUBLIC_SUPABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
-  STRIPE_SECRET_KEY?: string;
-  STRIPE_WEBHOOK_SECRET?: string;
+  HITPAY_API_KEY?: string;
+  HITPAY_WEBHOOK_SALT?: string;
+  HITPAY_API_URL?: string;
+  TARGET_ENV?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM_EMAIL?: string;
   TWILIO_ACCOUNT_SID?: string;
@@ -33,10 +36,11 @@ export interface ReadinessResponse {
   timestamp: string;
   checks: {
     supabase: { status: "ok" | "fail"; reason?: string };
-    stripe: {
+    hitpay: {
       status: "ok" | "fail";
-      secretKey: "configured" | "fail";
-      webhookSecret: "configured" | "fail";
+      apiKey: "configured" | "fail";
+      webhookSalt: "configured" | "fail";
+      apiUrl: "configured" | "fail";
     };
     notifications: {
       status: "ok";
@@ -63,9 +67,9 @@ export async function collectReadiness(
 ): Promise<ReadinessResponse> {
   const env = options.env ?? process.env;
   const supabase = await checkSupabase(env, options.supabase);
-  const stripe = checkStripe(env);
+  const hitpay = checkHitPay(env);
   const notifications = checkNotifications(env);
-  const status = supabase.status === "ok" && stripe.status === "ok" ? "ok" : "degraded";
+  const status = supabase.status === "ok" && hitpay.status === "ok" ? "ok" : "degraded";
 
   return {
     status,
@@ -73,7 +77,7 @@ export async function collectReadiness(
     timestamp: (options.now ?? new Date()).toISOString(),
     checks: {
       supabase,
-      stripe,
+      hitpay,
       notifications,
     },
   };
@@ -102,17 +106,32 @@ async function checkSupabase(
   }
 }
 
-function checkStripe(env: EnvLike): ReadinessResponse["checks"]["stripe"] {
-  const secretKey: CheckStatus = env.STRIPE_SECRET_KEY?.startsWith("sk_") ? "configured" : "fail";
-  const webhookSecret: CheckStatus = env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_")
+function checkHitPay(env: EnvLike): ReadinessResponse["checks"]["hitpay"] {
+  const apiKey: CheckStatus = env.HITPAY_API_KEY?.trim() ? "configured" : "fail";
+  const webhookSalt: CheckStatus = env.HITPAY_WEBHOOK_SALT?.trim() ? "configured" : "fail";
+  const derivedApiUrl =
+    env.TARGET_ENV === "production" ? "https://api.hit-pay.com" : "https://api.sandbox.hit-pay.com";
+  const apiUrl: CheckStatus = isHttpsUrl(env.HITPAY_API_URL || derivedApiUrl)
     ? "configured"
     : "fail";
 
   return {
-    status: secretKey === "configured" && webhookSecret === "configured" ? "ok" : "fail",
-    secretKey,
-    webhookSecret,
+    status:
+      apiKey === "configured" && webhookSalt === "configured" && apiUrl === "configured"
+        ? "ok"
+        : "fail",
+    apiKey,
+    webhookSalt,
+    apiUrl,
   };
+}
+
+function isHttpsUrl(value: string | undefined): boolean {
+  try {
+    return Boolean(value && new URL(value).protocol === "https:");
+  } catch {
+    return false;
+  }
 }
 
 function checkNotifications(env: EnvLike): ReadinessResponse["checks"]["notifications"] {

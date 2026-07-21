@@ -87,7 +87,9 @@ describe("customer provisioning", () => {
     const source = await readFile(new URL("../lib/auth.ts", import.meta.url), "utf8");
 
     expect(source).toContain("findOrCreateCustomer(createServiceClient(), user)");
-    expect(source).not.toContain('throw new AuthenticationError("Customer profile has not been provisioned")');
+    expect(source).not.toContain(
+      'throw new AuthenticationError("Customer profile has not been provisioned")'
+    );
   });
 });
 

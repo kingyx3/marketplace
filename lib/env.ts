@@ -16,5 +16,7 @@ export function getEnv(): ServerEnv {
 
 /** True when the public Supabase variables are present (used to degrade gracefully in dev). */
 export function hasSupabasePublicEnv(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  );
 }

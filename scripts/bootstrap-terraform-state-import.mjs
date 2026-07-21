@@ -15,7 +15,8 @@ if (state.status === 0) {
   console.log(`${address} is already managed in Terraform state; skipping import.`);
   process.exit(0);
 }
-if (!isMissingStateAddress(state.output)) fail(`Could not inspect Terraform state for ${address}:\n${state.output}`);
+if (!isMissingStateAddress(state.output))
+  fail(`Could not inspect Terraform state for ${address}:\n${state.output}`);
 
 const imported = terraform(["import", "-input=false", address, bucketName]);
 if (imported.status === 0) {
@@ -36,6 +37,12 @@ function terraform(args) {
     stdio: ["ignore", "pipe", "pipe"],
   });
   if (result.error) fail(`Terraform failed to start: ${result.error.message}`);
-  return { status: result.status ?? 1, output: [result.stdout, result.stderr].filter(Boolean).join("\n").trim() };
+  return {
+    status: result.status ?? 1,
+    output: [result.stdout, result.stderr].filter(Boolean).join("\n").trim(),
+  };
 }
-function fail(message) { console.error(message); process.exit(1); }
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}

@@ -1,11 +1,7 @@
 export type Channel = "b2c";
 
 export type SetStatus =
-  | "announced"
-  | "preorder_open"
-  | "preorder_closed"
-  | "released"
-  | "out_of_print";
+  "announced" | "preorder_open" | "preorder_closed" | "released" | "out_of_print";
 
 export type MarketplaceProduct = {
   slug: string;
@@ -266,7 +262,7 @@ export const accountSnapshot = {
   defaultCurrency: "SGD",
   monthlySpendCents: 41300,
   preorderExposureCents: 82600,
-  savedPaymentState: "Stripe customer ready",
+  savedPaymentState: "HitPay customer ready",
 };
 
 export const orders: OrderSummary[] = [

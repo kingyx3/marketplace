@@ -65,7 +65,16 @@ export default async function CartPage({
       ) : null}
       {params.checkout === "processing" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Payment is processing. The order will update after confirmation.
+          HitPay has returned you to the store. Payment status will update from the signed webhook.
+          {params.order ? (
+            <>
+              {" "}
+              <Link className="font-semibold underline" href={`/orders/${params.order}`}>
+                View order
+              </Link>
+              .
+            </>
+          ) : null}
         </div>
       ) : null}
       {params.checkout === "failed" ? (
@@ -80,7 +89,8 @@ export default async function CartPage({
       ) : null}
       {hasAvailabilityIssue ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          One or more items are sold out or exceed current stock. Remove them or reduce the quantity before checkout.
+          One or more items are sold out or exceed current stock. Remove them or reduce the quantity
+          before checkout.
         </div>
       ) : null}
 
@@ -132,7 +142,8 @@ export default async function CartPage({
                     </div>
                     {outOfStock ? (
                       <p className="mt-3 text-sm font-medium text-amber-800">
-                        Remove this item to continue checkout. It will remain in your cart until you decide.
+                        Remove this item to continue checkout. It will remain in your cart until you
+                        decide.
                       </p>
                     ) : shortStock ? (
                       <p className="mt-3 text-sm font-medium text-amber-800">
@@ -181,7 +192,12 @@ export default async function CartPage({
                     </p>
                     {lineDealDiscountBps > 0 ? (
                       <p className="mt-2 break-words text-sm font-semibold text-emerald-700">
-                        Deal {formatMoney(discountedDealPrice(line.unitPriceCents, lineDealDiscountBps), line.currency)} each ({formatDealDiscount(lineDealDiscountBps)} off)
+                        Deal{" "}
+                        {formatMoney(
+                          discountedDealPrice(line.unitPriceCents, lineDealDiscountBps),
+                          line.currency
+                        )}{" "}
+                        each ({formatDealDiscount(lineDealDiscountBps)} off)
                       </p>
                     ) : null}
                   </div>
@@ -234,7 +250,6 @@ export default async function CartPage({
             <CartCheckoutPanel
               disabled={Boolean(quoteError) || hasAvailabilityIssue}
               items={cartItems}
-              publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""}
               supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
               supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
             />

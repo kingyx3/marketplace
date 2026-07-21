@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type Stripe from "stripe";
 import { z } from "zod";
 
 import type { ApiCustomerContext } from "@/lib/api/auth";
@@ -10,15 +9,15 @@ import {
   type CheckoutQuote,
   type CheckoutRequest,
 } from "@/lib/commerce";
-import { createStripeClient } from "@/lib/stripe";
+import { applicationUrl, createHitPayClient, type HitPayClient } from "@/lib/hitpay";
 
 export interface CheckoutResult {
   mode: "order" | "preorder";
   orderId?: string;
   preorderId?: string;
   paymentId: string;
-  paymentIntentId: string;
-  clientSecret: string;
+  paymentRequestId: string;
+  checkoutUrl: string;
   publishableCurrency: string;
   amountCents: number;
   quote: CheckoutQuote;
@@ -26,7 +25,7 @@ export interface CheckoutResult {
 }
 
 const cancelCheckoutSchema = z.object({
-  paymentIntentId: z.string().trim().min(3).max(200).startsWith("pi_"),
+  paymentRequestId: z.string().uuid(),
 });
 
 export function checkoutResponseBody(result: CheckoutResult) {
@@ -35,8 +34,8 @@ export function checkoutResponseBody(result: CheckoutResult) {
     orderId: result.orderId,
     preorderId: result.preorderId,
     paymentId: result.paymentId,
-    paymentIntentId: result.paymentIntentId,
-    clientSecret: result.clientSecret,
+    paymentRequestId: result.paymentRequestId,
+    checkoutUrl: result.checkoutUrl,
     amountCents: result.amountCents,
     currency: result.publishableCurrency,
     quote: result.quote,
@@ -44,14 +43,10 @@ export function checkoutResponseBody(result: CheckoutResult) {
   };
 }
 
-/**
- * This function remains the preorder entry point used by order-checkout.ts.
- * Preorders and normal orders now both require 100% payment at checkout.
- */
 export async function createCheckoutPayment(
   auth: ApiCustomerContext,
   body: unknown,
-  stripe: Stripe = createStripeClient()
+  hitpay: HitPayClient = createHitPayClient()
 ): Promise<CheckoutResult> {
   const request = checkoutRequestSchema.parse(body) as CheckoutRequest;
   const quote = await quoteCheckout(auth.supabase, request, auth.customer);
@@ -61,16 +56,16 @@ export async function createCheckoutPayment(
     throw badRequest("Normal orders must use the shipping-aware checkout flow");
   }
 
-  return createPreorderPayment(auth, quote, stripe);
+  return createPreorderPayment(auth, quote, hitpay);
 }
 
 export async function cancelPendingCheckoutPayment(
   auth: ApiCustomerContext,
   body: unknown,
-  stripe: Stripe = createStripeClient()
+  hitpay: HitPayClient = createHitPayClient()
 ): Promise<{ cancelled: true; orderId?: string; preorderId?: string }> {
   const input = cancelCheckoutSchema.parse(body);
-  const payment = await paymentByIntent(auth.supabase, input.paymentIntentId);
+  const payment = await paymentByRequest(auth.supabase, input.paymentRequestId);
   if (!payment) throw notFound("Payment not found");
 
   if (!["pending", "requires_capture", "authorized"].includes(payment.status)) {
@@ -78,12 +73,16 @@ export async function cancelPendingCheckoutPayment(
   }
 
   if (payment.order_id) await assertCustomerOrderIsCancellable(auth, payment.order_id);
-  if (payment.preorder_id) await assertCustomerPreorderIsCancellable(auth, payment.preorder_id);
+  if (payment.preorder_id) {
+    await assertCustomerPreorderIsCancellable(auth, payment.preorder_id);
+  }
 
   try {
-    await stripe.paymentIntents.cancel(input.paymentIntentId);
+    await hitpay.cancelPaymentRequest(input.paymentRequestId);
   } catch {
-    throw conflict("Payment can no longer be cancelled");
+    // HitPay cannot always revoke a PayNow payment after QR generation. Local
+    // cancellation releases the reservation; a late completion is refunded by
+    // the signed webhook handler.
   }
 
   const paymentUpdate = await auth.supabase
@@ -126,13 +125,13 @@ export async function cancelPendingCheckoutPayment(
 async function createPreorderPayment(
   auth: ApiCustomerContext,
   quote: CheckoutQuote,
-  stripe: Stripe
+  hitpay: HitPayClient
 ): Promise<CheckoutResult> {
   const line = quote.lines[0];
   if (!line) throw badRequest("Pre-order checkout requires one line");
 
   let preorderId: string | null = null;
-  let paymentIntentId: string | null = null;
+  let paymentRequestId: string | null = null;
 
   try {
     const preorder = await auth.supabase
@@ -155,41 +154,40 @@ async function createPreorderPayment(
     }
 
     preorderId = String(preorder.data.id);
-    const intent = await stripe.paymentIntents.create(
-      {
-        amount: quote.totalCents,
-        currency: quote.currency.toLowerCase(),
-        automatic_payment_methods: { enabled: true },
-        receipt_email: auth.customer.email,
-        metadata: {
-          kind: "full",
-          preorder_id: preorderId,
-          customer_id: auth.customer.id,
-          payment_terms: "full_upfront",
-        },
-      },
-      { idempotencyKey: `preorder-checkout:${preorderId}` }
-    );
-    paymentIntentId = intent.id;
+    const request = await hitpay.createPaymentRequest({
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+      email: auth.customer.email,
+      name: auth.customer.name,
+      purpose: `Pre-order ${line.productName}`,
+      referenceNumber: `preorder:${preorderId}`,
+      redirectUrl: applicationUrl("/orders?checkout=processing#preorders"),
+      expiresAfter: "15 minutes",
+    });
+    paymentRequestId = request.id;
 
     const payment = await insertPayment(auth.supabase, {
       preorderId,
-      providerPaymentId: intent.id,
+      providerPaymentId: request.id,
       amountCents: quote.totalCents,
       currency: quote.currency,
     });
 
-    return checkoutResultFromIntent({
+    return {
+      mode: "preorder",
       preorderId,
       paymentId: payment.id,
-      intent,
+      paymentRequestId: request.id,
+      checkoutUrl: request.url,
+      publishableCurrency: quote.currency,
+      amountCents: quote.totalCents,
       quote,
-    });
+    };
   } catch (error) {
     await rollbackFailedPreorderCheckout(auth.supabase, {
       preorderId,
-      paymentIntentId,
-      stripe,
+      paymentRequestId,
+      hitpay,
     });
     throw error instanceof Error ? error : internalError();
   }
@@ -208,6 +206,7 @@ async function insertPayment(
     .from("payments")
     .insert({
       preorder_id: input.preorderId,
+      provider: "hitpay",
       provider_payment_id: input.providerPaymentId,
       kind: "full",
       amount_cents: input.amountCents,
@@ -221,12 +220,12 @@ async function insertPayment(
   return { id: data.id };
 }
 
-async function paymentByIntent(supabase: SupabaseClient, paymentIntentId: string) {
+async function paymentByRequest(supabase: SupabaseClient, paymentRequestId: string) {
   const { data, error } = await supabase
     .from("payments")
     .select("id, order_id, preorder_id, kind, status")
-    .eq("provider", "stripe")
-    .eq("provider_payment_id", paymentIntentId)
+    .eq("provider", "hitpay")
+    .eq("provider_payment_id", paymentRequestId)
     .maybeSingle();
   if (error) throw new Error(error.message);
 
@@ -273,42 +272,19 @@ async function assertCustomerPreorderIsCancellable(
   }
 }
 
-function checkoutResultFromIntent(input: {
-  preorderId: string;
-  paymentId: string;
-  intent: Stripe.PaymentIntent;
-  quote: CheckoutQuote;
-}): CheckoutResult {
-  if (!input.intent.client_secret) {
-    throw internalError("Payment intent is missing a client secret");
-  }
-
-  return {
-    mode: "preorder",
-    preorderId: input.preorderId,
-    paymentId: input.paymentId,
-    paymentIntentId: input.intent.id,
-    clientSecret: input.intent.client_secret,
-    publishableCurrency: input.quote.currency,
-    amountCents: input.quote.totalCents,
-    quote: input.quote,
-  };
-}
-
 async function rollbackFailedPreorderCheckout(
   supabase: SupabaseClient,
   input: {
     preorderId: string | null;
-    paymentIntentId: string | null;
-    stripe: Stripe;
+    paymentRequestId: string | null;
+    hitpay: HitPayClient;
   }
 ): Promise<void> {
-  if (input.paymentIntentId) {
+  if (input.paymentRequestId) {
     try {
-      await input.stripe.paymentIntents.cancel(input.paymentIntentId);
+      await input.hitpay.cancelPaymentRequest(input.paymentRequestId);
     } catch {
-      // The database state is still cancelled below. Stripe webhooks reconcile
-      // an intent that races with this rollback.
+      // Local cancellation remains authoritative until any signed late webhook.
     }
   }
   if (input.preorderId) {

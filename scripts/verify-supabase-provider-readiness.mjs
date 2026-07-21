@@ -2,7 +2,9 @@
 
 const accessToken = required("SUPABASE_ACCESS_TOKEN");
 const projectRef = required("SUPABASE_PROJECT_REF");
-const requiredBackupMode = (process.env.SUPABASE_REQUIRED_BACKUP_MODE || "pitr").trim().toLowerCase();
+const requiredBackupMode = (process.env.SUPABASE_REQUIRED_BACKUP_MODE || "pitr")
+  .trim()
+  .toLowerCase();
 const minimumRetentionDays = positiveInteger("SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS", 7);
 const advisorAllowlist = new Set(
   String(process.env.SUPABASE_ADVISOR_ALLOWLIST || "")
@@ -18,7 +20,10 @@ if (!new Set(["pitr", "daily"]).has(requiredBackupMode)) {
 const [backups, securityAdvisors, performanceAdvisors] = await Promise.all([
   managementJson(`/v1/projects/${projectRef}/database/backups`, "Supabase backups"),
   managementJson(`/v1/projects/${projectRef}/advisors/security`, "Supabase security advisors"),
-  managementJson(`/v1/projects/${projectRef}/advisors/performance`, "Supabase performance advisors"),
+  managementJson(
+    `/v1/projects/${projectRef}/advisors/performance`,
+    "Supabase performance advisors"
+  ),
 ]);
 
 const backupEvidence = verifyBackups(backups);
@@ -80,8 +85,7 @@ function verifyBackups(payload) {
   const latestRecoveryPoint = sortedRecoveryTimes.at(-1)?.toISOString() ?? null;
   const retentionDays =
     sortedRecoveryTimes.length >= 2
-      ? (sortedRecoveryTimes.at(-1).getTime() - sortedRecoveryTimes.at(0).getTime()) /
-        86_400_000
+      ? (sortedRecoveryTimes.at(-1).getTime() - sortedRecoveryTimes.at(0).getTime()) / 86_400_000
       : estimateDailyRetention(recoverableBackups);
 
   if (requiredBackupMode === "pitr") {
@@ -133,9 +137,7 @@ function verifyAdvisors(payload, kind, failWarnings) {
       .slice(0, 20)
       .map(
         (finding) =>
-          `${finding.code || finding.name || finding.title}: ${
-            finding.level || finding.severity
-          }`
+          `${finding.code || finding.name || finding.title}: ${finding.level || finding.severity}`
       )
       .join("; ");
     throw new Error(`Blocking Supabase ${kind} advisor findings: ${summary}`);

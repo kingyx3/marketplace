@@ -13,7 +13,9 @@ run(process.execPath, ["scripts/configure-github-governance.mjs", ...applyArg]);
 run(process.execPath, ["scripts/bootstrap-github.mjs", `--target=${target}`, ...applyArg]);
 
 if (!apply) {
-  console.log(`\nNo hosted workflow was dispatched. Re-run with --apply to bootstrap, deploy, and verify ${target}.`);
+  console.log(
+    `\nNo hosted workflow was dispatched. Re-run with --apply to bootstrap, deploy, and verify ${target}.`
+  );
   process.exit(0);
 }
 
@@ -56,11 +58,16 @@ function waitForNewRun(existingRuns) {
     if (runId) return runId;
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
   }
-  fail("The workflow was dispatched, but its run could not be identified. Inspect GitHub Actions for Bootstrap & Deploy.");
+  fail(
+    "The workflow was dispatched, but its run could not be identified. Inspect GitHub Actions for Bootstrap & Deploy."
+  );
 }
 
 function capture(command, commandArgs) {
-  const result = spawnSync(command, commandArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const result = spawnSync(command, commandArgs, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   if (result.error || result.status !== 0) {
     fail(`${command} ${commandArgs.join(" ")} failed: ${result.stderr || result.error?.message}`);
   }

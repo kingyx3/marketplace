@@ -9,7 +9,8 @@ const OUTPUTS = [
 ];
 
 const mode = process.argv[2] || "--check";
-if (!["--check", "--write"].includes(mode)) fail("usage: generate-environment-artifacts.mjs --check|--write");
+if (!["--check", "--write"].includes(mode))
+  fail("usage: generate-environment-artifacts.mjs --check|--write");
 const contract = JSON.parse(await readFile(CONTRACT_URL, "utf8"));
 let changed = false;
 
@@ -81,10 +82,12 @@ function zodExpression(entry) {
   let expression = "z.string()";
   if (validator.type === "url") expression += ".url()";
   else if (validator.type === "email") expression += ".email()";
-  else if (validator.type === "prefix") expression += `.startsWith(${JSON.stringify(validator.value)})`;
+  else if (validator.type === "prefix")
+    expression += `.startsWith(${JSON.stringify(validator.value)})`;
   else if (validator.type === "enum") expression = `z.enum(${JSON.stringify(validator.values)})`;
   else if (validator.type === "boolean-string") expression = 'z.enum(["true", "false"])';
-  else if (validator.type === "pattern") expression += `.regex(new RegExp(${JSON.stringify(validator.value)}))`;
+  else if (validator.type === "pattern")
+    expression += `.regex(new RegExp(${JSON.stringify(validator.value)}))`;
   else expression += ".min(1)";
   if (!entry.required) expression += ".optional()";
   return expression;

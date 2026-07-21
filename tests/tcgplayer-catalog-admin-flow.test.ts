@@ -4,15 +4,9 @@ import { describe, expect, it } from "vitest";
 describe("TCGplayer catalog admin flow", () => {
   it("keeps third-party requests behind the authenticated server API", async () => {
     const [route, component, page, client] = await Promise.all([
+      readFile(new URL("../app/api/control/tcgplayer-catalog/route.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../app/api/control/tcgplayer-catalog/route.ts", import.meta.url),
-        "utf8"
-      ),
-      readFile(
-        new URL(
-          "../app/(shop)/control/_components/tcgplayer-catalog-import.tsx",
-          import.meta.url
-        ),
+        new URL("../app/(shop)/control/_components/tcgplayer-catalog-import.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
@@ -37,10 +31,7 @@ describe("TCGplayer catalog admin flow", () => {
 
   it("creates a catalog draft through the existing action without crossing approval domains", async () => {
     const component = await readFile(
-      new URL(
-        "../app/(shop)/control/_components/tcgplayer-catalog-import.tsx",
-        import.meta.url
-      ),
+      new URL("../app/(shop)/control/_components/tcgplayer-catalog-import.tsx", import.meta.url),
       "utf8"
     );
 

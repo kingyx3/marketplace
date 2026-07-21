@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { loadLocalDotenv } from "./generate-env.mjs";
+
 import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";
+import { loadLocalDotenv } from "./generate-env.mjs";
 
 const PROVIDERS = Object.freeze([
   ["Google OAuth", "scripts/configure-google-oauth.mjs"],
-  ["Stripe", "scripts/configure-stripe.mjs"],
+  ["HitPay", "scripts/configure-hitpay.mjs"],
 ]);
 
 const rawArgs = process.argv.slice(2);

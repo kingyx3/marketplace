@@ -63,7 +63,8 @@ function validValue(value, validator = { type: "nonempty" }) {
 
 function formatDotenvValue(value) {
   const stringValue = String(value);
-  if (/[\s#"'\\]/.test(stringValue)) return `"${stringValue.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  if (/[\s#"'\\]/.test(stringValue))
+    return `"${stringValue.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
   return stringValue;
 }
 
@@ -76,7 +77,10 @@ export function parseDotenv(content) {
     if (equalsAt <= 0) continue;
     const key = line.slice(0, equalsAt).trim();
     let value = line.slice(equalsAt + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1).replaceAll('\\"', '"').replaceAll("\\\\", "\\");
     }
     parsed[key] = value;
@@ -108,7 +112,8 @@ async function main() {
   const allowMissingProvisioned = process.argv.includes("--allow-missing-provisioned");
   await loadLocalDotenv(process.env);
   const appliedConfig = await applyVersionedEnvironmentConfig(process.env);
-  if (appliedConfig.length > 0) console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
+  if (appliedConfig.length > 0)
+    console.log(`resolved public environment config: ${appliedConfig.join(", ")}`);
 
   if (mode === "--export-public") {
     await exportPublicEnvironmentForGithubActions(process.env, ENV_CONTRACT);
@@ -119,13 +124,16 @@ async function main() {
   if (!ok) {
     console.error("Environment contract validation FAILED:");
     for (const error of errors) console.error(`  - ${error}`);
-    console.error("See docs/generated/environment-reference.md for the generated source-of-truth table.");
+    console.error(
+      "See docs/generated/environment-reference.md for the generated source-of-truth table."
+    );
     process.exit(1);
   }
 
   if (process.env.GITHUB_ACTIONS) {
     const exported = await exportPublicEnvironmentForGithubActions(process.env, ENV_CONTRACT);
-    if (exported.length > 0) console.log(`exported public environment keys to GitHub Actions: ${exported.join(", ")}`);
+    if (exported.length > 0)
+      console.log(`exported public environment keys to GitHub Actions: ${exported.join(", ")}`);
   }
 
   if (mode === "--write") {
@@ -133,7 +141,9 @@ async function main() {
     const target = outPath || ".env";
     await writeFile(target, renderDotenv(process.env), "utf8");
     await chmod(target, 0o600);
-    const written = ENV_CONTRACT.filter((entry) => !entry.deployOnly && process.env[entry.key]).map((entry) => entry.key);
+    const written = ENV_CONTRACT.filter((entry) => !entry.deployOnly && process.env[entry.key]).map(
+      (entry) => entry.key
+    );
     console.log(`wrote ${target} with keys: ${written.join(", ")}`);
   } else if (mode === "--check" || mode === undefined) {
     console.log("environment contract OK");

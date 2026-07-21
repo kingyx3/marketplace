@@ -87,7 +87,12 @@ function readGoogleProjectId(raw) {
 }
 
 function slugify(value) {
-  return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "marketplace";
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "marketplace"
+  );
 }
 
 function bucketName(projectId, slug) {
@@ -111,9 +116,15 @@ async function resolveSingleSupabaseOrganizationId() {
   const organizations = await response.json();
   if (!Array.isArray(organizations)) fail("Unexpected Supabase organizations response");
   if (organizations.length !== 1) {
-    fail("Set SUPABASE_ORGANIZATION_ID when the Supabase token can access zero or multiple organizations");
+    fail(
+      "Set SUPABASE_ORGANIZATION_ID when the Supabase token can access zero or multiple organizations"
+    );
   }
-  return organizations[0].id || organizations[0].slug || fail("Supabase organization response did not include an id or slug");
+  return (
+    organizations[0].id ||
+    organizations[0].slug ||
+    fail("Supabase organization response did not include an id or slug")
+  );
 }
 
 function fail(message) {

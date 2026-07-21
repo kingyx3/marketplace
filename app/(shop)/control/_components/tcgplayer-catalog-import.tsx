@@ -120,11 +120,7 @@ export function TcgplayerCatalogImport({
       return;
     }
     const possibleSets = sets.filter((set) => set.categoryId === value);
-    const matchedSet = findNameMatch(
-      possibleSets,
-      suggestion?.set.name ?? null,
-      (set) => set.name
-    );
+    const matchedSet = findNameMatch(possibleSets, suggestion?.set.name ?? null, (set) => set.name);
     setSetChoice(matchedSet?.id ?? NEW_VALUE);
   }
 
@@ -367,11 +363,7 @@ export function TcgplayerCatalogImport({
               type="hidden"
               value={setChoice === NEW_VALUE ? "new" : "existing"}
             />
-            <input
-              name="setId"
-              type="hidden"
-              value={setChoice === NEW_VALUE ? "" : setChoice}
-            />
+            <input name="setId" type="hidden" value={setChoice === NEW_VALUE ? "" : setChoice} />
             <input
               name="newSetReleaseDate"
               type="hidden"
@@ -421,7 +413,8 @@ function CatalogReferenceSummary({ suggestion }: { suggestion: TcgplayerCatalogS
           <span className="font-medium">TCGplayer product:</span> {suggestion.productId}
         </p>
         <p>
-          <span className="font-medium">Category:</span> {suggestion.category.name ?? "Not supplied"}
+          <span className="font-medium">Category:</span>{" "}
+          {suggestion.category.name ?? "Not supplied"}
         </p>
         <p>
           <span className="font-medium">Set:</span> {suggestion.set.name ?? "Not supplied"}
@@ -433,8 +426,7 @@ function CatalogReferenceSummary({ suggestion }: { suggestion: TcgplayerCatalogS
         </p>
         {suggestion.product.upc ? (
           <p>
-            <span className="font-medium">UPC/barcode reference:</span>{" "}
-            {suggestion.product.upc}
+            <span className="font-medium">UPC/barcode reference:</span> {suggestion.product.upc}
           </p>
         ) : null}
         <p>
@@ -546,12 +538,30 @@ function findProductType(
 
   const haystack = normalizeName(`${suggestion.product.name} ${externalType ?? ""}`);
   const aliases: Array<[string[], string[]]> = [
-    [["booster", "box"], ["booster", "box"]],
-    [["elite", "trainer", "box"], ["elite", "trainer"]],
-    [["booster", "pack"], ["booster", "pack"]],
-    [["collector", "booster"], ["collector", "booster"]],
-    [["starter", "deck"], ["starter", "deck"]],
-    [["theme", "deck"], ["theme", "deck"]],
+    [
+      ["booster", "box"],
+      ["booster", "box"],
+    ],
+    [
+      ["elite", "trainer", "box"],
+      ["elite", "trainer"],
+    ],
+    [
+      ["booster", "pack"],
+      ["booster", "pack"],
+    ],
+    [
+      ["collector", "booster"],
+      ["collector", "booster"],
+    ],
+    [
+      ["starter", "deck"],
+      ["starter", "deck"],
+    ],
+    [
+      ["theme", "deck"],
+      ["theme", "deck"],
+    ],
     [["collection"], ["collection"]],
     [["bundle"], ["bundle"]],
     [["tin"], ["tin"]],
@@ -611,7 +621,11 @@ function suggestLanguage(suggestion: TcgplayerCatalogSuggestion): string {
   const normalized = normalizeName(language);
   return (
     codeByName[normalized] ??
-    (language.replace(/[^A-Za-z]/g, "").slice(0, 8).toUpperCase() || "EN")
+    (language
+      .replace(/[^A-Za-z]/g, "")
+      .slice(0, 8)
+      .toUpperCase() ||
+      "EN")
   );
 }
 

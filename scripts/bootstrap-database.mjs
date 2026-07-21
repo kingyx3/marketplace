@@ -208,9 +208,7 @@ function createFixtureDates(now) {
     releaseDate: now.toISOString().slice(0, 10),
     startsAt: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
     endsAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    expectedAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10),
+    expectedAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     ledgerExpiresAt: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
     expiredAt: new Date(now.getTime() - 1000).toISOString(),
   };
@@ -237,8 +235,17 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
     revoked_at: null,
   });
 
-  await verifyReferenceRow(client, "control_permission_definitions", "permission_key", "control.view");
-  const permissionKeys = await selectColumn(client, "control_permission_definitions", "permission_key");
+  await verifyReferenceRow(
+    client,
+    "control_permission_definitions",
+    "permission_key",
+    "control.view"
+  );
+  const permissionKeys = await selectColumn(
+    client,
+    "control_permission_definitions",
+    "permission_key"
+  );
   await upsertMany(
     client,
     "admin_access_grant_permissions",
@@ -766,7 +773,11 @@ async function verifyCompletedIdempotency(client, actorId) {
     .eq("idempotency_key_hash", IDEMPOTENCY_KEY_HASH)
     .single();
   if (error) throw new Error(`Idempotency verification failed: ${error.message}`);
-  if (data.status !== "completed" || data.response_status !== 200 || data.response_body?.ok !== true) {
+  if (
+    data.status !== "completed" ||
+    data.response_status !== 200 ||
+    data.response_body?.ok !== true
+  ) {
     throw new Error("Idempotency completion API did not persist the bootstrap response");
   }
 }
@@ -923,7 +934,10 @@ async function assertManifestCoversMigrations() {
   const filenames = (await readdir(directory)).filter((file) => file.endsWith(".sql")).sort();
   const sqlByFilename = Object.fromEntries(
     await Promise.all(
-      filenames.map(async (filename) => [filename, await readFile(new URL(filename, directory), "utf8")])
+      filenames.map(async (filename) => [
+        filename,
+        await readFile(new URL(filename, directory), "utf8"),
+      ])
     )
   );
   const coverage = compareBootstrapCoverage(discoverActivePublicTables(sqlByFilename));

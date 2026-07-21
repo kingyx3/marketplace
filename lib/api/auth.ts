@@ -3,10 +3,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isAdminEmailAllowed } from "@/lib/admin-email-allowlist";
 import { resolveAdminStaff, type StaffProfile } from "@/lib/admin-staff";
 import { conflict, forbidden, unauthorized } from "@/lib/api/errors";
-import {
-  hasControlPermission,
-  type ControlPermission,
-} from "@/lib/control-permissions";
+import { hasControlPermission, type ControlPermission } from "@/lib/control-permissions";
 import { setTelemetryUser } from "@/lib/observability";
 import { createServiceClient } from "@/lib/supabase";
 

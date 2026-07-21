@@ -54,38 +54,50 @@
     }
   },
   {
-    "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-    "section": "Stripe",
+    "key": "HITPAY_API_KEY",
+    "section": "HitPay",
     "required": true,
+    "secret": true,
+    "hint": "HitPay server-side business API key",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "HITPAY_WEBHOOK_SALT",
+    "section": "HitPay",
+    "required": true,
+    "secret": true,
+    "hint": "HitPay webhook HMAC salt",
+    "validator": {
+      "type": "nonempty"
+    }
+  },
+  {
+    "key": "HITPAY_API_URL",
+    "section": "HitPay",
+    "required": false,
     "secret": false,
-    "hint": "Stripe publishable key",
+    "hint": "Optional HitPay API base URL override; CI derives sandbox or production from TARGET_ENV",
     "validator": {
-      "type": "prefix",
-      "value": "pk_"
-    }
+      "type": "url",
+      "protocols": [
+        "https:"
+      ]
+    },
+    "default": "https://api.sandbox.hit-pay.com"
   },
   {
-    "key": "STRIPE_SECRET_KEY",
-    "section": "Stripe",
-    "required": true,
-    "secret": true,
-    "hint": "Stripe server key",
+    "key": "HITPAY_PAYMENT_METHODS",
+    "section": "HitPay",
+    "required": false,
+    "secret": false,
+    "hint": "Optional comma-separated payment method override; defaults to paynow_online",
     "validator": {
-      "type": "prefix",
-      "value": "sk_"
-    }
-  },
-  {
-    "key": "STRIPE_WEBHOOK_SECRET",
-    "section": "Stripe",
-    "required": true,
-    "provisioned": true,
-    "secret": true,
-    "hint": "Stripe webhook signing key",
-    "validator": {
-      "type": "prefix",
-      "value": "whsec_"
-    }
+      "type": "pattern",
+      "value": "^[a-z0-9_]+(?:,[a-z0-9_]+)*$"
+    },
+    "default": "paynow_online"
   },
   {
     "key": "NEXT_PUBLIC_SITE_URL",
@@ -417,29 +429,6 @@
     "secret": true,
     "deployOnly": true,
     "hint": "Hosted Google OAuth client secret",
-    "validator": {
-      "type": "nonempty"
-    }
-  },
-  {
-    "key": "STRIPE_WEBHOOK_ENDPOINT_ID",
-    "section": "Hosted deployment",
-    "required": false,
-    "secret": false,
-    "deployOnly": true,
-    "hint": "Managed Stripe webhook endpoint id",
-    "validator": {
-      "type": "prefix",
-      "value": "we_"
-    }
-  },
-  {
-    "key": "STRIPE_WEBHOOK_ENABLED_EVENTS",
-    "section": "Hosted deployment",
-    "required": false,
-    "secret": false,
-    "deployOnly": true,
-    "hint": "Stripe webhook event override",
     "validator": {
       "type": "nonempty"
     }

@@ -9,9 +9,10 @@ This file is generated from `config/environment-contract.json`. Update the contr
 | `SUPABASE_SECRET_KEY` | Runtime | Yes | Yes | Supabase server key or local service-role key |
 | `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Runtime | No | No | Local Supabase Google OAuth client id |
 | `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET` | Runtime | No | Yes | Local Supabase Google OAuth client secret |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Runtime | Yes | No | Stripe publishable key |
-| `STRIPE_SECRET_KEY` | Runtime | Yes | Yes | Stripe server key |
-| `STRIPE_WEBHOOK_SECRET` | Runtime | Yes | Yes | Stripe webhook signing key |
+| `HITPAY_API_KEY` | Runtime | Yes | Yes | HitPay server-side business API key |
+| `HITPAY_WEBHOOK_SALT` | Runtime | Yes | Yes | HitPay webhook HMAC salt |
+| `HITPAY_API_URL` | Runtime | No | No | Optional HitPay API base URL override; CI derives sandbox or production from TARGET_ENV |
+| `HITPAY_PAYMENT_METHODS` | Runtime | No | No | Optional comma-separated payment method override; defaults to paynow_online |
 | `NEXT_PUBLIC_SITE_URL` | Runtime | Yes | No | Canonical public URL |
 | `APP_NAME` | Runtime | Yes | No | Display name |
 | `ADMIN_EMAIL_ALLOWLIST` | Runtime | When `TARGET_ENV=production` | No | Comma-separated admin email allowlist; admin access also requires an active staff record |
@@ -39,8 +40,6 @@ This file is generated from `config/environment-contract.json`. Update the contr
 | `SUPABASE_PROJECT_REF` | Deploy | No | No | Supabase project reference |
 | `GOOGLE_OAUTH_CLIENT_ID` | Deploy | When `GOOGLE_AUTH_ENABLED=true` | No | Hosted Google OAuth client id |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Deploy | When `GOOGLE_AUTH_ENABLED=true` | Yes | Hosted Google OAuth client secret |
-| `STRIPE_WEBHOOK_ENDPOINT_ID` | Deploy | No | No | Managed Stripe webhook endpoint id |
-| `STRIPE_WEBHOOK_ENABLED_EVENTS` | Deploy | No | No | Stripe webhook event override |
 | `VERCEL_TOKEN` | Deploy | No | Yes | Vercel CLI access |
 | `VERCEL_ORG_ID` | Deploy | No | No | Vercel user or team scope id |
 | `VERCEL_PROJECT_ID` | Deploy | No | No | Vercel project id |

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiPermission } from "@/lib/api/auth";
 import { toErrorResponse } from "@/lib/api/errors";
-import { listAdminOrderExceptions } from "@/lib/orders";
+import { listAdminOrderExceptions } from "@/lib/order-exceptions";
 
 export const dynamic = "force-dynamic";
 

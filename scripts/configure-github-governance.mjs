@@ -2,7 +2,14 @@
 import { spawnSync } from "node:child_process";
 
 const apply = process.argv.includes("--apply");
-const repository = capture(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]).trim();
+const repository = capture([
+  "repo",
+  "view",
+  "--json",
+  "nameWithOwner",
+  "--jq",
+  ".nameWithOwner",
+]).trim();
 if (!repository) fail("Could not resolve the current GitHub repository");
 
 const requiredChecks = [
@@ -57,13 +64,34 @@ const currentContexts = new Set(current?.required_status_checks?.contexts || [])
 const missingChecks = requiredChecks.filter((context) => !currentContexts.has(context));
 const violations = [
   ...missingChecks.map((context) => `missing required status check: ${context}`),
-  ...assertion(current?.required_status_checks?.strict === true, "required checks must be strict/up-to-date"),
-  ...assertion(current?.enforce_admins?.enabled === true, "branch protection must include administrators"),
-  ...assertion(current?.required_pull_request_reviews?.dismiss_stale_reviews === true, "stale approvals must be dismissed"),
-  ...assertion((current?.required_pull_request_reviews?.required_approving_review_count || 0) >= 1, "at least one approval is required"),
-  ...assertion(current?.required_pull_request_reviews?.require_last_push_approval === true, "last push must be approved by someone else"),
-  ...assertion(current?.required_linear_history?.enabled === true, "linear history must be required"),
-  ...assertion(current?.required_conversation_resolution?.enabled === true, "review conversations must be resolved"),
+  ...assertion(
+    current?.required_status_checks?.strict === true,
+    "required checks must be strict/up-to-date"
+  ),
+  ...assertion(
+    current?.enforce_admins?.enabled === true,
+    "branch protection must include administrators"
+  ),
+  ...assertion(
+    current?.required_pull_request_reviews?.dismiss_stale_reviews === true,
+    "stale approvals must be dismissed"
+  ),
+  ...assertion(
+    (current?.required_pull_request_reviews?.required_approving_review_count || 0) >= 1,
+    "at least one approval is required"
+  ),
+  ...assertion(
+    current?.required_pull_request_reviews?.require_last_push_approval === true,
+    "last push must be approved by someone else"
+  ),
+  ...assertion(
+    current?.required_linear_history?.enabled === true,
+    "linear history must be required"
+  ),
+  ...assertion(
+    current?.required_conversation_resolution?.enabled === true,
+    "review conversations must be resolved"
+  ),
   ...assertion(current?.allow_force_pushes?.enabled !== true, "force pushes must remain disabled"),
   ...assertion(current?.allow_deletions?.enabled !== true, "branch deletion must remain disabled"),
 ];
@@ -78,7 +106,8 @@ function assertion(condition, message) {
 
 function capture(args) {
   const result = spawnSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  if (result.error || result.status !== 0) fail(`gh ${args.join(" ")} failed: ${result.stderr || result.error?.message}`);
+  if (result.error || result.status !== 0)
+    fail(`gh ${args.join(" ")} failed: ${result.stderr || result.error?.message}`);
   return result.stdout;
 }
 

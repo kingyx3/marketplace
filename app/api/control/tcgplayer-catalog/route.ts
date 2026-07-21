@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/api/auth";
 import { badRequest, notFound, serviceUnavailable, toErrorResponse } from "@/lib/api/errors";
 import { enforceRateLimit } from "@/lib/api/rate-limit";
-import {
-  fetchTcgplayerCatalogSuggestion,
-  TcgplayerCatalogError,
-} from "@/lib/tcgplayer-catalog";
+import { fetchTcgplayerCatalogSuggestion, TcgplayerCatalogError } from "@/lib/tcgplayer-catalog";
 
 export const dynamic = "force-dynamic";
 

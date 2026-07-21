@@ -32,6 +32,6 @@ describe("production payment and preorder guards", () => {
 
     expect(config).toContain("NEXT_PUBLIC_SUPABASE_URL");
     expect(config).toContain("/storage/v1/object/public/**");
-    expect(config).not.toContain("hostname: \"**\"");
+    expect(config).not.toContain('hostname: "**"');
   });
 });

@@ -13,7 +13,8 @@ if (!targetEnv || !/^(development|staging|production)$/.test(targetEnv)) {
 }
 if (!token) fail("VERCEL_TOKEN is required");
 if (!projectId) fail("VERCEL_PROJECT_ID is required");
-if (!configFingerprint) fail("VERCEL_DEPLOYMENT_CONFIG_FINGERPRINT is required after runtime env reconciliation");
+if (!configFingerprint)
+  fail("VERCEL_DEPLOYMENT_CONFIG_FINGERPRINT is required after runtime env reconciliation");
 
 const target = targetEnv === "development" ? "preview" : "production";
 const revision = sourceRevision();

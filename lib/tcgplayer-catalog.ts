@@ -55,11 +55,7 @@ export type TcgplayerCatalogSuggestion = {
 export class TcgplayerCatalogError extends Error {
   readonly kind: "invalid_reference" | "not_found" | "upstream_unavailable" | "invalid_response";
 
-  constructor(
-    kind: TcgplayerCatalogError["kind"],
-    message: string,
-    options?: ErrorOptions
-  ) {
+  constructor(kind: TcgplayerCatalogError["kind"], message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = "TcgplayerCatalogError";
     this.kind = kind;

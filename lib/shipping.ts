@@ -45,7 +45,13 @@ const shippingPolicySchema = z
         "Only Singapore shipping is supported until jurisdiction-aware tax calculation is implemented"
       ),
     flatRateCents: z.number().int().min(0).max(MAX_SHIPPING_CENTS),
-    freeShippingThresholdCents: z.number().int().min(0).max(MAX_SHIPPING_CENTS).nullable().optional(),
+    freeShippingThresholdCents: z
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_SHIPPING_CENTS)
+      .nullable()
+      .optional(),
     serviceName: z.string().trim().min(1).max(120),
   })
   .strict();

@@ -2,17 +2,17 @@
 
 ## Suite
 
-| Check | Command | CI job |
-| --- | --- | --- |
-| Lint | `npm run lint` | `lint` |
-| Strict TypeScript | `npm run typecheck` | `typecheck` |
-| API architecture boundary | `npm run test:architecture` | included in `test` |
-| Unit and contract tests | `npm test` | `test` |
-| Production build | `npm run build` | `build` |
-| Browser smoke | `npm run build && npm run test:e2e` | `e2e-smoke` |
-| Migrations and SQL contracts | `npx supabase db reset` locally | `migrations` |
-| Environment contract | `npm run env:check` | deploy validation |
-| Platform configuration | `npm run config:check` | `config-contract` |
+| Check                        | Command                             | CI job             |
+| ---------------------------- | ----------------------------------- | ------------------ |
+| Lint                         | `npm run lint`                      | `lint`             |
+| Strict TypeScript            | `npm run typecheck`                 | `typecheck`        |
+| API architecture boundary    | `npm run test:architecture`         | included in `test` |
+| Unit and contract tests      | `npm test`                          | `test`             |
+| Production build             | `npm run build`                     | `build`            |
+| Browser smoke                | `npm run build && npm run test:e2e` | `e2e-smoke`        |
+| Migrations and SQL contracts | `npx supabase db reset` locally     | `migrations`       |
+| Environment contract         | `npm run env:check`                 | deploy validation  |
+| Platform configuration       | `npm run config:check`              | `config-contract`  |
 
 Pull-request CI runs independent checks in parallel without production secrets. The migrations job applies every migration and the seed to a clean Postgres instance, runs SQL contracts, and verifies logical backup and restore. Environment and deployment changes also run focused workflow and configuration contracts.
 
@@ -30,7 +30,7 @@ Pull-request CI runs independent checks in parallel without production secrets. 
 - `tests/control-operations-surface.test.ts` — protected catalog, SKU, inventory, purchasing, allocation, and payment-exception controls.
 - `tests/notifications.test.ts` — order confirmation and configured drop-alert providers, deduplication, failures, and disabled-provider behavior.
 - `tests/waitlist.test.ts` — SKU/customer binding, contact normalization, claims, dispatch, and notified state.
-- `tests/preorder-flow.test.ts` — retail allocation queries, Stripe deposit/balance behavior, and removal of invoice checkout.
+- `tests/preorder-flow.test.ts` — retail allocation queries, HitPay deposit/balance behavior, and removal of invoice checkout.
 - `tests/live-customer-pages.test.ts` — live customer page data and guards against fixture-backed authenticated flows.
 - `tests/frontend-access.test.tsx` — anonymous, customer, and staff navigation visibility.
 - `tests/api-architecture.test.ts` — prevents Client Components from importing database clients or issuing direct Supabase data operations.

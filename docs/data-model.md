@@ -44,17 +44,17 @@ Every product belongs to one category and one set. `product_types` stores the re
 
 `inventory` tracks on-hand, allocated, incoming, and safety stock. Its constraints prevent allocation beyond on-hand plus confirmed incoming stock. Supplier purchase-order intake records the PO and increments incoming stock in one database transaction.
 
-Normal-order checkout reserves inventory with a conditional database update. The pending order receives `checkout_reserved_until = now() + 15 minutes`. Expiry processing releases the allocation and cancels the unpaid order. A payment that succeeds after expiry cannot consume stock; the webhook records it and issues an idempotent Stripe refund.
+Normal-order checkout reserves inventory with a conditional database update. The pending order receives `checkout_reserved_until = now() + 15 minutes`. Expiry processing releases the allocation and cancels the unpaid order. A payment that succeeds after expiry cannot consume stock; the webhook records it and issues an idempotent HitPay refund.
 
 ### Preorders
 
 Retail preorders are charged 100% upfront. Active preorder states require `deposit_cents` to equal the full requested value and `balance_cents = 0`; the legacy column names remain only as stored-schema compatibility. Only a captured `full` payment can enter the allocation queue.
 
-Allocation is an administrator-confirmed, preorder-only process. The control workspace previews FIFO allocation with any configured per-customer caps, calculates the exact refund for every unallocated unit, and fingerprints the queue plus available inventory. PostgreSQL rejects a stale confirmation. The allocation is staged transactionally, Stripe receives idempotent shortfall refunds, and finalization creates a paid order only for the allocated quantity. A zero allocation becomes a fully refunded preorder.
+Allocation is an administrator-confirmed, preorder-only process. The control workspace previews FIFO allocation with any configured per-customer caps, calculates the exact refund for every unallocated unit, and fingerprints the queue plus available inventory. PostgreSQL rejects a stale confirmation. The allocation is staged transactionally, HitPay receives idempotent shortfall refunds, and finalization creates a paid order only for the allocated quantity. A zero allocation becomes a fully refunded preorder.
 
 ### Orders and payments
 
-Orders use retail channel `b2c`. Normal-order payments use kind `full`. Stripe webhook events are deduplicated through `webhook_events`, and payment functions validate amount, currency, order state, and reservation deadline before changing inventory or order state.
+Orders use retail channel `b2c`. Normal-order payments use kind `full`. HitPay webhook events are deduplicated through `webhook_events`, and payment functions validate amount, currency, order state, and reservation deadline before changing inventory or order state.
 
 Preorder payments also use kind `full`. The former deposit/balance collection endpoint and balance-payment transition are not part of the active application.
 

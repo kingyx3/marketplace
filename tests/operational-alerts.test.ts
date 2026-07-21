@@ -21,7 +21,7 @@ describe("operational alert delivery", () => {
         `sha256=${createHmac("sha256", "alert-secret").update(body).digest("hex")}`
       );
       const parsed = JSON.parse(body);
-      expect(parsed.event).toBe("stripe.webhook.processing_failed");
+      expect(parsed.event).toBe("hitpay.webhook.processing_failed");
       expect(parsed.context).toEqual({
         requestId: "request-12345678",
         orderId: "order-1",
@@ -34,7 +34,7 @@ describe("operational alert delivery", () => {
 
     await expect(
       sendOperationalAlert({
-        event: "stripe.webhook.processing_failed",
+        event: "hitpay.webhook.processing_failed",
         summary: "Webhook processing failed",
         severity: "critical",
         context: {

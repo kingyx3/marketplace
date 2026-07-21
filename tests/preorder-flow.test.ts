@@ -93,7 +93,7 @@ describe("retail preorder flow", () => {
     expect(api).toContain("fingerprint: input.fingerprint");
   });
 
-  it("creates idempotent Stripe refunds for allocation shortfalls", async () => {
+  it("creates idempotent HitPay refunds for allocation shortfalls", async () => {
     const [source, migration] = await Promise.all([
       readFile(new URL("../lib/preorders.ts", import.meta.url), "utf8"),
       readFile(
@@ -105,8 +105,8 @@ describe("retail preorder flow", () => {
       ),
     ]);
 
-    expect(source).toContain("preorder-allocation-refund:");
-    expect(source).toContain("amount: row.refund_cents");
+    expect(source).toContain("paymentId: row.provider_charge_id");
+    expect(source).toContain("amountCents: row.refund_cents");
     expect(migration).toContain("Stripe refund confirmation required");
     expect(migration).toContain("preorder_allocation_shortfall");
     expect(migration).toContain("allocation preview is stale");

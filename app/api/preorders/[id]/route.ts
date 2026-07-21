@@ -5,10 +5,7 @@ import { getCustomerPreorder } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const auth = await requireApiCustomer(request);
     const { id } = await context.params;

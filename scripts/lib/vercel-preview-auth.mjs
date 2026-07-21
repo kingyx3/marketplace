@@ -41,18 +41,21 @@ export async function resolveVercelAccountSlug(env = process.env, fetchImpl = fe
   });
   const payload = await readJsonResponse(response);
   if (!response.ok) {
-    const message = payload?.error?.message || payload?.message || response.statusText || "request failed";
+    const message =
+      payload?.error?.message || payload?.message || response.statusText || "request failed";
     throw new Error(`Vercel account lookup failed (${response.status}): ${message}`);
   }
 
   const accountSlug = teamId.startsWith("team_")
     ? payload?.slug
-    : payload?.user?.username ?? payload?.username;
+    : (payload?.user?.username ?? payload?.username);
   return normalizeAccountSlug(accountSlug, { required: true });
 }
 
 function normalizeAccountSlug(value, { required = false } = {}) {
-  const slug = String(value || "").trim().toLowerCase();
+  const slug = String(value || "")
+    .trim()
+    .toLowerCase();
   if (!slug) {
     if (required) throw new Error("Vercel account lookup did not return a username or team slug");
     return "";
