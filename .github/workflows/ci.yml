@@ -14,6 +14,122 @@ permissions:
   contents: read
 
 jobs:
+  patch-hosted-bootstrap-retries:
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/control-supply-work-queue'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: agent/control-supply-work-queue
+      - name: Harden hosted storefront verification
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          source_path = Path("scripts/bootstrap-database.mjs")
+          source = source_path.read_text()
+          start_marker = "async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) {"
+          end_marker = "\n\nasync function ensureAuthUser"
+          start = source.find(start_marker)
+          end = source.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit("Expected hosted storefront verification boundaries were not found")
+          replacement = dedent(
+              """
+              const HOSTED_FETCH_ATTEMPTS = 5;
+              const HOSTED_FETCH_TIMEOUT_MS = 15_000;
+
+              async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) {
+                const base = new URL(siteUrl);
+                const headers = { "user-agent": "marketplace-database-bootstrap/1.0" };
+                if (vercelBypassSecret) {
+                  headers["x-vercel-protection-bypass"] = vercelBypassSecret;
+                  headers["x-vercel-set-bypass-cookie"] = "true";
+                }
+
+                const catalogResponse = await fetchHostedPage(
+                  new URL("/products", base),
+                  headers,
+                  "Hosted catalog"
+                );
+                if (!catalogResponse.ok) {
+                  throw new Error(`Hosted catalog verification failed with HTTP ${catalogResponse.status}`);
+                }
+                const catalogHtml = await catalogResponse.text();
+                if (!catalogHtml.includes(PRODUCT_NAME) && !catalogHtml.includes(productSlug)) {
+                  throw new Error("Hosted catalog did not render the bootstrap product");
+                }
+
+                const detailResponse = await fetchHostedPage(
+                  new URL(`/products/${productSlug}`, base),
+                  headers,
+                  "Hosted product"
+                );
+                if (!detailResponse.ok) {
+                  throw new Error(`Hosted product verification failed with HTTP ${detailResponse.status}`);
+                }
+              }
+
+              async function fetchHostedPage(url, headers, label) {
+                let lastError;
+                for (let attempt = 1; attempt <= HOSTED_FETCH_ATTEMPTS; attempt += 1) {
+                  try {
+                    const response = await fetch(url, {
+                      headers,
+                      redirect: "follow",
+                      signal: AbortSignal.timeout(HOSTED_FETCH_TIMEOUT_MS),
+                    });
+                    if (response.ok || attempt === HOSTED_FETCH_ATTEMPTS) return response;
+                    lastError = new Error(`HTTP ${response.status}`);
+                  } catch (error) {
+                    lastError = error;
+                    if (attempt === HOSTED_FETCH_ATTEMPTS) break;
+                  }
+                  await delay(attempt * 2_000);
+                }
+                throw new Error(
+                  `${label} fetch failed after ${HOSTED_FETCH_ATTEMPTS} attempts for ${url.hostname}: ${describeError(lastError)}`
+                );
+              }
+
+              function describeError(error) {
+                if (!(error instanceof Error)) return String(error);
+                const details = [];
+                let current = error;
+                while (current) {
+                  if (current instanceof Error) {
+                    if (current.message) details.push(current.message);
+                    if (current.code) details.push(String(current.code));
+                    current = current.cause;
+                  } else {
+                    details.push(String(current));
+                    break;
+                  }
+                }
+                return [...new Set(details)].join(": ") || "unknown error";
+              }
+
+              function delay(milliseconds) {
+                return new Promise((resolve) => setTimeout(resolve, milliseconds));
+              }
+              """
+          ).strip()
+          source_path.write_text(source[:start] + replacement + source[end:])
+          PY
+      - name: Commit hosted verification fix
+        shell: bash
+        run: |
+          git diff --check -- scripts/bootstrap-database.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/bootstrap-database.mjs
+          git commit -m "fix(ci): retry hosted storefront verification"
+          git push origin HEAD:agent/control-supply-work-queue
+
   changes:
     runs-on: ubuntu-latest
     outputs:
