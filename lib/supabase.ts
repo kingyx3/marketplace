@@ -8,6 +8,10 @@ const nonPersistentAuth = {
   detectSessionInUrl: false,
 } as const;
 
+type SupabaseServerKeyEnvironment = Partial<
+  Record<"SUPABASE_SECRET_KEY" | "SUPABASE_SERVICE_ROLE_KEY", string | undefined>
+>;
+
 /**
  * Publishable-key database client for server-side public and RLS-scoped reads.
  * Browser code must use the same-origin application API instead of importing this module.
@@ -29,7 +33,7 @@ export function createPublishableClient(): SupabaseClient {
  * with projects that still expose the legacy service-role environment variable.
  */
 export function resolveSupabaseSecretKey(
-  env: Pick<NodeJS.ProcessEnv, "SUPABASE_SECRET_KEY" | "SUPABASE_SERVICE_ROLE_KEY"> = process.env
+  env: SupabaseServerKeyEnvironment = process.env
 ): string {
   return env.SUPABASE_SECRET_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
 }
