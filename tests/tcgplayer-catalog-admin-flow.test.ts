@@ -43,16 +43,26 @@ describe("TCGplayer catalog admin flow", () => {
   });
 
   it("creates a catalog draft through the permissioned action without crossing approval domains", async () => {
-    const component = await readFile(
-      new URL(
-        "../app/(shop)/control/_components/tcgplayer-catalog-import-complete.tsx",
-        import.meta.url,
+    const [component, submitButton] = await Promise.all([
+      readFile(
+        new URL(
+          "../app/(shop)/control/_components/tcgplayer-catalog-import-complete.tsx",
+          import.meta.url,
+        ),
+        "utf8",
       ),
-      "utf8",
-    );
+      readFile(
+        new URL(
+          "../app/(shop)/control/_components/tcgplayer-import-submit-button.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ]);
 
     expect(component).toContain("createCatalogProduct");
-    expect(component).toContain("Create catalog draft");
+    expect(component).toContain("ImportSubmitButton");
+    expect(submitButton).toContain("Create catalog draft");
     expect(component).toContain(
       "pricing, inventory, listing approval, and publication remain separate",
     );
