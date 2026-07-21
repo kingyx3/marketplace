@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { AdminActionResult } from "@/lib/admin-action-state";
 import { adminInventoryAdjustmentFromForm } from "@/lib/admin-catalog-forms";
 import {
   adminLimitedTimeDealFromForm,
@@ -18,7 +19,9 @@ import { requireControlPermission } from "@/lib/control-access";
 import { performAdminOrderAction } from "@/lib/orders";
 import { createSecretClient } from "@/lib/supabase";
 
-export async function upsertLimitedTimeDeal(formData: FormData) {
+export async function upsertLimitedTimeDeal(
+  formData: FormData
+): Promise<AdminActionResult | void> {
   const sourceId = optionalFormId(formData, "dealId");
   const returnPath = sourceId ? `/control/pricing/deals/${sourceId}` : "/control/pricing/deals/new";
   const { user } = await requireControlPermission("pricing.manage", returnPath);
@@ -34,7 +37,7 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
   if (skuError) throw new Error(`Deal SKU price lookup failed: ${skuError.message}`);
   if (!sku) {
     return {
-      status: "error" as const,
+      status: "error",
       message: "The selected SKU could not be found.",
       fieldErrors: { skuId: "Select an existing SKU." },
     };
@@ -43,14 +46,14 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
   const originalPriceCents = Number(sku.price_cents);
   if (!Number.isInteger(originalPriceCents) || originalPriceCents <= 0) {
     return {
-      status: "error" as const,
+      status: "error",
       message: "The selected SKU needs a valid original price before a deal can be created.",
       fieldErrors: { skuId: "Set a positive SKU price in Pricing first." },
     };
   }
   if (input.dealPriceCents >= originalPriceCents) {
     return {
-      status: "error" as const,
+      status: "error",
       message: "Deal price must be lower than the original price.",
       fieldErrors: { dealPrice: "Enter a deal price below the current original price." },
     };
@@ -73,14 +76,14 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
 
   if (error?.code === "23505") {
     return {
-      status: "error" as const,
+      status: "error",
       message: "Another promotion already uses this code. Choose a unique code.",
       fieldErrors: { code: "Promotion code must be unique." },
     };
   }
   if (error?.code === "22023" && error.message.toLowerCase().includes("deal price")) {
     return {
-      status: "error" as const,
+      status: "error",
       message: "Deal price must be lower than the original price.",
       fieldErrors: { dealPrice: "Enter a positive deal price below the current original price." },
     };
