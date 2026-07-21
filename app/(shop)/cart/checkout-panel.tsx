@@ -39,6 +39,7 @@ interface CartCheckoutPanelProps {
   paymentBody?: Record<string, unknown>;
   authRedirectPath?: string;
   startLabel?: string;
+  initialRecipientName?: string;
   disabled?: boolean;
 }
 
@@ -51,12 +52,16 @@ export function CartCheckoutPanel({
   paymentBody,
   authRedirectPath = "/cart",
   startLabel = "Place Order",
+  initialRecipientName = "",
   disabled = false,
 }: CartCheckoutPanelProps) {
   const router = useRouter();
   const [phase, setPhase] = useState<"idle" | "creating" | "failed">("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [shippingAddress, setShippingAddress] = useState(emptyShippingAddress);
+  const [shippingAddress, setShippingAddress] = useState(() => ({
+    ...emptyShippingAddress,
+    recipientName: initialRecipientName.trim(),
+  }));
   const checkoutIdempotencyKey = useRef<string | null>(null);
   const requiresShipping = mode === "order";
   const supabaseKey = supabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
@@ -78,6 +83,13 @@ export function CartCheckoutPanel({
 
   async function beginCheckout() {
     if (disabled || items.length === 0 || phase === "creating") return;
+
+    const accessToken = await session.getAccessToken();
+    if (!accessToken) {
+      router.push(`/sign-in?next=${encodeURIComponent(authRedirectPath)}`);
+      return;
+    }
+
     if (requiresShipping && !isShippingAddressComplete(shippingAddress)) {
       setPhase("failed");
       setMessage("Complete the required delivery address fields");
