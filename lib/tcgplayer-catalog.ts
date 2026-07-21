@@ -1,4 +1,5 @@
-const TCGPLAYER_PRODUCT_API = "https://mpapi.tcgplayer.com/v2/product";
+const TCGPLAYER_PRODUCT_DETAILS_API = "https://mp-search-api.tcgplayer.com/v2/product";
+const TCGPLAYER_PRODUCT_ENRICHMENT_API = "https://mpapi.tcgplayer.com/v2/product";
 const MAX_UPSTREAM_RESPONSE_BYTES = 2_000_000;
 const UPSTREAM_TIMEOUT_MS = 10_000;
 
@@ -117,25 +118,36 @@ export async function fetchTcgplayerCatalogSuggestion(
   const warnings: string[] = [];
 
   const details = await fetchJson(
-    `${TCGPLAYER_PRODUCT_API}/${productId}/details`,
+    `${TCGPLAYER_PRODUCT_DETAILS_API}/${productId}/details`,
     fetchImplementation,
     true
   );
+  const detailsRecord = unwrapRecord(details);
+  const embeddedPrices = normalizePricePoints(undefined, detailsRecord);
+  const embeddedSkus = normalizeSkus(detailsRecord);
   const [prices, skus] = await Promise.all([
-    fetchOptionalJson(`${TCGPLAYER_PRODUCT_API}/${productId}/pricepoints`, fetchImplementation),
-    fetchOptionalJson(`${TCGPLAYER_PRODUCT_API}/${productId}/skus`, fetchImplementation),
+    fetchOptionalJson(
+      `${TCGPLAYER_PRODUCT_ENRICHMENT_API}/${productId}/pricepoints`,
+      fetchImplementation
+    ),
+    fetchOptionalJson(
+      `${TCGPLAYER_PRODUCT_ENRICHMENT_API}/${productId}/skus`,
+      fetchImplementation
+    ),
   ]);
 
-  if (!prices.ok) warnings.push("Live price points were unavailable; review pricing manually.");
-  if (!skus.ok) {
+  if (!prices.ok && embeddedPrices.length === 0) {
+    warnings.push("Live price points were unavailable; review pricing manually.");
+  }
+  if (!skus.ok && embeddedSkus.length === 0) {
     warnings.push("TCGplayer SKU variants were unavailable; configure the local SKU manually.");
   }
 
   return normalizeTcgplayerCatalog({
     productId,
     details,
-    prices: prices.ok ? prices.value : undefined,
-    skus: skus.ok ? skus.value : undefined,
+    prices: prices.ok ? prices.value : detailsRecord,
+    skus: skus.ok ? skus.value : detailsRecord,
     warnings,
     fetchedAt: (options.now?.() ?? new Date()).toISOString(),
   });
@@ -143,11 +155,24 @@ export async function fetchTcgplayerCatalogSuggestion(
 
 export function normalizeTcgplayerCatalog(input: NormalizationInput): TcgplayerCatalogSuggestion {
   const details = unwrapRecord(input.details);
+  const customAttributes = asRecord(getCaseInsensitive(details, "customAttributes"));
+  const enrichmentSkus = normalizeSkus(input.skus);
+  const normalizedSkus = enrichmentSkus.length > 0 ? enrichmentSkus : normalizeSkus(details);
+  const skuLanguages = uniqueStrings(
+    normalizedSkus
+      .map((sku) => sku.language)
+      .filter((language): language is string => Boolean(language))
+  );
   const name =
     readString(details, ["productName", "name", "cleanName", "title"]) ??
     `TCGplayer product ${input.productId}`;
   const cleanName = readString(details, ["cleanName", "cleanProductName"]);
-  const categoryName = readNamedValue(details, ["categoryName", "category", "gameName"]);
+  const categoryName = readNamedValue(details, [
+    "categoryName",
+    "productLineName",
+    "category",
+    "gameName",
+  ]);
   const setName = readNamedValue(details, ["groupName", "setName", "group", "set"]);
   const productType = readNamedValue(details, ["productTypeName", "productType", "typeName"]);
   const canonicalSourceUrl = `https://www.tcgplayer.com/product/${input.productId}`;
@@ -155,6 +180,17 @@ export function normalizeTcgplayerCatalog(input: NormalizationInput): TcgplayerC
     safeTcgplayerUrl(readString(details, ["url", "productUrl", "tcgplayerUrl"])) ??
     canonicalSourceUrl;
   const warnings = [...(input.warnings ?? [])];
+  const releaseDate =
+    readString(details, ["releaseDate", "publishedOn"]) ??
+    (customAttributes ? readString(customAttributes, ["releaseDate", "publishedOn"]) : null);
+  const description =
+    readString(details, ["description", "productDescription"]) ??
+    (customAttributes
+      ? readString(customAttributes, ["description", "productDescription"])
+      : null);
+  const language =
+    readNamedValue(details, ["languageName", "language"]) ??
+    (skuLanguages.length === 1 ? skuLanguages[0] : null);
 
   if (!categoryName) warnings.push("TCGplayer did not return a category name.");
   if (!setName) warnings.push("TCGplayer did not return a set or group name.");
@@ -168,14 +204,16 @@ export function normalizeTcgplayerCatalog(input: NormalizationInput): TcgplayerC
     product: {
       name,
       cleanName,
-      description: readString(details, ["description", "productDescription"]),
+      description,
       imageUrl: safeHttpUrl(readString(details, ["imageUrl", "imageURL", "image", "imageUri"])),
       productType,
-      language: readNamedValue(details, ["languageName", "language"]),
-      upc: readString(details, ["upc", "barcode", "gtin"]),
+      language,
+      upc:
+        readString(details, ["upc", "barcode", "gtin"]) ??
+        (customAttributes ? readString(customAttributes, ["upc", "barcode", "gtin"]) : null),
     },
     category: {
-      id: readNumber(details, ["categoryId"]),
+      id: readNumber(details, ["categoryId", "productLineId"]),
       name: categoryName,
       publisher: readNamedValue(details, [
         "publisherName",
@@ -188,10 +226,10 @@ export function normalizeTcgplayerCatalog(input: NormalizationInput): TcgplayerC
       id: readNumber(details, ["groupId", "setId"]),
       name: setName,
       code: readString(details, ["groupAbbreviation", "setCode", "abbreviation"]),
-      releaseDate: normalizeDate(readString(details, ["releaseDate", "publishedOn"])),
+      releaseDate: normalizeDate(releaseDate),
     },
     prices: normalizePricePoints(input.prices, details),
-    skus: normalizeSkus(input.skus),
+    skus: normalizedSkus,
     warnings: uniqueStrings(warnings),
   };
 }
@@ -296,17 +334,17 @@ function normalizePricePoints(
   const records = extractRecords(payload, ["pricePoints", "prices", "results", "data"]);
   if (records.length === 0) {
     const marketPrice = readNumber(details, ["marketPrice"]);
-    const lowPrice = readNumber(details, ["lowPrice"]);
+    const lowPrice = readNumber(details, ["lowPrice", "lowestPrice"]);
     if (marketPrice === null && lowPrice === null) return [];
     records.push(details);
   }
 
   return records.slice(0, 30).map((record) => ({
     condition: readNamedValue(record, ["conditionName", "condition"]),
-    printing: readNamedValue(record, ["printingName", "subTypeName", "printing"]),
+    printing: readNamedValue(record, ["printingName", "subTypeName", "printing", "variant"]),
     marketPrice: readNumber(record, ["marketPrice"]),
-    lowPrice: readNumber(record, ["lowPrice"]),
-    midPrice: readNumber(record, ["midPrice"]),
+    lowPrice: readNumber(record, ["lowPrice", "lowestPrice"]),
+    midPrice: readNumber(record, ["midPrice", "medianPrice"]),
     highPrice: readNumber(record, ["highPrice"]),
     directLowPrice: readNumber(record, ["directLowPrice"]),
   }));
@@ -316,13 +354,13 @@ function normalizeSkus(payload: unknown): TcgplayerSkuReference[] {
   return extractRecords(payload, ["skus", "results", "data"])
     .slice(0, 50)
     .map((record) => ({
-      skuId: readNumber(record, ["skuId", "id"]),
+      skuId: readNumber(record, ["skuId", "sku", "id"]),
       productConditionId: readNumber(record, ["productConditionId"]),
       condition: readNamedValue(record, ["conditionName", "condition"]),
       language: readNamedValue(record, ["languageName", "language"]),
-      printing: readNamedValue(record, ["printingName", "printing", "subTypeName"]),
+      printing: readNamedValue(record, ["printingName", "printing", "subTypeName", "variant"]),
       marketPrice: readNumber(record, ["marketPrice"]),
-      lowPrice: readNumber(record, ["lowPrice"]),
+      lowPrice: readNumber(record, ["lowPrice", "lowestPrice"]),
     }));
 }
 
