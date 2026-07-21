@@ -25,13 +25,44 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
   const input = adminLimitedTimeDealFromForm(formData);
   if (input.active) await requireControlPermission("pricing.approve", returnPath);
 
-  const { data, error } = await createSecretClient().rpc("admin_upsert_pricing_promotion", {
+  const supabase = createSecretClient();
+  const { data: sku, error: skuError } = await supabase
+    .from("booster_box_skus")
+    .select("price_cents, currency")
+    .eq("id", input.skuId)
+    .maybeSingle();
+  if (skuError) throw new Error(`Deal SKU price lookup failed: ${skuError.message}`);
+  if (!sku) {
+    return {
+      status: "error" as const,
+      message: "The selected SKU could not be found.",
+      fieldErrors: { skuId: "Select an existing SKU." },
+    };
+  }
+
+  const originalPriceCents = Number(sku.price_cents);
+  if (!Number.isInteger(originalPriceCents) || originalPriceCents <= 0) {
+    return {
+      status: "error" as const,
+      message: "The selected SKU needs a valid original price before a deal can be created.",
+      fieldErrors: { skuId: "Set a positive SKU price in Pricing first." },
+    };
+  }
+  if (input.dealPriceCents >= originalPriceCents) {
+    return {
+      status: "error" as const,
+      message: "Deal price must be lower than the original price.",
+      fieldErrors: { dealPrice: "Enter a deal price below the current original price." },
+    };
+  }
+
+  const { data, error } = await supabase.rpc("admin_upsert_pricing_promotion", {
     p_deal_id: input.dealId,
     p_code: input.code,
     p_sku_id: input.skuId,
     p_title: input.title,
     p_description: input.description,
-    p_discount_bps: input.discountBps,
+    p_deal_price_cents: input.dealPriceCents,
     p_visibility: input.visibility,
     p_starts_at: input.startsAt,
     p_ends_at: input.endsAt,
@@ -45,6 +76,13 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
       status: "error" as const,
       message: "Another promotion already uses this code. Choose a unique code.",
       fieldErrors: { code: "Promotion code must be unique." },
+    };
+  }
+  if (error?.code === "22023" && error.message.toLowerCase().includes("deal price")) {
+    return {
+      status: "error" as const,
+      message: "Deal price must be lower than the original price.",
+      fieldErrors: { dealPrice: "Enter a positive deal price below the current original price." },
     };
   }
   if (error) throw new Error(`Limited-time deal save failed: ${error.message}`);
