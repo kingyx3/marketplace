@@ -10,9 +10,17 @@ import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
+import { formatMoney } from "@/lib/money";
 import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
+
+type DealListRecord = DealRecord & {
+  booster_box_skus:
+    | { price_cents: number; currency: string }
+    | Array<{ price_cents: number; currency: string }>
+    | null;
+};
 
 export default async function ControlDealsPage({
   searchParams,
@@ -28,13 +36,13 @@ export default async function ControlDealsPage({
   const { data, error } = await createSecretClient()
     .from("limited_time_deals")
     .select(
-      "id, code, sku_id, title, description, discount_bps, visibility, starts_at, ends_at, sort_priority, active"
+      "id, code, sku_id, title, description, discount_bps, deal_price_cents, visibility, starts_at, ends_at, sort_priority, active, booster_box_skus(price_cents, currency)"
     )
     .order("starts_at", { ascending: false });
 
   if (error) throw new Error(`Limited-time deal lookup failed: ${error.message}`);
 
-  const allDeals = (data ?? []) as DealRecord[];
+  const allDeals = (data ?? []) as unknown as DealListRecord[];
   const deals = allDeals.filter((deal) => {
     const matchesStatus = status === "all" || (status === "active" ? deal.active : !deal.active);
     return (
@@ -55,7 +63,7 @@ export default async function ControlDealsPage({
             ) : null}
           </>
         }
-        description="Review scheduled promotions and open a deal to change its SKU, discount, audience, window, or lifecycle."
+        description="Review scheduled promotions and open a deal to change its SKU, exact deal price, audience, window, or lifecycle."
         eyebrow="Control"
         title="Limited-time deals"
       />
@@ -113,37 +121,49 @@ export default async function ControlDealsPage({
         />
       ) : (
         <section className="grid gap-4 xl:grid-cols-2">
-          {deals.map((deal) => (
-            <Link
-              className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
-              href={`/control/pricing/deals/${deal.id}`}
-              key={deal.id}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="truncate font-semibold text-zinc-950">{deal.title}</h2>
-                  <p className="mt-1 font-mono text-xs text-zinc-500">{deal.code}</p>
+          {deals.map((deal) => {
+            const skuPrice = one(deal.booster_box_skus);
+            const currency = skuPrice?.currency ?? "SGD";
+            return (
+              <Link
+                className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
+                href={`/control/pricing/deals/${deal.id}`}
+                key={deal.id}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="truncate font-semibold text-zinc-950">{deal.title}</h2>
+                    <p className="mt-1 font-mono text-xs text-zinc-500">{deal.code}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <StatusBadge tone={deal.visibility === "public" ? "success" : "neutral"}>
+                      {deal.visibility}
+                    </StatusBadge>
+                    <StatusBadge tone={deal.active ? "success" : "warning"}>
+                      {deal.active ? "Active" : "Inactive"}
+                    </StatusBadge>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <StatusBadge tone={deal.visibility === "public" ? "success" : "neutral"}>
-                    {deal.visibility}
-                  </StatusBadge>
-                  <StatusBadge tone={deal.active ? "success" : "warning"}>
-                    {deal.active ? "Active" : "Inactive"}
-                  </StatusBadge>
-                </div>
-              </div>
-              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                <ControlData label="Discount" value={`${(deal.discount_bps / 100).toFixed(2)}%`} />
-                <ControlData label="Starts" value={formatDate(deal.starts_at)} />
-                <ControlData label="Ends" value={formatDate(deal.ends_at)} />
-              </dl>
-            </Link>
-          ))}
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                  <ControlData
+                    label="Original"
+                    value={skuPrice ? formatMoney(skuPrice.price_cents, currency) : "Unavailable"}
+                  />
+                  <ControlData label="Deal price" value={formatMoney(deal.deal_price_cents, currency)} />
+                  <ControlData label="Starts" value={formatDate(deal.starts_at)} />
+                  <ControlData label="Ends" value={formatDate(deal.ends_at)} />
+                </dl>
+              </Link>
+            );
+          })}
         </section>
       )}
     </div>
   );
+}
+
+function one<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 function formatDate(value: string): string {

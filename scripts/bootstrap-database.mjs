@@ -97,6 +97,7 @@ const SKU = "BOOTSTRAP-BST-BOX-EN";
 const CURRENCY = "SGD";
 const PRICE_CENTS = 19_900;
 const COMPARE_AT_CENTS = 22_000;
+const DEAL_PRICE_CENTS = 18_400;
 const IDEMPOTENCY_KEY_HASH = "a".repeat(64);
 const IDEMPOTENCY_REQUEST_HASH = "b".repeat(64);
 
@@ -182,6 +183,7 @@ async function main() {
       product_id: FIXTURE_IDS.product,
       customer_id: customerId,
       sku: SKU,
+      deal_price_cents: DEAL_PRICE_CENTS,
       visible: true,
     },
   });
@@ -195,6 +197,7 @@ async function main() {
     productId: FIXTURE_IDS.product,
     productSlug: product.slug,
     sku: SKU,
+    dealPriceCents: DEAL_PRICE_CENTS,
     publicTablesCovered: SEEDED_PUBLIC_TABLES.length,
     anonymousReadVerified: true,
     hostedStorefrontVerified: true,
@@ -758,7 +761,7 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_sku_id: FIXTURE_IDS.sku,
     p_title: "Bootstrap launch offer",
     p_description: "API-managed public promotion fixture.",
-    p_discount_bps: 500,
+    p_deal_price_cents: DEAL_PRICE_CENTS,
     p_visibility: "public",
     p_starts_at: dates.startsAt,
     p_ends_at: dates.endsAt,
@@ -812,6 +815,13 @@ async function verifySecretRead(client) {
     throw new Error(`Bootstrap listing verification query failed: ${listingError.message}`);
   }
 
+  const { data: deal, error: dealError } = await client
+    .from("limited_time_deals")
+    .select("active,deal_price_cents")
+    .eq("id", FIXTURE_IDS.deal)
+    .single();
+  if (dealError) throw new Error(`Bootstrap deal verification query failed: ${dealError.message}`);
+
   const variant = one(product.product_variants);
   const sku = one(variant?.booster_box_skus);
   const activePrice = (sku?.sku_prices ?? []).find((price) => price.active);
@@ -823,6 +833,9 @@ async function verifySecretRead(client) {
     !sku?.active ||
     !activePrice ||
     Number(activePrice.price_cents) <= 0 ||
+    !deal.active ||
+    Number(deal.deal_price_cents) !== DEAL_PRICE_CENTS ||
+    Number(deal.deal_price_cents) >= Number(activePrice.price_cents) ||
     Number(inventory?.on_hand ?? 0) - Number(inventory?.allocated ?? 0) <=
       Number(inventory?.safety_stock ?? 0)
   ) {
@@ -852,8 +865,20 @@ async function verifyAnonymousRead(supabaseUrl, publishableKey) {
   if (listingError) {
     throw new Error(`Anonymous listing read failed: ${listingError.message}`);
   }
-  if (!product || !listing.published || listing.availability_mode !== "available_now") {
-    throw new Error("Anonymous storefront read did not return the published bootstrap product");
+
+  const { data: deal, error: dealError } = await publicClient
+    .from("limited_time_deals")
+    .select("deal_price_cents")
+    .eq("id", FIXTURE_IDS.deal)
+    .single();
+  if (dealError) throw new Error(`Anonymous deal read failed: ${dealError.message}`);
+  if (
+    !product ||
+    !listing.published ||
+    listing.availability_mode !== "available_now" ||
+    Number(deal.deal_price_cents) !== DEAL_PRICE_CENTS
+  ) {
+    throw new Error("Anonymous storefront read did not return the exact bootstrap deal price");
   }
 }
 
@@ -1078,6 +1103,7 @@ async function appendGithubSummary(summary) {
       `- Target: \`${summary.target}\``,
       `- Product: \`${summary.productSlug}\``,
       `- SKU: \`${summary.sku}\``,
+      `- Deal price: ${summary.dealPriceCents} cents`,
       `- Public tables covered: ${summary.publicTablesCovered}`,
       `- Anonymous read: ${summary.anonymousReadVerified ? "verified" : "skipped"}`,
       `- Hosted storefront: ${summary.hostedStorefrontVerified ? "verified" : "skipped"}`,

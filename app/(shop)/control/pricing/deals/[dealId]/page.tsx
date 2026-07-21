@@ -15,6 +15,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { setLimitedTimeDealActive } from "@/app/actions/admin";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
+import { formatMoney } from "@/lib/money";
 import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -38,13 +39,15 @@ export default async function DealDetailPage({
     supabase
       .from("limited_time_deals")
       .select(
-        "id, code, sku_id, title, description, discount_bps, visibility, starts_at, ends_at, sort_priority, active"
+        "id, code, sku_id, title, description, discount_bps, deal_price_cents, visibility, starts_at, ends_at, sort_priority, active"
       )
       .eq("id", dealId)
       .maybeSingle(),
     supabase
       .from("booster_box_skus")
-      .select("id, sku, active, product_variants!inner(products!inner(name, active))")
+      .select(
+        "id, sku, active, price_cents, currency, product_variants!inner(products!inner(name, active))"
+      )
       .order("sku", { ascending: true }),
   ]);
 
@@ -58,6 +61,8 @@ export default async function DealDetailPage({
       id: string;
       sku: string;
       active: boolean;
+      price_cents: number;
+      currency: string;
       product_variants:
         | { products: { name: string; active: boolean } | null }
         | Array<{ products: { name: string; active: boolean } | null }>
@@ -73,8 +78,11 @@ export default async function DealDetailPage({
       active: row.active,
       productName: variant?.products?.name ?? "Unknown product",
       productActive: variant?.products?.active ?? false,
+      priceCents: Number(row.price_cents),
+      currency: row.currency,
     };
   });
+  const selectedSku = skus.find((sku) => sku.id === deal.sku_id);
   const paramsValue = (await searchParams) ?? {};
   const conflict =
     paramsValue.error === "duplicate-deal"
@@ -106,10 +114,21 @@ export default async function DealDetailPage({
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Summary label="Audience" value={deal.visibility} />
-        <Summary label="Starts" value={formatDate(deal.starts_at)} />
-        <Summary label="Ends" value={formatDate(deal.ends_at)} />
+        <Summary
+          label="Original price"
+          value={
+            selectedSku
+              ? formatMoney(selectedSku.priceCents, selectedSku.currency)
+              : "Price unavailable"
+          }
+        />
+        <Summary
+          label="Deal price"
+          value={formatMoney(deal.deal_price_cents, selectedSku?.currency ?? "SGD")}
+        />
+        <Summary label="Window" value={`${formatDate(deal.starts_at)} – ${formatDate(deal.ends_at)}`} />
       </section>
 
       {canManage ? (
@@ -130,7 +149,7 @@ export default async function DealDetailPage({
             confirmation={{
               title: deal.active ? "Deactivate promotion?" : "Activate promotion?",
               description: deal.active
-                ? "The discount will stop applying to new eligible orders. Existing orders are unaffected."
+                ? "The deal price will stop applying to new eligible orders. Existing orders are unaffected."
                 : "The promotion can become customer-visible and affect eligible order pricing during its scheduled window.",
               confirmLabel: deal.active ? "Deactivate deal" : "Activate deal",
               tone: deal.active ? "danger" : "default",

@@ -6,6 +6,7 @@ import {
   adminLimitedTimeDealStatusFromForm,
 } from "@/lib/admin-listing-forms";
 import {
+  calculateDealDiscountBps,
   calculateDealSavings,
   discountedDealPrice,
   formatDealDiscount,
@@ -17,7 +18,8 @@ describe("limited-time deals", () => {
     expect(PUBLIC_DEAL_PREVIEW_LIMIT).toBe(3);
     expect(calculateDealSavings(19900, 750)).toBe(1492);
     expect(discountedDealPrice(19900, 750)).toBe(18408);
-    expect(formatDealDiscount(750)).toBe("7.50%");
+    expect(calculateDealDiscountBps(19900, 18400)).toBe(754);
+    expect(formatDealDiscount(754)).toBe("7.54%");
   });
 
   it("normalizes and validates staff deal forms in Singapore time", () => {
@@ -25,7 +27,7 @@ describe("limited-time deals", () => {
     expect(adminLimitedTimeDealFromForm(form)).toMatchObject({
       dealId: null,
       code: "launch_week",
-      discountBps: 750,
+      dealPriceCents: 18400,
       visibility: "public",
       startsAt: "2026-07-16T01:00:00.000Z",
       endsAt: "2026-07-20T10:00:00.000Z",
@@ -39,11 +41,19 @@ describe("limited-time deals", () => {
     expect(() => adminLimitedTimeDealFromForm(form)).toThrow("deal end must be after its start");
   });
 
-  it("rejects malformed status mutations", () => {
-    const form = new FormData();
-    form.set("dealId", "not-a-uuid");
-    form.set("active", "true");
-    expect(() => adminLimitedTimeDealStatusFromForm(form)).toThrow("dealId must be a valid UUID");
+  it("rejects malformed deal prices and status mutations", () => {
+    const form = validDealForm();
+    form.set("dealPrice", "184.001");
+    expect(() => adminLimitedTimeDealFromForm(form)).toThrow(
+      "Deal price must be a positive amount with at most two decimal places"
+    );
+
+    const statusForm = new FormData();
+    statusForm.set("dealId", "not-a-uuid");
+    statusForm.set("active", "true");
+    expect(() => adminLimitedTimeDealStatusFromForm(statusForm)).toThrow(
+      "dealId must be a valid UUID"
+    );
   });
 
   it("protects member metadata with RLS and keeps mutations service-role-only", async () => {
@@ -73,7 +83,7 @@ function validDealForm(): FormData {
   form.set("skuId", "11111111-1111-4111-8111-111111111111");
   form.set("title", "Launch week offer");
   form.set("description", "A real, scheduled promotion.");
-  form.set("discountBps", "750");
+  form.set("dealPrice", "184.00");
   form.set("visibility", "public");
   form.set("startsAt", "2026-07-16T09:00");
   form.set("endsAt", "2026-07-20T18:00");

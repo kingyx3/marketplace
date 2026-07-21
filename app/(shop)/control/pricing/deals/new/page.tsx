@@ -22,7 +22,7 @@ export default async function NewDealPage({
     <div className="space-y-8">
       <PageHeader
         action={<ControlBackLink href="/control/pricing/deals">Back to deals</ControlBackLink>}
-        description="Create a truthful, time-bounded promotion. Times are interpreted in Singapore time."
+        description="Create a truthful, time-bounded promotion using an exact deal price. Times are interpreted in Singapore time."
         eyebrow="Control · Deals"
         title="Create deal"
       />
@@ -36,7 +36,7 @@ export default async function NewDealPage({
 async function fetchDealSkus(): Promise<DealSkuOption[]> {
   const { data, error } = await createSecretClient()
     .from("booster_box_skus")
-    .select("id, sku, active, product_variants!inner(products!inner(name, active))")
+    .select("id, sku, active, price_cents, currency, product_variants!inner(products!inner(name, active))")
     .order("sku", { ascending: true });
   if (error) throw new Error(`SKU lookup failed: ${error.message}`);
 
@@ -45,6 +45,8 @@ async function fetchDealSkus(): Promise<DealSkuOption[]> {
       id: string;
       sku: string;
       active: boolean;
+      price_cents: number;
+      currency: string;
       product_variants:
         | { products: { name: string; active: boolean } | null }
         | Array<{ products: { name: string; active: boolean } | null }>
@@ -60,6 +62,8 @@ async function fetchDealSkus(): Promise<DealSkuOption[]> {
       active: row.active,
       productName: variant?.products?.name ?? "Unknown product",
       productActive: variant?.products?.active ?? false,
+      priceCents: Number(row.price_cents),
+      currency: row.currency,
     };
   });
 }

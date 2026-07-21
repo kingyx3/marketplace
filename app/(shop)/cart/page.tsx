@@ -8,10 +8,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { readCart } from "@/lib/cart";
 import { getSkuQuote } from "@/lib/catalog";
 import {
-  calculateDealSavings,
-  discountedDealPrice,
+  calculateDealDiscountBps,
   formatDealDiscount,
-  getActiveDealDiscounts,
+  getActiveDealPrices,
 } from "@/lib/deals";
 import { formatMoney } from "@/lib/money";
 import { createPublishableClient, createUserClient } from "@/lib/supabase";
@@ -37,15 +36,15 @@ export default async function CartPage({
     quoteError = error instanceof Error ? error.message : "Unable to quote cart";
   }
 
-  const dealDiscounts = await currentDealDiscounts(
+  const dealPrices = await currentDealPrices(
     Boolean(user),
     quote.lines.map((line) => line.skuId)
   );
-  const discountCents = quote.lines.reduce(
-    (total, line) =>
-      total + calculateDealSavings(line.lineTotalCents, dealDiscounts.get(line.skuId) ?? 0),
-    0
-  );
+  const discountCents = quote.lines.reduce((total, line) => {
+    const dealPriceCents = dealPrices.get(line.skuId);
+    if (!dealPriceCents || dealPriceCents >= line.unitPriceCents) return total;
+    return total + (line.unitPriceCents - dealPriceCents) * line.quantity;
+  }, 0);
   const merchandiseTotalCents = quote.subtotalCents - discountCents;
   const gst = Math.round((merchandiseTotalCents * 9) / 109);
   const hasAvailabilityIssue = quote.lines.some((line) => line.available < line.quantity);
@@ -110,7 +109,10 @@ export default async function CartPage({
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0 space-y-4">
             {quote.lines.map((line) => {
-              const lineDealDiscountBps = dealDiscounts.get(line.skuId) ?? 0;
+              const lineDealPriceCents = dealPrices.get(line.skuId);
+              const lineDealDiscountBps = lineDealPriceCents
+                ? calculateDealDiscountBps(line.unitPriceCents, lineDealPriceCents)
+                : 0;
               const outOfStock = line.available <= 0;
               const shortStock = !outOfStock && line.available < line.quantity;
               const lowStock = !shortStock && line.available <= 5;
@@ -191,14 +193,10 @@ export default async function CartPage({
                     <p className="mt-1 text-sm text-zinc-500">
                       {formatMoney(line.unitPriceCents, line.currency)} each
                     </p>
-                    {lineDealDiscountBps > 0 ? (
+                    {lineDealPriceCents && lineDealDiscountBps > 0 ? (
                       <p className="mt-2 break-words text-sm font-semibold text-emerald-700">
-                        Deal{" "}
-                        {formatMoney(
-                          discountedDealPrice(line.unitPriceCents, lineDealDiscountBps),
-                          line.currency
-                        )}{" "}
-                        each ({formatDealDiscount(lineDealDiscountBps)} off)
+                        Deal {formatMoney(lineDealPriceCents, line.currency)} each (
+                        {formatDealDiscount(lineDealDiscountBps)} off)
                       </p>
                     ) : null}
                   </div>
@@ -285,14 +283,14 @@ export default async function CartPage({
   );
 }
 
-async function currentDealDiscounts(
+async function currentDealPrices(
   signedIn: boolean,
   skuIds: string[]
 ): Promise<Map<string, number>> {
   if (skuIds.length === 0) return new Map();
   try {
     const supabase = signedIn ? await createUserClient() : createPublishableClient();
-    return await getActiveDealDiscounts(supabase, skuIds);
+    return await getActiveDealPrices(supabase, skuIds);
   } catch (error) {
     console.error("cart deal lookup failed:", safeError(error));
     return new Map();
