@@ -85,7 +85,7 @@ describe("checkout delivery address book", () => {
       readSource("app/api/account/addresses/route.ts"),
     ]);
 
-    expect(panel).toContain('api.request<SavedAddressesResponse>("/api/account/addresses"');
+    expect(panel).toContain('.request<SavedAddressesResponse>("/api/account/addresses"');
     expect(panel).toContain("Previously used delivery address");
     expect(panel).toContain("Deliver to another address");
     expect(panel).toContain('autoComplete="on"');
