@@ -6,6 +6,20 @@ import { redirect } from "next/navigation";
 import { adminCatalogProductCreateFromForm } from "@/lib/admin-catalog-forms";
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
+import {
+  fetchControlCategories,
+  fetchControlProductTypes,
+  fetchControlSets,
+} from "@/lib/control-catalog";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
+import {
+  fetchTcgplayerCatalogSuggestion,
+  TcgplayerCatalogError,
+} from "@/lib/tcgplayer-catalog";
+import {
+  buildTcgplayerCatalogImportPlan,
+  type TcgplayerCatalogImportPlan,
+} from "@/lib/tcgplayer-catalog-import-plan";
 import type { TcgplayerSkuImportDraft } from "@/lib/tcgplayer-sku-import";
 import { createSecretClient } from "@/lib/supabase";
 
@@ -19,19 +33,35 @@ export async function createTcgplayerCatalogProduct(
 ): Promise<CatalogProductActionState> {
   const { user } = await requireControlPermission(
     "catalog.manage",
-    "/control/catalog",
+    "/control/catalog/products/new",
   );
   let createdProductId: string | undefined;
-  let importedSkuCount = 0;
 
   try {
-    const input = adminCatalogProductCreateFromForm(formData);
-    const tcgplayerProductId = positiveInteger(
-      formData.get("tcgplayerProductId"),
-      "TCGplayer product ID",
+    const reference = requiredReference(formData.get("tcgplayerReference"));
+    const supabase = createSecretClient();
+    await enforceRateLimit(supabase, {
+      scope: "admin.tcgplayer_catalog_import",
+      identifier: user.id,
+      limit: 12,
+      windowSeconds: 60,
+    });
+
+    const [suggestion, categories, sets, productTypes] = await Promise.all([
+      fetchTcgplayerCatalogSuggestion(reference),
+      fetchControlCategories(supabase),
+      fetchControlSets(supabase),
+      fetchControlProductTypes(supabase),
+    ]);
+    const plan = buildTcgplayerCatalogImportPlan(
+      suggestion,
+      categories,
+      sets,
+      productTypes,
     );
-    const importedSkus = parseImportedSkus(formData.get("tcgplayerSkus"));
-    const { data, error } = await createSecretClient().rpc(
+    const input = adminCatalogProductCreateFromForm(importPlanFormData(plan));
+    const importedSkus = parseImportedSkus(JSON.stringify(plan.skus));
+    const { data, error } = await supabase.rpc(
       "admin_create_tcgplayer_catalog_product",
       {
         p_category_id: input.categoryId,
@@ -51,7 +81,7 @@ export async function createTcgplayerCatalogProduct(
         p_language: input.language,
         p_image_url: input.imageUrl,
         p_active: input.active,
-        p_tcgplayer_product_id: tcgplayerProductId,
+        p_tcgplayer_product_id: suggestion.productId,
         p_skus: importedSkus,
         p_actor_auth_user_id: user.id,
       },
@@ -61,10 +91,8 @@ export async function createTcgplayerCatalogProduct(
 
     const result = (data?.[0] ?? null) as {
       product_id?: string;
-      imported_sku_count?: number;
     } | null;
     createdProductId = result?.product_id;
-    importedSkuCount = result?.imported_sku_count ?? 0;
     revalidateCatalogPaths(createdProductId);
   } catch (error) {
     return {
@@ -74,16 +102,65 @@ export async function createTcgplayerCatalogProduct(
   }
 
   if (validProductId(createdProductId ?? "")) {
-    redirect(`/control/catalog/products/${createdProductId}`);
+    redirect(
+      `/control/catalog/products/${createdProductId}/import-complete`,
+    );
   }
 
   return {
-    status: "success",
+    status: "error",
     message:
-      importedSkuCount > 0
-        ? `Product created with ${importedSkuCount} imported SKU${importedSkuCount === 1 ? "" : "s"}.`
-        : "Product created. TCGplayer did not provide SKU records, so no local SKU was created.",
+      "The import completed without returning a product ID. Open Catalog and verify the created record.",
   };
+}
+
+function importPlanFormData(plan: TcgplayerCatalogImportPlan): FormData {
+  const formData = new FormData();
+  formData.set("name", plan.product.name);
+  formData.set("description", plan.product.description ?? "");
+  formData.set("language", plan.product.language);
+  formData.set("imageUrl", plan.product.imageUrl ?? "");
+  formData.set("active", "true");
+
+  if (plan.category.id) {
+    formData.set("categoryMode", "existing");
+    formData.set("categoryId", plan.category.id);
+  } else {
+    formData.set("categoryMode", "new");
+    formData.set("newCategoryName", plan.category.name);
+    formData.set("newCategoryPublisher", plan.category.publisher ?? "");
+  }
+
+  if (plan.set.id) {
+    formData.set("setMode", "existing");
+    formData.set("setId", plan.set.id);
+  } else {
+    formData.set("setMode", "new");
+    formData.set("newSetName", plan.set.name);
+    formData.set("newSetReleaseDate", plan.set.releaseDate ?? "");
+    formData.set("newSetStatus", "announced");
+  }
+
+  if (plan.productType.code) {
+    formData.set("productTypeMode", "existing");
+    formData.set("productType", plan.productType.code);
+  } else {
+    formData.set("productTypeMode", "new");
+    formData.set("newProductTypeName", plan.productType.name);
+  }
+
+  return formData;
+}
+
+function requiredReference(value: FormDataEntryValue | null): string {
+  if (typeof value !== "string") {
+    throw new Error("Enter a TCGplayer product URL or numeric product ID.");
+  }
+  const reference = value.trim();
+  if (!reference || reference.length > 300) {
+    throw new Error("Enter a TCGplayer product URL or numeric product ID.");
+  }
+  return reference;
 }
 
 function parseImportedSkus(
@@ -98,9 +175,7 @@ function parseImportedSkus(
   try {
     parsed = JSON.parse(value) as unknown;
   } catch {
-    throw new Error(
-      "TCGplayer SKU data could not be read. Look up the product again.",
-    );
+    throw new Error("TCGplayer SKU data could not be read. Try the import again.");
   }
 
   if (!Array.isArray(parsed)) {
@@ -186,19 +261,15 @@ function requiredString(value: unknown, label: string, max: number): string {
 
 function optionalString(value: unknown, max: number): string | null {
   if (value === null || value === undefined || value === "") return null;
-  if (typeof value !== "string")
+  if (typeof value !== "string") {
     throw new Error("Imported SKU text is invalid.");
+  }
   const result = value.trim();
   if (!result) return null;
-  if (result.length > max)
+  if (result.length > max) {
     throw new Error(`Imported SKU text must be ${max} characters or fewer.`);
+  }
   return result;
-}
-
-function positiveInteger(value: unknown, label: string): number {
-  const parsed = optionalPositiveInteger(value, label);
-  if (parsed === null) throw new Error(`${label} is required.`);
-  return parsed;
 }
 
 function optionalPositiveInteger(value: unknown, label: string): number | null {
@@ -227,8 +298,8 @@ function productError(error: {
   if (message.includes("display name") && message.includes("slug")) {
     return {
       status: "error",
-      field: "name",
-      message: "This display name is already used by another product.",
+      message:
+        "A product with this TCGplayer name already exists. Open Catalog to review the existing product.",
     };
   }
   if (
@@ -265,7 +336,12 @@ function revalidateCatalogPaths(productId?: string) {
   revalidatePath("/control/pricing");
   revalidatePath("/control/storefront");
   revalidatePath("/control/storefront/listings");
-  if (productId) revalidatePath(`/control/catalog/products/${productId}`);
+  if (productId) {
+    revalidatePath(`/control/catalog/products/${productId}`);
+    revalidatePath(
+      `/control/catalog/products/${productId}/import-complete`,
+    );
+  }
   revalidatePath("/products");
 }
 
@@ -276,6 +352,7 @@ function validProductId(value: string) {
 }
 
 function safeError(error: unknown) {
+  if (error instanceof TcgplayerCatalogError) return error.message;
   return error instanceof Error
     ? error.message
     : "The product and its TCGplayer SKUs could not be created.";
