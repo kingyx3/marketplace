@@ -31,38 +31,35 @@ jobs:
 
           source_path = Path("scripts/bootstrap-database.mjs")
           source = source_path.read_text()
-          old = '''  await upsert(client, "admin_access_grants", {
-            id: FIXTURE_IDS.grant,
-            email: actorEmail,
-            role: "owner",
-            active: true,
-            auth_user_id: actorUser.id,
-            created_by_staff_id: FIXTURE_IDS.staff,
-            revoked_at: null,
-          });'''
-          new = '''  const { data: existingGrant, error: existingGrantError } = await client
-            .from("admin_access_grants")
-            .select("accepted_at")
-            .eq("id", FIXTURE_IDS.grant)
-            .maybeSingle();
-          if (existingGrantError) {
-            throw new Error(
-              `Could not read bootstrap administrator grant: ${existingGrantError.message}`
-            );
-          }
-          await upsert(client, "admin_access_grants", {
-            id: FIXTURE_IDS.grant,
-            email: actorEmail,
-            role: "owner",
-            active: true,
-            auth_user_id: actorUser.id,
-            created_by_staff_id: FIXTURE_IDS.staff,
-            accepted_at: existingGrant?.accepted_at ?? now.toISOString(),
-            revoked_at: null,
-          });'''
-          if old not in source:
-              raise SystemExit("Expected administrator grant fixture block was not found")
-          source_path.write_text(source.replace(old, new, 1))
+          start_marker = '  await upsert(client, "admin_access_grants", {'
+          end_marker = '\n\n  await verifyReferenceRow('
+          start = source.find(start_marker)
+          end = source.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit("Expected administrator grant fixture boundaries were not found")
+          replacement = "\n".join([
+              '  const { data: existingGrant, error: existingGrantError } = await client',
+              '    .from("admin_access_grants")',
+              '    .select("accepted_at")',
+              '    .eq("id", FIXTURE_IDS.grant)',
+              '    .maybeSingle();',
+              '  if (existingGrantError) {',
+              '    throw new Error(',
+              '      `Could not read bootstrap administrator grant: ${existingGrantError.message}`',
+              '    );',
+              '  }',
+              '  await upsert(client, "admin_access_grants", {',
+              '    id: FIXTURE_IDS.grant,',
+              '    email: actorEmail,',
+              '    role: "owner",',
+              '    active: true,',
+              '    auth_user_id: actorUser.id,',
+              '    created_by_staff_id: FIXTURE_IDS.staff,',
+              '    accepted_at: existingGrant?.accepted_at ?? now.toISOString(),',
+              '    revoked_at: null,',
+              '  });',
+          ])
+          source_path.write_text(source[:start] + replacement + source[end:])
           PY
       - name: Commit source fix
         shell: bash
