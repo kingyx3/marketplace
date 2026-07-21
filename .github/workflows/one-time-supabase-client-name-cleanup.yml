@@ -1,0 +1,68 @@
+name: One-time Supabase client naming cleanup
+
+on:
+  push:
+    branches: [agent/fix-development-supabase-runtime]
+
+permissions:
+  contents: write
+
+jobs:
+  rename:
+    if: github.repository == 'kingyx3/marketplace'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: agent/fix-development-supabase-runtime
+          fetch-depth: 0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Replace compatibility client names and remove this workflow
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
+          import { extname, join } from "node:path";
+
+          const roots = ["app", "lib", "tests"];
+          const extensions = new Set([".ts", ".tsx", ".mjs"]);
+
+          async function walk(directory) {
+            const entries = await readdir(directory, { withFileTypes: true });
+            for (const entry of entries) {
+              const path = join(directory, entry.name);
+              if (entry.isDirectory()) await walk(path);
+              else if (extensions.has(extname(path))) await update(path);
+            }
+          }
+
+          async function update(path) {
+            const current = await readFile(path, "utf8");
+            const next = current
+              .replaceAll("createServiceClient", "createSecretClient")
+              .replaceAll("createAnonClient", "createPublishableClient");
+            if (next !== current) await writeFile(path, next, "utf8");
+          }
+
+          for (const root of roots) await walk(root);
+
+          const supabasePath = "lib/supabase.ts";
+          const supabase = await readFile(supabasePath, "utf8");
+          const cleaned = supabase
+            .replace(/\n\/\*\* Shared server-only name used by existing application services\. \*\/\nexport const createPublishableClient = createPublishableClient;\n/, "\n")
+            .replace(/\n\/\*\* Shared server-only name used by existing privileged application services\. \*\/\nexport const createSecretClient = createSecretClient;\n/, "\n");
+          await writeFile(supabasePath, cleaned, "utf8");
+
+          await unlink(".github/workflows/one-time-supabase-client-name-cleanup.yml");
+          NODE
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app lib tests .github/workflows/one-time-supabase-client-name-cleanup.yml
+          if git diff --cached --quiet; then
+            echo "No client naming changes were required."
+            exit 0
+          fi
+          git commit -m "Use explicit Supabase client names"
+          git push origin HEAD:agent/fix-development-supabase-runtime
