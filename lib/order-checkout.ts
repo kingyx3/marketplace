@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ApiCustomerContext } from "@/lib/api/auth";
-import { badRequest, conflict, internalError } from "@/lib/api/errors";
+import { badRequest, conflict, internalError, serviceUnavailable } from "@/lib/api/errors";
 import {
   checkoutRequestSchema,
   quoteCheckout,
@@ -14,6 +14,7 @@ import {
   type CheckoutResult,
 } from "@/lib/checkout";
 import { applicationUrl, createHitPayClient, type HitPayClient } from "@/lib/hitpay";
+import { logError } from "@/lib/observability";
 import { shippingAddressSchema, type ShippingAddress } from "@/lib/shipping";
 
 export function checkoutResponseBody(result: CheckoutResult) {
@@ -93,6 +94,14 @@ export async function createCheckoutPayment(
       paymentRequestId,
       hitpay,
     });
+    if (isHitPayRequestError(error)) {
+      logError("checkout.hitpay_request_failed", error, {
+        orderId: orderId ?? undefined,
+        paymentRequestId: paymentRequestId ?? undefined,
+        userId: auth.user.id,
+      });
+      throw serviceUnavailable("Payment checkout is temporarily unavailable. Please try again.");
+    }
     throw error instanceof Error ? error : internalError();
   }
 }
@@ -135,6 +144,10 @@ function checkoutConflict(message: string): Error {
     return conflict("Prices or availability changed. Review the refreshed cart before payment.");
   }
   return new Error(message);
+}
+
+function isHitPayRequestError(error: unknown): error is Error {
+  return error instanceof Error && error.message.startsWith("HitPay request failed (");
 }
 
 async function insertPayment(

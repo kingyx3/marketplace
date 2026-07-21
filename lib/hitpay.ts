@@ -97,7 +97,7 @@ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPay
             reference_number: input.referenceNumber.slice(0, 255),
             redirect_url: input.redirectUrl,
             allow_repeated_payments: false,
-            expires_after: input.expiresAfter ?? "15 minutes",
+            expires_after: normalizeHitPayExpiresAfter(input.expiresAfter ?? "15 mins"),
             send_email: false,
             send_sms: false,
           }),
@@ -137,6 +137,22 @@ export function hitPayPaymentMethods(env: NodeJS.ProcessEnv = process.env): stri
     throw new Error("HITPAY_PAYMENT_METHODS must include at least one method");
   }
   return [...new Set(methods)];
+}
+
+export function normalizeHitPayExpiresAfter(value: string): string {
+  const match = value
+    .trim()
+    .toLowerCase()
+    .match(/^([1-9]\d*)\s+(min|mins|minute|minutes|hour|hours|day|days)$/);
+  if (!match) {
+    throw new Error("HitPay expires_after must use minutes, hours, or days");
+  }
+
+  const amount = match[1];
+  const unit = match[2];
+  if (unit.startsWith("min")) return `${amount} mins`;
+  if (unit.startsWith("hour")) return `${amount} hours`;
+  return `${amount} days`;
 }
 
 export function hitPayAmountToCents(value: string | number): number {
