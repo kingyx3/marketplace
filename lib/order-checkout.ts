@@ -36,7 +36,7 @@ export function checkoutReturnUrl(
         if (requested.pathname === "/orders") {
           target = new URL(`/orders/${encodeURIComponent(orderId)}`, appUrl);
         } else if (requested.pathname === "/cart") {
-          target = new URL(requested.toString());
+          target = new URL(`${requested.pathname}${requested.search}${requested.hash}`, appUrl);
         }
       }
     } catch {
