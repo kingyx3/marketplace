@@ -2,10 +2,6 @@
 > marketplace@0.1.0 typecheck
 > tsc --noEmit
 
-lib/checkout.ts(162,34): error TS2339: Property 'name' does not exist on type 'CheckoutLine'.
-tests/hitpay-environment-minimization.test.ts(48,43): error TS2352: Conversion of type '{ HITPAY_API_KEY: string; TARGET_ENV: "development" | "production"; }' to type 'ProcessEnv' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-  Property 'NODE_ENV' is missing in type '{ HITPAY_API_KEY: string; TARGET_ENV: "development" | "production"; }' but required in type 'ProcessEnv'.
-tests/hitpay.test.ts(20,28): error TS2352: Conversion of type '{ HITPAY_PAYMENT_METHODS: string; }' to type 'ProcessEnv' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-  Property 'NODE_ENV' is missing in type '{ HITPAY_PAYMENT_METHODS: string; }' but required in type 'ProcessEnv'.
-tests/hitpay.test.ts(64,39): error TS2352: Conversion of type '{ HITPAY_API_KEY: string; HITPAY_API_URL: string; HITPAY_PAYMENT_METHODS: string; }' to type 'ProcessEnv' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-  Property 'NODE_ENV' is missing in type '{ HITPAY_API_KEY: string; HITPAY_API_URL: string; HITPAY_PAYMENT_METHODS: string; }' but required in type 'ProcessEnv'.
+app/api/checkout/cancel/route.ts(12,26): error TS2554: Expected 3 arguments, but got 2.
+lib/order-checkout.ts(12,3): error TS2305: Module '"@/lib/checkout"' has no exported member 'checkoutResponseBody'.
+lib/order-checkout.ts(13,3): error TS2305: Module '"@/lib/checkout"' has no exported member 'createCheckoutPayment'.
