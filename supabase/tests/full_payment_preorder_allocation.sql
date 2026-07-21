@@ -99,8 +99,8 @@ begin
     captured_at
   )
   values
-    (v_preorder_1, 'stripe', 'pi_allocation_one', 'full', 19900, 'SGD', 'captured', now()),
-    (v_preorder_2, 'stripe', 'pi_allocation_two', 'full', 19900, 'SGD', 'captured', now());
+    (v_preorder_1, 'hitpay', 'hitpay_allocation_one', 'full', 19900, 'SGD', 'captured', now()),
+    (v_preorder_2, 'hitpay', 'hitpay_allocation_two', 'full', 19900, 'SGD', 'captured', now());
 
   select count(*)::integer into v_stage_count
   from public.stage_preorder_allocations(
@@ -174,10 +174,10 @@ begin
       null,
       'staff:allocation-contract'
     );
-    raise exception 'shortfall finalized without Stripe refund confirmation';
+    raise exception 'shortfall finalized without HitPay refund confirmation';
   exception
     when sqlstate '22023' then
-      if sqlerrm not like '%Stripe refund confirmation required%' then
+      if sqlerrm not like '%HitPay refund confirmation required%' then
         raise;
       end if;
   end;
@@ -210,7 +210,7 @@ begin
 
   v_settlement := public.settle_preorder_payment(
     v_preorder_2,
-    'pi_allocation_two',
+    'hitpay_allocation_two',
     19900,
     'SGD'
   );
