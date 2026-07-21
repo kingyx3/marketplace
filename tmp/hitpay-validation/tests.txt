@@ -5,170 +5,152 @@
 
 [1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/marketplace/marketplace[39m
 
- [31m❯[39m tests/vercel-sensitive-environment.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 410[2mms[22m[39m
-     [32m✓[39m filters target and branch records while distinguishing unreadable values[32m 52[2mms[22m[39m
-     [32m✓[39m requests decrypted target-scoped values from the authoritative Vercel API[32m 45[2mms[22m[39m
-     [32m✓[39m rejects encrypted ciphertext as a readable runtime value[32m 45[2mms[22m[39m
-     [32m✓[39m creates readable encrypted records, uses the documented edit endpoint, and refuses cross-target mutations[32m 51[2mms[22m[39m
-     [32m✓[39m uses only decrypted Vercel values as fallback and disables local dotenv loading[32m 46[2mms[22m[39m
-     [32m✓[39m does not load dotenv files in authoritative hosted child processes[32m 48[2mms[22m[39m
-     [32m✓[39m shares conditional requiredness between validation and Vercel reconciliation[32m 54[2mms[22m[39m
-[31m     [31m×[31m does not replace a matching HitPay webhook when Vercel stores an unreadable signing secret[39m[32m 32[2mms[22m[39m
-[31m     [31m×[31m uses authoritative API reads and avoids vercel env run precedence[39m[32m 36[2mms[22m[39m
- [32m✓[39m tests/deploy-workflow.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 42[2mms[22m[39m
- [31m❯[39m tests/env.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[33m 795[2mms[22m[39m
-     [32m✓[39m accepts a minimal valid runtime/deploy environment[32m 52[2mms[22m[39m
-     [32m✓[39m requires OAuth credentials only when the capability is enabled[32m 45[2mms[22m[39m
-     [32m✓[39m requires a valid admin email allowlist for production[32m 107[2mms[22m[39m
-[31m     [31m×[31m allows the generated HitPay signing secret to be absent only during pre-provision checks[39m[32m 123[2mms[22m[39m
-     [32m✓[39m never writes deploy-only keys into runtime dotenv[32m 46[2mms[22m[39m
-     [32m✓[39m loads local dotenv without overriding exported values[32m 65[2mms[22m[39m
-[31m     [31m×[31m resolves Terraform outputs without overriding explicit environment values[39m[32m 49[2mms[22m[39m
-     [32m✓[39m reconciles Supabase keys against the Terraform-selected project for every target[32m 54[2mms[22m[39m
-[31m     [31m×[31m reconciles stale Supabase keys from the selected project, including legacy service_role keys[39m[32m 87[2mms[22m[39m
-[31m     [31m×[31m rejects a Supabase key that does not authenticate against the selected project[39m[32m 59[2mms[22m[39m
-     [32m✓[39m keeps generated artifacts in sync with every contract key[32m 102[2mms[22m[39m
- [32m✓[39m tests/control-resource-navigation.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 44[2mms[22m[39m
- [32m✓[39m tests/notifications.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 77[2mms[22m[39m
- [32m✓[39m tests/auth.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 30[2mms[22m[39m
- [31m❯[39m tests/config-contract.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 72[2mms[22m[39m
-     [32m✓[39m defines production-safe Vercel headers and API no-store caching[32m 18[2mms[22m[39m
-     [32m✓[39m keeps database/storage/admin state in migrations[32m 18[2mms[22m[39m
-     [32m✓[39m uses one machine-readable environment contract and generated mirrors[32m 6[2mms[22m[39m
-[31m     [31m×[31m exposes development-default hosted bootstrap plus staging and recovery commands[39m[32m 25[2mms[22m[39m
-     [32m✓[39m pins Terraform core/providers and enforces committed lockfiles[32m 3[2mms[22m[39m
- [32m✓[39m tests/catalog-action.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 27[2mms[22m[39m
- [31m❯[39m tests/bootstrap-convergence.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 243[2mms[22m[39m
-     [32m✓[39m uses one HitPay desired-state implementation from every entry point[32m 3[2mms[22m[39m
-     [32m✓[39m lets Vercel populate values masked by empty GitHub placeholders[32m 34[2mms[22m[39m
-     [32m✓[39m hydrates hosted child processes without vercel env run precedence[32m 13[2mms[22m[39m
-[31m     [31m×[31m performs zero provider writes when the HitPay endpoint already matches[39m[32m 48[2mms[22m[39m
-[31m     [31m×[31m binds HitPay config before constructing the default client[39m[32m 53[2mms[22m[39m
-     [32m✓[39m fails closed on Terraform state errors that are not explicit absence[32m 46[2mms[22m[39m
-     [32m✓[39m exports the derived state bucket for both Terraform resources and backend initialization[32m 45[2mms[22m[39m
- [32m✓[39m tests/checkout.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 24[2mms[22m[39m
- [32m✓[39m tests/customer-lifecycle-actions.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 18[2mms[22m[39m
- [32m✓[39m tests/admin-catalog.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 18[2mms[22m[39m
- [32m✓[39m tests/waitlist.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 17[2mms[22m[39m
- [32m✓[39m tests/control-console.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 23[2mms[22m[39m
- [32m✓[39m tests/admin-staff.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 12[2mms[22m[39m
- [32m✓[39m tests/commerce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 20[2mms[22m[39m
- [31m❯[39m tests/admin-orders.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 32[2mms[22m[39m
-     [32m✓[39m rejects arbitrary direct paid status updates[32m 8[2mms[22m[39m
+ [31m❯[39m tests/vercel-sensitive-environment.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 411[2mms[22m[39m
+     [32m✓[39m filters target and branch records while distinguishing unreadable values[32m 46[2mms[22m[39m
+     [32m✓[39m requests decrypted target-scoped values from the authoritative Vercel API[32m 36[2mms[22m[39m
+     [32m✓[39m rejects encrypted ciphertext as a readable runtime value[32m 29[2mms[22m[39m
+     [32m✓[39m creates readable encrypted records, uses the documented edit endpoint, and refuses cross-target mutations[32m 41[2mms[22m[39m
+     [32m✓[39m uses only decrypted Vercel values as fallback and disables local dotenv loading[32m 58[2mms[22m[39m
+     [32m✓[39m does not load dotenv files in authoritative hosted child processes[32m 63[2mms[22m[39m
+     [32m✓[39m shares conditional requiredness between validation and Vercel reconciliation[32m 51[2mms[22m[39m
+[31m     [31m×[31m does not replace a matching HitPay webhook when Vercel stores an unreadable signing secret[39m[32m 50[2mms[22m[39m
+[31m     [31m×[31m uses authoritative API reads and avoids vercel env run precedence[39m[32m 35[2mms[22m[39m
+ [32m✓[39m tests/deploy-workflow.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [31m❯[39m tests/env.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[33m 707[2mms[22m[39m
+     [32m✓[39m accepts a minimal valid runtime/deploy environment[32m 50[2mms[22m[39m
+     [32m✓[39m requires OAuth credentials only when the capability is enabled[32m 50[2mms[22m[39m
+     [32m✓[39m requires a valid admin email allowlist for production[32m 99[2mms[22m[39m
+[31m     [31m×[31m allows the generated HitPay signing secret to be absent only during pre-provision checks[39m[32m 138[2mms[22m[39m
+     [32m✓[39m never writes deploy-only keys into runtime dotenv[32m 35[2mms[22m[39m
+     [32m✓[39m loads local dotenv without overriding exported values[32m 58[2mms[22m[39m
+[31m     [31m×[31m resolves Terraform outputs without overriding explicit environment values[39m[32m 44[2mms[22m[39m
+     [32m✓[39m reconciles Supabase keys against the Terraform-selected project for every target[32m 47[2mms[22m[39m
+[31m     [31m×[31m reconciles stale Supabase keys from the selected project, including legacy service_role keys[39m[32m 56[2mms[22m[39m
+[31m     [31m×[31m rejects a Supabase key that does not authenticate against the selected project[39m[32m 41[2mms[22m[39m
+     [32m✓[39m keeps generated artifacts in sync with every contract key[32m 86[2mms[22m[39m
+ [32m✓[39m tests/control-resource-navigation.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m tests/notifications.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+ [32m✓[39m tests/auth.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [31m❯[39m tests/config-contract.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 56[2mms[22m[39m
+     [32m✓[39m defines production-safe Vercel headers and API no-store caching[32m 5[2mms[22m[39m
+     [32m✓[39m keeps database/storage/admin state in migrations[32m 15[2mms[22m[39m
+     [32m✓[39m uses one machine-readable environment contract and generated mirrors[32m 9[2mms[22m[39m
+[31m     [31m×[31m exposes development-default hosted bootstrap plus staging and recovery commands[39m[32m 24[2mms[22m[39m
+     [32m✓[39m pins Terraform core/providers and enforces committed lockfiles[32m 2[2mms[22m[39m
+ [32m✓[39m tests/catalog-action.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [31m❯[39m tests/bootstrap-convergence.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 284[2mms[22m[39m
+     [32m✓[39m uses one HitPay desired-state implementation from every entry point[32m 4[2mms[22m[39m
+     [32m✓[39m lets Vercel populate values masked by empty GitHub placeholders[32m 49[2mms[22m[39m
+     [32m✓[39m hydrates hosted child processes without vercel env run precedence[32m 4[2mms[22m[39m
+[31m     [31m×[31m performs zero provider writes when the HitPay endpoint already matches[39m[32m 75[2mms[22m[39m
+[31m     [31m×[31m binds HitPay config before constructing the default client[39m[32m 56[2mms[22m[39m
+     [32m✓[39m fails closed on Terraform state errors that are not explicit absence[32m 44[2mms[22m[39m
+     [32m✓[39m exports the derived state bucket for both Terraform resources and backend initialization[32m 48[2mms[22m[39m
+ [32m✓[39m tests/checkout.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/customer-lifecycle-actions.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/admin-catalog.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/control-console.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/waitlist.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m tests/admin-staff.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/commerce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [31m❯[39m tests/admin-orders.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 22[2mms[22m[39m
+     [32m✓[39m rejects arbitrary direct paid status updates[32m 6[2mms[22m[39m
      [32m✓[39m routes manual reconciliation through the audited database function[32m 4[2mms[22m[39m
-     [32m✓[39m routes cancellation through the audited allocation-release function[32m 2[2mms[22m[39m
-[31m     [31m×[31m identifies manual, stale, failed-allocation, and orphan-provider exceptions[39m[32m 11[2mms[22m[39m
-     [32m✓[39m keeps manual reconciliation from reusing another record's payment reference[32m 2[2mms[22m[39m
-     [32m✓[39m builds manual reconciliation actions from required admin form fields[32m 2[2mms[22m[39m
+     [32m✓[39m routes cancellation through the audited allocation-release function[32m 1[2mms[22m[39m
+[31m     [31m×[31m identifies manual, stale, failed-allocation, and orphan-provider exceptions[39m[32m 7[2mms[22m[39m
+     [32m✓[39m keeps manual reconciliation from reusing another record's payment reference[32m 1[2mms[22m[39m
+     [32m✓[39m builds manual reconciliation actions from required admin form fields[32m 1[2mms[22m[39m
      [32m✓[39m rejects reconciliation forms without a positive integer amount[32m 1[2mms[22m[39m
  [32m✓[39m tests/frontend-access.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 33[2mms[22m[39m
- [32m✓[39m tests/customer-provisioning.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 25[2mms[22m[39m
- [32m✓[39m tests/account-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 26[2mms[22m[39m
- [32m✓[39m tests/admin-workflow-production-readiness.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 64[2mms[22m[39m
-[90mstderr[2m | tests/api-protections.test.ts[2m > [22m[2mAPI request protections[2m > [22m[2mkeeps the claim when completion persistence fails after the side effect
-[22m[39m{"timestamp":"2026-07-21T00:30:57.500Z","level":"error","event":"api.idempotency.complete_failed","service":"marketplace","environment":"development","scope":"checkout.create","actorId":"00000000-0000-4000-8000-000000000001","error":{"name":"Error","message":"database unavailable"}}
-
- [32m✓[39m tests/api-protections.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m tests/customer-provisioning.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/account-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m tests/admin-workflow-production-readiness.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 68[2mms[22m[39m
 [90mstderr[2m | tests/observability.test.ts[2m > [22m[2mobservability helpers[2m > [22m[2mcorrelates API error responses without exposing internals
-[22m[39m{"timestamp":"2026-07-21T00:30:57.511Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/checkout","method":"POST","status":400,"errorCode":"bad_request","retryable":false}
+[22m[39m{"timestamp":"2026-07-21T00:35:21.986Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/checkout","method":"POST","status":400,"errorCode":"bad_request","retryable":false}
 
 [90mstderr[2m | tests/observability.test.ts[2m > [22m[2mobservability helpers[2m > [22m[2mmarks rate limits as retryable and publishes Retry-After
-[22m[39m{"timestamp":"2026-07-21T00:30:57.518Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/waitlist","method":"POST","status":429,"errorCode":"rate_limited","retryable":true}
+[22m[39m{"timestamp":"2026-07-21T00:35:21.992Z","level":"warn","event":"api.request.rejected","service":"marketplace","environment":"development","requestId":"request-12345678","route":"/api/waitlist","method":"POST","status":429,"errorCode":"rate_limited","retryable":true}
 
- [32m✓[39m tests/observability.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/observability.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+[90mstderr[2m | tests/api-protections.test.ts[2m > [22m[2mAPI request protections[2m > [22m[2mkeeps the claim when completion persistence fails after the side effect
+[22m[39m{"timestamp":"2026-07-21T00:35:22.164Z","level":"error","event":"api.idempotency.complete_failed","service":"marketplace","environment":"development","scope":"checkout.create","actorId":"00000000-0000-4000-8000-000000000001","error":{"name":"Error","message":"database unavailable"}}
+
+ [32m✓[39m tests/api-protections.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/live-customer-pages.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [31m❯[39m tests/deployment-idempotency.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 45[2mms[22m[39m
+     [32m✓[39m serializes shared infrastructure and target deployments[32m 3[2mms[22m[39m
+     [32m✓[39m uses one convergent infrastructure path and applies the exact generated plan[32m 13[2mms[22m[39m
+     [32m✓[39m keeps only one code-change deployment workflow[32m 2[2mms[22m[39m
+     [32m✓[39m turns unchanged Vercel configuration and deployments into no-ops[32m 1[2mms[22m[39m
+[31m     [31m×[31m derives non-secret HitPay configuration from versioned defaults[39m[32m 25[2mms[22m[39m
  [32m✓[39m tests/admin-value-validation.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 20[2mms[22m[39m
- [31m❯[39m tests/deployment-idempotency.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [32m✓[39m tests/live-customer-pages.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 46[2mms[22m[39m
- [32m✓[39m tests/tcgplayer-catalog.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 48[2mms[22m[39m
- [32m✓[39m tests/delivery-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m tests/tcgplayer-catalog.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m tests/delivery-management.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 21[2mms[22m[39m
  [32m✓[39m tests/catalog-product-save-action.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 17[2mms[22m[39m
- [31m❯[39m tests/preorder-flow.test.ts [2m([22m[2m6 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 69[2mms[22m[39m
-     [32m✓[39m allocates retail preorders FIFO while respecting customer caps[32m 3[2mms[22m[39m
-     [32m✓[39m does not allocate more than the available quantity[32m 0[2mms[22m[39m
-     [32m✓[39m keeps the server allocation query retail-only and fully paid[32m 14[2mms[22m[39m
+ [31m❯[39m tests/preorder-flow.test.ts [2m([22m[2m6 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 59[2mms[22m[39m
+     [32m✓[39m allocates retail preorders FIFO while respecting customer caps[32m 4[2mms[22m[39m
+     [32m✓[39m does not allocate more than the available quantity[32m 3[2mms[22m[39m
+     [32m✓[39m keeps the server allocation query retail-only and fully paid[32m 9[2mms[22m[39m
      [32m✓[39m requires a reviewed allocation fingerprint and explicit confirmation[32m 8[2mms[22m[39m
-[31m     [31m×[31m creates idempotent HitPay refunds for allocation shortfalls[39m[32m 36[2mms[22m[39m
+[31m     [31m×[31m creates idempotent HitPay refunds for allocation shortfalls[39m[32m 29[2mms[22m[39m
      [32m✓[39m removes the legacy preorder balance collection endpoint[32m 3[2mms[22m[39m
- [32m✓[39m tests/database-bootstrap.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 22[2mms[22m[39m
- [32m✓[39m tests/hosted-release-gates.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 25[2mms[22m[39m
- [32m✓[39m tests/api-architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 97[2mms[22m[39m
- [32m✓[39m tests/out-of-stock-behaviour.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 33[2mms[22m[39m
- [32m✓[39m tests/control-operations-surface.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 21[2mms[22m[39m
- [32m✓[39m tests/catalog-admin-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 24[2mms[22m[39m
- [32m✓[39m tests/vercel-preview-auth.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 51[2mms[22m[39m
- [32m✓[39m tests/catalog-filters.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/hosted-release-gates.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/database-bootstrap.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/out-of-stock-behaviour.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m tests/api-architecture.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+ [32m✓[39m tests/catalog-admin-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/control-operations-surface.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/catalog-filters.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/vercel-preview-auth.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 58[2mms[22m[39m
  [32m✓[39m tests/telemetry.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m tests/database-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 27[2mms[22m[39m
- [31m❯[39m tests/hitpay-environment-minimization.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 50[2mms[22m[39m
-     [32m✓[39m keeps only the API key and webhook salt as required HitPay secrets[32m 6[2mms[22m[39m
-[31m     [31m×[31m selects sandbox and production API hosts without an explicit URL[39m[32m 42[2mms[22m[39m
- [32m✓[39m tests/hitpay.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 24[2mms[22m[39m
- [32m✓[39m tests/api-protection-migrations.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 11[2mms[22m[39m
- [32m✓[39m tests/deals.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
- [32m✓[39m tests/storefront-ui.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/hitpay.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m tests/database-workflow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m tests/api-protection-migrations.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [31m❯[39m tests/hitpay-environment-minimization.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 43[2mms[22m[39m
+     [32m✓[39m keeps only the API key and webhook salt as required HitPay secrets[32m 3[2mms[22m[39m
+[31m     [31m×[31m selects sandbox and production API hosts without an explicit URL[39m[32m 38[2mms[22m[39m
+ [32m✓[39m tests/deals.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/storefront-ui.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 16[2mms[22m[39m
  [32m✓[39m tests/control-audit-history.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/purchase-orders.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
 [90mstdout[2m | tests/operational-alerts.test.ts[2m > [22m[2moperational alert delivery[2m > [22m[2msigns privacy-safe alert payloads
-[22m[39m{"timestamp":"2026-07-21T00:31:01.235Z","level":"info","event":"operational_alert.delivered","service":"marketplace","environment":"production","alertEvent":"hitpay.webhook.processing_failed","severity":"critical","status":200}
+[22m[39m{"timestamp":"2026-07-21T00:35:25.800Z","level":"info","event":"operational_alert.delivered","service":"marketplace","environment":"production","alertEvent":"hitpay.webhook.processing_failed","severity":"critical","status":200}
 
 [90mstdout[2m | tests/operational-alerts.test.ts[2m > [22m[2moperational alert delivery[2m > [22m[2mallows local development without an external alert provider
-[22m[39m{"timestamp":"2026-07-21T00:31:01.242Z","level":"info","event":"operational_alert.skipped","service":"marketplace","environment":"development","alertEvent":"test","reason":"not_configured_outside_production"}
+[22m[39m{"timestamp":"2026-07-21T00:35:25.807Z","level":"info","event":"operational_alert.skipped","service":"marketplace","environment":"development","alertEvent":"test","reason":"not_configured_outside_production"}
 
- [32m✓[39m tests/operational-alerts.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 45[2mms[22m[39m
- [32m✓[39m tests/vercel-protection-bypass.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 60[2mms[22m[39m
- [32m✓[39m tests/purchase-orders.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 11[2mms[22m[39m
- [31m❯[39m tests/health.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/operational-alerts.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m tests/vercel-protection-bypass.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m tests/sentry-config-contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [31m❯[39m tests/health.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 21[2mms[22m[39m
      [32m✓[39m keeps shallow health dependency-free[32m 4[2mms[22m[39m
-[31m     [31m×[31m fails deep readiness safely when critical dependencies are missing[39m[32m 12[2mms[22m[39m
-[31m     [31m×[31m passes deep readiness with configured HitPay and a successful Supabase probe[39m[32m 5[2mms[22m[39m
- [32m✓[39m tests/sentry-config-contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 30[2mms[22m[39m
- [32m✓[39m tests/product-image-upload-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 10[2mms[22m[39m
- [32m✓[39m tests/product-publication-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
- [32m✓[39m tests/tcgplayer-catalog-admin-flow.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m tests/allocation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m tests/products-route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 88[2mms[22m[39m
- [32m✓[39m tests/catalog-readiness.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 12[2mms[22m[39m
- [31m❯[39m tests/vercel-provisioned-secret-safety.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 57[2mms[22m[39m
-     [32m✓[39m preserves an unreadable one-time secret unless rotation is explicit[32m 4[2mms[22m[39m
-[31m     [31m×[31m removes stale workflow webhook secrets and rotates only newly issued credentials[39m[32m 29[2mms[22m[39m
-[31m     [31m×[31m keeps readiness checks non-mutating for optional and provisioned sensitive values[39m[32m 23[2mms[22m[39m
- [32m✓[39m tests/storefront-deals.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
- [32m✓[39m tests/production-payment-guards.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 29[2mms[22m[39m
- [32m✓[39m tests/supabase-relations.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
- [32m✓[39m tests/docs-release-topology.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m tests/catalog-identifiers.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m tests/product-publication-save-feedback.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m tests/catalog-duplicate-migration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
- [32m✓[39m tests/product-publication-save-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
- [32m✓[39m tests/preview-fixtures.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
- [32m✓[39m tests/storefront-product-relationships.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 15[2mms[22m[39m
+[31m     [31m×[31m fails deep readiness safely when critical dependencies are missing[39m[32m 11[2mms[22m[39m
+[31m     [31m×[31m passes deep readiness with configured HitPay and a successful Supabase probe[39m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/product-image-upload-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/product-publication-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/tcgplayer-catalog-admin-flow.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/products-route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 70[2mms[22m[39m
+ [32m✓[39m tests/allocation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/catalog-readiness.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [31m❯[39m tests/vercel-provisioned-secret-safety.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 53[2mms[22m[39m
+     [32m✓[39m preserves an unreadable one-time secret unless rotation is explicit[32m 3[2mms[22m[39m
+[31m     [31m×[31m removes stale workflow webhook secrets and rotates only newly issued credentials[39m[32m 19[2mms[22m[39m
+[31m     [31m×[31m keeps readiness checks non-mutating for optional and provisioned sensitive values[39m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/storefront-deals.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/production-payment-guards.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/supabase-relations.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/catalog-identifiers.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/docs-release-topology.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/catalog-duplicate-migration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/preview-fixtures.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/product-publication-save-feedback.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/product-publication-save-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/storefront-product-relationships.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
  [32m✓[39m tests/shipping.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m tests/deploy-migration-ordering.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/deploy-migration-ordering.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
  [32m✓[39m tests/app-config.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
 
-[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
-
-[41m[1m FAIL [22m[49m tests/deployment-idempotency.test.ts[2m [ tests/deployment-idempotency.test.ts ][22m
-[31m[1mError[22m: Transform failed with 1 error:
-
-[31m[PARSE_ERROR] [0mUnterminated string
-    [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m tests/deployment-idempotency.test.ts:87:37 [38;5;246m][0m
-    [38;5;246m│[0m
- [38;5;246m87 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249m([0m[38;5;249mb[0m[38;5;249mo[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249ma[0m[38;5;249mp[0m[38;5;249m)[0m[38;5;249m.[0m[38;5;249mn[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249m.[0m[38;5;249mt[0m[38;5;249mo[0m[38;5;249mC[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249m([0m'  "HITPAY_API_URL",
- [38;5;240m   │[0m                                     ──────────┬──────────  
- [38;5;240m   │[0m                                               ╰──────────── 
-[38;5;246m────╯[0m
-[39m
-  Plugin: [35mvite:oxc[39m
-  File: [36m/home/runner/work/marketplace/marketplace/tests/deployment-idempotency.test.ts[39m
-[90m [2m❯[22m transformWithOxc node_modules/vite/dist/node/chunks/node.js:[2m4017:19[22m[39m
-[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m4088:26[22m[39m
-[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m30151:51[22m[39m
-[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m20098:26[22m[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/17]⎯[22m[39m
-
-
-[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 16 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 17 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
 
 [41m[1m FAIL [22m[49m tests/admin-orders.test.ts[2m > [22madmin order actions[2m > [22midentifies manual, stale, failed-allocation, and orphan-provider exceptions
 [31m[1mAssertionError[22m: expected [ 'failed_payment_allocation', …(2) ] to deeply equal [ 'failed_payment_allocation', …(3) ][39m
@@ -191,7 +173,7 @@
     [90m128|[39m       [32m"failed_payment_allocation"[39m[33m,[39m
     [90m129|[39m       [32m"manual_flag"[39m[33m,[39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/17]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/17]⎯[22m[39m
 
 [41m[1m FAIL [22m[49m tests/bootstrap-convergence.test.ts[2m > [22mbootstrap convergence[2m > [22mperforms zero provider writes when the HitPay endpoint already matches
 [31m[1mError[22m: file:///home/runner/work/marketplace/marketplace/[eval1]:2
@@ -215,7 +197,7 @@ Node.js v22.17.0
     [90m179|[39m }
 [90m [2m❯[22m tests/bootstrap-convergence.test.ts:[2m57:20[22m[39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/17]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/17]⎯[22m[39m
 
 [41m[1m FAIL [22m[49m tests/bootstrap-convergence.test.ts[2m > [22mbootstrap convergence[2m > [22mbinds HitPay config before constructing the default client
 [31m[1mAssertionError[22m: expected { …(2) } to deeply equal { …(2) }[39m
@@ -238,7 +220,7 @@ Node.js v22.17.0
     [90m108|[39m       reconcile: "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLI…
     [90m109|[39m       verify: "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_S…
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/17]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/17]⎯[22m[39m
 
 [41m[1m FAIL [22m[49m tests/config-contract.test.ts[2m > [22mplatform config contract[2m > [22mexposes development-default hosted bootstrap plus staging and recovery commands
 [31m[1mAssertionError[22m: expected '#!/usr/bin/env node\nimport { spawnSy…' to contain 'configure-hitpay.mjs'[39m
@@ -354,6 +336,220 @@ Node.js v22.17.0
     [90m   |[39m                     [31m^[39m
     [90m133|[39m     [34mexpect[39m(runtime)[33m.[39m[34mtoContain[39m([32m"sync-vercel-env.mjs"[39m)[33m;[39m
     [90m134|[39m     [34mexpect[39m(github)[33m.[39m[34mtoContain[39m([32m'|| "development"'[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/17]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/deployment-idempotency.test.ts[2m > [22mdeployment idempotency contract[2m > [22mderives non-secret HitPay configuration from versioned defaults
+[31m[1mAssertionError[22m: expected 'import { z } from "zod";\n\nconst hit…' to contain 'env.TARGET_ENV === "production"'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- env.TARGET_ENV === "production"[39m
+[31m+ import { z } from "zod";[39m
+[31m+[39m
+[31m+ const hitPayChargeSchema = z.object({[39m
+[31m+   id: z.string().uuid(),[39m
+[31m+   status: z.string(),[39m
+[31m+   amount: z.union([z.string(), z.number()]),[39m
+[31m+   currency: z.string(),[39m
+[31m+   refunded_amount: z.union([z.string(), z.number()]).optional(),[39m
+[31m+   payment_type: z.string().optional(),[39m
+[31m+ });[39m
+[31m+[39m
+[31m+ const hitPayPaymentRequestSchema = z.object({[39m
+[31m+   id: z.string().uuid(),[39m
+[31m+   status: z.string(),[39m
+[31m+   amount: z.union([z.string(), z.number()]),[39m
+[31m+   currency: z.string(),[39m
+[31m+   url: z.string().url(),[39m
+[31m+   reference_number: z.string().nullish(),[39m
+[31m+   payments: z.array(hitPayChargeSchema).optional(),[39m
+[31m+ });[39m
+[31m+[39m
+[31m+ const hitPayRefundSchema = z.object({[39m
+[31m+   id: z.string().uuid(),[39m
+[31m+   payment_id: z.string().uuid().optional(),[39m
+[31m+   status: z.string(),[39m
+[31m+   currency: z.string().optional(),[39m
+[31m+   amount_refunded: z.union([z.string(), z.number()]).optional(),[39m
+[31m+   amount: z.union([z.string(), z.number()]).optional(),[39m
+[31m+ });[39m
+[31m+[39m
+[31m+ export type HitPayCharge = z.infer<typeof hitPayChargeSchema>;[39m
+[31m+ export type HitPayPaymentRequest = z.infer<typeof hitPayPaymentRequestSchema>;[39m
+[31m+ export type HitPayRefund = z.infer<typeof hitPayRefundSchema>;[39m
+[31m+[39m
+[31m+ export interface CreateHitPayPaymentRequestInput {[39m
+[31m+   amountCents: number;[39m
+[31m+   currency: string;[39m
+[31m+   email?: string | null;[39m
+[31m+   name?: string | null;[39m
+[31m+   phone?: string | null;[39m
+[31m+   purpose: string;[39m
+[31m+   referenceNumber: string;[39m
+[31m+   redirectUrl: string;[39m
+[31m+   expiresAfter?: string;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export interface HitPayClient {[39m
+[31m+   createPaymentRequest(input: CreateHitPayPaymentRequestInput): Promise<HitPayPaymentRequest>;[39m
+[31m+   getPaymentRequest(id: string): Promise<HitPayPaymentRequest>;[39m
+[31m+   cancelPaymentRequest(id: string): Promise<void>;[39m
+[31m+   createRefund(input: { paymentId: string; amountCents: number }): Promise<HitPayRefund>;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPayClient {[39m
+[31m+   const apiKey = env.HITPAY_API_KEY?.trim();[39m
+[31m+   const apiUrl = (env.HITPAY_API_URL || "https://api.sandbox.hit-pay.com").replace(/\/$/, "");[39m
+[31m+   if (!apiKey) throw new Error("HitPay is not configured (HITPAY_API_KEY)");[39m
+[31m+   if (!/^https:\/\//i.test(apiUrl)) throw new Error("HITPAY_API_URL must use HTTPS");[39m
+[31m+[39m
+[31m+   const request = async <T>(path: string, init: RequestInit, schema?: z.ZodType<T>): Promise<T> => {[39m
+[31m+     const response = await fetch(`${apiUrl}${path}`, {[39m
+[31m+       ...init,[39m
+[31m+       cache: "no-store",[39m
+[31m+       headers: {[39m
+[31m+         "Content-Type": "application/json",[39m
+[31m+         "X-BUSINESS-API-KEY": apiKey,[39m
+[31m+         "X-Requested-With": "XMLHttpRequest",[39m
+[31m+         ...init.headers,[39m
+[31m+       },[39m
+[31m+       signal: init.signal ?? AbortSignal.timeout(15_000),[39m
+[31m+     });[39m
+[31m+     const text = await response.text();[39m
+[31m+     const payload = text ? safeJson(text) : {};[39m
+[31m+     if (!response.ok) {[39m
+[31m+       const detail = providerErrorMessage(payload);[39m
+[31m+       throw new Error(`HitPay request failed (${response.status})${detail ? `: ${detail}` : ""}`);[39m
+[31m+     }[39m
+[31m+     return schema ? schema.parse(payload) : (payload as T);[39m
+[31m+   };[39m
+[31m+[39m
+[31m+   return {[39m
+[31m+     createPaymentRequest: (input) =>[39m
+[31m+       request([39m
+[31m+         "/v1/payment-requests",[39m
+[31m+         {[39m
+[31m+           method: "POST",[39m
+[31m+           body: JSON.stringify({[39m
+[31m+             amount: formatHitPayAmount(input.amountCents),[39m
+[31m+             currency: input.currency.toUpperCase(),[39m
+[31m+             payment_methods: hitPayPaymentMethods(env),[39m
+[31m+             email: input.email || undefined,[39m
+[31m+             name: input.name || undefined,[39m
+[31m+             phone: input.phone || undefined,[39m
+[31m+             purpose: input.purpose.slice(0, 255),[39m
+[31m+             reference_number: input.referenceNumber.slice(0, 255),[39m
+[31m+             redirect_url: input.redirectUrl,[39m
+[31m+             allow_repeated_payments: false,[39m
+[31m+             expires_after: input.expiresAfter ?? "15 minutes",[39m
+[31m+             send_email: false,[39m
+[31m+             send_sms: false,[39m
+[31m+           }),[39m
+[31m+         },[39m
+[31m+         hitPayPaymentRequestSchema[39m
+[31m+       ),[39m
+[31m+     getPaymentRequest: (id) =>[39m
+[31m+       request([39m
+[31m+         `/v1/payment-requests/${encodeURIComponent(id)}`,[39m
+[31m+         { method: "GET" },[39m
+[31m+         hitPayPaymentRequestSchema[39m
+[31m+       ),[39m
+[31m+     cancelPaymentRequest: async (id) => {[39m
+[31m+       await request(`/v1/payment-requests/${encodeURIComponent(id)}`, { method: "DELETE" });[39m
+[31m+     },[39m
+[31m+     createRefund: (input) =>[39m
+[31m+       request([39m
+[31m+         "/v1/refund",[39m
+[31m+         {[39m
+[31m+           method: "POST",[39m
+[31m+           body: JSON.stringify({[39m
+[31m+             payment_id: input.paymentId,[39m
+[31m+             amount: formatHitPayAmount(input.amountCents),[39m
+[31m+           }),[39m
+[31m+         },[39m
+[31m+         hitPayRefundSchema[39m
+[31m+       ),[39m
+[31m+   };[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function hitPayPaymentMethods(env: NodeJS.ProcessEnv = process.env): string[] {[39m
+[31m+   const methods = (env.HITPAY_PAYMENT_METHODS || "paynow_online")[39m
+[31m+     .split(",")[39m
+[31m+     .map((value) => value.trim())[39m
+[31m+     .filter(Boolean);[39m
+[31m+   if (methods.length === 0) {[39m
+[31m+     throw new Error("HITPAY_PAYMENT_METHODS must include at least one method");[39m
+[31m+   }[39m
+[31m+   return [...new Set(methods)];[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function hitPayAmountToCents(value: string | number): number {[39m
+[31m+   const amount = typeof value === "number" ? value : Number(value);[39m
+[31m+   if (!Number.isFinite(amount) || amount < 0) {[39m
+[31m+     throw new Error("HitPay returned an invalid amount");[39m
+[31m+   }[39m
+[31m+   return Math.round(amount * 100);[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function hitPayRefundStatus(status: string): "pending" | "succeeded" | "failed" {[39m
+[31m+   const normalized = status.toLowerCase();[39m
+[31m+   if (["succeeded", "completed", "refunded"].includes(normalized)) return "succeeded";[39m
+[31m+   if (["failed", "cancelled", "canceled", "rejected"].includes(normalized)) return "failed";[39m
+[31m+   return "pending";[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function successfulHitPayChargeId(payload: Record<string, unknown>): string | null {[39m
+[31m+   if (!Array.isArray(payload.payments)) return null;[39m
+[31m+   for (const raw of payload.payments) {[39m
+[31m+     const result = hitPayChargeSchema.safeParse(raw);[39m
+[31m+     if (result.success && result.data.status.toLowerCase() === "succeeded") {[39m
+[31m+       return result.data.id;[39m
+[31m+     }[39m
+[31m+   }[39m
+[31m+   return null;[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ export function applicationUrl(path: string, env: NodeJS.ProcessEnv = process.env): string {[39m
+[31m+   const configured = env.NEXT_PUBLIC_SITE_URL?.trim();[39m
+[31m+   const vercel = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();[39m
+[31m+   const base = configured || (vercel ? `https://${vercel}` : "http://localhost:3000");[39m
+[31m+   return new URL(path, base.endsWith("/") ? base : `${base}/`).toString();[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function formatHitPayAmount(amountCents: number): string {[39m
+[31m+   if (!Number.isInteger(amountCents) || amountCents <= 0) {[39m
+[31m+     throw new Error("HitPay amount must be a positive integer number of cents");[39m
+[31m+   }[39m
+[31m+   return (amountCents / 100).toFixed(2);[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function safeJson(value: string): unknown {[39m
+[31m+   try {[39m
+[31m+     return JSON.parse(value);[39m
+[31m+   } catch {[39m
+[31m+     return { message: value.slice(0, 500) };[39m
+[31m+   }[39m
+[31m+ }[39m
+[31m+[39m
+[31m+ function providerErrorMessage(payload: unknown): string {[39m
+[31m+   if (!payload || typeof payload !== "object") return "";[39m
+[31m+   const record = payload as Record<string, unknown>;[39m
+[31m+   for (const key of ["message", "error", "detail"]) {[39m
+[31m+     if (typeof record[key] === "string") return String(record[key]).slice(0, 500);[39m
+[31m+   }[39m
+[31m+   return "";[39m
+[31m+ }[39m
+[31m+[39m
+
+[36m [2m❯[22m tests/deployment-idempotency.test.ts:[2m80:20[22m[39m
+    [90m 78|[39m     const config = JSON.parse(await repoFile("config/environments.json…
+    [90m 79|[39m
+    [90m 80|[39m     [34mexpect[39m(hitpay)[33m.[39m[34mtoContain[39m([32m'env.TARGET_ENV === "production"'[39m)[33m;[39m
+    [90m   |[39m                    [31m^[39m
+    [90m 81|[39m     expect(hitpay).toContain('env.HITPAY_PAYMENT_METHODS || "paynow_on…
+    [90m 82|[39m     expect(webhook).toContain('webhookName: `${appName} ${targetEnv} p…
 
 [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/17]⎯[22m[39m
 
@@ -1311,9 +1507,9 @@ Node.js v22.17.0
 
 
 [2m Test Files [22m [1m[31m10 failed[39m[22m[2m | [22m[1m[32m61 passed[39m[22m[90m (71)[39m
-[2m      Tests [22m [1m[31m16 failed[39m[22m[2m | [22m[1m[32m309 passed[39m[22m[90m (325)[39m
-[2m   Start at [22m 00:30:49
-[2m   Duration [22m 14.52s[2m (transform 1.35s, setup 0ms, import 27.01s, tests 3.28s, environment 12ms)[22m
+[2m      Tests [22m [1m[31m17 failed[39m[22m[2m | [22m[1m[32m313 passed[39m[22m[90m (330)[39m
+[2m   Start at [22m 00:35:14
+[2m   Duration [22m 13.55s[2m (transform 1.49s, setup 0ms, import 24.53s, tests 3.10s, environment 10ms)[22m
 
 
 ::error file=/home/runner/work/marketplace/marketplace/tests/admin-orders.test.ts,title=tests/admin-orders.test.ts > admin order actions > identifies manual%2C stale%2C failed-allocation%2C and orphan-provider exceptions,line=127,column=75::AssertionError: expected [ 'failed_payment_allocation', …(2) ] to deeply equal [ 'failed_payment_allocation', …(3) ]%0A%0A- Expected%0A+ Received%0A%0A  [%0A    "failed_payment_allocation",%0A    "manual_flag",%0A-   "orphan_provider_payment",%0A    "stale_pending_payment",%0A  ]%0A%0A ❯ tests/admin-orders.test.ts:127:75%0A%0A
@@ -1323,6 +1519,8 @@ Node.js v22.17.0
 ::error file=/home/runner/work/marketplace/marketplace/tests/bootstrap-convergence.test.ts,title=tests/bootstrap-convergence.test.ts > bootstrap convergence > binds HitPay config before constructing the default client,line=107,column=20::AssertionError: expected { …(2) } to deeply equal { …(2) }%0A%0A- Expected%0A+ Received%0A%0A  {%0A-   "reconcile": "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",%0A-   "verify": "Cannot reconcile HitPay webhook. Missing: NEXT_PUBLIC_SITE_URL, TARGET_ENV",%0A+   "reconcile": "Cannot reconcile HitPay webhook. Missing: HITPAY_API_KEY, NEXT_PUBLIC_SITE_URL, TARGET_ENV",%0A+   "verify": "Cannot reconcile HitPay webhook. Missing: HITPAY_API_KEY, NEXT_PUBLIC_SITE_URL, TARGET_ENV",%0A  }%0A%0A ❯ tests/bootstrap-convergence.test.ts:107:20%0A%0A
 
 ::error file=/home/runner/work/marketplace/marketplace/tests/config-contract.test.ts,title=tests/config-contract.test.ts > platform config contract > exposes development-default hosted bootstrap plus staging and recovery commands,line=132,column=21::AssertionError: expected '#!/usr/bin/env node\nimport { spawnSy…' to contain 'configure-hitpay.mjs'%0A%0A- Expected%0A+ Received%0A%0A- configure-hitpay.mjs%0A+ #!/usr/bin/env node%0A+ import { spawnSync } from "node:child_process";%0A+ import { rm } from "node:fs/promises";%0A+%0A+ import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";%0A+ import { ENV_CONTRACT, loadLocalDotenv } from "./generate-env.mjs";%0A+ import {%0A+   buildEnvironmentWithVercelFallback,%0A+   fetchVercelEnvironmentRecords,%0A+   resolveVercelProjectContext,%0A+ } from "./lib/vercel-environment.mjs";%0A+%0A+ try {%0A+   await main();%0A+ } catch (error) {%0A+   fail(error?.message || String(error));%0A+ }%0A+%0A+ async function main() {%0A+   await loadLocalDotenv(process.env);%0A+   await applyVersionedEnvironmentConfig(process.env);%0A+%0A+   const providerMode = argumentValue("--providers") || "apply-if-configured";%0A+   if (!["skip", "plan", "apply", "apply-if-configured", "verify"].includes(providerMode)) {%0A+     fail(`Unsupported --providers mode: ${providerMode}`);%0A+   }%0A+   if (!/^(development|staging|production)$/.test(process.env.TARGET_ENV || "")) {%0A+     fail("TARGET_ENV must be development, staging, or production");%0A+   }%0A+%0A+   const vercelEnvironment = process.env.TARGET_ENV === "development" ? "preview" : "production";%0A+   const runtimePath = `.env.deploy-${process.pid}`;%0A+   const context = await resolveVercelProjectContext(process.env);%0A+   const records = await fetchVercelEnvironmentRecords({%0A+     ...context,%0A+     target: vercelEnvironment,%0A+     decrypt: true,%0A+   });%0A+   const runtimeKeys = ENV_CONTRACT.filter((entry) => !entry.deployOnly).map((entry) => entry.key);%0A+   const provisionEnvironment = buildEnvironmentWithVercelFallback({%0A+     records,%0A+     runtimeKeys,%0A+     baseEnv: process.env,%0A+     target: vercelEnvironment,%0A+   });%0A+   for (const [key, value] of Object.entries(provisionEnvironment)) {%0A+     process.env[key] = value;%0A+   }%0A+   process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true";%0A+%0A+   try {%0A+     if (providerMode !== "skip") {%0A+       run(process.execPath, ["scripts/configure-providers.mjs", `--${providerMode}`]);%0A+     }%0A+%0A+     run(process.execPath, ["scripts/generate-env.mjs", "--check", "--allow-missing-provisioned"]);%0A+     run(process.execPath, [%0A+       "scripts/generate-env.mjs",%0A+       "--write",%0A+       runtimePath,%0A+       "--allow-missing-provisioned",%0A+     ]);%0A+     run(process.execPath, [%0A+       "scripts/sync-vercel-env.mjs",%0A+       runtimePath,%0A+       "--preserve-unset-optional",%0A+     ]);%0A+     console.log(`Runtime environment ${process.env.TARGET_ENV} reconciled successfully.`);%0A+   } finally {%0A+     await rm(runtimePath, { force: true });%0A+   }%0A+ }%0A+%0A+ function argumentValue(flag) {%0A+   const index = process.argv.indexOf(flag);%0A+   return index >= 0 ? process.argv[index + 1] || "" : "";%0A+ }%0A+%0A+ function run(command, args, options = {}) {%0A+   const printable = [command, ...args].map(redactArgument).join(" ");%0A+   console.log(`\n$ ${printable}`);%0A+   const result = spawnSync(command, args, {%0A+     env: options.env || process.env,%0A+     stdio: "inherit",%0A+   });%0A+   if (result.error) fail(`${printable} failed to start: ${result.error.message}`);%0A+   if (result.status !== 0) fail(`${printable} failed with exit code ${result.status}`);%0A+   return result;%0A+ }%0A+%0A+ function redactArgument(value) {%0A+   return value === process.env.VERCEL_TOKEN ? "[redacted-vercel-token]" : value;%0A+ }%0A+%0A+ function fail(message) {%0A+   console.error(message);%0A+   process.exit(1);%0A+ }%0A+%0A%0A ❯ tests/config-contract.test.ts:132:21%0A%0A
+
+::error file=/home/runner/work/marketplace/marketplace/tests/deployment-idempotency.test.ts,title=tests/deployment-idempotency.test.ts > deployment idempotency contract > derives non-secret HitPay configuration from versioned defaults,line=80,column=20::AssertionError: expected 'import { z } from "zod";\n\nconst hit…' to contain 'env.TARGET_ENV === "production"'%0A%0A- Expected%0A+ Received%0A%0A- env.TARGET_ENV === "production"%0A+ import { z } from "zod";%0A+%0A+ const hitPayChargeSchema = z.object({%0A+   id: z.string().uuid(),%0A+   status: z.string(),%0A+   amount: z.union([z.string(), z.number()]),%0A+   currency: z.string(),%0A+   refunded_amount: z.union([z.string(), z.number()]).optional(),%0A+   payment_type: z.string().optional(),%0A+ });%0A+%0A+ const hitPayPaymentRequestSchema = z.object({%0A+   id: z.string().uuid(),%0A+   status: z.string(),%0A+   amount: z.union([z.string(), z.number()]),%0A+   currency: z.string(),%0A+   url: z.string().url(),%0A+   reference_number: z.string().nullish(),%0A+   payments: z.array(hitPayChargeSchema).optional(),%0A+ });%0A+%0A+ const hitPayRefundSchema = z.object({%0A+   id: z.string().uuid(),%0A+   payment_id: z.string().uuid().optional(),%0A+   status: z.string(),%0A+   currency: z.string().optional(),%0A+   amount_refunded: z.union([z.string(), z.number()]).optional(),%0A+   amount: z.union([z.string(), z.number()]).optional(),%0A+ });%0A+%0A+ export type HitPayCharge = z.infer<typeof hitPayChargeSchema>;%0A+ export type HitPayPaymentRequest = z.infer<typeof hitPayPaymentRequestSchema>;%0A+ export type HitPayRefund = z.infer<typeof hitPayRefundSchema>;%0A+%0A+ export interface CreateHitPayPaymentRequestInput {%0A+   amountCents: number;%0A+   currency: string;%0A+   email?: string | null;%0A+   name?: string | null;%0A+   phone?: string | null;%0A+   purpose: string;%0A+   referenceNumber: string;%0A+   redirectUrl: string;%0A+   expiresAfter?: string;%0A+ }%0A+%0A+ export interface HitPayClient {%0A+   createPaymentRequest(input: CreateHitPayPaymentRequestInput): Promise<HitPayPaymentRequest>;%0A+   getPaymentRequest(id: string): Promise<HitPayPaymentRequest>;%0A+   cancelPaymentRequest(id: string): Promise<void>;%0A+   createRefund(input: { paymentId: string; amountCents: number }): Promise<HitPayRefund>;%0A+ }%0A+%0A+ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPayClient {%0A+   const apiKey = env.HITPAY_API_KEY?.trim();%0A+   const apiUrl = (env.HITPAY_API_URL || "https://api.sandbox.hit-pay.com").replace(/\/$/, "");%0A+   if (!apiKey) throw new Error("HitPay is not configured (HITPAY_API_KEY)");%0A+   if (!/^https:\/\//i.test(apiUrl)) throw new Error("HITPAY_API_URL must use HTTPS");%0A+%0A+   const request = async <T>(path: string, init: RequestInit, schema?: z.ZodType<T>): Promise<T> => {%0A+     const response = await fetch(`${apiUrl}${path}`, {%0A+       ...init,%0A+       cache: "no-store",%0A+       headers: {%0A+         "Content-Type": "application/json",%0A+         "X-BUSINESS-API-KEY": apiKey,%0A+         "X-Requested-With": "XMLHttpRequest",%0A+         ...init.headers,%0A+       },%0A+       signal: init.signal ?? AbortSignal.timeout(15_000),%0A+     });%0A+     const text = await response.text();%0A+     const payload = text ? safeJson(text) : {};%0A+     if (!response.ok) {%0A+       const detail = providerErrorMessage(payload);%0A+       throw new Error(`HitPay request failed (${response.status})${detail ? `: ${detail}` : ""}`);%0A+     }%0A+     return schema ? schema.parse(payload) : (payload as T);%0A+   };%0A+%0A+   return {%0A+     createPaymentRequest: (input) =>%0A+       request(%0A+         "/v1/payment-requests",%0A+         {%0A+           method: "POST",%0A+           body: JSON.stringify({%0A+             amount: formatHitPayAmount(input.amountCents),%0A+             currency: input.currency.toUpperCase(),%0A+             payment_methods: hitPayPaymentMethods(env),%0A+             email: input.email || undefined,%0A+             name: input.name || undefined,%0A+             phone: input.phone || undefined,%0A+             purpose: input.purpose.slice(0, 255),%0A+             reference_number: input.referenceNumber.slice(0, 255),%0A+             redirect_url: input.redirectUrl,%0A+             allow_repeated_payments: false,%0A+             expires_after: input.expiresAfter ?? "15 minutes",%0A+             send_email: false,%0A+             send_sms: false,%0A+           }),%0A+         },%0A+         hitPayPaymentRequestSchema%0A+       ),%0A+     getPaymentRequest: (id) =>%0A+       request(%0A+         `/v1/payment-requests/${encodeURIComponent(id)}`,%0A+         { method: "GET" },%0A+         hitPayPaymentRequestSchema%0A+       ),%0A+     cancelPaymentRequest: async (id) => {%0A+       await request(`/v1/payment-requests/${encodeURIComponent(id)}`, { method: "DELETE" });%0A+     },%0A+     createRefund: (input) =>%0A+       request(%0A+         "/v1/refund",%0A+         {%0A+           method: "POST",%0A+           body: JSON.stringify({%0A+             payment_id: input.paymentId,%0A+             amount: formatHitPayAmount(input.amountCents),%0A+           }),%0A+         },%0A+         hitPayRefundSchema%0A+       ),%0A+   };%0A+ }%0A+%0A+ export function hitPayPaymentMethods(env: NodeJS.ProcessEnv = process.env): string[] {%0A+   const methods = (env.HITPAY_PAYMENT_METHODS || "paynow_online")%0A+     .split(",")%0A+     .map((value) => value.trim())%0A+     .filter(Boolean);%0A+   if (methods.length === 0) {%0A+     throw new Error("HITPAY_PAYMENT_METHODS must include at least one method");%0A+   }%0A+   return [...new Set(methods)];%0A+ }%0A+%0A+ export function hitPayAmountToCents(value: string | number): number {%0A+   const amount = typeof value === "number" ? value : Number(value);%0A+   if (!Number.isFinite(amount) || amount < 0) {%0A+     throw new Error("HitPay returned an invalid amount");%0A+   }%0A+   return Math.round(amount * 100);%0A+ }%0A+%0A+ export function hitPayRefundStatus(status: string): "pending" | "succeeded" | "failed" {%0A+   const normalized = status.toLowerCase();%0A+   if (["succeeded", "completed", "refunded"].includes(normalized)) return "succeeded";%0A+   if (["failed", "cancelled", "canceled", "rejected"].includes(normalized)) return "failed";%0A+   return "pending";%0A+ }%0A+%0A+ export function successfulHitPayChargeId(payload: Record<string, unknown>): string | null {%0A+   if (!Array.isArray(payload.payments)) return null;%0A+   for (const raw of payload.payments) {%0A+     const result = hitPayChargeSchema.safeParse(raw);%0A+     if (result.success && result.data.status.toLowerCase() === "succeeded") {%0A+       return result.data.id;%0A+     }%0A+   }%0A+   return null;%0A+ }%0A+%0A+ export function applicationUrl(path: string, env: NodeJS.ProcessEnv = process.env): string {%0A+   const configured = env.NEXT_PUBLIC_SITE_URL?.trim();%0A+   const vercel = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();%0A+   const base = configured || (vercel ? `https://${vercel}` : "http://localhost:3000");%0A+   return new URL(path, base.endsWith("/") ? base : `${base}/`).toString();%0A+ }%0A+%0A+ function formatHitPayAmount(amountCents: number): string {%0A+   if (!Number.isInteger(amountCents) || amountCents <= 0) {%0A+     throw new Error("HitPay amount must be a positive integer number of cents");%0A+   }%0A+   return (amountCents / 100).toFixed(2);%0A+ }%0A+%0A+ function safeJson(value: string): unknown {%0A+   try {%0A+     return JSON.parse(value);%0A+   } catch {%0A+     return { message: value.slice(0, 500) };%0A+   }%0A+ }%0A+%0A+ function providerErrorMessage(payload: unknown): string {%0A+   if (!payload || typeof payload !== "object") return "";%0A+   const record = payload as Record<string, unknown>;%0A+   for (const key of ["message", "error", "detail"]) {%0A+     if (typeof record[key] === "string") return String(record[key]).slice(0, 500);%0A+   }%0A+   return "";%0A+ }%0A+%0A%0A ❯ tests/deployment-idempotency.test.ts:80:20%0A%0A
 
 ::error file=/home/runner/work/marketplace/marketplace/tests/env.test.ts,title=tests/env.test.ts > environment contract > allows the generated HitPay signing secret to be absent only during pre-provision checks,line=67,column=29::AssertionError: expected false to be true // Object.is equality%0A%0A- Expected%0A+ Received%0A%0A- true%0A+ false%0A%0A ❯ tests/env.test.ts:67:29%0A%0A
 

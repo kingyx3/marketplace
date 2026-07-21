@@ -1,4 +1,4 @@
-lint=1
+lint=0
 typecheck=2
 tests=1
-config=1
+config=0
