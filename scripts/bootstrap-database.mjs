@@ -140,7 +140,7 @@ async function main() {
   const publishableKey = requireEnvironment("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   const siteUrl = requireEnvironment("NEXT_PUBLIC_SITE_URL");
   const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
-  assertTargetSafety(target, supabaseUrl, siteUrl);
+  assertTargetSafety(target, supabaseUrl);
 
   const secretClient = createClient(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -966,11 +966,13 @@ function parseTarget(args, environmentTarget) {
   return target;
 }
 
-function assertTargetSafety(target, supabaseUrl, siteUrl) {
+export function assertTargetSafety(target, supabaseUrl) {
   if (target === "production") throw new Error("Production database bootstrap is prohibited");
-  const combined = `${supabaseUrl} ${siteUrl}`.toLowerCase();
-  if (/\bprod(?:uction)?\b/.test(combined)) {
-    throw new Error(`Refusing to bootstrap ${target} with a production-looking URL`);
+  const databaseHost = new URL(supabaseUrl).hostname.toLowerCase();
+  if (/(?:^|[.-])prod(?:uction)?(?:[.-]|$)/.test(databaseHost)) {
+    throw new Error(
+      `Refusing to bootstrap ${target} with a production-looking database URL`
+    );
   }
 }
 
