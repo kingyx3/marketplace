@@ -6,7 +6,7 @@ import { Timeline } from "@/app/_components/timeline";
 import { getAppName } from "@/lib/app-config";
 import { ApiError } from "@/lib/api/errors";
 import { requireCustomer } from "@/lib/auth";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { getCustomerOrder } from "@/lib/orders";
 import { formatMoney } from "@/lib/money";
 import {
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: OrderPageProps) {
 export default async function OrderPage({ params }: OrderPageProps) {
   const { customer } = await requireCustomer("/orders");
   const { id } = await params;
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   let order: LiveOrder | null = null;
   let dataError = false;
 

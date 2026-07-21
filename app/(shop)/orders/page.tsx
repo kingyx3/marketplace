@@ -20,7 +20,7 @@ import {
   type LivePreorder,
 } from "@/lib/order-display";
 import { listCustomerOrders, listCustomerPreorders } from "@/lib/orders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export default async function OrdersPage({
 }) {
   const params = (await searchParams) ?? {};
   const { customer } = await requireCustomer("/orders");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   let orders: LiveOrder[] = [];
   let preorders: LivePreorder[] = [];
   let ordersError = false;

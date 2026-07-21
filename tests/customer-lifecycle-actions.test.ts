@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireControlPermission: vi.fn(),
-  createServiceClient: vi.fn(),
+  createSecretClient: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -11,7 +11,7 @@ vi.mock("@/lib/control-access", () => ({
 }));
 
 vi.mock("@/lib/supabase", () => ({
-  createServiceClient: mocks.createServiceClient,
+  createSecretClient: mocks.createSecretClient,
 }));
 
 vi.mock("next/cache", () => ({
@@ -26,7 +26,7 @@ import {
 describe("customer lifecycle action", () => {
   beforeEach(() => {
     mocks.requireControlPermission.mockReset();
-    mocks.createServiceClient.mockReset();
+    mocks.createSecretClient.mockReset();
     mocks.revalidatePath.mockReset();
     mocks.requireControlPermission.mockResolvedValue({ user: { id: "admin-user-123" } });
   });
@@ -41,7 +41,7 @@ describe("customer lifecycle action", () => {
       status: "error",
       message: "Confirm account disable before continuing",
     });
-    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.createSecretClient).not.toHaveBeenCalled();
   });
 
   it("disables the linked auth identity and records an audited soft delete", async () => {
@@ -49,7 +49,7 @@ describe("customer lifecycle action", () => {
       customer: activeCustomer(),
       appMetadata: { plan: "retail" },
     });
-    mocks.createServiceClient.mockReturnValue(fake.supabase);
+    mocks.createSecretClient.mockReturnValue(fake.supabase);
 
     const result = await setCustomerAccountDeleted(
       initialCustomerLifecycleActionState,
@@ -87,7 +87,7 @@ describe("customer lifecycle action", () => {
         marketplace_account_deleted_at: "2026-07-16T12:00:00.000Z",
       },
     });
-    mocks.createServiceClient.mockReturnValue(fake.supabase);
+    mocks.createSecretClient.mockReturnValue(fake.supabase);
 
     const result = await setCustomerAccountDeleted(
       initialCustomerLifecycleActionState,
@@ -116,7 +116,7 @@ describe("customer lifecycle action", () => {
       customer: activeCustomer(),
       activeStaff: true,
     });
-    mocks.createServiceClient.mockReturnValue(fake.supabase);
+    mocks.createSecretClient.mockReturnValue(fake.supabase);
 
     const result = await setCustomerAccountDeleted(
       initialCustomerLifecycleActionState,
@@ -137,7 +137,7 @@ describe("customer lifecycle action", () => {
       appMetadata: { plan: "retail" },
       customerUpdateError: "database unavailable",
     });
-    mocks.createServiceClient.mockReturnValue(fake.supabase);
+    mocks.createSecretClient.mockReturnValue(fake.supabase);
 
     const result = await setCustomerAccountDeleted(
       initialCustomerLifecycleActionState,

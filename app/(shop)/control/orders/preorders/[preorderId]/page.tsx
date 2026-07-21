@@ -4,7 +4,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
 import { getAdminPreorder } from "@/lib/orders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { toOne } from "@/lib/supabase-relations";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function PreorderPage({
 }) {
   const { preorderId } = await params;
   await requireControlPermission("orders.view", `/control/orders/preorders/${preorderId}`);
-  const preorder = await getAdminPreorder(createServiceClient(), preorderId);
+  const preorder = await getAdminPreorder(createSecretClient(), preorderId);
   const customer = toOne(preorder.customers);
   const sku = toOne(preorder.booster_box_skus);
   return (

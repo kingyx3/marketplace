@@ -18,7 +18,7 @@ import { hasSupabasePublicEnv } from "@/lib/env";
 import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 import { getStorefrontAvailability } from "@/lib/storefront-availability";
 import { indexBestDealsBySku } from "@/lib/storefront-deals";
-import { createAnonClient } from "@/lib/supabase";
+import { createPublishableClient } from "@/lib/supabase";
 import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
 export const dynamic = "force-dynamic";
@@ -153,7 +153,7 @@ async function fetchProducts(): Promise<{
       : { products: [], source: "unavailable" };
   }
 
-  const supabase = createAnonClient();
+  const supabase = createPublishableClient();
   const { data, error } = await supabase
     .from("products")
     .select(

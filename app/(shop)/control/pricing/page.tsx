@@ -6,7 +6,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
 import { fetchControlProducts } from "@/lib/control-catalog";
 import { formatMoney } from "@/lib/money";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ interface PriceHistoryRow {
 
 export default async function ControlPricingPage() {
   await requireControlPermission("pricing.view", "/control/pricing");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [products, pricesResult] = await Promise.all([
     fetchControlProducts(supabase),
     supabase

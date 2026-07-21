@@ -15,7 +15,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { setControlCategoryActive } from "@/app/actions/control";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,7 @@ export default async function CategoryDetailPage({
 }) {
   const { categoryId } = await params;
   await requireControlPermission("catalog.manage", `/control/catalog/categories/${categoryId}`);
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const paramsValue = (await searchParams) ?? {};
   const [categoryResult, categoriesResult, productCountResult, setCountResult] = await Promise.all([
     supabase

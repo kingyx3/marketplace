@@ -5,7 +5,7 @@ import { cache } from "react";
 import { isAdminEmailAllowed } from "@/lib/admin-email-allowlist";
 import { resolveAdminStaff, type StaffProfile } from "@/lib/admin-staff";
 import { findOrCreateCustomer } from "@/lib/api/auth";
-import { createServiceClient, createUserClient } from "@/lib/supabase";
+import { createSecretClient, createUserClient } from "@/lib/supabase";
 
 export class AuthenticationError extends Error {
   constructor(message = "Authentication required") {
@@ -71,7 +71,7 @@ export const getCurrentViewer = cache(async (): Promise<CurrentViewer> => {
   try {
     return {
       user,
-      staff: await resolveAdminStaff(createServiceClient(), {
+      staff: await resolveAdminStaff(createSecretClient(), {
         authUserId: user.id,
         email: user.email,
         environmentAllowlisted: isAdminEmailAllowed(user.email),
@@ -93,7 +93,7 @@ export async function requireUser(next = "/account"): Promise<AuthUser> {
 }
 
 export async function getCustomerProfile(authUserId: string): Promise<CustomerProfile | null> {
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const { data, error } = await supabase
     .from("customers")
     .select(
@@ -112,7 +112,7 @@ export async function getCustomerProfile(authUserId: string): Promise<CustomerPr
 
 export async function requireCustomer(next = "/account") {
   const user = await requireUser(next);
-  const customer = await findOrCreateCustomer(createServiceClient(), user);
+  const customer = await findOrCreateCustomer(createSecretClient(), user);
 
   return {
     user,

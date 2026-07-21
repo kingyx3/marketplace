@@ -14,7 +14,7 @@ import {
   getActiveDealDiscounts,
 } from "@/lib/deals";
 import { formatMoney } from "@/lib/money";
-import { createAnonClient, createUserClient } from "@/lib/supabase";
+import { createPublishableClient, createUserClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -291,7 +291,7 @@ async function currentDealDiscounts(
 ): Promise<Map<string, number>> {
   if (skuIds.length === 0) return new Map();
   try {
-    const supabase = signedIn ? await createUserClient() : createAnonClient();
+    const supabase = signedIn ? await createUserClient() : createPublishableClient();
     return await getActiveDealDiscounts(supabase, skuIds);
   } catch (error) {
     console.error("cart deal lookup failed:", safeError(error));

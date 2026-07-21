@@ -6,7 +6,7 @@ import {
 } from "@/app/(shop)/control/_components/set-form";
 import { PageHeader } from "@/app/_components/page-header";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ export default async function NewSetPage({
 }) {
   await requireControlPermission("catalog.manage", "/control/catalog/sets/new");
   const params = (await searchParams) ?? {};
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("tcg_categories")
     .select("id, name, active")
     .order("name");

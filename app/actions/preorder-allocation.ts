@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireControlPermission } from "@/lib/control-access";
 import { createHitPayClient } from "@/lib/hitpay";
 import { executePreorderAllocationForSku } from "@/lib/preorders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export async function confirmPreorderAllocation(formData: FormData): Promise<void> {
   const { user } = await requireControlPermission(
@@ -27,7 +27,7 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
   let summary: string;
   try {
     const result = await executePreorderAllocationForSku(
-      createServiceClient(),
+      createSecretClient(),
       createHitPayClient(),
       {
         skuId,

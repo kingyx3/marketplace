@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { handleHitPayEvent } from "@/lib/hitpay-webhooks";
 import { logError, logInfo, logWarn, requestIdFrom, withRequestId } from "@/lib/observability";
 import { reportOperationalFailure } from "@/lib/operational-alerts";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   const providerId = typeof payload.id === "string" ? payload.id : "unknown";
   const eventId = `${eventType}:${providerId}:${String(payload.status ?? "unknown")}`;
   const eventContext = { ...context, eventId, eventType };
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
 
   const { error: insertError } = await supabase.from("webhook_events").insert({
     provider: "hitpay",

@@ -6,14 +6,14 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
 import { listAdminOrders, listAdminPreorders } from "@/lib/orders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { toOne } from "@/lib/supabase-relations";
 
 export const dynamic = "force-dynamic";
 
 export default async function ControlOrdersPage() {
   const { staff } = await requireControlPermission("orders.view", "/control/orders");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [orders, preorders] = await Promise.all([
     listAdminOrders(supabase, 100),
     listAdminPreorders(supabase, 100),

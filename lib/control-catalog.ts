@@ -3,7 +3,7 @@ import {
   type CatalogProductTypeOption,
   type CatalogSetOption,
 } from "@/app/(shop)/control/_components/product-intake-form";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
 export interface ControlCatalogSku {
@@ -112,7 +112,7 @@ const CONTROL_PRODUCT_SELECT = `
 `;
 
 export async function fetchControlProducts(
-  supabase = createServiceClient()
+  supabase = createSecretClient()
 ): Promise<ControlProductRow[]> {
   const { data, error } = await supabase
     .from("products")
@@ -126,7 +126,7 @@ export async function fetchControlProducts(
 
 export async function fetchControlProduct(
   productId: string,
-  supabase = createServiceClient()
+  supabase = createSecretClient()
 ): Promise<ControlProductRow | null> {
   const { data, error } = await supabase
     .from("products")
@@ -139,7 +139,7 @@ export async function fetchControlProduct(
 }
 
 export async function fetchControlCategories(
-  supabase = createServiceClient()
+  supabase = createSecretClient()
 ): Promise<ControlCategoryOption[]> {
   const { data, error } = await supabase
     .from("tcg_categories")
@@ -153,7 +153,7 @@ export async function fetchControlCategories(
 }
 
 export async function fetchControlSets(
-  supabase = createServiceClient()
+  supabase = createSecretClient()
 ): Promise<ControlSetOption[]> {
   const { data, error } = await supabase
     .from("sets_releases")
@@ -179,7 +179,7 @@ export async function fetchControlSets(
 }
 
 export async function fetchControlProductTypes(
-  supabase = createServiceClient()
+  supabase = createSecretClient()
 ): Promise<ControlProductTypeOption[]> {
   const { data, error } = await supabase
     .from("product_types")

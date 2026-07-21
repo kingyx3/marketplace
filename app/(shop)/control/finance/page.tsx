@@ -5,7 +5,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { listAdminOrderExceptions } from "@/lib/order-exceptions";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export default async function ControlFinancePage({
 }) {
   const { staff } = await requireControlPermission("finance.view", "/control/finance");
   const params = (await searchParams) ?? {};
-  const exceptions = await listAdminOrderExceptions(createServiceClient());
+  const exceptions = await listAdminOrderExceptions(createSecretClient());
   const critical = exceptions.filter((exception) => exception.severity === "critical").length;
   const canReconcile = hasControlPermission(staff, "payments.reconcile");
 

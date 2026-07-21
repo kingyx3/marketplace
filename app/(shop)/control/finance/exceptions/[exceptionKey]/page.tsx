@@ -6,7 +6,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { listAdminOrderExceptions } from "@/lib/order-exceptions";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function PaymentExceptionPage({
     "finance.view",
     `/control/finance/exceptions/${exceptionKey}`
   );
-  const exception = (await listAdminOrderExceptions(createServiceClient())).find(
+  const exception = (await listAdminOrderExceptions(createSecretClient())).find(
     (item) => item.key === exceptionKey
   );
   if (!exception) notFound();

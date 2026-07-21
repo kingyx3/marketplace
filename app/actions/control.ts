@@ -11,7 +11,7 @@ import {
   controlSupplierFromForm,
 } from "@/lib/control-forms";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import type { AdminActionResult } from "@/lib/admin-action-state";
 
 export async function upsertControlSupplier(formData: FormData) {
@@ -27,7 +27,7 @@ export async function upsertControlSupplier(formData: FormData) {
     phone: input.contactPhone,
   };
 
-  const { data, error } = await createServiceClient().rpc("admin_upsert_supplier", {
+  const { data, error } = await createSecretClient().rpc("admin_upsert_supplier", {
     p_supplier_id: input.supplierId,
     p_name: input.name,
     p_supplier_type: input.supplierType,
@@ -57,7 +57,7 @@ export async function upsertControlSupplier(formData: FormData) {
 export async function setControlSupplierActive(formData: FormData) {
   const { user } = await requireControlPermission("suppliers.manage", "/control/supply/suppliers");
   const input = controlStatusFromForm(formData);
-  const { error } = await createServiceClient().rpc("admin_set_supplier_active", {
+  const { error } = await createSecretClient().rpc("admin_set_supplier_active", {
     p_supplier_id: input.id,
     p_active: input.active,
     p_actor_auth_user_id: user.id,
@@ -78,7 +78,7 @@ export async function upsertControlCategory(formData: FormData) {
     : "/control/catalog/categories/new";
   const { user } = await requireControlPermission("catalog.manage", returnPath);
   const input = controlCategoryFromForm(formData);
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   let duplicateQuery = supabase
     .from("tcg_categories")
     .select("id, name, slug")
@@ -120,7 +120,7 @@ export async function upsertControlCategory(formData: FormData) {
 export async function setControlCategoryActive(formData: FormData) {
   const { user } = await requireControlPermission("catalog.manage", "/control/catalog/categories");
   const input = controlStatusFromForm(formData);
-  const { error } = await createServiceClient().rpc("admin_set_category_active", {
+  const { error } = await createSecretClient().rpc("admin_set_category_active", {
     p_category_id: input.id,
     p_active: input.active,
     p_actor_auth_user_id: user.id,
@@ -141,7 +141,7 @@ export async function upsertControlSet(formData: FormData) {
   const returnPath = sourceId ? `/control/catalog/sets/${sourceId}` : "/control/catalog/sets/new";
   const { user } = await requireControlPermission("catalog.manage", returnPath);
   const input = controlSetFromForm(formData);
-  const { data, error } = await createServiceClient().rpc("admin_upsert_set_release", {
+  const { data, error } = await createSecretClient().rpc("admin_upsert_set_release", {
     p_set_id: input.setId,
     p_category_id: input.categoryId,
     p_name: input.name,
@@ -175,7 +175,7 @@ export async function upsertControlSet(formData: FormData) {
 export async function setControlSetActive(formData: FormData) {
   const { user } = await requireControlPermission("catalog.manage", "/control/catalog/sets");
   const input = controlStatusFromForm(formData);
-  const { error } = await createServiceClient().rpc("admin_set_set_release_active", {
+  const { error } = await createSecretClient().rpc("admin_set_set_release_active", {
     p_set_id: input.id,
     p_active: input.active,
     p_actor_auth_user_id: user.id,
@@ -198,7 +198,7 @@ export async function upsertControlAccessGrant(formData: FormData) {
     : "/control/governance/administrators/new";
   const { user } = await requireControlPermission("governance.manage", returnPath);
   const input = controlAccessGrantFromForm(formData);
-  const { data, error } = await createServiceClient().rpc("admin_upsert_access_grant_permissions", {
+  const { data, error } = await createSecretClient().rpc("admin_upsert_access_grant_permissions", {
     p_grant_id: input.grantId,
     p_email: input.email,
     p_role: input.role,

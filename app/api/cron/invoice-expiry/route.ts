@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { reportOperationalFailure } from "@/lib/operational-alerts";
 import { logError, logInfo, logWarn, requestIdFrom, withRequestId } from "@/lib/observability";
 
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     return respond({ error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, 401);
   }
 
-  const { data, error } = await createServiceClient().rpc("expire_stale_invoice_orders", {
+  const { data, error } = await createSecretClient().rpc("expire_stale_invoice_orders", {
     p_limit: 500,
   });
 

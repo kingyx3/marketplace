@@ -5,7 +5,7 @@ import { resolveAdminStaff, type StaffProfile } from "@/lib/admin-staff";
 import { conflict, forbidden, unauthorized } from "@/lib/api/errors";
 import { hasControlPermission, type ControlPermission } from "@/lib/control-permissions";
 import { setTelemetryUser } from "@/lib/observability";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export interface CustomerRecord {
   id: string;
@@ -72,7 +72,7 @@ export function isAdminRole(roles: string[]): boolean {
 
 export async function authenticateApiRequest(
   request: Request,
-  supabase: SupabaseClient = createServiceClient()
+  supabase: SupabaseClient = createSecretClient()
 ): Promise<ApiAuthContext> {
   const token = extractBearerToken(request);
   const { data, error } = await supabase.auth.getUser(token);
@@ -92,7 +92,7 @@ export async function authenticateApiRequest(
 
 export async function requireApiAdmin(
   request: Request,
-  supabase: SupabaseClient = createServiceClient()
+  supabase: SupabaseClient = createSecretClient()
 ): Promise<ApiAdminContext> {
   const auth = await authenticateApiRequest(request, supabase);
   const staff = await resolveAdminStaff(supabase, {
@@ -116,7 +116,7 @@ export async function requireApiAdmin(
 export async function requireApiPermission(
   request: Request,
   permission: ControlPermission,
-  supabase: SupabaseClient = createServiceClient()
+  supabase: SupabaseClient = createSecretClient()
 ): Promise<ApiAdminContext> {
   const auth = await requireApiAdmin(request, supabase);
   if (!hasControlPermission(auth.staff, permission)) {
@@ -127,7 +127,7 @@ export async function requireApiPermission(
 
 export async function requireApiCustomer(
   request: Request,
-  supabase: SupabaseClient = createServiceClient()
+  supabase: SupabaseClient = createSecretClient()
 ): Promise<ApiCustomerContext> {
   const auth = await authenticateApiRequest(request, supabase);
   const customer = await findOrCreateCustomer(auth.supabase, auth.user);

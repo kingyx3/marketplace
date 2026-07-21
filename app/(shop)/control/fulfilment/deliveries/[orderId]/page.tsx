@@ -6,7 +6,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { getAdminDeliveryOrder } from "@/lib/deliveries";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function DeliveryDetailPage({
     "fulfilment.view",
     `/control/fulfilment/deliveries/${orderId}`
   );
-  const order = await getAdminDeliveryOrder(createServiceClient(), orderId);
+  const order = await getAdminDeliveryOrder(createSecretClient(), orderId);
   if (!order) notFound();
 
   return (

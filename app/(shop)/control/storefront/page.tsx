@@ -4,13 +4,13 @@ import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function ControlStorefrontPage() {
   const { staff } = await requireControlPermission("storefront.view", "/control/storefront");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [listingsResult, configurationsResult] = await Promise.all([
     supabase.from("listing_items").select("id, availability_mode, published"),
     supabase

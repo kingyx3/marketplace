@@ -50,11 +50,7 @@ export function createSecretClient(): SupabaseClient {
   return createClient(url, key, { auth: nonPersistentAuth });
 }
 
-/** Shared server-only name used by existing application services. */
-export const createAnonClient = createPublishableClient;
 
-/** Shared server-only name used by existing privileged application services. */
-export const createServiceClient = createSecretClient;
 
 /**
  * Cookie-backed client for Server Components, Route Handlers, and Server Actions.

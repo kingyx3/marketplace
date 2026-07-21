@@ -8,7 +8,7 @@ import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ export default async function ControlCustomersPage({
     params.status === "deleted" ? "deleted" : params.status === "active" ? "active" : "all";
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
 
   let request = supabase
     .from("customers")

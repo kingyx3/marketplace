@@ -7,7 +7,7 @@ import { adminCatalogProductFromForm } from "@/lib/admin-catalog-forms";
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
 import { logError, logWarn } from "@/lib/observability";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export async function saveCatalogProduct(
   _previousState: CatalogProductActionState,
@@ -25,7 +25,7 @@ export async function saveCatalogProduct(
 
   try {
     const input = adminCatalogProductFromForm(formData);
-    const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
+    const { error } = await createSecretClient().rpc("admin_upsert_catalog_product", {
       p_product_id: input.productId,
       p_name: input.name,
       p_category_id: input.categoryId,

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireCustomer } from "@/lib/auth";
-import { createServiceClient, createUserClient } from "@/lib/supabase";
+import { createSecretClient, createUserClient } from "@/lib/supabase";
 
 export async function updateAccountSettings(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -13,7 +13,7 @@ export async function updateAccountSettings(formData: FormData) {
   }
 
   const { user, customer } = await requireCustomer("/account");
-  const { error } = await createServiceClient()
+  const { error } = await createSecretClient()
     .from("customers")
     .update({
       name: name || null,
@@ -38,7 +38,7 @@ export async function deleteAccount(formData: FormData) {
   }
 
   const { user, customer } = await requireCustomer("/account");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const deletedAt = new Date().toISOString();
   const deletionActor = `customer:${user.id}`;
 

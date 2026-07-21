@@ -16,7 +16,7 @@ import { setSkuPrice } from "@/app/actions/pricing";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { fetchControlProducts } from "@/lib/control-catalog";
 import { formatMoney } from "@/lib/money";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,7 @@ export default async function SkuPricePage({ params }: { params: Promise<{ skuId
     "pricing.view",
     `/control/pricing/skus/${skuId}`
   );
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [products, pricesResult] = await Promise.all([
     fetchControlProducts(supabase),
     supabase

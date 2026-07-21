@@ -5,13 +5,13 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { listAdminDeliveryOrders } from "@/lib/deliveries";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function ControlFulfilmentPage() {
   const { staff } = await requireControlPermission("fulfilment.view", "/control/fulfilment");
-  const orders = await listAdminDeliveryOrders(createServiceClient());
+  const orders = await listAdminDeliveryOrders(createSecretClient());
   const ready = orders.filter((order) => !order.latestShipment).length;
   const inTransit = orders.filter((order) => order.latestShipment?.status === "in_transit").length;
   const exceptions = orders.filter((order) =>

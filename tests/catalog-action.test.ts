@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireControlPermission: vi.fn(),
-  createServiceClient: vi.fn(),
+  createSecretClient: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -11,7 +11,7 @@ vi.mock("@/lib/control-access", () => ({
 }));
 
 vi.mock("@/lib/supabase", () => ({
-  createServiceClient: mocks.createServiceClient,
+  createSecretClient: mocks.createSecretClient,
 }));
 
 vi.mock("next/cache", () => ({
@@ -24,7 +24,7 @@ import { initialCatalogProductActionState } from "@/lib/catalog-product-action-s
 describe("catalog product action", () => {
   beforeEach(() => {
     mocks.requireControlPermission.mockReset();
-    mocks.createServiceClient.mockReset();
+    mocks.createSecretClient.mockReset();
     mocks.revalidatePath.mockReset();
     mocks.requireControlPermission.mockResolvedValue({ user: { id: "staff-user-123" } });
   });
@@ -48,7 +48,7 @@ describe("catalog product action", () => {
       ],
       error: null,
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
@@ -96,7 +96,7 @@ describe("catalog product action", () => {
       data: [{ product_id: "product-123", product_slug: "hidden-product" }],
       error: null,
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     await createCatalogProduct(
       initialCatalogProductActionState,
@@ -128,7 +128,7 @@ describe("catalog product action", () => {
       ],
       error: null,
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
@@ -179,7 +179,7 @@ describe("catalog product action", () => {
       ],
       error: null,
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
@@ -215,7 +215,7 @@ describe("catalog product action", () => {
         message: "product already exists for this category, set, type, and language",
       },
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(initialCatalogProductActionState, productForm());
 
@@ -233,7 +233,7 @@ describe("catalog product action", () => {
         message: "product display name generates a slug already used by another product",
       },
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(initialCatalogProductActionState, productForm());
 
@@ -250,7 +250,7 @@ describe("catalog product action", () => {
         message: 'duplicate key value violates unique constraint "tcg_categories_slug_key"',
       },
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
@@ -277,7 +277,7 @@ describe("catalog product action", () => {
         message: "set code already exists for category; select existing set",
       },
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
@@ -291,7 +291,7 @@ describe("catalog product action", () => {
 
   it("requires a set before any database mutation", async () => {
     const rpc = vi.fn();
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,
@@ -307,7 +307,7 @@ describe("catalog product action", () => {
 
   it("returns validation feedback before any database mutation", async () => {
     const rpc = vi.fn();
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await createCatalogProduct(
       initialCatalogProductActionState,

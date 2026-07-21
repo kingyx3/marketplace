@@ -7,7 +7,7 @@ import type { AdminActionResult } from "@/lib/admin-action-state";
 import { requiredBoolean, requiredUuid } from "@/lib/admin-form-values";
 import { requireControlPermission } from "@/lib/control-access";
 import { logError } from "@/lib/observability";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 const LONG_BAN_DURATION = "876000h";
 
@@ -41,7 +41,7 @@ export async function setCustomerAccountDeleted(
       return failure("Confirm account disable before continuing");
     }
 
-    const supabase = createServiceClient();
+    const supabase = createSecretClient();
     const { data, error: lookupError } = await supabase
       .from("customers")
       .select("id, auth_user_id, deleted_at")
