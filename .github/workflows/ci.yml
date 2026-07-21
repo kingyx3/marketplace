@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v7.0.0
         with:
           ref: agent/control-supply-work-queue
+          fetch-depth: 2
       - name: Make administrator grant bootstrap idempotent
         shell: bash
         run: |
