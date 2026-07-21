@@ -857,6 +857,9 @@ async function verifyAnonymousRead(supabaseUrl, publishableKey) {
   }
 }
 
+const HOSTED_FETCH_ATTEMPTS = 5;
+const HOSTED_FETCH_TIMEOUT_MS = 15_000;
+
 async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) {
   const base = new URL(siteUrl);
   const headers = { "user-agent": "marketplace-database-bootstrap/1.0" };
@@ -865,7 +868,11 @@ async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) 
     headers["x-vercel-set-bypass-cookie"] = "true";
   }
 
-  const catalogResponse = await fetch(new URL("/products", base), { headers, redirect: "follow" });
+  const catalogResponse = await fetchHostedPage(
+    new URL("/products", base),
+    headers,
+    "Hosted catalog"
+  );
   if (!catalogResponse.ok) {
     throw new Error(`Hosted catalog verification failed with HTTP ${catalogResponse.status}`);
   }
@@ -874,13 +881,57 @@ async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) 
     throw new Error("Hosted catalog did not render the bootstrap product");
   }
 
-  const detailResponse = await fetch(new URL(`/products/${productSlug}`, base), {
+  const detailResponse = await fetchHostedPage(
+    new URL(`/products/${productSlug}`, base),
     headers,
-    redirect: "follow",
-  });
+    "Hosted product"
+  );
   if (!detailResponse.ok) {
     throw new Error(`Hosted product verification failed with HTTP ${detailResponse.status}`);
   }
+}
+
+async function fetchHostedPage(url, headers, label) {
+  let lastError;
+  for (let attempt = 1; attempt <= HOSTED_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers,
+        redirect: "follow",
+        signal: AbortSignal.timeout(HOSTED_FETCH_TIMEOUT_MS),
+      });
+      if (response.ok || attempt === HOSTED_FETCH_ATTEMPTS) return response;
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+      if (attempt === HOSTED_FETCH_ATTEMPTS) break;
+    }
+    await delay(attempt * 2_000);
+  }
+  throw new Error(
+    `${label} fetch failed after ${HOSTED_FETCH_ATTEMPTS} attempts for ${url.hostname}: ${describeError(lastError)}`
+  );
+}
+
+function describeError(error) {
+  if (!(error instanceof Error)) return String(error);
+  const details = [];
+  let current = error;
+  while (current) {
+    if (current instanceof Error) {
+      if (current.message) details.push(current.message);
+      if (current.code) details.push(String(current.code));
+      current = current.cause;
+    } else {
+      details.push(String(current));
+      break;
+    }
+  }
+  return [...new Set(details)].join(": ") || "unknown error";
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function ensureAuthUser(client, email, fullName) {
