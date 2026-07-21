@@ -84,8 +84,8 @@ describe("deployment idempotency contract", () => {
     expect(config.shared.HITPAY_API_URL).toBe("https://api.sandbox.hit-pay.com");
     expect(config.environments.production.HITPAY_API_URL).toBe("https://api.hit-pay.com");
     expect(config.shared).not.toHaveProperty("HITPAY_WEBHOOK_ENABLED_EVENTS");
-    expect(bootstrap).not.toContain('  "HITPAY_API_URL",
-  "HITPAY_PAYMENT_METHODS"');
+    expect(bootstrap).not.toContain('"HITPAY_WEBHOOK_ID"');
+    expect(bootstrap).not.toContain('"HITPAY_WEBHOOK_ENABLED_EVENTS"');
     expect(bootstrap).toContain('deleteEnvironmentSettingIfPresent("variable", environment, legacy)');
   });
 });
