@@ -66,7 +66,7 @@ export async function createCheckoutPayment(
       purpose: `Marketplace order ${orderId}`,
       referenceNumber: `order:${orderId}`,
       redirectUrl: applicationUrl(`/cart?checkout=processing&order=${encodeURIComponent(orderId)}`),
-      expiresAfter: "15 mins",
+      expiresAfter: "15 minutes",
     });
     paymentRequestId = paymentRequest.id;
 
