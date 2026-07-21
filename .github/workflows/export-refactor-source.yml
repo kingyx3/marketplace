@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.0
+      - name: Record export revision
+        run: echo "${GITHUB_SHA}" > .product-model-export-revision
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: product-model-source
