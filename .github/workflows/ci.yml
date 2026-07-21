@@ -14,40 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  patch-vercel-bypass-cookie:
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.head_ref == 'agent/control-supply-work-queue' &&
-      github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7.0.0
-        with:
-          ref: agent/control-supply-work-queue
-      - name: Remove browser-only bypass cookie request
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("scripts/bootstrap-database.mjs")
-          source = path.read_text()
-          line = '    headers["x-vercel-set-bypass-cookie"] = "true";\n'
-          count = source.count(line)
-          if count != 1:
-              raise SystemExit(f"Expected exactly one bypass cookie header, found {count}")
-          path.write_text(source.replace(line, "", 1))
-          PY
-
-          git diff --check -- scripts/bootstrap-database.mjs
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/bootstrap-database.mjs
-          git commit -m "fix(ci): avoid Vercel bypass redirect loop"
-          git push origin HEAD:agent/control-supply-work-queue
-
   changes:
     runs-on: ubuntu-latest
     outputs:
