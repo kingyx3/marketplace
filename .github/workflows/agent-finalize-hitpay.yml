@@ -38,11 +38,6 @@ jobs:
           python3 scripts/post-minimize-hitpay.py
       - name: Regenerate environment artifacts
         run: npm run env:artifacts:write
-      - name: Format modified sources
-        run: >-
-          npx prettier --write
-          config scripts lib tests docs README.md
-          --log-level silent
       - name: Commit minimized configuration
         run: |
           git config user.name github-actions[bot]
