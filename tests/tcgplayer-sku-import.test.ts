@@ -125,8 +125,8 @@ describe("TCGplayer SKU import", () => {
     );
   });
 
-  it("creates the product and SKU records through one permissioned database transaction", async () => {
-    const [component, helpers, action, migration] = await Promise.all([
+  it("creates the product and generated SKU records through one permissioned database transaction", async () => {
+    const [component, plan, action, confirmation, migration] = await Promise.all([
       readFile(
         new URL(
           "../app/(shop)/control/_components/tcgplayer-catalog-import-complete.tsx",
@@ -135,14 +135,18 @@ describe("TCGplayer SKU import", () => {
         "utf8",
       ),
       readFile(
-        new URL(
-          "../app/(shop)/control/_components/tcgplayer-catalog-import-helpers.ts",
-          import.meta.url,
-        ),
+        new URL("../lib/tcgplayer-catalog-import-plan.ts", import.meta.url),
         "utf8",
       ),
       readFile(
         new URL("../app/actions/tcgplayer-catalog.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/(shop)/control/_components/tcgplayer-import-confirmation.tsx",
+          import.meta.url,
+        ),
         "utf8",
       ),
       readFile(
@@ -154,12 +158,18 @@ describe("TCGplayer SKU import", () => {
       ),
     ]);
 
-    expect(component).toContain('name="tcgplayerSkus"');
-    expect(component).toContain("ImportedSkuFields");
-    expect(helpers).toContain("buildTcgplayerSkuImportDrafts");
+    expect(component).toContain('name="tcgplayerReference"');
+    expect(component).not.toContain('name="tcgplayerSkus"');
+    expect(plan).toContain("buildTcgplayerSkuImportDrafts");
+    expect(action).toContain("buildTcgplayerCatalogImportPlan");
+    expect(action).toContain("JSON.stringify(plan.skus)");
     expect(action).toContain("requireControlPermission(");
     expect(action).toContain('"catalog.manage"');
     expect(action).toContain('"admin_create_tcgplayer_catalog_product"');
+    expect(action).toContain("p_skus: importedSkus");
+    expect(action).toContain("/import-complete");
+    expect(confirmation).toContain("product.skus.map");
+    expect(confirmation).toContain("upsertCatalogSku");
     expect(migration).toContain(
       "from public.admin_create_catalog_product_hierarchy(",
     );
