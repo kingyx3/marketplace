@@ -1,15 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { z } from "zod";
 
+import { badRequest, conflict } from "@/lib/api/errors";
 import type { ApiCustomerContext } from "@/lib/api/auth";
-import { badRequest, conflict, internalError, notFound } from "@/lib/api/errors";
-import {
-  checkoutRequestSchema,
-  quoteCheckout,
-  type CheckoutQuote,
-  type CheckoutRequest,
-} from "@/lib/commerce";
-import { applicationUrl, createHitPayClient, type HitPayClient } from "@/lib/hitpay";
+import type { CheckoutQuote } from "@/lib/commerce";
+import { applicationUrl, type HitPayClient } from "@/lib/hitpay";
 
 export interface CheckoutResult {
   mode: "order" | "preorder";
@@ -24,65 +18,28 @@ export interface CheckoutResult {
   reservationExpiresAt?: string;
 }
 
-const cancelCheckoutSchema = z.object({
-  paymentRequestId: z.string().uuid(),
-});
-
-export function checkoutResponseBody(result: CheckoutResult) {
-  return {
-    mode: result.mode,
-    orderId: result.orderId,
-    preorderId: result.preorderId,
-    paymentId: result.paymentId,
-    paymentRequestId: result.paymentRequestId,
-    checkoutUrl: result.checkoutUrl,
-    amountCents: result.amountCents,
-    currency: result.publishableCurrency,
-    quote: result.quote,
-    reservationExpiresAt: result.reservationExpiresAt,
-  };
-}
-
-export async function createCheckoutPayment(
-  auth: ApiCustomerContext,
-  body: unknown,
-  hitpay: HitPayClient = createHitPayClient()
-): Promise<CheckoutResult> {
-  const request = checkoutRequestSchema.parse(body) as CheckoutRequest;
-  const quote = await quoteCheckout(auth.supabase, request, auth.customer);
-
-  if (quote.totalCents <= 0) throw badRequest("Checkout total must be greater than zero");
-  if (quote.mode !== "preorder") {
-    throw badRequest("Normal orders must use the shipping-aware checkout flow");
-  }
-
-  return createPreorderPayment(auth, quote, hitpay);
-}
-
 export async function cancelPendingCheckoutPayment(
   auth: ApiCustomerContext,
-  body: unknown,
-  hitpay: HitPayClient = createHitPayClient()
+  input: { paymentRequestId: string },
+  hitpay: HitPayClient
 ): Promise<{ cancelled: true; orderId?: string; preorderId?: string }> {
-  const input = cancelCheckoutSchema.parse(body);
-  const payment = await paymentByRequest(auth.supabase, input.paymentRequestId);
-  if (!payment) throw notFound("Payment not found");
-
+  const { data: payment, error } = await auth.supabase
+    .from("payments")
+    .select("id, order_id, preorder_id, status")
+    .eq("provider", "hitpay")
+    .eq("provider_payment_id", input.paymentRequestId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!payment) throw badRequest("Payment request not found");
   if (!["pending", "requires_capture", "authorized"].includes(payment.status)) {
-    throw conflict("Payment can no longer be cancelled");
-  }
-
-  if (payment.order_id) await assertCustomerOrderIsCancellable(auth, payment.order_id);
-  if (payment.preorder_id) {
-    await assertCustomerPreorderIsCancellable(auth, payment.preorder_id);
+    throw conflict("Payment request can no longer be cancelled");
   }
 
   try {
     await hitpay.cancelPaymentRequest(input.paymentRequestId);
   } catch {
-    // HitPay cannot always revoke a PayNow payment after QR generation. Local
-    // cancellation releases the reservation; a late completion is refunded by
-    // the signed webhook handler.
+    // PayNow requests may remain payable after the local reservation is released.
+    // Any later successful payment is reconciled and refunded by the signed webhook handler.
   }
 
   const paymentUpdate = await auth.supabase
@@ -122,7 +79,7 @@ export async function cancelPendingCheckoutPayment(
   };
 }
 
-async function createPreorderPayment(
+export async function createPreorderPayment(
   auth: ApiCustomerContext,
   quote: CheckoutQuote,
   hitpay: HitPayClient
@@ -159,7 +116,7 @@ async function createPreorderPayment(
       currency: quote.currency,
       email: auth.customer.email,
       name: auth.customer.name,
-      purpose: `Pre-order ${line.name}`,
+      purpose: `Pre-order ${line.productName}`,
       referenceNumber: `preorder:${preorderId}`,
       redirectUrl: applicationUrl("/orders?checkout=processing#preorders"),
       expiresAfter: "15 minutes",
@@ -189,7 +146,7 @@ async function createPreorderPayment(
       paymentRequestId,
       hitpay,
     });
-    throw error instanceof Error ? error : internalError();
+    throw error;
   }
 }
 
@@ -215,61 +172,8 @@ async function insertPayment(
     })
     .select("id")
     .single();
-
   if (error || !data) throw new Error(error?.message ?? "payment insert failed");
   return { id: data.id };
-}
-
-async function paymentByRequest(supabase: SupabaseClient, paymentRequestId: string) {
-  const { data, error } = await supabase
-    .from("payments")
-    .select("id, order_id, preorder_id, kind, status")
-    .eq("provider", "hitpay")
-    .eq("provider_payment_id", paymentRequestId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-
-  return data as {
-    id: string;
-    order_id: string | null;
-    preorder_id: string | null;
-    kind: "full";
-    status: string;
-  } | null;
-}
-
-async function assertCustomerOrderIsCancellable(
-  auth: ApiCustomerContext,
-  orderId: string
-): Promise<void> {
-  const { data, error } = await auth.supabase
-    .from("orders")
-    .select("id, status")
-    .eq("id", orderId)
-    .eq("customer_id", auth.customer.id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) throw notFound("Order not found");
-  if (!["draft", "pending_payment"].includes(String(data.status))) {
-    throw conflict("Order can no longer be cancelled");
-  }
-}
-
-async function assertCustomerPreorderIsCancellable(
-  auth: ApiCustomerContext,
-  preorderId: string
-): Promise<void> {
-  const { data, error } = await auth.supabase
-    .from("preorders")
-    .select("id, status")
-    .eq("id", preorderId)
-    .eq("customer_id", auth.customer.id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) throw notFound("Pre-order not found");
-  if (String(data.status) !== "pending_payment") {
-    throw conflict("Pre-order payment can no longer be cancelled");
-  }
 }
 
 async function rollbackFailedPreorderCheckout(
@@ -284,10 +188,15 @@ async function rollbackFailedPreorderCheckout(
     try {
       await input.hitpay.cancelPaymentRequest(input.paymentRequestId);
     } catch {
-      // Local cancellation remains authoritative until any signed late webhook.
+      // Signed webhook reconciliation remains authoritative for late settlement.
     }
   }
-  if (input.preorderId) {
-    await supabase.from("preorders").update({ status: "cancelled" }).eq("id", input.preorderId);
-  }
+  if (!input.preorderId) return;
+
+  await supabase.from("payments").update({ status: "cancelled" }).eq("preorder_id", input.preorderId);
+  await supabase
+    .from("preorders")
+    .update({ status: "cancelled" })
+    .eq("id", input.preorderId)
+    .eq("status", "pending_payment");
 }
