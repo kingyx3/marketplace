@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ShippingAddressFields,
   emptyShippingAddress,
   isShippingAddressComplete,
   shippingAddressPayload,
+  type ShippingAddressInput,
 } from "@/app/(shop)/cart/shipping-address-fields";
 import { createApiClient } from "@/lib/api/client";
 import { createBrowserSessionProvider } from "@/lib/auth/browser-session";
@@ -28,6 +29,15 @@ interface CheckoutResponse {
   amountCents: number;
   currency: string;
   reservationExpiresAt?: string;
+}
+
+interface SavedShippingAddress extends ShippingAddressInput {
+  id: string;
+  lastUsedAt: string;
+}
+
+interface SavedAddressesResponse {
+  addresses: SavedShippingAddress[];
 }
 
 interface CartCheckoutPanelProps {
@@ -58,11 +68,14 @@ export function CartCheckoutPanel({
   const router = useRouter();
   const [phase, setPhase] = useState<"idle" | "creating" | "failed">("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [shippingAddress, setShippingAddress] = useState(() => ({
-    ...emptyShippingAddress,
-    recipientName: initialRecipientName.trim(),
-  }));
+  const [shippingAddress, setShippingAddress] = useState(() => blankAddress(initialRecipientName));
+  const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([]);
+  const [addressLoadState, setAddressLoadState] = useState<"idle" | "loading" | "failed">(
+    "idle"
+  );
+  const [selectedAddressId, setSelectedAddressId] = useState("custom");
   const checkoutIdempotencyKey = useRef<string | null>(null);
+  const addressEdited = useRef(false);
   const requiresShipping = mode === "order";
   const supabaseKey = supabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
   const session = useMemo(
@@ -80,6 +93,34 @@ export function CartCheckoutPanel({
       }),
     [authRedirectPath, router, session]
   );
+
+  useEffect(() => {
+    if (!requiresShipping) return;
+    let active = true;
+    setAddressLoadState("loading");
+
+    void api
+      .request<SavedAddressesResponse>("/api/account/addresses", { method: "GET" })
+      .then((result) => {
+        if (!active) return;
+        const addresses = Array.isArray(result.addresses) ? result.addresses : [];
+        setSavedAddresses(addresses);
+        setAddressLoadState("idle");
+
+        const firstAddress = addresses[0];
+        if (!firstAddress || addressEdited.current) return;
+        setSelectedAddressId(firstAddress.id);
+        setShippingAddress(addressInput(firstAddress));
+      })
+      .catch(() => {
+        if (!active) return;
+        setAddressLoadState("failed");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [api, requiresShipping]);
 
   async function beginCheckout() {
     if (disabled || items.length === 0 || phase === "creating") return;
@@ -125,17 +166,84 @@ export function CartCheckoutPanel({
     }
   }
 
-  const addressReady = !requiresShipping || isShippingAddressComplete(shippingAddress);
-  const canCreate = !disabled && addressReady && items.length > 0 && phase !== "creating";
+  function chooseAddress(addressId: string) {
+    setSelectedAddressId(addressId);
+    setMessage(null);
+    if (addressId === "custom") {
+      addressEdited.current = true;
+      setShippingAddress(blankAddress(initialRecipientName));
+      return;
+    }
+
+    const savedAddress = savedAddresses.find((address) => address.id === addressId);
+    if (!savedAddress) return;
+    addressEdited.current = false;
+    setShippingAddress(addressInput(savedAddress));
+  }
+
+  function updateShippingAddress(nextAddress: ShippingAddressInput) {
+    addressEdited.current = true;
+    setSelectedAddressId("custom");
+    setShippingAddress(nextAddress);
+    if (phase === "failed") {
+      setPhase("idle");
+      setMessage(null);
+    }
+  }
+
+  const canCreate = !disabled && items.length > 0 && phase !== "creating";
 
   return (
-    <div className="mt-6 grid gap-3">
+    <form
+      autoComplete="on"
+      className="mt-6 grid gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void beginCheckout();
+      }}
+    >
       {requiresShipping ? (
-        <ShippingAddressFields
-          disabled={disabled || phase === "creating"}
-          onChange={setShippingAddress}
-          value={shippingAddress}
-        />
+        <>
+          {savedAddresses.length > 0 ? (
+            <label className="grid gap-1 text-xs font-medium text-zinc-700" htmlFor="saved-address">
+              Previously used delivery address
+              <select
+                className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+                id="saved-address"
+                name="saved-address"
+                onChange={(event) => chooseAddress(event.target.value)}
+                value={selectedAddressId}
+              >
+                {savedAddresses.map((address) => (
+                  <option key={address.id} value={address.id}>
+                    {savedAddressLabel(address)}
+                  </option>
+                ))}
+                <option value="custom">Deliver to another address</option>
+              </select>
+              <span className="font-normal leading-5 text-zinc-500">
+                Addresses used for orders are saved to your account for faster checkout.
+              </span>
+            </label>
+          ) : null}
+
+          {addressLoadState === "loading" ? (
+            <p aria-live="polite" className="text-xs text-zinc-500">
+              Loading saved delivery addresses…
+            </p>
+          ) : null}
+          {addressLoadState === "failed" ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              Saved addresses could not be loaded. Enter the delivery address below to continue.
+            </p>
+          ) : null}
+
+          <ShippingAddressFields
+            disabled={disabled || phase === "creating"}
+            onChange={updateShippingAddress}
+            value={shippingAddress}
+          />
+        </>
       ) : null}
 
       <p className="text-xs leading-5 text-zinc-500">
@@ -157,8 +265,7 @@ export function CartCheckoutPanel({
       <button
         className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
         disabled={!canCreate}
-        onClick={beginCheckout}
-        type="button"
+        type="submit"
       >
         {phase === "creating" ? "Opening HitPay" : startLabel}
       </button>
@@ -182,8 +289,33 @@ export function CartCheckoutPanel({
       >
         Keep shopping
       </Link>
-    </div>
+    </form>
   );
+}
+
+function blankAddress(initialRecipientName: string): ShippingAddressInput {
+  return {
+    ...emptyShippingAddress,
+    recipientName: initialRecipientName.trim(),
+  };
+}
+
+function addressInput(address: SavedShippingAddress): ShippingAddressInput {
+  return {
+    recipientName: address.recipientName,
+    line1: address.line1,
+    line2: address.line2,
+    city: address.city,
+    region: address.region,
+    postalCode: address.postalCode,
+    countryCode: address.countryCode,
+    phone: address.phone,
+  };
+}
+
+function savedAddressLabel(address: SavedShippingAddress): string {
+  const street = [address.line1, address.line2].filter(Boolean).join(", ");
+  return `${address.recipientName} — ${street}, ${address.postalCode}`;
 }
 
 function createIdempotencyKey(): string {
