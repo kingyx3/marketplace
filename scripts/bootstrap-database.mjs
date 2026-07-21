@@ -231,7 +231,6 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
     active: true,
     auth_user_id: actorUser.id,
     created_by_staff_id: FIXTURE_IDS.staff,
-    accepted_at: now.toISOString(),
     revoked_at: null,
   });
 
