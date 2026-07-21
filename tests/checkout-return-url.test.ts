@@ -4,6 +4,7 @@ import { checkoutReturnUrl } from "@/lib/order-checkout";
 
 const orderId = "11111111-1111-4111-8111-111111111111";
 const env = {
+  NODE_ENV: "test",
   NEXT_PUBLIC_SITE_URL: "https://shop.example.com",
 } as NodeJS.ProcessEnv;
 
