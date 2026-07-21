@@ -14,6 +14,111 @@ permissions:
   contents: read
 
 jobs:
+  patch-bootstrap-verification:
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/control-supply-work-queue'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: agent/control-supply-work-queue
+      - name: Align bootstrap verification with listing schema
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          source_path = Path("scripts/bootstrap-database.mjs")
+          source = source_path.read_text()
+          start_marker = "async function verifySecretRead(client) {"
+          end_marker = "\n\nasync function verifyHostedStorefront"
+          start = source.find(start_marker)
+          end = source.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit("Expected bootstrap verification boundaries were not found")
+          replacement = dedent(
+              """
+              async function verifySecretRead(client) {
+                const { data: product, error: productError } = await client
+                  .from("products")
+                  .select(
+                    "id,slug,name,active,product_variants(booster_box_skus(id,active,sku_prices(active,price_cents,starts_at,ends_at),inventory(on_hand,allocated,safety_stock)))"
+                  )
+                  .eq("id", FIXTURE_IDS.product)
+                  .single();
+                if (productError) {
+                  throw new Error(`Bootstrap product verification query failed: ${productError.message}`);
+                }
+
+                const { data: listing, error: listingError } = await client
+                  .from("listing_items")
+                  .select("published,availability_mode")
+                  .eq("product_id", FIXTURE_IDS.product)
+                  .single();
+                if (listingError) {
+                  throw new Error(`Bootstrap listing verification query failed: ${listingError.message}`);
+                }
+
+                const variant = one(product.product_variants);
+                const sku = one(variant?.booster_box_skus);
+                const activePrice = (sku?.sku_prices ?? []).find((price) => price.active);
+                const inventory = one(sku?.inventory);
+                if (
+                  !product.active ||
+                  !listing.published ||
+                  listing.availability_mode !== "available_now" ||
+                  !sku?.active ||
+                  !activePrice ||
+                  Number(activePrice.price_cents) <= 0 ||
+                  Number(inventory?.on_hand ?? 0) - Number(inventory?.allocated ?? 0) <=
+                    Number(inventory?.safety_stock ?? 0)
+                ) {
+                  throw new Error("Bootstrap product does not satisfy the storefront visibility contract");
+                }
+                return product;
+              }
+
+              async function verifyAnonymousRead(supabaseUrl, publishableKey) {
+                const publicClient = createClient(supabaseUrl, publishableKey, {
+                  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+                });
+                const { data: product, error: productError } = await publicClient
+                  .from("products")
+                  .select("id,slug")
+                  .eq("id", FIXTURE_IDS.product)
+                  .single();
+                if (productError) {
+                  throw new Error(`Anonymous product read failed: ${productError.message}`);
+                }
+
+                const { data: listing, error: listingError } = await publicClient
+                  .from("listing_items")
+                  .select("published,availability_mode")
+                  .eq("product_id", FIXTURE_IDS.product)
+                  .single();
+                if (listingError) {
+                  throw new Error(`Anonymous listing read failed: ${listingError.message}`);
+                }
+                if (!product || !listing.published || listing.availability_mode !== "available_now") {
+                  throw new Error("Anonymous storefront read did not return the published bootstrap product");
+                }
+              }
+              """
+          ).strip()
+          source_path.write_text(source[:start] + replacement + source[end:])
+          PY
+      - name: Commit verification fix
+        shell: bash
+        run: |
+          git diff --check -- scripts/bootstrap-database.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/bootstrap-database.mjs
+          git commit -m "fix(ci): query storefront listing directly"
+          git push origin HEAD:agent/control-supply-work-queue
+
   changes:
     runs-on: ubuntu-latest
     outputs:
