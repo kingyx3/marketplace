@@ -50,8 +50,6 @@ export function createSecretClient(): SupabaseClient {
   return createClient(url, key, { auth: nonPersistentAuth });
 }
 
-
-
 /**
  * Cookie-backed client for Server Components, Route Handlers, and Server Actions.
  * It uses the publishable key and the authenticated user's cookie session, so RLS
