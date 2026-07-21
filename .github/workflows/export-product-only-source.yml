@@ -1,0 +1,21 @@
+name: Export product-only source
+
+on:
+  push:
+    branches:
+      - agent/product-only-catalog
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: product-only-main-source
+          path: .
+          include-hidden-files: true
+          retention-days: 1
