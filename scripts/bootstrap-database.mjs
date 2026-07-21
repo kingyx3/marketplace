@@ -865,7 +865,6 @@ async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) 
   const headers = { "user-agent": "marketplace-database-bootstrap/1.0" };
   if (vercelBypassSecret) {
     headers["x-vercel-protection-bypass"] = vercelBypassSecret;
-    headers["x-vercel-set-bypass-cookie"] = "true";
   }
 
   const catalogResponse = await fetchHostedPage(
