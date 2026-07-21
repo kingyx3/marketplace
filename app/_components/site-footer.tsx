@@ -14,12 +14,9 @@ export function SiteFooter({ appName }: { appName: string }) {
   return (
     <footer className="border-t border-zinc-200 bg-zinc-50">
       <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="shrink-0">
-          <p className="font-semibold text-zinc-950">{appName}</p>
-          <p className="mt-1 text-xs text-zinc-500">
-            © {new Date().getUTCFullYear()} {appName}. All rights reserved.
-          </p>
-        </div>
+        <p className="shrink-0 text-xs text-zinc-500">
+          © {new Date().getUTCFullYear()} {appName}. All rights reserved.
+        </p>
 
         <nav
           aria-label="Footer navigation"
