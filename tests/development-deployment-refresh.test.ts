@@ -16,11 +16,11 @@ describe("development deployment runtime refresh", () => {
     );
   });
 
-  it("keeps Supabase key validation before every environment deployment", async () => {
+  it("keeps canonical Supabase key validation before every environment deployment", async () => {
     const workflow = await read(".github/workflows/deploy.yml");
 
     expect(workflow).toContain(
-      'SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}'
+      "SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}"
     );
     expect(workflow).toContain("--verify-supabase-keys");
     expect(workflow.indexOf("--verify-supabase-keys")).toBeLessThan(
