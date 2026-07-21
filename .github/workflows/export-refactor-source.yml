@@ -1,0 +1,21 @@
+name: Export product-model refactor source
+
+on:
+  push:
+    branches:
+      - agent/automatic-tcgplayer-product-import
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: product-model-source
+          path: .
+          include-hidden-files: true
+          retention-days: 1
