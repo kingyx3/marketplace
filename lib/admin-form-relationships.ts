@@ -23,6 +23,16 @@ export function validateAdminFormRelationships(data: FormData): Record<string, s
     errors.compareAtCents = "Compare-at cents must be greater than the selling price.";
   }
 
+  const dealPriceCents = optionalMoneyCents(data.get("dealPrice"));
+  const originalPriceCents = optionalNumber(data.get("originalPriceCents"));
+  if (
+    dealPriceCents !== null &&
+    originalPriceCents !== null &&
+    dealPriceCents >= originalPriceCents
+  ) {
+    errors.dealPrice = "Deal price must be lower than the original price.";
+  }
+
   const valueJson = stringValue(data.get("valueJson"));
   if (valueJson) {
     try {
@@ -65,6 +75,14 @@ function optionalNumber(value: FormDataEntryValue | null): number | null {
   if (!input) return null;
   const number = Number(input);
   return Number.isFinite(number) ? number : null;
+}
+
+function optionalMoneyCents(value: FormDataEntryValue | null): number | null {
+  const input = stringValue(value);
+  if (!input || !/^\d+(?:\.\d{1,2})?$/.test(input)) return null;
+  const [whole, fraction = ""] = input.split(".");
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  return Number.isSafeInteger(cents) ? cents : null;
 }
 
 function stringValue(value: FormDataEntryValue | null): string {
