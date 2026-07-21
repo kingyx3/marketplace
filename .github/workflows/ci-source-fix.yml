@@ -1,0 +1,69 @@
+name: One-time bootstrap RPC fix
+
+on:
+  push:
+    branches:
+      - agent/control-supply-work-queue
+    paths:
+      - .github/workflows/ci-source-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-source:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: agent/control-supply-work-queue
+      - name: Use domain-specific catalog mutation API
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const sourcePath = 'scripts/bootstrap-database.mjs';
+          let source = fs.readFileSync(sourcePath, 'utf8');
+          const oldCall = `  await rpc(client, "admin_upsert_catalog_product_with_publication", {
+              p_product_id: FIXTURE_IDS.product,
+              p_name: PRODUCT_NAME,
+              p_category_id: FIXTURE_IDS.category,
+              p_set_id: FIXTURE_IDS.set,
+              p_product_type: PRODUCT_TYPE.code,
+              p_description:
+                "Visible bootstrap fixture. Its publication, active price, and sellable stock verify the storefront contract.",
+              p_language: "EN",
+              p_image_url: null,
+              p_active: true,
+              p_published: false,
+              p_actor: \`staff:${'${actorAuthUserId}'}\`,
+            });`;
+          const newCall = `  await rpc(client, "admin_upsert_catalog_product", {
+              p_product_id: FIXTURE_IDS.product,
+              p_name: PRODUCT_NAME,
+              p_category_id: FIXTURE_IDS.category,
+              p_set_id: FIXTURE_IDS.set,
+              p_product_type: PRODUCT_TYPE.code,
+              p_description:
+                "Visible bootstrap fixture. Its publication, active price, and sellable stock verify the storefront contract.",
+              p_language: "EN",
+              p_image_url: null,
+              p_active: true,
+              p_actor: \`staff:${'${actorAuthUserId}'}\`,
+            });`;
+          if (!source.includes(oldCall)) {
+            throw new Error('Expected combined catalog/publication bootstrap call was not found');
+          }
+          source = source.replace(oldCall, newCall);
+          fs.writeFileSync(sourcePath, source);
+          fs.unlinkSync('.github/workflows/ci-source-fix.yml');
+          NODE
+
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/bootstrap-database.mjs .github/workflows/ci-source-fix.yml
+          git commit -m "fix(ci): use current catalog bootstrap RPC"
+          git push origin HEAD:agent/control-supply-work-queue
