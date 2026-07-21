@@ -1,0 +1,10 @@
+
+> marketplace@0.1.0 lint
+> eslint .
+
+
+/home/runner/work/marketplace/marketplace/tests/deployment-idempotency.test.ts
+  87:56  error  Parsing error: Unterminated string literal
+
+✖ 1 problem (1 error, 0 warnings)
+

@@ -1,0 +1,7 @@
+
+> marketplace@0.1.0 config:check
+> node scripts/generate-environment-artifacts.mjs --check && node scripts/verify-vercel-config.mjs && node scripts/verify-supabase-config.mjs
+
+generated environment artifacts are current
+Vercel config validation FAILED:
+  - runtime reconciler must own HitPay provisioning and Vercel environment sync

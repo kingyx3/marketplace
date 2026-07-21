@@ -1,0 +1,10 @@
+
+> marketplace@0.1.0 typecheck
+> tsc --noEmit
+
+tests/deployment-idempotency.test.ts(87,57): error TS1002: Unterminated string literal.
+tests/deployment-idempotency.test.ts(88,3): error TS1005: ',' expected.
+tests/deployment-idempotency.test.ts(88,27): error TS1005: ',' expected.
+tests/deployment-idempotency.test.ts(88,30): error TS1002: Unterminated string literal.
+tests/deployment-idempotency.test.ts(89,5): error TS1005: ',' expected.
+tests/deployment-idempotency.test.ts(89,102): error TS1005: ')' expected.

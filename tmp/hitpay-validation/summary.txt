@@ -1,0 +1,4 @@
+lint=1
+typecheck=2
+tests=1
+config=1
