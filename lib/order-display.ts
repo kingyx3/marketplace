@@ -179,9 +179,6 @@ export function preorderPayment(preorder: LivePreorder): LivePayment | null {
   );
 }
 
-/** @deprecated Preorders are paid in full; retained for compatible callers. */
-export const preorderDeposit = preorderPayment;
-
 export function orderTimeline(order: LiveOrder): TimelineItem[] {
   const payment = paymentSummary(order);
   const shipment = latestShipment(order);
@@ -265,7 +262,7 @@ export function preorderTimeline(preorder: LivePreorder): TimelineItem[] {
     {
       label: "Order created",
       date: converted ? formatDate(preorder.updated_at) : "Pending",
-      state: converted ? "complete" : preorder.status === "refunded" ? "upcoming" : "upcoming",
+      state: converted ? "complete" : "upcoming",
     },
   ];
 }

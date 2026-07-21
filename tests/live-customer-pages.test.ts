@@ -5,6 +5,7 @@ import {
   orderTimeline,
   preorderStatusLabel,
   preorderStatusMessage,
+  preorderTimeline,
   productHrefForItem,
   productNameForItem,
   type LiveOrder,
@@ -137,5 +138,13 @@ describe("live customer pages", () => {
       "confirmed 2 of 3 and are returning the difference"
     );
     expect(preorderStatusLabel("new_internal_state")).toBe("Update available");
+    expect(preorderTimeline(preorder).at(-1)).toMatchObject({
+      label: "Order created",
+      state: "upcoming",
+    });
+    expect(preorderTimeline({ ...preorder, status: "converted" }).at(-1)).toMatchObject({
+      label: "Order created",
+      state: "complete",
+    });
   });
 });
