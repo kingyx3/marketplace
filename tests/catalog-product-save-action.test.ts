@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireControlPermission: vi.fn(),
-  createServiceClient: vi.fn(),
+  createSecretClient: vi.fn(),
   revalidatePath: vi.fn(),
   logError: vi.fn(),
   logWarn: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock("@/lib/control-access", () => ({
 }));
 
 vi.mock("@/lib/supabase", () => ({
-  createServiceClient: mocks.createServiceClient,
+  createSecretClient: mocks.createSecretClient,
 }));
 
 vi.mock("next/cache", () => ({
@@ -35,7 +35,7 @@ const setId = "33333333-3333-4333-8333-333333333333";
 describe("catalog product save action", () => {
   beforeEach(() => {
     mocks.requireControlPermission.mockReset();
-    mocks.createServiceClient.mockReset();
+    mocks.createSecretClient.mockReset();
     mocks.revalidatePath.mockReset();
     mocks.logError.mockReset();
     mocks.logWarn.mockReset();
@@ -44,7 +44,7 @@ describe("catalog product save action", () => {
 
   it("returns visible success feedback after saving product identity", async () => {
     const rpc = vi.fn(async () => ({ data: productId, error: null }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await saveCatalogProduct(
       initialCatalogProductActionState,
@@ -73,7 +73,7 @@ describe("catalog product save action", () => {
         message: 'column reference "product_id" is ambiguous',
       },
     }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await saveCatalogProduct(
       initialCatalogProductActionState,
@@ -92,7 +92,7 @@ describe("catalog product save action", () => {
 
   it("ignores legacy publication inputs in the Catalog save", async () => {
     const rpc = vi.fn(async () => ({ data: productId, error: null }));
-    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.createSecretClient.mockReturnValue({ rpc });
 
     const result = await saveCatalogProduct(
       initialCatalogProductActionState,

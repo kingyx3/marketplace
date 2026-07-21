@@ -9,7 +9,6 @@ type CheckStatus = "ok" | "fail" | "disabled" | "configured";
 interface EnvLike {
   NEXT_PUBLIC_SUPABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
   HITPAY_API_KEY?: string;
   HITPAY_WEBHOOK_SALT?: string;
   HITPAY_API_URL?: string;

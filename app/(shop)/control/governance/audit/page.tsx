@@ -17,7 +17,7 @@ import {
   parseAuditArea,
   resolveAuditActor,
 } from "@/lib/control-audit";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 interface AuditRow {
   id: string;
@@ -51,7 +51,7 @@ export default async function ControlAuditPage({
   const oldestFirst = params.sort === "oldest";
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const offset = (page - 1) * AUDIT_PAGE_SIZE;
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
 
   const staffResult = await supabase
     .from("staff_users")

@@ -9,7 +9,7 @@ import { confirmPreorderAllocation } from "@/app/actions/preorder-allocation";
 import { requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
 import { previewPreorderAllocationForSku } from "@/lib/preorders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function AllocationPage({
   const { skuId } = await params;
   await requireControlPermission("preorders.allocate", `/control/orders/allocations/${skuId}`);
   await requireControlPermission("refunds.manage", `/control/orders/allocations/${skuId}`);
-  const preview = await previewPreorderAllocationForSku(createServiceClient(), skuId);
+  const preview = await previewPreorderAllocationForSku(createSecretClient(), skuId);
   const error = (await searchParams)?.error;
   return (
     <div className="space-y-8">

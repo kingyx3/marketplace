@@ -7,7 +7,7 @@ import { adminCatalogProductCreateFromForm } from "@/lib/admin-catalog-forms";
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
 import type { TcgplayerSkuImportDraft } from "@/lib/tcgplayer-sku-import";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 const SKU_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const MAX_IMPORTED_SKUS = 50;
@@ -31,7 +31,7 @@ export async function createTcgplayerCatalogProduct(
       "TCGplayer product ID",
     );
     const importedSkus = parseImportedSkus(formData.get("tcgplayerSkus"));
-    const { data, error } = await createServiceClient().rpc(
+    const { data, error } = await createSecretClient().rpc(
       "admin_create_tcgplayer_catalog_product",
       {
         p_category_id: input.categoryId,

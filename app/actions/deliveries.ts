@@ -8,7 +8,7 @@ import {
   adminDeliveryStatusFromForm,
 } from "@/lib/admin-delivery-forms";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export async function markDeliveryPacking(formData: FormData) {
   const { orderId } = adminDeliveryPackingFromForm(formData);
@@ -17,7 +17,7 @@ export async function markDeliveryPacking(formData: FormData) {
     `/control/fulfilment/deliveries/${orderId}`
   );
 
-  const { error } = await createServiceClient().rpc("admin_mark_order_packing", {
+  const { error } = await createSecretClient().rpc("admin_mark_order_packing", {
     p_order_id: orderId,
     p_actor: `staff:${user.id}`,
   });
@@ -33,7 +33,7 @@ export async function arrangeDelivery(formData: FormData) {
     "fulfilment.manage",
     `/control/fulfilment/deliveries/${orderId}`
   );
-  const { error } = await createServiceClient().rpc("admin_arrange_delivery", {
+  const { error } = await createSecretClient().rpc("admin_arrange_delivery", {
     p_order_id: orderId,
     p_carrier: input.carrier,
     p_tracking_number: input.trackingNumber,
@@ -52,7 +52,7 @@ export async function updateDeliveryStatus(formData: FormData) {
     "fulfilment.manage",
     `/control/fulfilment/deliveries/${orderId}`
   );
-  const { error } = await createServiceClient().rpc("admin_update_delivery_status", {
+  const { error } = await createSecretClient().rpc("admin_update_delivery_status", {
     p_order_id: orderId,
     p_shipment_id: input.shipmentId,
     p_status: input.status,

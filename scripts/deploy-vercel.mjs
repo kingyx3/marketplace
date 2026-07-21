@@ -21,12 +21,18 @@ const revision = sourceRevision();
 const deploymentKey = createHash("sha256")
   .update(`${targetEnv}\n${target}\n${revision}\n${configFingerprint}`)
   .digest("hex");
-const existing = await findReadyDeployment(deploymentKey);
+const reuseEnabled = targetEnv !== "development";
+const existing = reuseEnabled ? await findReadyDeployment(deploymentKey) : null;
 if (existing) {
   const deploymentUrl = normalizeDeploymentUrl(existing.url);
   console.log(`Reusing ready ${targetEnv} Vercel deployment for revision ${revision}.`);
   await exportDeploymentUrl(deploymentUrl);
   process.exit(0);
+}
+if (!reuseEnabled) {
+  console.log(
+    "Creating a fresh development Vercel deployment so reconciled runtime environment changes are applied."
+  );
 }
 
 const args = [

@@ -9,13 +9,13 @@ import {
   fetchControlProducts,
   fetchControlSets,
 } from "@/lib/control-catalog";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function ControlCatalogPage() {
   const { staff } = await requireControlPermission("catalog.view", "/control/catalog");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [products, categories, sets] = await Promise.all([
     fetchControlProducts(supabase),
     fetchControlCategories(supabase),

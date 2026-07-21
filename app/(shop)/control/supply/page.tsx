@@ -17,7 +17,7 @@ import {
   type InventorySort,
 } from "@/lib/control-supply-view";
 import { formatMoney } from "@/lib/money";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,7 @@ export default async function ControlSupplyPage({
   const stockFilter = parseInventoryFilter(params.stock);
   const inventorySort = parseInventorySort(params.sort);
   const requestedPage = Math.max(1, Number.parseInt(params.inventoryPage ?? "1", 10) || 1);
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [inventory, purchaseOrders] = await Promise.all([
     fetchControlInventory(supabase),
     fetchControlPurchaseOrders(supabase),

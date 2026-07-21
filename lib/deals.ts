@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { hasSupabasePublicEnv } from "@/lib/env";
-import { createAnonClient, createUserClient } from "@/lib/supabase";
+import { createPublishableClient, createUserClient } from "@/lib/supabase";
 
 export const PUBLIC_DEAL_PREVIEW_LIMIT = 3;
 
@@ -61,7 +61,7 @@ export async function getStorefrontDeals({
   if (!hasSupabasePublicEnv()) return [];
 
   try {
-    const supabase = signedIn ? await createUserClient() : createAnonClient();
+    const supabase = signedIn ? await createUserClient() : createPublishableClient();
     return await queryStorefrontDeals(supabase, limit);
   } catch (error) {
     console.error("limited-time deal lookup failed:", safeErrorMessage(error));
@@ -79,7 +79,7 @@ export async function getStorefrontDealForSku({
   if (!hasSupabasePublicEnv()) return null;
 
   try {
-    const supabase = signedIn ? await createUserClient() : createAnonClient();
+    const supabase = signedIn ? await createUserClient() : createPublishableClient();
     const deals = await queryStorefrontDeals(supabase, 20, skuId);
     return deals.sort((a, b) => b.discountBps - a.discountBps)[0] ?? null;
   } catch (error) {

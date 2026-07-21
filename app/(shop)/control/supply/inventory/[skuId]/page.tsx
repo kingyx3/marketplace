@@ -16,7 +16,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { updateInventory } from "@/app/actions/admin";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { fetchControlInventory } from "@/lib/control-supply";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function InventoryRecordPage({
     "supply.view",
     `/control/supply/inventory/${skuId}`
   );
-  const row = (await fetchControlInventory(createServiceClient())).find(
+  const row = (await fetchControlInventory(createSecretClient())).find(
     (item) => item.skuId === skuId
   );
   if (!row) notFound();

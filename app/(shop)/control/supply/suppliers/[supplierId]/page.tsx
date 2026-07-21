@@ -11,7 +11,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { setControlSupplierActive } from "@/app/actions/control";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ export default async function SupplierDetailPage({
     `/control/supply/suppliers/${supplierId}`
   );
   const canManage = hasControlPermission(staff, "suppliers.manage");
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("suppliers")
     .select(
       "id, name, supplier_type, region, contact, payment_terms, min_order_cents, currency, notes, active, updated_at"

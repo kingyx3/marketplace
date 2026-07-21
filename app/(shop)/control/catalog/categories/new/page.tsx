@@ -6,7 +6,7 @@ import {
 import { ControlBackLink } from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export default async function NewCategoryPage({
 }) {
   await requireControlPermission("catalog.manage", "/control/catalog/categories/new");
   const params = (await searchParams) ?? {};
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("tcg_categories")
     .select("id, parent_id, slug, name, publisher, description, sort_order, active")
     .order("sort_order")

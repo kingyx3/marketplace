@@ -20,7 +20,7 @@ import { catalogSkuErrorCode, catalogSkuErrorMessage } from "@/lib/catalog-sku-e
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
 import { logError, logWarn } from "@/lib/observability";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export async function createCatalogProduct(
   _previousState: CatalogProductActionState,
@@ -32,7 +32,7 @@ export async function createCatalogProduct(
 
   try {
     const input = adminCatalogProductCreateFromForm(formData);
-    const supabase = createServiceClient();
+    const supabase = createSecretClient();
 
     const { data, error } = await supabase.rpc("admin_create_catalog_product_hierarchy", {
       p_category_id: input.categoryId,
@@ -114,7 +114,7 @@ export async function upsertCatalogProduct(formData: FormData) {
   const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   const input = adminCatalogProductFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_upsert_catalog_product", {
+  const { error } = await createSecretClient().rpc("admin_upsert_catalog_product", {
     p_product_id: input.productId,
     p_name: input.name,
     p_category_id: input.categoryId,
@@ -141,7 +141,7 @@ export async function setCatalogProductActive(formData: FormData) {
   const productId = requiredUuid(formData, "productId", "productId");
   const active = requiredBoolean(formData, "active");
 
-  const { error } = await createServiceClient().rpc("admin_set_product_active", {
+  const { error } = await createSecretClient().rpc("admin_set_product_active", {
     p_product_id: productId,
     p_active: active,
     p_actor: `staff:${user.id}`,
@@ -165,7 +165,7 @@ export async function uploadCatalogProductImage(formData: FormData) {
     throw new Error("Product image format is not supported");
   }
 
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const extension = productImageExtension(image.type);
   const path = `${productId}/${randomUUID()}.${extension}`;
   const { error: uploadError } = await supabase.storage
@@ -199,7 +199,7 @@ export async function upsertCatalogSku(formData: FormData) {
 
   try {
     const input = adminCatalogSkuFromForm(formData);
-    const { error } = await createServiceClient().rpc("admin_upsert_catalog_sku", {
+    const { error } = await createSecretClient().rpc("admin_upsert_catalog_sku", {
       p_sku_id: input.skuId,
       p_product_id: input.productId,
       p_sku: input.sku,
@@ -257,7 +257,7 @@ export async function setCatalogSkuActive(formData: FormData) {
   const productId = requiredUuid(formData, "productId", "productId");
   const active = requiredBoolean(formData, "active");
 
-  const { error } = await createServiceClient().rpc("admin_set_booster_box_sku_active", {
+  const { error } = await createSecretClient().rpc("admin_set_booster_box_sku_active", {
     p_sku_id: skuId,
     p_active: active,
     p_actor: `staff:${user.id}`,

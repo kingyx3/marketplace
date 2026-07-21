@@ -9,7 +9,7 @@ import type { CategoryRecord } from "@/app/(shop)/control/_components/category-f
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function ControlCategoriesPage({
   const query = params.q?.trim().toLowerCase() ?? "";
   const status =
     params.status === "active" ? "active" : params.status === "archived" ? "archived" : "all";
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
 
   const [categoryResult, productResult, setResult] = await Promise.all([
     supabase

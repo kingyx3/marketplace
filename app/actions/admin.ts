@@ -16,7 +16,7 @@ import { adminOrderActionFromForm } from "@/lib/admin-order-forms";
 import { adminPurchaseOrderFromForm } from "@/lib/admin-purchase-order-forms";
 import { requireControlPermission } from "@/lib/control-access";
 import { performAdminOrderAction } from "@/lib/orders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export async function upsertLimitedTimeDeal(formData: FormData) {
   const sourceId = optionalFormId(formData, "dealId");
@@ -25,7 +25,7 @@ export async function upsertLimitedTimeDeal(formData: FormData) {
   const input = adminLimitedTimeDealFromForm(formData);
   if (input.active) await requireControlPermission("pricing.approve", returnPath);
 
-  const { data, error } = await createServiceClient().rpc("admin_upsert_pricing_promotion", {
+  const { data, error } = await createSecretClient().rpc("admin_upsert_pricing_promotion", {
     p_deal_id: input.dealId,
     p_code: input.code,
     p_sku_id: input.skuId,
@@ -65,7 +65,7 @@ export async function setLimitedTimeDealActive(formData: FormData) {
   );
   const input = adminLimitedTimeDealStatusFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_set_pricing_promotion_active", {
+  const { error } = await createSecretClient().rpc("admin_set_pricing_promotion_active", {
     p_deal_id: input.dealId,
     p_active: input.active,
     p_actor_auth_user_id: user.id,
@@ -91,7 +91,7 @@ export async function upsertListingItem(formData: FormData) {
   );
   const input = adminListingItemFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_upsert_storefront_listing", {
+  const { error } = await createSecretClient().rpc("admin_upsert_storefront_listing", {
     p_product_id: input.productId,
     p_title_override: input.titleOverride,
     p_badge_label: input.badgeLabel,
@@ -127,7 +127,7 @@ export async function setListingPublished(formData: FormData) {
     "storefront.publish",
     productId ? `/control/storefront/listings/${productId}` : "/control/storefront/listings"
   );
-  const { error } = await createServiceClient().rpc("admin_set_listing_publication", {
+  const { error } = await createSecretClient().rpc("admin_set_listing_publication", {
     p_product_id: productId,
     p_published: published,
     p_actor_auth_user_id: user.id,
@@ -155,7 +155,7 @@ export async function upsertStorefrontConfiguration(formData: FormData) {
   );
   const input = adminStorefrontConfigurationFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_upsert_storefront_configuration", {
+  const { error } = await createSecretClient().rpc("admin_upsert_storefront_configuration", {
     p_key: input.key,
     p_label: input.label,
     p_description: input.description,
@@ -177,7 +177,7 @@ export async function updateInventory(formData: FormData) {
   const { user } = await requireControlPermission("inventory.adjust", "/control/supply");
   const input = adminInventoryAdjustmentFromForm(formData);
 
-  const { error } = await createServiceClient().rpc("admin_adjust_inventory", {
+  const { error } = await createSecretClient().rpc("admin_adjust_inventory", {
     p_sku_id: input.skuId,
     p_on_hand: input.onHand,
     p_incoming: input.incoming,
@@ -210,7 +210,7 @@ export async function runAdminOrderAction(formData: FormData) {
         : "/control/orders";
   const { user } = await requireControlPermission(permission, returnPath);
 
-  await performAdminOrderAction(createServiceClient(), orderId, body, `staff:${user.id}`);
+  await performAdminOrderAction(createSecretClient(), orderId, body, `staff:${user.id}`);
 
   revalidatePath("/control");
   revalidatePath("/control/orders");
@@ -224,7 +224,7 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
   const { user } = await requireControlPermission("purchase_orders.manage", "/control/supply");
   const input = adminPurchaseOrderFromForm(formData);
 
-  const { data, error } = await createServiceClient().rpc("admin_create_supplier_purchase_order", {
+  const { data, error } = await createSecretClient().rpc("admin_create_supplier_purchase_order", {
     p_supplier_id: input.supplierId,
     p_sku_id: input.skuId,
     p_quantity: input.quantity,

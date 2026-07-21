@@ -15,7 +15,7 @@ import { runAdminOrderAction } from "@/app/actions/admin";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
 import { getAdminOrder } from "@/lib/orders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { toOne } from "@/lib/supabase-relations";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export default async function NormalOrderPage({
     "orders.view",
     `/control/orders/normal/${orderId}`
   );
-  const order = await getAdminOrder(createServiceClient(), orderId);
+  const order = await getAdminOrder(createSecretClient(), orderId);
   const customer = toOne(order.customers);
   const canManage = hasControlPermission(staff, "orders.manage");
   return (

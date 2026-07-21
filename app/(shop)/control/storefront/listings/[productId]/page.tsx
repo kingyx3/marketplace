@@ -16,7 +16,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { setListingPublished } from "@/app/actions/admin";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { fetchControlProduct } from "@/lib/control-catalog";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,7 @@ export default async function ListingDetailPage({
     "storefront.view",
     `/control/storefront/listings/${productId}`
   );
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("products")
     .select(
       "id, name, slug, active, listing_items(id, title_override, badge_label, tags, max_per_customer, preorder_reserve, sort_priority, featured, availability_mode, order_open_at, order_close_at, release_date, published)"
@@ -49,10 +49,10 @@ export default async function ListingDetailPage({
 
   const product = data as unknown as ProductRow;
   const listing = one(product.listing_items);
-  const catalogProduct = await fetchControlProduct(productId, createServiceClient());
+  const catalogProduct = await fetchControlProduct(productId, createSecretClient());
   const skuIds = catalogProduct?.skus.map((sku) => sku.skuId) ?? [];
   const inventoryResult = skuIds.length
-    ? await createServiceClient()
+    ? await createSecretClient()
         .from("inventory")
         .select("sku_id, available, safety_stock")
         .in("sku_id", skuIds)

@@ -8,9 +8,8 @@ const nonPersistentAuth = {
   detectSessionInUrl: false,
 } as const;
 
-interface SupabaseServerKeyEnvironment {
+interface SupabaseSecretEnvironment {
   SUPABASE_SECRET_KEY?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
   [key: string]: string | undefined;
 }
 
@@ -30,14 +29,11 @@ export function createPublishableClient(): SupabaseClient {
   return createClient(url, key, { auth: nonPersistentAuth });
 }
 
-/**
- * Resolve the preferred modern Supabase secret key while retaining compatibility
- * with projects that still expose the legacy service-role environment variable.
- */
+/** Normalize the canonical server-only Supabase secret key. */
 export function resolveSupabaseSecretKey(
-  env: SupabaseServerKeyEnvironment = process.env
+  env: SupabaseSecretEnvironment = process.env
 ): string {
-  return env.SUPABASE_SECRET_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
+  return env.SUPABASE_SECRET_KEY?.trim() || "";
 }
 
 /**
@@ -49,18 +45,10 @@ export function createSecretClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = resolveSupabaseSecretKey();
   if (!url || !key) {
-    throw new Error(
-      "Supabase secret key is not configured (SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY)"
-    );
+    throw new Error("Supabase secret key is not configured (SUPABASE_SECRET_KEY)");
   }
   return createClient(url, key, { auth: nonPersistentAuth });
 }
-
-/** Server-only compatibility name used by existing application services. */
-export const createAnonClient = createPublishableClient;
-
-/** Server-only compatibility name used by existing privileged application services. */
-export const createServiceClient = createSecretClient;
 
 /**
  * Cookie-backed client for Server Components, Route Handlers, and Server Actions.

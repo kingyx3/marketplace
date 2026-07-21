@@ -5,7 +5,7 @@ import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/c
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,7 @@ export default async function CustomerDetailPage({
     "customers.view",
     `/control/customers/${customerId}`
   );
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("customers")
     .select(
       "id, auth_user_id, email, name, provisioning_state, deleted_at, deletion_actor, restored_at, restoration_actor, created_at, updated_at, orders(id), preorders(id)"

@@ -8,7 +8,7 @@ import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/c
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export default async function AdministratorDetailPage({
     "governance.view",
     `/control/governance/administrators/${grantId}`
   );
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("admin_access_grants")
     .select(
       "id, email, role, active, auth_user_id, created_by_staff_id, accepted_at, created_at, updated_at, admin_access_grant_permissions(permission_key)"

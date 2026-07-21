@@ -5,7 +5,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { toOne } from "@/lib/supabase-relations";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export default async function PurchaseOrderPage({
     "supply.view",
     `/control/supply/purchase-orders/${purchaseOrderId}`
   );
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("purchase_orders")
     .select(
       "id, status, currency, placed_at, expected_at, total_cents, notes, created_at, suppliers(name), purchase_order_items(id, quantity, unit_cost_cents, received_quantity, booster_box_skus(sku))"

@@ -15,7 +15,7 @@ import {
 } from "@/lib/deliveries";
 import { formatMoney } from "@/lib/money";
 import { formatDate, formatStatus } from "@/lib/order-display";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ export default async function ControlDeliveriesPage({
   );
   const params = (await searchParams) ?? {};
   const filter = deliveryFilter(params.status);
-  const orders = await listAdminDeliveryOrders(createServiceClient());
+  const orders = await listAdminDeliveryOrders(createSecretClient());
   const visibleOrders = orders.filter((order) => matchesFilter(order, filter));
   const readyCount = orders.filter((order) => !order.latestShipment).length;
   const arrangedCount = orders.filter((order) =>

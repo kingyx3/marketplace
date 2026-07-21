@@ -10,7 +10,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import type { StaffRole } from "@/lib/admin-staff";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 interface StaffRow {
   id: string;
@@ -39,7 +39,7 @@ export default async function ControlAdministratorsPage({
   const query = params.q?.trim().toLowerCase() ?? "";
   const status =
     params.status === "active" ? "active" : params.status === "revoked" ? "revoked" : "all";
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [staffResult, grantResult] = await Promise.all([
     supabase
       .from("staff_users")

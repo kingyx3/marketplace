@@ -1,5 +1,5 @@
 import { hasSupabasePublicEnv } from "@/lib/env";
-import { createAnonClient, createServiceClient } from "@/lib/supabase";
+import { createPublishableClient, createSecretClient } from "@/lib/supabase";
 import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
 export type CatalogChannel = "b2c";
@@ -118,7 +118,7 @@ const CATALOG_SELECT = `
 
 export async function getCatalogProducts(): Promise<CatalogProduct[] | null> {
   if (!hasSupabasePublicEnv()) return null;
-  const supabase = createAnonClient();
+  const supabase = createPublishableClient();
   const { data, error } = await supabase
     .from("products")
     .select(CATALOG_SELECT)
@@ -136,7 +136,7 @@ export async function getCatalogProducts(): Promise<CatalogProduct[] | null> {
 
 export async function getCatalogProduct(slug: string): Promise<CatalogProduct | null> {
   if (!hasSupabasePublicEnv()) return null;
-  const supabase = createAnonClient();
+  const supabase = createPublishableClient();
   const { data, error } = await supabase
     .from("products")
     .select(CATALOG_SELECT)
@@ -153,7 +153,7 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
 }
 
 export async function getSkuQuote(items: Array<{ skuId: string; quantity: number }>) {
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const skuIds = items.map((item) => item.skuId);
   if (skuIds.length === 0) return { lines: [], subtotalCents: 0, currency: "SGD" };
 

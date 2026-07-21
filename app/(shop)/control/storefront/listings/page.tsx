@@ -10,7 +10,7 @@ import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +49,7 @@ export default async function ControlListingsPage({
   const params = (await searchParams) ?? {};
   const query = params.q?.trim().toLowerCase() ?? "";
   const status = params.status === "live" ? "live" : params.status === "hidden" ? "hidden" : "all";
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [productsResult, configurationResult] = await Promise.all([
     supabase
       .from("products")

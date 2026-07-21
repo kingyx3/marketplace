@@ -8,7 +8,7 @@ import {
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export default async function StorefrontConfigurationDetailPage({
     "storefront.view",
     `/control/storefront/listings/configurations/${configurationKey}`
   );
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("storefront_configurations")
     .select("key, label, description, value, active")
     .eq("key", configurationKey)

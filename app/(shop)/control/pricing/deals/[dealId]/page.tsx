@@ -15,7 +15,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { setLimitedTimeDealActive } from "@/app/actions/admin";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export default async function DealDetailPage({
   );
   const canManage = hasControlPermission(staff, "pricing.manage");
   const canApprove = hasControlPermission(staff, "pricing.approve");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [dealResult, skuResult] = await Promise.all([
     supabase
       .from("limited_time_deals")

@@ -13,7 +13,7 @@ import {
   fetchControlSets,
 } from "@/lib/control-catalog";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 type ControlProductPageProps = {
   params: Promise<{ productId: string }>;
@@ -27,7 +27,7 @@ export default async function ControlProductPage({ params }: ControlProductPageP
     "catalog.view",
     `/control/catalog/products/${productId}`
   );
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [product, categories, sets, productTypes, listingResult] = await Promise.all([
     fetchControlProduct(productId, supabase),
     fetchControlCategories(supabase),

@@ -6,7 +6,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
 import { listPreorderAllocationSkus } from "@/lib/preorders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function ControlPreorderAllocationPage({
   await requireControlPermission("preorders.allocate", "/control/orders/allocations");
   await requireControlPermission("refunds.manage", "/control/orders/allocations");
   const params = (await searchParams) ?? {};
-  const options = await listPreorderAllocationSkus(createServiceClient());
+  const options = await listPreorderAllocationSkus(createSecretClient());
 
   return (
     <div className="space-y-8">

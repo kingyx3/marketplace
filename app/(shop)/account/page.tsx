@@ -18,7 +18,7 @@ import {
   type LivePreorder,
 } from "@/lib/order-display";
 import { listCustomerOrders, listCustomerPreorders } from "@/lib/orders";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 import { listCustomerWaitlist, type CustomerWaitlistEntry } from "@/lib/waitlist";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export default async function AccountPage({
   const params = (await searchParams) ?? {};
   const appName = getAppName();
   const { customer } = await requireCustomer("/account");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   let recentOrders: LiveOrder[] = [];
   let recentPreorders: LivePreorder[] = [];
   let recentWaitlist: CustomerWaitlistEntry[] = [];

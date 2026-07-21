@@ -86,7 +86,7 @@ describe("customer provisioning", () => {
   it("wires browser-session account access through idempotent provisioning", async () => {
     const source = await readFile(new URL("../lib/auth.ts", import.meta.url), "utf8");
 
-    expect(source).toContain("findOrCreateCustomer(createServiceClient(), user)");
+    expect(source).toContain("findOrCreateCustomer(createSecretClient(), user)");
     expect(source).not.toContain(
       'throw new AuthenticationError("Customer profile has not been provisioned")'
     );

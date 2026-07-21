@@ -10,7 +10,7 @@ import { MetricCard } from "@/app/_components/metric-card";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export default async function ControlDealsPage({
   const query = params.q?.trim().toLowerCase() ?? "";
   const status =
     params.status === "active" ? "active" : params.status === "inactive" ? "inactive" : "all";
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("limited_time_deals")
     .select(
       "id, code, sku_id, title, description, discount_bps, visibility, starts_at, ends_at, sort_priority, active"

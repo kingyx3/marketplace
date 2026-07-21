@@ -2,7 +2,7 @@ import { ControlBackLink } from "@/app/(shop)/control/_components/control-resour
 import { DealForm, type DealSkuOption } from "@/app/(shop)/control/_components/deal-form";
 import { PageHeader } from "@/app/_components/page-header";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,7 @@ export default async function NewDealPage({
 }
 
 async function fetchDealSkus(): Promise<DealSkuOption[]> {
-  const { data, error } = await createServiceClient()
+  const { data, error } = await createSecretClient()
     .from("booster_box_skus")
     .select("id, sku, active, product_variants!inner(products!inner(name, active))")
     .order("sku", { ascending: true });

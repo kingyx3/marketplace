@@ -16,7 +16,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { setControlSetActive } from "@/app/actions/control";
 import { requireControlPermission } from "@/lib/control-access";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,7 @@ export default async function SetDetailPage({
 }) {
   const { setId } = await params;
   await requireControlPermission("catalog.manage", `/control/catalog/sets/${setId}`);
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const paramsValue = (await searchParams) ?? {};
   const [setResult, categoryResult, productCountResult] = await Promise.all([
     supabase

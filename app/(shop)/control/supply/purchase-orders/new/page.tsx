@@ -12,13 +12,13 @@ import { PageHeader } from "@/app/_components/page-header";
 import { recordSupplierPurchaseOrder } from "@/app/actions/admin";
 import { requireControlPermission } from "@/lib/control-access";
 import { fetchControlInventory, fetchControlSupplierOptions } from "@/lib/control-supply";
-import { createServiceClient } from "@/lib/supabase";
+import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewPurchaseOrderPage() {
   await requireControlPermission("purchase_orders.manage", "/control/supply/purchase-orders/new");
-  const supabase = createServiceClient();
+  const supabase = createSecretClient();
   const [inventory, suppliers] = await Promise.all([
     fetchControlInventory(supabase),
     fetchControlSupplierOptions(supabase),

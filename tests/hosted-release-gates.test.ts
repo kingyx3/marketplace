@@ -22,7 +22,7 @@ describe("hosted production release gates", () => {
     expect(workflow).toContain("vars.ENABLE_RELEASE_TOPOLOGY != 'true'");
   });
 
-  it("requires real hosted identity, HitPay, restore, alert, and provider evidence", async () => {
+  it("requires real hosted identity, HitPay, alert, and provider evidence", async () => {
     const workflow = await readFile(
       new URL("../.github/workflows/hosted-release-gates.yml", import.meta.url),
       "utf8"
@@ -35,14 +35,13 @@ describe("hosted production release gates", () => {
       "verify-hosted-supabase.mjs",
       "verify-hitpay-staging.mjs",
       "verify-hosted-operations.mjs",
-      "verify-hosted-restore.sh",
       "verify-supabase-provider-readiness.mjs",
     ]) {
       expect(workflow).toContain(command);
     }
+    expect(workflow).not.toContain("verify-hosted-restore.sh");
     expect(workflow).toContain("environment: staging");
     expect(workflow).toContain("environment: production");
-    expect(workflow).toContain("RESTORE_DRILL_ALLOW_DESTRUCTIVE: I_UNDERSTAND");
     expect(workflow).toContain("SUPABASE_REQUIRED_BACKUP_MODE: pitr");
     expect(workflow).toContain("ADMIN_EMAIL_ALLOWLIST: ${{ vars.ADMIN_EMAIL_ALLOWLIST }}");
 
@@ -79,7 +78,7 @@ describe("hosted production release gates", () => {
     expect(variables).toContain("default     = false");
   });
 
-  it("keeps the restore target explicitly destructive and separate", async () => {
+  it("keeps the standalone restore target explicitly destructive and separate", async () => {
     const script = await readFile(
       new URL("../scripts/verify-hosted-restore.sh", import.meta.url),
       "utf8"
