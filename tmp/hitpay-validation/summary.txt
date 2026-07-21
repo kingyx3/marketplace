@@ -1,4 +1,0 @@
-lint=0
-typecheck=0
-tests=0
-config=0
