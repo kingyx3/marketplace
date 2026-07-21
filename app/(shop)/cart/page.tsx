@@ -26,6 +26,7 @@ export default async function CartPage({
   const params = (await searchParams) ?? {};
   const cartItems = await readCart();
   const user = await getCurrentUser();
+  const recipientName = authenticatedDisplayName(user?.user_metadata);
   let quote;
   let quoteError: string | null = null;
 
@@ -247,12 +248,36 @@ export default async function CartPage({
               </p>
             ) : null}
 
-            <CartCheckoutPanel
-              disabled={Boolean(quoteError) || hasAvailabilityIssue}
-              items={cartItems}
-              supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
-              supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
-            />
+            {user ? (
+              <CartCheckoutPanel
+                disabled={Boolean(quoteError) || hasAvailabilityIssue}
+                initialRecipientName={recipientName}
+                items={cartItems}
+                supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
+                supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
+              />
+            ) : (
+              <div className="mt-6 grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-4">
+                <div>
+                  <p className="font-semibold text-emerald-950">Sign in to place your order</p>
+                  <p className="mt-1 text-sm leading-6 text-emerald-900">
+                    Your account keeps the order, payment status, and delivery details linked to you.
+                  </p>
+                </div>
+                <Link
+                  className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
+                  href="/sign-in?next=%2Fcart"
+                >
+                  Sign in to continue
+                </Link>
+                <Link
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
+                  href="/products"
+                >
+                  Keep shopping
+                </Link>
+              </div>
+            )}
           </aside>
         </section>
       )}
@@ -272,6 +297,17 @@ async function currentDealDiscounts(
     console.error("cart deal lookup failed:", safeError(error));
     return new Map();
   }
+}
+
+function authenticatedDisplayName(metadata: Record<string, unknown> | undefined): string {
+  const directName = metadata?.full_name ?? metadata?.name;
+  if (typeof directName === "string" && directName.trim()) {
+    return directName.trim();
+  }
+
+  const givenName = typeof metadata?.given_name === "string" ? metadata.given_name.trim() : "";
+  const familyName = typeof metadata?.family_name === "string" ? metadata.family_name.trim() : "";
+  return [givenName, familyName].filter(Boolean).join(" ");
 }
 
 function safeError(error: unknown): string {
