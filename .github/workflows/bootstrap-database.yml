@@ -45,9 +45,10 @@ jobs:
         with:
           terraform_version: 1.15.8
       - run: npm ci
+      - name: Resolve Terraform inputs
+        run: node scripts/resolve-terraform-inputs.mjs bootstrap
       - name: Resolve selected database from provisioned CI/CD state
         run: |
-          node scripts/resolve-terraform-inputs.mjs bootstrap
           terraform -chdir=infra/terraform/platform init \
             -input=false \
             -lockfile=readonly \
@@ -62,4 +63,14 @@ jobs:
       - name: Validate bootstrap contract
         run: npx vitest run tests/database-bootstrap.test.ts
       - name: Upsert test data and verify storefront visibility
-        run: npm run db:bootstrap -- --target="${{ inputs.environment }}"
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run db:bootstrap -- --target="${{ inputs.environment }}" 2>&1 | tee database-bootstrap.log
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: database-bootstrap-log-${{ inputs.environment }}
+          path: database-bootstrap.log
+          if-no-files-found: ignore
+          retention-days: 7

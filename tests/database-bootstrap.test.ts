@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   DATABASE_BOOTSTRAP_TARGETS,
   SEEDED_PUBLIC_TABLES,
+  assertTargetSafety,
   compareBootstrapCoverage,
   discoverActivePublicTables,
 } from "../scripts/bootstrap-database.mjs";
@@ -13,6 +14,18 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 describe("database bootstrap", () => {
   it("is restricted to development and staging", () => {
     expect(DATABASE_BOOTSTRAP_TARGETS).toEqual(["development", "staging"]);
+  });
+
+  it("checks database safety independently from the deployment hostname", () => {
+    expect(() =>
+      assertTargetSafety("development", "https://development-project.supabase.co")
+    ).not.toThrow();
+    expect(() =>
+      assertTargetSafety("development", "https://production-project.supabase.co")
+    ).toThrow("production-looking database URL");
+    expect(() =>
+      assertTargetSafety("production", "https://development-project.supabase.co")
+    ).toThrow("Production database bootstrap is prohibited");
   });
 
   it("has an upsert handler for every active public application table", async () => {
@@ -51,12 +64,24 @@ describe("database bootstrap", () => {
     expect(workflow).not.toContain("workflow_dispatch:");
     expect(workflow).toContain("environment: ${{ inputs.environment }}");
     expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: ${{ inputs.deployment_url }}");
+    expect(workflow).toContain("- name: Resolve Terraform inputs");
     expect(workflow).toContain("resolve-terraform-inputs.mjs bootstrap");
     expect(workflow).toContain("resolve-environment.mjs");
     expect(workflow).toContain("--verify-supabase-keys");
     expect(workflow).not.toContain("APP_NAME:");
     expect(workflow).not.toContain("VERCEL_TOKEN:");
     expect(workflow).not.toContain("SUPABASE_SECRET_KEY: ${{ secrets.");
+
+    const resolverStep = workflow.indexOf("- name: Resolve Terraform inputs");
+    const databaseStep = workflow.indexOf(
+      "- name: Resolve selected database from provisioned CI/CD state"
+    );
+    expect(resolverStep).toBeGreaterThan(-1);
+    expect(databaseStep).toBeGreaterThan(resolverStep);
+    expect(workflow.slice(resolverStep, databaseStep)).toContain(
+      "resolve-terraform-inputs.mjs bootstrap"
+    );
+    expect(workflow.slice(resolverStep, databaseStep)).not.toContain("terraform -chdir");
 
     expect(deploy).toContain("bootstrap-test-data:");
     expect(deploy).toContain("uses: ./.github/workflows/bootstrap-database.yml");
@@ -69,9 +94,39 @@ describe("database bootstrap", () => {
     expect(resolver).toContain('mode === "bootstrap"');
     expect(pkg.scripts["db:bootstrap"]).toBe("node scripts/bootstrap-database.mjs");
 
+    const grantSeedStart = script.indexOf(
+      "const { data: existingGrant, error: existingGrantError } = await client"
+    );
+    const grantSeedEnd = script.indexOf("await verifyReferenceRow", grantSeedStart);
+    expect(grantSeedStart).toBeGreaterThan(-1);
+    expect(grantSeedEnd).toBeGreaterThan(grantSeedStart);
+    const grantSeed = script.slice(grantSeedStart, grantSeedEnd);
+    expect(grantSeed).toContain('.select("accepted_at")');
+    expect(grantSeed).toContain(
+      "accepted_at: existingGrant?.accepted_at ?? now.toISOString()"
+    );
+
+    expect(script).not.toContain("listing_items!listing_items_product_id_key");
+    expect(script).toContain('.from("listing_items")');
+    expect(script).toContain('.eq("product_id", FIXTURE_IDS.product)');
+    expect(script).toContain("Bootstrap listing verification query failed");
+    expect(script).toContain("Anonymous listing read failed");
+
+    expect(script.match(/const HOSTED_FETCH_ATTEMPTS = 5;/g)).toHaveLength(1);
+    expect(script.match(/const HOSTED_FETCH_TIMEOUT_MS = 15_000;/g)).toHaveLength(1);
+    expect(script).toContain("AbortSignal.timeout(HOSTED_FETCH_TIMEOUT_MS)");
+    expect(script).toContain("fetch failed after ${HOSTED_FETCH_ATTEMPTS} attempts");
+    expect(script).toContain('headers["x-vercel-protection-bypass"] = vercelBypassSecret;');
+    expect(script).not.toContain("x-vercel-set-bypass-cookie");
+
+    expect(script).toContain("assertTargetSafety(target, supabaseUrl);");
+    expect(script).not.toContain("assertTargetSafety(target, supabaseUrl, siteUrl);");
     expect(script).toContain('rpc(client, "admin_upsert_category"');
     expect(script).toContain('rpc(client, "admin_upsert_set_release"');
-    expect(script).toContain('rpc(client, "admin_upsert_catalog_product_with_publication"');
+    expect(script).toContain('rpc(client, "admin_upsert_catalog_product"');
+    expect(script).not.toContain(
+      'rpc(client, "admin_upsert_catalog_product_with_publication"'
+    );
     expect(script).toContain('rpc(client, "admin_upsert_catalog_sku"');
     expect(script).toContain('rpc(client, "admin_set_sku_price"');
     expect(script).toContain('rpc(client, "admin_upsert_supplier"');

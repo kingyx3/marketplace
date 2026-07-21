@@ -140,7 +140,7 @@ async function main() {
   const publishableKey = requireEnvironment("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   const siteUrl = requireEnvironment("NEXT_PUBLIC_SITE_URL");
   const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
-  assertTargetSafety(target, supabaseUrl, siteUrl);
+  assertTargetSafety(target, supabaseUrl);
 
   const secretClient = createClient(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -224,6 +224,16 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
     active: true,
     last_seen_at: now.toISOString(),
   });
+  const { data: existingGrant, error: existingGrantError } = await client
+    .from("admin_access_grants")
+    .select("accepted_at")
+    .eq("id", FIXTURE_IDS.grant)
+    .maybeSingle();
+  if (existingGrantError) {
+    throw new Error(
+      `Could not read bootstrap administrator grant: ${existingGrantError.message}`
+    );
+  }
   await upsert(client, "admin_access_grants", {
     id: FIXTURE_IDS.grant,
     email: actorEmail,
@@ -231,7 +241,7 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
     active: true,
     auth_user_id: actorUser.id,
     created_by_staff_id: FIXTURE_IDS.staff,
-    accepted_at: now.toISOString(),
+    accepted_at: existingGrant?.accepted_at ?? now.toISOString(),
     revoked_at: null,
   });
 
@@ -683,7 +693,7 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-  await rpc(client, "admin_upsert_catalog_product_with_publication", {
+  await rpc(client, "admin_upsert_catalog_product", {
     p_product_id: FIXTURE_IDS.product,
     p_name: PRODUCT_NAME,
     p_category_id: FIXTURE_IDS.category,
@@ -694,7 +704,6 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_language: "EN",
     p_image_url: null,
     p_active: true,
-    p_published: false,
     p_actor: `staff:${actorAuthUserId}`,
   });
   await rpc(client, "admin_upsert_catalog_sku", {
@@ -783,23 +792,33 @@ async function verifyCompletedIdempotency(client, actorId) {
 }
 
 async function verifySecretRead(client) {
-  const { data, error } = await client
+  const { data: product, error: productError } = await client
     .from("products")
     .select(
-      "id,slug,name,active,listing_items!listing_items_product_id_key(published,availability_mode),product_variants(booster_box_skus(id,active,sku_prices(active,price_cents,starts_at,ends_at),inventory(on_hand,allocated,safety_stock)))"
+      "id,slug,name,active,product_variants(booster_box_skus(id,active,sku_prices(active,price_cents,starts_at,ends_at),inventory(on_hand,allocated,safety_stock)))"
     )
     .eq("id", FIXTURE_IDS.product)
     .single();
-  if (error) throw new Error(`Bootstrap verification query failed: ${error.message}`);
+  if (productError) {
+    throw new Error(`Bootstrap product verification query failed: ${productError.message}`);
+  }
 
-  const listing = one(data.listing_items);
-  const variant = one(data.product_variants);
+  const { data: listing, error: listingError } = await client
+    .from("listing_items")
+    .select("published,availability_mode")
+    .eq("product_id", FIXTURE_IDS.product)
+    .single();
+  if (listingError) {
+    throw new Error(`Bootstrap listing verification query failed: ${listingError.message}`);
+  }
+
+  const variant = one(product.product_variants);
   const sku = one(variant?.booster_box_skus);
   const activePrice = (sku?.sku_prices ?? []).find((price) => price.active);
   const inventory = one(sku?.inventory);
   if (
-    !data.active ||
-    !listing?.published ||
+    !product.active ||
+    !listing.published ||
     listing.availability_mode !== "available_now" ||
     !sku?.active ||
     !activePrice ||
@@ -809,34 +828,50 @@ async function verifySecretRead(client) {
   ) {
     throw new Error("Bootstrap product does not satisfy the storefront visibility contract");
   }
-  return data;
+  return product;
 }
 
 async function verifyAnonymousRead(supabaseUrl, publishableKey) {
   const publicClient = createClient(supabaseUrl, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
-  const { data, error } = await publicClient
+  const { data: product, error: productError } = await publicClient
     .from("products")
-    .select("id,slug,listing_items!listing_items_product_id_key(published,availability_mode)")
+    .select("id,slug")
     .eq("id", FIXTURE_IDS.product)
     .single();
-  if (error) throw new Error(`Anonymous storefront read failed: ${error.message}`);
-  const listing = one(data.listing_items);
-  if (!listing?.published || listing.availability_mode !== "available_now") {
+  if (productError) {
+    throw new Error(`Anonymous product read failed: ${productError.message}`);
+  }
+
+  const { data: listing, error: listingError } = await publicClient
+    .from("listing_items")
+    .select("published,availability_mode")
+    .eq("product_id", FIXTURE_IDS.product)
+    .single();
+  if (listingError) {
+    throw new Error(`Anonymous listing read failed: ${listingError.message}`);
+  }
+  if (!product || !listing.published || listing.availability_mode !== "available_now") {
     throw new Error("Anonymous storefront read did not return the published bootstrap product");
   }
 }
+
+const HOSTED_FETCH_ATTEMPTS = 5;
+const HOSTED_FETCH_TIMEOUT_MS = 15_000;
 
 async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) {
   const base = new URL(siteUrl);
   const headers = { "user-agent": "marketplace-database-bootstrap/1.0" };
   if (vercelBypassSecret) {
     headers["x-vercel-protection-bypass"] = vercelBypassSecret;
-    headers["x-vercel-set-bypass-cookie"] = "true";
   }
 
-  const catalogResponse = await fetch(new URL("/products", base), { headers, redirect: "follow" });
+  const catalogResponse = await fetchHostedPage(
+    new URL("/products", base),
+    headers,
+    "Hosted catalog"
+  );
   if (!catalogResponse.ok) {
     throw new Error(`Hosted catalog verification failed with HTTP ${catalogResponse.status}`);
   }
@@ -845,13 +880,57 @@ async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) 
     throw new Error("Hosted catalog did not render the bootstrap product");
   }
 
-  const detailResponse = await fetch(new URL(`/products/${productSlug}`, base), {
+  const detailResponse = await fetchHostedPage(
+    new URL(`/products/${productSlug}`, base),
     headers,
-    redirect: "follow",
-  });
+    "Hosted product"
+  );
   if (!detailResponse.ok) {
     throw new Error(`Hosted product verification failed with HTTP ${detailResponse.status}`);
   }
+}
+
+async function fetchHostedPage(url, headers, label) {
+  let lastError;
+  for (let attempt = 1; attempt <= HOSTED_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers,
+        redirect: "follow",
+        signal: AbortSignal.timeout(HOSTED_FETCH_TIMEOUT_MS),
+      });
+      if (response.ok || attempt === HOSTED_FETCH_ATTEMPTS) return response;
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+      if (attempt === HOSTED_FETCH_ATTEMPTS) break;
+    }
+    await delay(attempt * 2_000);
+  }
+  throw new Error(
+    `${label} fetch failed after ${HOSTED_FETCH_ATTEMPTS} attempts for ${url.hostname}: ${describeError(lastError)}`
+  );
+}
+
+function describeError(error) {
+  if (!(error instanceof Error)) return String(error);
+  const details = [];
+  let current = error;
+  while (current) {
+    if (current instanceof Error) {
+      if (current.message) details.push(current.message);
+      if (current.code) details.push(String(current.code));
+      current = current.cause;
+    } else {
+      details.push(String(current));
+      break;
+    }
+  }
+  return [...new Set(details)].join(": ") || "unknown error";
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function ensureAuthUser(client, email, fullName) {
@@ -966,11 +1045,13 @@ function parseTarget(args, environmentTarget) {
   return target;
 }
 
-function assertTargetSafety(target, supabaseUrl, siteUrl) {
+export function assertTargetSafety(target, supabaseUrl) {
   if (target === "production") throw new Error("Production database bootstrap is prohibited");
-  const combined = `${supabaseUrl} ${siteUrl}`.toLowerCase();
-  if (/\bprod(?:uction)?\b/.test(combined)) {
-    throw new Error(`Refusing to bootstrap ${target} with a production-looking URL`);
+  const databaseHost = new URL(supabaseUrl).hostname.toLowerCase();
+  if (/(?:^|[.-])prod(?:uction)?(?:[.-]|$)/.test(databaseHost)) {
+    throw new Error(
+      `Refusing to bootstrap ${target} with a production-looking database URL`
+    );
   }
 }
 

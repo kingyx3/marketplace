@@ -12,6 +12,7 @@ export interface ControlInventoryRow {
   allocated: number;
   safetyStock: number;
   available: number;
+  updatedAt: string;
 }
 
 export interface ControlPurchaseOrderRow {
@@ -19,7 +20,8 @@ export interface ControlPurchaseOrderRow {
   status: string;
   supplier: string;
   expectedAt: string | null;
-  boxes: number;
+  orderedUnits: number;
+  receivedUnits: number;
   valueCents: number;
   currency: string;
 }
@@ -36,7 +38,7 @@ export async function fetchControlInventory(
   const { data, error } = await supabase
     .from("inventory")
     .select(
-      "sku_id, on_hand, incoming, allocated, safety_stock, available, booster_box_skus(sku, product_variants(products(id, name)))"
+      "sku_id, on_hand, incoming, allocated, safety_stock, available, updated_at, booster_box_skus(sku, product_variants(products(id, name)))"
     )
     .order("updated_at", { ascending: false })
     .limit(250);
@@ -49,6 +51,7 @@ export async function fetchControlInventory(
       allocated: number;
       safety_stock: number;
       available: number;
+      updated_at: string;
       booster_box_skus:
         | {
             sku: string;
@@ -72,6 +75,7 @@ export async function fetchControlInventory(
       allocated: row.allocated,
       safetyStock: row.safety_stock,
       available: row.available,
+      updatedAt: row.updated_at,
     };
   });
 }
@@ -82,7 +86,7 @@ export async function fetchControlPurchaseOrders(
   const { data, error } = await supabase
     .from("purchase_orders")
     .select(
-      "id, status, expected_at, total_cents, currency, suppliers(name), purchase_order_items(quantity)"
+      "id, status, expected_at, total_cents, currency, suppliers(name), purchase_order_items(quantity, received_quantity)"
     )
     .order("created_at", { ascending: false })
     .limit(100);
@@ -95,14 +99,18 @@ export async function fetchControlPurchaseOrders(
       total_cents: number;
       currency: string;
       suppliers: { name: string } | Array<{ name: string }> | null;
-      purchase_order_items: Array<{ quantity: number }> | null;
+      purchase_order_items: Array<{ quantity: number; received_quantity: number }> | null;
     }>
   ).map((row) => ({
     id: row.id,
     status: row.status,
     supplier: toOne(row.suppliers)?.name ?? "Unknown supplier",
     expectedAt: row.expected_at,
-    boxes: (row.purchase_order_items ?? []).reduce((sum, item) => sum + item.quantity, 0),
+    orderedUnits: (row.purchase_order_items ?? []).reduce((sum, item) => sum + item.quantity, 0),
+    receivedUnits: (row.purchase_order_items ?? []).reduce(
+      (sum, item) => sum + item.received_quantity,
+      0
+    ),
     valueCents: row.total_cents,
     currency: row.currency,
   }));
