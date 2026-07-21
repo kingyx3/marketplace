@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   DATABASE_BOOTSTRAP_TARGETS,
   SEEDED_PUBLIC_TABLES,
+  assertTargetSafety,
   compareBootstrapCoverage,
   discoverActivePublicTables,
 } from "../scripts/bootstrap-database.mjs";
@@ -13,6 +14,18 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 describe("database bootstrap", () => {
   it("is restricted to development and staging", () => {
     expect(DATABASE_BOOTSTRAP_TARGETS).toEqual(["development", "staging"]);
+  });
+
+  it("checks database safety independently from the deployment hostname", () => {
+    expect(() =>
+      assertTargetSafety("development", "https://development-project.supabase.co")
+    ).not.toThrow();
+    expect(() =>
+      assertTargetSafety("development", "https://production-project.supabase.co")
+    ).toThrow("production-looking database URL");
+    expect(() =>
+      assertTargetSafety("production", "https://development-project.supabase.co")
+    ).toThrow("Production database bootstrap is prohibited");
   });
 
   it("has an upsert handler for every active public application table", async () => {
@@ -81,6 +94,8 @@ describe("database bootstrap", () => {
     expect(resolver).toContain('mode === "bootstrap"');
     expect(pkg.scripts["db:bootstrap"]).toBe("node scripts/bootstrap-database.mjs");
 
+    expect(script).toContain("assertTargetSafety(target, supabaseUrl);");
+    expect(script).not.toContain("assertTargetSafety(target, supabaseUrl, siteUrl);");
     expect(script).toContain('rpc(client, "admin_upsert_category"');
     expect(script).toContain('rpc(client, "admin_upsert_set_release"');
     expect(script).toContain('rpc(client, "admin_upsert_catalog_product_with_publication"');
