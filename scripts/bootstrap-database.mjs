@@ -792,23 +792,33 @@ async function verifyCompletedIdempotency(client, actorId) {
 }
 
 async function verifySecretRead(client) {
-  const { data, error } = await client
+  const { data: product, error: productError } = await client
     .from("products")
     .select(
-      "id,slug,name,active,listing_items!listing_items_product_id_key(published,availability_mode),product_variants(booster_box_skus(id,active,sku_prices(active,price_cents,starts_at,ends_at),inventory(on_hand,allocated,safety_stock)))"
+      "id,slug,name,active,product_variants(booster_box_skus(id,active,sku_prices(active,price_cents,starts_at,ends_at),inventory(on_hand,allocated,safety_stock)))"
     )
     .eq("id", FIXTURE_IDS.product)
     .single();
-  if (error) throw new Error(`Bootstrap verification query failed: ${error.message}`);
+  if (productError) {
+    throw new Error(`Bootstrap product verification query failed: ${productError.message}`);
+  }
 
-  const listing = one(data.listing_items);
-  const variant = one(data.product_variants);
+  const { data: listing, error: listingError } = await client
+    .from("listing_items")
+    .select("published,availability_mode")
+    .eq("product_id", FIXTURE_IDS.product)
+    .single();
+  if (listingError) {
+    throw new Error(`Bootstrap listing verification query failed: ${listingError.message}`);
+  }
+
+  const variant = one(product.product_variants);
   const sku = one(variant?.booster_box_skus);
   const activePrice = (sku?.sku_prices ?? []).find((price) => price.active);
   const inventory = one(sku?.inventory);
   if (
-    !data.active ||
-    !listing?.published ||
+    !product.active ||
+    !listing.published ||
     listing.availability_mode !== "available_now" ||
     !sku?.active ||
     !activePrice ||
@@ -818,21 +828,31 @@ async function verifySecretRead(client) {
   ) {
     throw new Error("Bootstrap product does not satisfy the storefront visibility contract");
   }
-  return data;
+  return product;
 }
 
 async function verifyAnonymousRead(supabaseUrl, publishableKey) {
   const publicClient = createClient(supabaseUrl, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
-  const { data, error } = await publicClient
+  const { data: product, error: productError } = await publicClient
     .from("products")
-    .select("id,slug,listing_items!listing_items_product_id_key(published,availability_mode)")
+    .select("id,slug")
     .eq("id", FIXTURE_IDS.product)
     .single();
-  if (error) throw new Error(`Anonymous storefront read failed: ${error.message}`);
-  const listing = one(data.listing_items);
-  if (!listing?.published || listing.availability_mode !== "available_now") {
+  if (productError) {
+    throw new Error(`Anonymous product read failed: ${productError.message}`);
+  }
+
+  const { data: listing, error: listingError } = await publicClient
+    .from("listing_items")
+    .select("published,availability_mode")
+    .eq("product_id", FIXTURE_IDS.product)
+    .single();
+  if (listingError) {
+    throw new Error(`Anonymous listing read failed: ${listingError.message}`);
+  }
+  if (!product || !listing.published || listing.availability_mode !== "available_now") {
     throw new Error("Anonymous storefront read did not return the published bootstrap product");
   }
 }
