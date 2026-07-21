@@ -1,6 +1,7 @@
 import { badRequest } from "@/lib/api/errors";
 import {
   MAX_ADMIN_JSON_CHARACTERS,
+  POSTGRES_INTEGER_MAX,
   booleanField,
   optionalInteger,
   optionalIsoDate,
@@ -8,7 +9,6 @@ import {
   optionalString,
   optionalUuid,
   requiredBoolean,
-  requiredInteger,
   requiredSingaporeDateTime,
   requiredString,
   requiredUuid,
@@ -43,7 +43,7 @@ export interface AdminLimitedTimeDealInput {
   skuId: string;
   title: string;
   description: string | null;
-  discountBps: number;
+  dealPriceCents: number;
   visibility: "public" | "members";
   startsAt: string;
   endsAt: string;
@@ -58,7 +58,7 @@ export function adminLimitedTimeDealFromForm(formData: FormData): AdminLimitedTi
   const skuId = requiredUuid(formData, "skuId", "skuId");
   const code = requiredString(formData, "code", { max: 80, label: "Deal code" }).toLowerCase();
   const title = requiredString(formData, "title", { max: 160, label: "Deal title" });
-  const discountBps = requiredInteger(formData, "discountBps", { min: 1, max: 9000 });
+  const dealPriceCents = requiredMoneyCents(formData, "dealPrice", "Deal price");
   const visibility = requiredString(formData, "visibility");
   const startsAt = requiredSingaporeDateTime(formData, "startsAt");
   const endsAt = requiredSingaporeDateTime(formData, "endsAt");
@@ -80,7 +80,7 @@ export function adminLimitedTimeDealFromForm(formData: FormData): AdminLimitedTi
     title,
     description:
       optionalString(formData, "description", { max: 500, label: "Deal description" }) ?? null,
-    discountBps,
+    dealPriceCents,
     visibility,
     startsAt,
     endsAt,
@@ -188,6 +188,23 @@ function tagsFromForm(formData: FormData): string[] {
     if (tags.length > 12) throw badRequest("A listing can have at most 12 tags");
   }
   return tags;
+}
+
+function requiredMoneyCents(formData: FormData, key: string, label: string): number {
+  const raw = requiredString(formData, key, { label });
+  if (!/^\d+(?:\.\d{1,2})?$/.test(raw)) {
+    throw badRequest(`${label} must be a positive amount with at most two decimal places`);
+  }
+
+  const [whole, fraction = ""] = raw.split(".");
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  if (!Number.isSafeInteger(cents) || cents <= 0) {
+    throw badRequest(`${label} must be greater than zero`);
+  }
+  if (cents > POSTGRES_INTEGER_MAX) {
+    throw badRequest(`${label} exceeds the supported maximum`);
+  }
+  return cents;
 }
 
 function isAvailabilityMode(value: string): value is AdminListingItemInput["availabilityMode"] {
