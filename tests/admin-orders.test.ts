@@ -119,7 +119,7 @@ describe("admin order actions", () => {
           event_id: "evt_1",
           event_type: "payment_request.completed",
           processed_at: "2026-07-04T09:00:00.000Z",
-          payload: { data: { object: { id: "pi_orphan" } } },
+          payload: { id: "pi_orphan" },
         },
       ],
     });

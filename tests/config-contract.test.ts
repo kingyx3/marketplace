@@ -129,7 +129,7 @@ describe("platform config contract", () => {
     expect(hostedBootstrap).toContain('gh", ["run", "watch"');
     expect(hostedBootstrap).toContain("--exit-status");
     expect(bootstrap).toContain("reconcile-runtime-environment.mjs");
-    expect(runtime).toContain("configure-hitpay.mjs");
+    expect(runtime).toContain("configure-providers.mjs");
     expect(runtime).toContain("sync-vercel-env.mjs");
     expect(github).toContain('|| "development"');
     expect(github).toContain('if (environment === "development") return ["**"]');

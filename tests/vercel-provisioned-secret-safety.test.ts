@@ -18,20 +18,20 @@ describe("Vercel provisioned secret safety", () => {
     expect(sync).toContain('expectedStates.set(entry.key, { mode: "exists" })');
   });
 
-  it("removes stale workflow webhook secrets and rotates only newly issued credentials", async () => {
+  it("keeps HitPay credentials operator-managed instead of generating or rotating them", async () => {
     const reconcile = await script("reconcile-runtime-environment.mjs");
+    const configure = await script("configure-hitpay.mjs");
 
-    expect(reconcile).toContain("delete provisionEnvironment.HITPAY_WEBHOOK_SALT");
-    expect(reconcile).toContain("delete process.env.HITPAY_WEBHOOK_SALT");
-    expect(reconcile).toContain(
-      'if (credentials.HITPAY_WEBHOOK_SALT) syncArgs.push("--rotate-provisioned")'
-    );
+    expect(reconcile).not.toContain("delete provisionEnvironment.HITPAY_WEBHOOK_SALT");
+    expect(reconcile).not.toContain("delete process.env.HITPAY_WEBHOOK_SALT");
+    expect(reconcile).not.toContain('credentials.HITPAY_WEBHOOK_SALT');
+    expect(configure).toContain("HITPAY_API_KEY");
+    expect(configure).not.toContain("HITPAY_WEBHOOK_SALT");
   });
 
-  it("keeps readiness checks non-mutating for optional and provisioned sensitive values", async () => {
+  it("keeps readiness checks non-mutating for optional and sensitive values", async () => {
     const verify = await script("verify-environment.mjs");
 
-    expect(verify).toContain("delete verificationEnvironment.HITPAY_WEBHOOK_SALT");
     expect(verify).toContain('"--check-only"');
     expect(verify).toContain('"--preserve-unset-optional"');
     expect(verify).not.toContain('"--rotate-provisioned"');

@@ -105,9 +105,9 @@ describe("retail preorder flow", () => {
       ),
     ]);
 
-    expect(source).toContain("preorder-allocation-refund:");
-    expect(source).toContain("amount: row.refund_cents");
-    expect(migration).toContain("HitPay refund confirmation required");
+    expect(source).toContain("paymentId: row.provider_charge_id");
+    expect(source).toContain("amountCents: row.refund_cents");
+    expect(migration).toContain("Stripe refund confirmation required");
     expect(migration).toContain("preorder_allocation_shortfall");
     expect(migration).toContain("allocation preview is stale");
   });

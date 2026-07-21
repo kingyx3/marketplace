@@ -207,42 +207,32 @@ describe("Vercel sensitive runtime environment", () => {
     });
   });
 
-  it("does not replace a matching HitPay webhook when Vercel stores an unreadable signing secret", () => {
-    const result = runModule<{
-      action: string;
-      creates: number;
-      deletes: number;
-      credentials: number;
-    }>(`
-      import {
-        buildHitPayWebhookConfig,
-        desiredHitPayWebhookMetadata,
-        reconcileHitPayWebhook,
-      } from './scripts/lib/hitpay-webhook.mjs';
+  it("does not require the webhook salt to discover or reconcile the HitPay endpoint", () => {
+    const result = runModule<{ action: string; requests: string[] }>(`
+      import { buildHitPayWebhookConfig, reconcileHitPayWebhook } from './scripts/lib/hitpay-webhook.mjs';
       const config = buildHitPayWebhookConfig({
         APP_NAME: 'Marketplace', TARGET_ENV: 'development', NEXT_PUBLIC_SITE_URL: 'https://dev.example.com',
-        HITPAY_API_KEY: 'sk_test_x',
-        HITPAY_WEBHOOK_ENABLED_EVENTS: 'payment_request.completed payment_request.failed charge.refunded'
+        HITPAY_API_KEY: 'sk_test_x'
       });
       const endpoint = {
-        id: 'we_1', url: config.webhookUrl, status: 'enabled', description: config.description,
-        enabled_events: config.enabledEvents, metadata: desiredHitPayWebhookMetadata(config)
+        id: 'we_1', name: config.webhookName, url: config.webhookUrl, event_types: config.enabledEvents
       };
-      const calls = { creates: 0, deletes: 0, credentials: 0 };
-      const hitpay = { webhookEndpoints: {
-        list: async () => ({ data: [endpoint], has_more: false }),
-        update: async () => endpoint,
-        create: async () => { calls.creates += 1; return endpoint; },
-        del: async () => { calls.deletes += 1; },
-      }};
-      const reconciled = await reconcileHitPayWebhook({
-        hitpay, config, allowCreate: true, requireSigningSecret: false,
-        onCredentials: async () => { calls.credentials += 1; },
-      });
-      console.log(JSON.stringify({ action: reconciled.action, ...calls }));
+      const requests = [];
+      globalThis.fetch = async (input) => {
+        requests.push(String(input));
+        return new Response(JSON.stringify([endpoint]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      };
+      const reconciled = await reconcileHitPayWebhook(config);
+      console.log(JSON.stringify({ action: reconciled.action, requests }));
     `);
 
-    expect(result).toEqual({ action: "unchanged", creates: 0, deletes: 0, credentials: 0 });
+    expect(result).toEqual({
+      action: "unchanged",
+      requests: ["https://api.sandbox.hit-pay.com/v1/webhook-events"],
+    });
   });
 
   it("uses authoritative API reads and avoids vercel env run precedence", async () => {
@@ -251,7 +241,7 @@ describe("Vercel sensitive runtime environment", () => {
       new URL("../scripts/reconcile-runtime-environment.mjs", import.meta.url),
       "utf8"
     );
-    const provision = await readFile(
+    const configure = await readFile(
       new URL("../scripts/configure-hitpay.mjs", import.meta.url),
       "utf8"
     );
@@ -270,10 +260,10 @@ describe("Vercel sensitive runtime environment", () => {
     expect(reconcile).toContain("buildEnvironmentWithVercelFallback");
     expect(reconcile).not.toContain('"env", "run"');
     expect(reconcile).toContain('process.env.MARKETPLACE_DISABLE_LOCAL_DOTENV = "true"');
-    expect(provision).toContain("requireSigningSecret: !storedSigningSecretPresent");
+    expect(configure).toContain("buildHitPayWebhookConfig(process.env)");
+    expect(configure).not.toContain("HITPAY_WEBHOOK_SALT");
     expect(verify).toContain("buildEnvironmentWithVercelFallback");
     expect(verify).not.toContain('"env", "run"');
-    expect(verify).toContain("unreadable values verified by presence");
   });
 });
 
