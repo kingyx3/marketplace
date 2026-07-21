@@ -48,7 +48,7 @@ describe("HitPay environment minimization", () => {
         const client = createHitPayClient({
           HITPAY_API_KEY: "test-key",
           TARGET_ENV: target,
-        } as NodeJS.ProcessEnv);
+        } as unknown as NodeJS.ProcessEnv);
         await client.createPaymentRequest({
           amountCents: 100,
           currency: "SGD",
