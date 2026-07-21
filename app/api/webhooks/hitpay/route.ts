@@ -57,7 +57,26 @@ export async function POST(request: Request) {
   const providerId = typeof payload.id === "string" ? payload.id : "unknown";
   const eventId = `${eventType}:${providerId}:${String(payload.status ?? "unknown")}`;
   const eventContext = { ...context, eventId, eventType };
-  const supabase = createSecretClient();
+
+  let supabase: ReturnType<typeof createSecretClient>;
+  try {
+    supabase = createSecretClient();
+  } catch (error) {
+    logError("hitpay.webhook.database_not_configured", error, {
+      ...eventContext,
+      status: 503,
+    });
+    await reportOperationalFailure(
+      {
+        event: "hitpay.webhook.database_not_configured",
+        severity: "critical",
+        summary: "HitPay settlement database access is not configured",
+        context: { ...eventContext, status: 503 },
+      },
+      error
+    );
+    return respond({ error: "settlement temporarily unavailable" }, 503);
+  }
 
   const { error: insertError } = await supabase.from("webhook_events").insert({
     provider: "hitpay",

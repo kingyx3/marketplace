@@ -8,11 +8,13 @@ const targetEnv = process.env.TARGET_ENV;
 const token = process.env.VERCEL_TOKEN;
 const projectId = process.env.VERCEL_PROJECT_ID;
 const configFingerprint = process.env.VERCEL_DEPLOYMENT_CONFIG_FINGERPRINT;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 if (!targetEnv || !/^(development|staging|production)$/.test(targetEnv)) {
   fail("TARGET_ENV must be development, staging, or production");
 }
 if (!token) fail("VERCEL_TOKEN is required");
 if (!projectId) fail("VERCEL_PROJECT_ID is required");
+if (!supabaseSecretKey) fail("SUPABASE_SECRET_KEY must be resolved before deployment");
 if (!configFingerprint)
   fail("VERCEL_DEPLOYMENT_CONFIG_FINGERPRINT is required after runtime env reconciliation");
 
@@ -52,6 +54,8 @@ const args = [
   `NEXT_PUBLIC_SENTRY_ENVIRONMENT=${targetEnv}`,
   "--env",
   `NEXT_PUBLIC_SENTRY_ENVIRONMENT=${targetEnv}`,
+  "--env",
+  `SUPABASE_SECRET_KEY=${supabaseSecretKey}`,
 ];
 if (target !== "preview") args.push("--prod");
 const result = spawnSync("npx", args, {

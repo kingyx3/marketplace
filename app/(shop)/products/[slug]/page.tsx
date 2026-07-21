@@ -7,7 +7,7 @@ import { WaitlistSignupPanel } from "@/app/(shop)/catalog/[slug]/waitlist-signup
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
-import { addToCart } from "@/app/actions/cart";
+import { addToCart, buyNow } from "@/app/actions/cart";
 import { formatMoney, getProduct, type MarketplaceProduct } from "@/app/_data/marketplace-fixtures";
 import { getCurrentViewer } from "@/lib/auth";
 import { getCatalogProduct, type CatalogProduct } from "@/lib/catalog";
@@ -176,9 +176,20 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                       type="number"
                     />
                   </label>
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
-                    Add to cart
-                  </button>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-emerald-700"
+                      formAction={buyNow}
+                    >
+                      Buy now
+                    </button>
+                    <button className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-800 hover:border-zinc-500">
+                      Add to cart
+                    </button>
+                  </div>
+                  <p className="text-xs leading-5 text-zinc-500">
+                    Buy now checks out only this item. Products already in your cart stay unchanged.
+                  </p>
                 </form>
               ) : null}
 

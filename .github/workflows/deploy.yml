@@ -204,5 +204,4 @@ jobs:
       - name: Health check
         run: node scripts/check-deployment-health.mjs "${{ needs.deploy.outputs.deployment_url }}"
       - name: Deep readiness check
-        if: ${{ inputs.environment != 'development' }}
         run: node scripts/check-deployment-health.mjs "${{ needs.deploy.outputs.deployment_url }}" --deep

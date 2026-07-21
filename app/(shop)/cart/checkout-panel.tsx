@@ -133,6 +133,7 @@ export function CartCheckoutPanel({
     if (requiresShipping && !isShippingAddressComplete(shippingAddress)) {
       setPhase("failed");
       setMessage("Complete the required delivery address fields");
+      focusFirstIncompleteShippingField(shippingAddress);
       return;
     }
 
@@ -191,9 +192,18 @@ export function CartCheckoutPanel({
   }
 
   const canCreate = !disabled && items.length > 0 && phase !== "creating";
+  const primaryActionDisabled =
+    !canCreate || (requiresShipping && addressLoadState === "loading");
+  const actionLabel =
+    phase === "creating"
+      ? "Opening HitPay"
+      : requiresShipping && addressLoadState === "loading"
+        ? "Preparing checkout"
+        : startLabel;
 
   return (
     <form
+      aria-busy={phase === "creating"}
       autoComplete="on"
       className="mt-6 grid gap-3"
       onSubmit={(event) => {
@@ -201,6 +211,19 @@ export function CartCheckoutPanel({
         void beginCheckout();
       }}
     >
+      <div className="grid gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+        <button
+          className="min-h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+          disabled={primaryActionDisabled}
+          type="submit"
+        >
+          {actionLabel}
+        </button>
+        <p className="text-xs leading-5 text-emerald-900">
+          Continue with the saved address below, or review and update it before payment.
+        </p>
+      </div>
+
       {requiresShipping ? (
         <>
           {savedAddresses.length > 0 ? (
@@ -315,6 +338,20 @@ function addressInput(address: SavedShippingAddress): ShippingAddressInput {
 function savedAddressLabel(address: SavedShippingAddress): string {
   const street = [address.line1, address.line2].filter(Boolean).join(", ");
   return `${address.recipientName} — ${street}, ${address.postalCode}`;
+}
+
+function focusFirstIncompleteShippingField(address: ShippingAddressInput): void {
+  const targetId = !address.recipientName.trim()
+    ? "shipping-name"
+    : !address.line1.trim()
+      ? "shipping-address-line1"
+      : !address.postalCode.trim()
+        ? "shipping-postal-code"
+        : !/^[A-Za-z]{2}$/.test(address.countryCode.trim())
+          ? "shipping-country"
+          : null;
+  if (!targetId) return;
+  requestAnimationFrame(() => document.getElementById(targetId)?.focus());
 }
 
 function createIdempotencyKey(): string {
