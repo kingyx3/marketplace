@@ -45,9 +45,10 @@ jobs:
         with:
           terraform_version: 1.15.8
       - run: npm ci
+      - name: Resolve Terraform inputs
+        run: node scripts/resolve-terraform-inputs.mjs bootstrap
       - name: Resolve selected database from provisioned CI/CD state
         run: |
-          node scripts/resolve-terraform-inputs.mjs bootstrap
           terraform -chdir=infra/terraform/platform init \
             -input=false \
             -lockfile=readonly \
