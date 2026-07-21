@@ -12,6 +12,7 @@ interface EnvLike {
   HITPAY_API_KEY?: string;
   HITPAY_WEBHOOK_SALT?: string;
   HITPAY_API_URL?: string;
+  TARGET_ENV?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM_EMAIL?: string;
   TWILIO_ACCOUNT_SID?: string;
@@ -108,7 +109,11 @@ async function checkSupabase(
 function checkHitPay(env: EnvLike): ReadinessResponse["checks"]["hitpay"] {
   const apiKey: CheckStatus = env.HITPAY_API_KEY?.trim() ? "configured" : "fail";
   const webhookSalt: CheckStatus = env.HITPAY_WEBHOOK_SALT?.trim() ? "configured" : "fail";
-  const apiUrl: CheckStatus = isHttpsUrl(env.HITPAY_API_URL) ? "configured" : "fail";
+  const derivedApiUrl =
+    env.TARGET_ENV === "production" ? "https://api.hit-pay.com" : "https://api.sandbox.hit-pay.com";
+  const apiUrl: CheckStatus = isHttpsUrl(env.HITPAY_API_URL || derivedApiUrl)
+    ? "configured"
+    : "fail";
 
   return {
     status:
