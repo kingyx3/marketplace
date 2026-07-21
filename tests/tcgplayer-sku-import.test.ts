@@ -126,10 +126,17 @@ describe("TCGplayer SKU import", () => {
   });
 
   it("creates the product and SKU records through one permissioned database transaction", async () => {
-    const [component, action, migration] = await Promise.all([
+    const [component, helpers, action, migration] = await Promise.all([
       readFile(
         new URL(
-          "../app/(shop)/control/_components/tcgplayer-catalog-import.tsx",
+          "../app/(shop)/control/_components/tcgplayer-catalog-import-complete.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/(shop)/control/_components/tcgplayer-catalog-import-helpers.ts",
           import.meta.url,
         ),
         "utf8",
@@ -148,8 +155,10 @@ describe("TCGplayer SKU import", () => {
     ]);
 
     expect(component).toContain('name="tcgplayerSkus"');
-    expect(component).toContain("buildTcgplayerSkuImportDrafts");
-    expect(action).toContain('requireControlPermission("catalog.manage"');
+    expect(component).toContain("ImportedSkuFields");
+    expect(helpers).toContain("buildTcgplayerSkuImportDrafts");
+    expect(action).toContain("requireControlPermission(");
+    expect(action).toContain('"catalog.manage"');
     expect(action).toContain('"admin_create_tcgplayer_catalog_product"');
     expect(migration).toContain(
       "from public.admin_create_catalog_product_hierarchy(",
