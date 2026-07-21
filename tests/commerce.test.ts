@@ -91,11 +91,19 @@ describe("commerce helpers", () => {
     });
   });
 
-  it("applies the best active deal to retail checkout", async () => {
+  it("applies the lowest active deal price to retail checkout", async () => {
     const supabase = fakeQuoteSupabase({
       deals: [
-        { sku_id: skuId, discount_bps: 500 },
-        { sku_id: skuId, discount_bps: 1000 },
+        {
+          sku_id: skuId,
+          deal_price_cents: 18905,
+          booster_box_skus: { price_cents: 19900 },
+        },
+        {
+          sku_id: skuId,
+          deal_price_cents: 17910,
+          booster_box_skus: { price_cents: 19900 },
+        },
       ],
     });
 
@@ -188,8 +196,14 @@ function customerRecord() {
   };
 }
 
+type DealFixture = {
+  sku_id: string;
+  deal_price_cents: number;
+  booster_box_skus: { price_cents: number };
+};
+
 function fakeQuoteSupabase(options: {
-  deals?: Array<{ sku_id: string; discount_bps: number }>;
+  deals?: DealFixture[];
   skuActive?: boolean;
   shippingActive?: boolean;
 }) {
@@ -203,7 +217,7 @@ function fakeQuoteSupabase(options: {
 function tableBuilder(
   table: string,
   options: {
-    deals?: Array<{ sku_id: string; discount_bps: number }>;
+    deals?: DealFixture[];
     skuActive?: boolean;
     shippingActive?: boolean;
   }

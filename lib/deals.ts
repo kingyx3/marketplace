@@ -31,7 +31,7 @@ interface DealRow {
   sku_id: string;
   title: string;
   description: string | null;
-  discount_bps: number;
+  deal_price_cents: number;
   visibility: "public" | "members";
   starts_at: string;
   ends_at: string;
@@ -49,6 +49,15 @@ interface DealRow {
       } | null;
     } | null;
   } | null;
+}
+
+interface ActiveDealPriceRow {
+  sku_id: string;
+  deal_price_cents: number;
+  booster_box_skus:
+    | { price_cents: number }
+    | Array<{ price_cents: number }>
+    | null;
 }
 
 export async function getStorefrontDeals({
@@ -81,40 +90,67 @@ export async function getStorefrontDealForSku({
   try {
     const supabase = signedIn ? await createUserClient() : createPublishableClient();
     const deals = await queryStorefrontDeals(supabase, 20, skuId);
-    return deals.sort((a, b) => b.discountBps - a.discountBps)[0] ?? null;
+    return deals.sort((a, b) => a.dealPriceCents - b.dealPriceCents)[0] ?? null;
   } catch (error) {
     console.error("SKU deal lookup failed:", safeErrorMessage(error));
     return null;
   }
 }
 
+export async function getActiveDealPrices(
+  supabase: SupabaseClient,
+  skuIds: string[]
+): Promise<Map<string, number>> {
+  const rows = await queryActiveDealPriceRows(supabase, skuIds);
+  const prices = new Map<string, number>();
+
+  for (const row of rows) {
+    const sku = one(row.booster_box_skus);
+    const originalPriceCents = Number(sku?.price_cents);
+    const dealPriceCents = Number(row.deal_price_cents);
+    if (
+      !Number.isInteger(originalPriceCents) ||
+      !Number.isInteger(dealPriceCents) ||
+      dealPriceCents <= 0 ||
+      dealPriceCents >= originalPriceCents
+    ) {
+      continue;
+    }
+    prices.set(row.sku_id, Math.min(prices.get(row.sku_id) ?? dealPriceCents, dealPriceCents));
+  }
+  return prices;
+}
+
+/**
+ * Compatibility helper for callers that still need percentage metadata. Exact
+ * monetary calculations should use getActiveDealPrices instead.
+ */
 export async function getActiveDealDiscounts(
   supabase: SupabaseClient,
   skuIds: string[]
 ): Promise<Map<string, number>> {
-  const uniqueSkuIds = [...new Set(skuIds)];
-  if (uniqueSkuIds.length === 0) return new Map();
-
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("limited_time_deals")
-    .select("sku_id, discount_bps")
-    .in("sku_id", uniqueSkuIds)
-    .eq("active", true)
-    .lte("starts_at", now)
-    .gt("ends_at", now)
-    .order("discount_bps", { ascending: false });
-
-  if (error) {
-    throw new Error(`Limited-time deal pricing failed: ${error.message}`);
-  }
-
+  const rows = await queryActiveDealPriceRows(supabase, skuIds);
   const discounts = new Map<string, number>();
-  for (const row of (data ?? []) as Array<{ sku_id: string; discount_bps: number }>) {
-    const discountBps = normalizedDiscountBps(row.discount_bps);
+
+  for (const row of rows) {
+    const sku = one(row.booster_box_skus);
+    const originalPriceCents = Number(sku?.price_cents);
+    const dealPriceCents = Number(row.deal_price_cents);
+    if (dealPriceCents <= 0 || dealPriceCents >= originalPriceCents) continue;
+    const discountBps = calculateDealDiscountBps(originalPriceCents, dealPriceCents);
     discounts.set(row.sku_id, Math.max(discounts.get(row.sku_id) ?? 0, discountBps));
   }
   return discounts;
+}
+
+export function calculateDealDiscountBps(
+  originalPriceCents: number,
+  dealPriceCents: number
+): number {
+  const original = Math.max(0, Math.trunc(Number(originalPriceCents) || 0));
+  const deal = Math.max(0, Math.trunc(Number(dealPriceCents) || 0));
+  if (original <= 0 || deal >= original) return 0;
+  return normalizedDiscountBps(Math.round(((original - deal) * 10000) / original));
 }
 
 export function discountedDealPrice(priceCents: number, discountBps: number): number {
@@ -128,6 +164,29 @@ export function calculateDealSavings(amountCents: number, discountBps: number): 
 export function formatDealDiscount(discountBps: number): string {
   const percentage = normalizedDiscountBps(discountBps) / 100;
   return `${Number.isInteger(percentage) ? percentage.toFixed(0) : percentage.toFixed(2)}%`;
+}
+
+async function queryActiveDealPriceRows(
+  supabase: SupabaseClient,
+  skuIds: string[]
+): Promise<ActiveDealPriceRow[]> {
+  const uniqueSkuIds = [...new Set(skuIds)];
+  if (uniqueSkuIds.length === 0) return [];
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("limited_time_deals")
+    .select("sku_id, deal_price_cents, booster_box_skus!inner(price_cents)")
+    .in("sku_id", uniqueSkuIds)
+    .eq("active", true)
+    .lte("starts_at", now)
+    .gt("ends_at", now)
+    .order("deal_price_cents", { ascending: true });
+
+  if (error) {
+    throw new Error(`Limited-time deal pricing failed: ${error.message}`);
+  }
+  return (data ?? []) as unknown as ActiveDealPriceRow[];
 }
 
 async function queryStorefrontDeals(
@@ -145,7 +204,7 @@ async function queryStorefrontDeals(
         sku_id,
         title,
         description,
-        discount_bps,
+        deal_price_cents,
         visibility,
         starts_at,
         ends_at,
@@ -187,8 +246,16 @@ function mapDeal(row: DealRow): LimitedTimeDeal | null {
   if (!sku?.active || !product?.active) return null;
 
   const regularPriceCents = Number(sku.price_cents);
-  const discountBps = normalizedDiscountBps(row.discount_bps);
-  const dealPriceCents = discountedDealPrice(regularPriceCents, discountBps);
+  const dealPriceCents = Number(row.deal_price_cents);
+  if (
+    !Number.isInteger(regularPriceCents) ||
+    !Number.isInteger(dealPriceCents) ||
+    dealPriceCents <= 0 ||
+    dealPriceCents >= regularPriceCents
+  ) {
+    return null;
+  }
+  const discountBps = calculateDealDiscountBps(regularPriceCents, dealPriceCents);
 
   return {
     id: row.id,
@@ -211,8 +278,12 @@ function mapDeal(row: DealRow): LimitedTimeDeal | null {
   };
 }
 
+function one<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
 function normalizedDiscountBps(value: number): number {
-  return Math.max(0, Math.min(9000, Math.trunc(Number(value) || 0)));
+  return Math.max(0, Math.min(9999, Math.trunc(Number(value) || 0)));
 }
 
 function safeErrorMessage(error: unknown): string {

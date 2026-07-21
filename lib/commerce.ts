@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { badRequest, notFound } from "@/lib/api/errors";
 import type { CustomerRecord } from "@/lib/api/auth";
-import { calculateDealSavings, getActiveDealDiscounts } from "@/lib/deals";
+import { getActiveDealPrices } from "@/lib/deals";
 import { quoteShipping, shippingAddressSchema } from "@/lib/shipping";
 
 export const MAX_CHECKOUT_LINES = 10;
@@ -157,18 +157,18 @@ export async function quoteCheckout(
   }
 
   const resolvedCurrency = currency ?? customer.default_currency;
-  const dealDiscounts =
+  const dealPrices =
     request.mode === "order"
-      ? await getActiveDealDiscounts(
+      ? await getActiveDealPrices(
           supabase,
           lines.map((line) => line.skuId)
         )
       : new Map<string, number>();
-  const discountCents = lines.reduce(
-    (total, line) =>
-      total + calculateDealSavings(line.lineTotalCents, dealDiscounts.get(line.skuId) ?? 0),
-    0
-  );
+  const discountCents = lines.reduce((total, line) => {
+    const dealPriceCents = dealPrices.get(line.skuId);
+    if (!dealPriceCents || dealPriceCents >= line.unitPriceCents) return total;
+    return total + (line.unitPriceCents - dealPriceCents) * line.quantity;
+  }, 0);
   const discountBps = subtotalCents > 0 ? Math.floor((discountCents * 10000) / subtotalCents) : 0;
   const merchandiseTotalCents = subtotalCents - discountCents;
   const shipping =
