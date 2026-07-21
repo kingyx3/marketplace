@@ -106,6 +106,14 @@ Publication is rejected unless the product is active, an active physical SKU and
 
 ## Supply and preorder allocation
 
+- `/control/supply` presents inventory as a bounded work queue. It searches product names, SKUs,
+  product IDs, and SKU IDs; filters by attention, sellable, or incoming state; sorts records with
+  allocation gaps and no-sellable-stock exceptions first; and preserves the active view across
+  pagination. Each row retains exact on-hand, allocated, unallocated, safety-stock, sellable, and
+  incoming quantities plus the last update time. Purchase orders show the supplier as the primary
+  label, a selectable purchase-order ID, human and system statuses, and exact ordered, received,
+  outstanding, expected, and monetary values. Only `received` and `cancelled` purchase orders are
+  terminal when the console reports open commitments.
 - Inventory adjustments require a reason code and optional reviewer note in the selected `/control/supply` inventory modal.
 - **Create purchase order** opens purchase-order intake as a modal and records the order and incoming inventory transactionally.
 - Suppliers with open purchase orders cannot be archived.
