@@ -13,6 +13,11 @@ describe("TCGplayer catalog assist", () => {
     expect(
       parseTcgplayerProductId("https://www.tcgplayer.com/product/242811/example-product")
     ).toBe(242811);
+    expect(
+      parseTcgplayerProductId(
+        "https://www.tcgplayer.com/product/692969/magic-the-hobbit-the-hobbit-scene-box-treasures-of-smaug?Language=English"
+      )
+    ).toBe(692969);
     expect(() => parseTcgplayerProductId("https://example.com/product/242811")).toThrow(
       TcgplayerCatalogError
     );
@@ -99,6 +104,82 @@ describe("TCGplayer catalog assist", () => {
     });
   });
 
+  it("loads current storefront product details and embedded SKUs for newer product IDs", async () => {
+    const fetchImplementation = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://mp-search-api.tcgplayer.com/v2/product/692969/details") {
+        return new Response(
+          JSON.stringify({
+            productId: 692969,
+            productName: "The Hobbit Scene Box - Treasures of Smaug",
+            productLineId: 1,
+            productLineName: "Magic: The Gathering",
+            setId: 9911,
+            setName: "The Hobbit",
+            setCode: "HOB",
+            productTypeName: "Sealed Products",
+            marketPrice: 64.99,
+            lowestPrice: 59.5,
+            customAttributes: {
+              description: "A sealed scene box.",
+              releaseDate: "2026-08-14T00:00:00Z",
+            },
+            skus: [
+              {
+                sku: 880011,
+                condition: "Unopened",
+                variant: "Normal",
+                language: "English",
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+      return new Response("upstream error", { status: 503 });
+    });
+
+    const suggestion = await fetchTcgplayerCatalogSuggestion(
+      "https://www.tcgplayer.com/product/692969/magic-the-hobbit-the-hobbit-scene-box-treasures-of-smaug?Language=English",
+      {
+        fetchImplementation,
+        now: () => new Date("2026-07-21T00:00:00.000Z"),
+      }
+    );
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "https://mp-search-api.tcgplayer.com/v2/product/692969/details",
+      expect.objectContaining({ method: "GET", cache: "no-store" })
+    );
+    expect(suggestion).toMatchObject({
+      productId: 692969,
+      product: {
+        name: "The Hobbit Scene Box - Treasures of Smaug",
+        description: "A sealed scene box.",
+        productType: "Sealed Products",
+        language: "English",
+      },
+      category: {
+        id: 1,
+        name: "Magic: The Gathering",
+      },
+      set: {
+        id: 9911,
+        name: "The Hobbit",
+        code: "HOB",
+        releaseDate: "2026-08-14",
+      },
+    });
+    expect(suggestion.prices[0]).toMatchObject({ marketPrice: 64.99, lowPrice: 59.5 });
+    expect(suggestion.skus[0]).toMatchObject({
+      skuId: 880011,
+      condition: "Unopened",
+      printing: "Normal",
+      language: "English",
+    });
+    expect(suggestion.warnings).toEqual([]);
+  });
+
   it("treats price and SKU lookups as optional enrichment", async () => {
     const fetchImplementation = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -122,7 +203,7 @@ describe("TCGplayer catalog assist", () => {
     });
 
     expect(fetchImplementation).toHaveBeenCalledWith(
-      "https://mpapi.tcgplayer.com/v2/product/242811/details",
+      "https://mp-search-api.tcgplayer.com/v2/product/242811/details",
       expect.objectContaining({ method: "GET", cache: "no-store" })
     );
     expect(suggestion.warnings).toEqual(
