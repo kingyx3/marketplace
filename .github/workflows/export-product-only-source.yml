@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - agent/product-only-catalog
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   export:
+    if: github.event_name == 'push' || github.head_ref == 'agent/product-only-catalog'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.0
