@@ -36,16 +36,12 @@ export default async function NewControlProductPage() {
     <div className="space-y-8">
       <PageHeader
         action={<BackLink href="/control/catalog">Back to products</BackLink>}
-        description="Create the internal product draft first, then continue through SKU, Pricing, Supply, Listing, and Publication."
+        description="Import a complete TCGplayer product automatically or create the internal product draft manually, then continue through Pricing, Supply, Listing, and Publication."
         eyebrow="Control · Catalog"
         title="Create product"
       />
 
-      <TcgplayerCatalogImport
-        categories={activeCategories}
-        productTypes={activeProductTypes}
-        sets={activeSets}
-      />
+      <TcgplayerCatalogImport />
 
       <section className="grid gap-5 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
         <div>
