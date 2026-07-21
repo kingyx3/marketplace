@@ -148,7 +148,7 @@ function suggestProductTypeName(
   suggestion: TcgplayerCatalogSuggestion,
 ): string {
   const externalType = nullableText(suggestion.product.productType, 160);
-  if (externalType) return externalType;
+  if (externalType && externalType.length >= 2) return externalType;
 
   const name = normalizeName(suggestion.product.name);
   if (name.includes("booster box")) return "Booster box";
@@ -178,10 +178,10 @@ function suggestLanguage(suggestion: TcgplayerCatalogSuggestion): string {
     portuguese: "PT",
   };
   const normalized = normalizeName(source);
-  return (
+  const inferred =
     codeByName[normalized] ??
-    (source.replace(/[^A-Za-z]/g, "").slice(0, 8).toUpperCase() || "EN")
-  );
+    source.replace(/[^A-Za-z]/g, "").slice(0, 8).toUpperCase();
+  return inferred.length >= 2 ? inferred : "EN";
 }
 
 function boundedName(
