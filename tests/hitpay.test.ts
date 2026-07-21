@@ -17,7 +17,9 @@ afterEach(() => {
 describe("HitPay payment requests", () => {
   it("uses the configured online payment methods", () => {
     expect(
-      hitPayPaymentMethods({ HITPAY_PAYMENT_METHODS: "paynow_online,card" } as NodeJS.ProcessEnv)
+      hitPayPaymentMethods({
+        HITPAY_PAYMENT_METHODS: "paynow_online,card",
+      } as unknown as NodeJS.ProcessEnv)
     ).toEqual(["paynow_online", "card"]);
   });
 
@@ -65,7 +67,7 @@ describe("HitPay payment requests", () => {
       HITPAY_API_KEY: "server-secret",
       HITPAY_API_URL: "https://api.sandbox.hit-pay.com",
       HITPAY_PAYMENT_METHODS: "paynow_online",
-    } as NodeJS.ProcessEnv);
+    } as unknown as NodeJS.ProcessEnv);
     const result = await client.createPaymentRequest({
       amountCents: 1000,
       currency: "SGD",
