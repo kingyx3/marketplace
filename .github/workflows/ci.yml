@@ -14,63 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  patch-bootstrap-source:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/control-supply-work-queue'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7.0.0
-        with:
-          ref: agent/control-supply-work-queue
-      - name: Make administrator grant bootstrap idempotent
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          source_path = Path("scripts/bootstrap-database.mjs")
-          source = source_path.read_text()
-          start_marker = '  await upsert(client, "admin_access_grants", {'
-          end_marker = '\n\n  await verifyReferenceRow('
-          start = source.find(start_marker)
-          end = source.find(end_marker, start)
-          if start < 0 or end < 0:
-              raise SystemExit("Expected administrator grant fixture boundaries were not found")
-          replacement = "\n".join([
-              '  const { data: existingGrant, error: existingGrantError } = await client',
-              '    .from("admin_access_grants")',
-              '    .select("accepted_at")',
-              '    .eq("id", FIXTURE_IDS.grant)',
-              '    .maybeSingle();',
-              '  if (existingGrantError) {',
-              '    throw new Error(',
-              '      `Could not read bootstrap administrator grant: ${existingGrantError.message}`',
-              '    );',
-              '  }',
-              '  await upsert(client, "admin_access_grants", {',
-              '    id: FIXTURE_IDS.grant,',
-              '    email: actorEmail,',
-              '    role: "owner",',
-              '    active: true,',
-              '    auth_user_id: actorUser.id,',
-              '    created_by_staff_id: FIXTURE_IDS.staff,',
-              '    accepted_at: existingGrant?.accepted_at ?? now.toISOString(),',
-              '    revoked_at: null,',
-              '  });',
-          ])
-          source_path.write_text(source[:start] + replacement + source[end:])
-          PY
-      - name: Commit source fix
-        shell: bash
-        run: |
-          git diff --check -- scripts/bootstrap-database.mjs
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/bootstrap-database.mjs
-          git commit -m "fix(ci): make grant acceptance bootstrap idempotent"
-          git push origin HEAD:agent/control-supply-work-queue
-
   changes:
     runs-on: ubuntu-latest
     outputs:
