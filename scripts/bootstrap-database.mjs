@@ -224,6 +224,16 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
     active: true,
     last_seen_at: now.toISOString(),
   });
+  const { data: existingGrant, error: existingGrantError } = await client
+    .from("admin_access_grants")
+    .select("accepted_at")
+    .eq("id", FIXTURE_IDS.grant)
+    .maybeSingle();
+  if (existingGrantError) {
+    throw new Error(
+      `Could not read bootstrap administrator grant: ${existingGrantError.message}`
+    );
+  }
   await upsert(client, "admin_access_grants", {
     id: FIXTURE_IDS.grant,
     email: actorEmail,
@@ -231,6 +241,7 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
     active: true,
     auth_user_id: actorUser.id,
     created_by_staff_id: FIXTURE_IDS.staff,
+    accepted_at: existingGrant?.accepted_at ?? now.toISOString(),
     revoked_at: null,
   });
 
