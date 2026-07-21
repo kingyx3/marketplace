@@ -8,6 +8,12 @@ const nonPersistentAuth = {
   detectSessionInUrl: false,
 } as const;
 
+interface SupabaseServerKeyEnvironment {
+  SUPABASE_SECRET_KEY?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+  [key: string]: string | undefined;
+}
+
 /**
  * Publishable-key database client for server-side public and RLS-scoped reads.
  * Browser code must use the same-origin application API instead of importing this module.
@@ -25,15 +31,27 @@ export function createPublishableClient(): SupabaseClient {
 }
 
 /**
+ * Resolve the preferred modern Supabase secret key while retaining compatibility
+ * with projects that still expose the legacy service-role environment variable.
+ */
+export function resolveSupabaseSecretKey(
+  env: SupabaseServerKeyEnvironment = process.env
+): string {
+  return env.SUPABASE_SECRET_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
+}
+
+/**
  * Secret-key database client. This bypasses RLS and is restricted to trusted
  * server-side repositories, services, route handlers, jobs, and webhooks.
  */
 export function createSecretClient(): SupabaseClient {
   assertServerOnly("createSecretClient");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SECRET_KEY;
+  const key = resolveSupabaseSecretKey();
   if (!url || !key) {
-    throw new Error("Supabase secret key is not configured (SUPABASE_SECRET_KEY)");
+    throw new Error(
+      "Supabase secret key is not configured (SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY)"
+    );
   }
   return createClient(url, key, { auth: nonPersistentAuth });
 }

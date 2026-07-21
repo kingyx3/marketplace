@@ -2,13 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getAppName } from "@/lib/app-config";
 import { configuredChannels } from "@/lib/notifications";
-import { createSecretClient } from "@/lib/supabase";
+import { createSecretClient, resolveSupabaseSecretKey } from "@/lib/supabase";
 
 type CheckStatus = "ok" | "fail" | "disabled" | "configured";
 
 interface EnvLike {
   NEXT_PUBLIC_SUPABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
   HITPAY_API_KEY?: string;
   HITPAY_WEBHOOK_SALT?: string;
   HITPAY_API_URL?: string;
@@ -87,7 +88,7 @@ async function checkSupabase(
   env: EnvLike,
   injectedClient?: SupabaseClient
 ): Promise<{ status: "ok" | "fail"; reason?: string }> {
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !resolveSupabaseSecretKey(env)) {
     return { status: "fail", reason: "missing_config" };
   }
 
