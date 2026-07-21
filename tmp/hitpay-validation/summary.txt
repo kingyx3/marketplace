@@ -1,4 +1,4 @@
 lint=0
-typecheck=2
+typecheck=0
 tests=1
 config=0

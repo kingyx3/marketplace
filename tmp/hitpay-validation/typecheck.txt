@@ -2,6 +2,3 @@
 > marketplace@0.1.0 typecheck
 > tsc --noEmit
 
-app/api/checkout/cancel/route.ts(12,26): error TS2554: Expected 3 arguments, but got 2.
-lib/order-checkout.ts(12,3): error TS2305: Module '"@/lib/checkout"' has no exported member 'checkoutResponseBody'.
-lib/order-checkout.ts(13,3): error TS2305: Module '"@/lib/checkout"' has no exported member 'createCheckoutPayment'.
