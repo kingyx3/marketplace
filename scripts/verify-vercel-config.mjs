@@ -14,6 +14,7 @@ async function main() {
   const deployWorkflow = await readText(".github/workflows/deploy.yml", errors);
   const bootstrapWorkflow = await readText(".github/workflows/bootstrap-environment.yml", errors);
   const runtimeReconciler = await readText("scripts/reconcile-runtime-environment.mjs", errors);
+  const providerReconciler = await readText("scripts/configure-providers.mjs", errors);
   const syncScript = await readText("scripts/sync-vercel-env.mjs", errors);
   const deployScript = await readText("scripts/deploy-vercel.mjs", errors);
   const toolVersions = await readJson("config/tool-versions.json", errors);
@@ -58,8 +59,9 @@ async function main() {
   }
 
   if (
-    !runtimeReconciler.includes("configure-hitpay.mjs") ||
-    !runtimeReconciler.includes("sync-vercel-env.mjs")
+    !runtimeReconciler.includes("scripts/configure-providers.mjs") ||
+    !runtimeReconciler.includes("sync-vercel-env.mjs") ||
+    !providerReconciler.includes("configure-hitpay.mjs")
   ) {
     errors.push("runtime reconciler must own HitPay provisioning and Vercel environment sync");
   }
