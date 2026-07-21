@@ -20,11 +20,15 @@ describe("TCGplayer catalog admin flow", () => {
     expect(route).toContain("enforceRateLimit");
     expect(route).toContain('scope: "admin.tcgplayer_catalog_lookup"');
     expect(client).toContain(
-      'const TCGPLAYER_PRODUCT_API = "https://mpapi.tcgplayer.com/v2/product"'
+      'const TCGPLAYER_PRODUCT_DETAILS_API = "https://mp-search-api.tcgplayer.com/v2/product"'
+    );
+    expect(client).toContain(
+      'const TCGPLAYER_PRODUCT_ENRICHMENT_API = "https://mpapi.tcgplayer.com/v2/product"'
     );
     expect(client).toContain("MAX_UPSTREAM_RESPONSE_BYTES");
     expect(client).toContain("UPSTREAM_TIMEOUT_MS");
     expect(component).toContain("api.request<TcgplayerCatalogSuggestion>");
+    expect(component).not.toContain("mp-search-api.tcgplayer.com");
     expect(component).not.toContain("mpapi.tcgplayer.com");
     expect(page).toContain("TcgplayerCatalogImport");
   });
