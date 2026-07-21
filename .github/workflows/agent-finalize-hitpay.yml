@@ -1,4 +1,4 @@
-name: Diagnose HitPay migration
+name: Minimize HitPay configuration
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  minimize:
     if: github.event.pull_request.head.ref == 'agent/migrate-payments-to-hitpay'
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -18,8 +18,6 @@ jobs:
       SUPABASE_SECRET_KEY: test-secret-key
       HITPAY_API_KEY: test-hitpay-key
       HITPAY_WEBHOOK_SALT: test-hitpay-salt
-      HITPAY_API_URL: https://api.sandbox.hit-pay.com
-      HITPAY_PAYMENT_METHODS: paynow_online
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       APP_NAME: Marketplace
       TARGET_ENV: development
@@ -34,27 +32,35 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --silent
-      - name: Capture validation output
-        shell: bash
-        run: |
-          set +e
-          mkdir -p tmp/hitpay-ci
-          npm run lint > tmp/hitpay-ci/lint.txt 2>&1
-          lint_code=$?
-          npm run typecheck > tmp/hitpay-ci/typecheck.txt 2>&1
-          typecheck_code=$?
-          npm test > tmp/hitpay-ci/unit-tests.txt 2>&1
-          tests_code=$?
-          npm run config:check > tmp/hitpay-ci/config-check.txt 2>&1
-          config_code=$?
-          printf 'lint=%s\ntypecheck=%s\nunit_tests=%s\nconfig_check=%s\n' \
-            "$lint_code" "$typecheck_code" "$tests_code" "$config_code" \
-            > tmp/hitpay-ci/summary.txt
-          exit 0
-      - name: Publish diagnostic output to branch
+      - name: Apply minimal HitPay environment contract
+        run: python3 scripts/minimize-hitpay-environment.py
+      - name: Regenerate environment artifacts
+        run: npm run env:artifacts:write
+      - name: Format modified sources
+        run: >-
+          npx prettier --write
+          config scripts lib tests docs README.md
+          .github/workflows/bootstrap-environment.yml
+          .github/workflows/configure-providers.yml
+          .github/workflows/deploy.yml
+          .github/workflows/hosted-release-gates.yml
+          --log-level silent
+      - name: Commit minimized configuration
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -f tmp/hitpay-ci/*.txt
-          git commit -m "Refresh temporary HitPay validation diagnostics"
-          git push origin HEAD:agent/migrate-payments-to-hitpay
+          git add -A -- ':!.github/workflows/agent-finalize-hitpay.yml'
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+          else
+            git commit -m "Minimize required HitPay configuration"
+            git push origin HEAD:agent/migrate-payments-to-hitpay
+          fi
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Configuration contract
+        run: npm run config:check
