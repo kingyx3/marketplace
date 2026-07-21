@@ -15,6 +15,7 @@ describe("checkout production readiness", () => {
     expect(productPage).toContain("Buy now");
     expect(productPage).toContain("Add to cart");
     expect(cartActions).toContain("export async function buyNow");
+    expect(cartActions).toContain("redirect(`/buy-now?${query.toString()}#checkout`)");
     expect(cartActions).not.toContain("writeCart(directItems)");
     expect(buyNowPage).toContain("Your saved cart is unchanged");
     expect(buyNowPage).toContain('startLabel="Buy now with HitPay"');
