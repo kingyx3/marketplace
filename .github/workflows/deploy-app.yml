@@ -113,7 +113,7 @@ jobs:
       vars.ENABLE_RELEASE_TOPOLOGY != 'true'
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Staging is not provisioned; the main revision will deploy directly to production."
+      - run: echo "Staging is not provisioned; the main revision was not deployed."
 
   reject-disabled-staging-dispatch:
     if: >-
@@ -167,8 +167,7 @@ jobs:
   deploy-production-direct:
     if: >-
       vars.ENABLE_RELEASE_TOPOLOGY != 'true' &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-       github.event_name == 'release' ||
+      (github.event_name == 'release' ||
        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
        (github.event_name == 'workflow_dispatch' && inputs.target == 'production'))
     uses: ./.github/workflows/deploy.yml
