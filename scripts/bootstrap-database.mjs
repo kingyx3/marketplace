@@ -863,6 +863,9 @@ const HOSTED_FETCH_TIMEOUT_MS = 15_000;
 const HOSTED_FETCH_ATTEMPTS = 5;
 const HOSTED_FETCH_TIMEOUT_MS = 15_000;
 
+const HOSTED_FETCH_ATTEMPTS = 5;
+const HOSTED_FETCH_TIMEOUT_MS = 15_000;
+
 async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) {
   const base = new URL(siteUrl);
   const headers = { "user-agent": "marketplace-database-bootstrap/1.0" };
