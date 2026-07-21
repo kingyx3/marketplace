@@ -122,7 +122,14 @@ export function CartCheckoutPanel({
   }, [api, requiresShipping]);
 
   async function beginCheckout() {
-    if (disabled || items.length === 0 || phase === "creating") return;
+    if (
+      disabled ||
+      items.length === 0 ||
+      phase === "creating" ||
+      (requiresShipping && addressLoadState === "loading")
+    ) {
+      return;
+    }
 
     const accessToken = await session.getAccessToken();
     if (!accessToken) {
