@@ -94,11 +94,17 @@ describe("database bootstrap", () => {
     expect(resolver).toContain('mode === "bootstrap"');
     expect(pkg.scripts["db:bootstrap"]).toBe("node scripts/bootstrap-database.mjs");
 
-    const grantSeedStart = script.indexOf('await upsert(client, "admin_access_grants"');
+    const grantSeedStart = script.indexOf(
+      "const { data: existingGrant, error: existingGrantError } = await client"
+    );
     const grantSeedEnd = script.indexOf("await verifyReferenceRow", grantSeedStart);
     expect(grantSeedStart).toBeGreaterThan(-1);
     expect(grantSeedEnd).toBeGreaterThan(grantSeedStart);
-    expect(script.slice(grantSeedStart, grantSeedEnd)).not.toContain("accepted_at:");
+    const grantSeed = script.slice(grantSeedStart, grantSeedEnd);
+    expect(grantSeed).toContain('.select("accepted_at")');
+    expect(grantSeed).toContain(
+      "accepted_at: existingGrant?.accepted_at ?? now.toISOString()"
+    );
 
     expect(script).toContain("assertTargetSafety(target, supabaseUrl);");
     expect(script).not.toContain("assertTargetSafety(target, supabaseUrl, siteUrl);");
