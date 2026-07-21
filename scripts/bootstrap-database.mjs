@@ -683,7 +683,7 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-  await rpc(client, "admin_upsert_catalog_product_with_publication", {
+  await rpc(client, "admin_upsert_catalog_product", {
     p_product_id: FIXTURE_IDS.product,
     p_name: PRODUCT_NAME,
     p_category_id: FIXTURE_IDS.category,
@@ -694,7 +694,6 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_language: "EN",
     p_image_url: null,
     p_active: true,
-    p_published: false,
     p_actor: `staff:${actorAuthUserId}`,
   });
   await rpc(client, "admin_upsert_catalog_sku", {
