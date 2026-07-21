@@ -1,89 +1,54 @@
-# Build plan
+# Build status
 
-Honest status ledger. **Unchecked roadmap items are not built yet** — docs and README must never describe those as working.
+This is the current implementation ledger for the retail application. Historical product and market assumptions remain in [`docs/research/`](research/), but they are not the source of truth for deployed architecture or supported workflows.
 
-## Built (this scaffold)
+Use these documents for current behavior:
 
-- ✅ Next.js 16 app shell; landing, `/products`, and product detail pages reading live catalog rows from Postgres with fixture/image fallbacks
-- ✅ Google-only Supabase Auth routes, session refresh middleware, sign-out, customer row provisioning with first-signup welcome messaging, protected account/admin pages, and authenticated account/order/pre-order APIs
-- ✅ Cookie cart helpers and server-side checkout validation for SKU, quantity, inventory, currency, B2B eligibility, tier discounts, and server-derived totals
-- ✅ Checkout order RPC with atomic inventory allocation, persisted discounts, expected subtotal/total checks, and Stripe amount/currency verification before an order can become `paid`
-- ✅ Live account dashboard and customer order/pre-order pages backed by Supabase rows, plus order/pre-order list/detail APIs, B2B application endpoint, staff-gated admin inventory/order/pre-order APIs, and an operator inventory page
-- ✅ `/api/health` smoke endpoint plus `/api/health?deep=1` readiness checks for Supabase, Stripe config, and notification channel status
-- ✅ Stripe webhook receiver: signature-verified, idempotent (event ledger), with guarded payment/order/refund state transitions
-- ✅ Full commerce schema as SQL migrations, RLS on every table, seed data
-- ✅ Allocation engine (`lib/allocation.ts`) — pure logic + unit tests
-- ✅ Env contract: `generate-env.mjs`, zod runtime schema, `APP_NAME` display-name propagation, and unit tests
-- ✅ CI (lint/typecheck/test/build/migrations, parallel, secretless)
-- ✅ Deploy pipeline: reusable workflow with active `development`, `staging`, and `production` environments; exact-revision staging deployment and hosted release gates before routine production deployment; Terraform/provider output resolution, Stripe webhook provisioning, env→Vercel sync, migration gating, smoke tests, and production approval
-- ✅ Terraform provisioning for the GCS state bucket, primary and staging Vercel projects, and Supabase project shells for development, staging, recovery, and production
-- ✅ Config-as-code checks for Vercel and Supabase: `vercel.json` security/cache headers, product image storage bucket/policies in SQL, and verifier scripts covered by CI
-- ✅ End-to-end bootstrap documentation for three target environments, repository-level Terraform inputs, output-driven environment resolution, GitHub Environment vars/secrets, hosted Google OAuth configuration, notification/operations readiness inputs, Stripe webhook provisioning, bootstrap, deploy, and recovery
-- ✅ Admin supplier purchase-order intake: service-role-only RPC records confirmed supplier POs, line items, incoming inventory deltas, and audit records from the protected admin page
-- ✅ Admin B2B pricing-tier removal: service-role-only RPC removes assigned tiers, records the staff actor, and lets the existing checkout gate disable wholesale access when no tier remains
-- ✅ Admin product/SKU/inventory management: protected product create/update/archive forms, SKU create/update/archive forms, Supabase Storage product image upload, and reason-coded inventory adjustments backed by audited service-role RPCs
-- ✅ Admin storefront listing management: protected listing/configuration forms control title overrides, tags, B2C/B2B channel metadata, max-per-customer display/input limits, preorder reserve display, sort order, featured/published state, and catalog header copy
-- ✅ B2B invoice/PO checkout: approved wholesale customers can create a pending-payment invoice order with server-derived tier pricing, stock allocation, manual-invoice payment placeholder, and audit record
-- ✅ Waitlist + drop notifications: authenticated customers can save SKU-level email, Telegram, or WhatsApp alerts; staff can trigger deduped drop delivery through server-side providers
-- ✅ Production deploy guardrails: `TARGET_ENV` mapping, predeploy app checks, migration SQL validation, staging evidence, hosted provider/recovery verification, production approval, and smoke tests
-- ✅ Docs (`docs/*.md`) + research report (`docs/research/`)
-- ✅ Explicit Supabase Data API grants paired with RLS policies for the public catalog, published listing rows, active storefront configuration, and authenticated own-row reads
-- ✅ Playwright browser smoke tests for the built storefront, preview catalog fallback, product detail route, empty cart, and shallow health endpoint
-- ✅ Admin operations runbook (`docs/admin-operations.md`) for workflows that remain reviewed/runbook-driven even where protected admin UI exists
+- [`README.md`](../README.md) — product surface and operator entry points
+- [`docs/data-model.md`](data-model.md) — active database and commerce contracts
+- [`docs/api-architecture.md`](api-architecture.md) — server boundaries and endpoint rules
+- [`docs/deployment.md`](deployment.md) — deployment and release behavior
+- [`docs/admin-operations.md`](admin-operations.md) — reviewed control-console workflows
 
-## Roadmap status
+## Built and supported
 
-Sequenced to match the 30/60/90-day plan in `docs/research/14-final-recommendation.md`.
+- Next.js 16 retail storefront with live catalog, listings, limited-time deals, stock state, cart, checkout, customer accounts, orders, and preorders
+- Google-only Supabase Auth with server-side session handling and role-scoped administrator access
+- Server-derived SGD pricing, shipping, tax, inventory checks, reservation expiry, and immutable order totals
+- Hosted HitPay payment requests, signed webhook processing, idempotent payment transitions, refunds, and failed/expired reservation safety
+- Retail preorders charged 100% upfront, followed by reviewed allocation, exact shortfall refunds, and conversion into paid orders
+- Supabase PostgreSQL migrations, row-level security, service-role commercial mutations, audit logging, seed data, and SQL contract tests
+- Protected control-console workflows for catalog, products, product types, SKUs, pricing, images, listings, deals, inventory, purchase orders, preorder allocation, orders, refunds, reconciliation, and payment exceptions
+- Customer waitlists and drop notifications with server-side delivery adapters
+- Sentry observability, health/readiness endpoints, request correlation, and operational verification
+- Vercel, Supabase, Terraform, and GitHub Actions bootstrap, deployment, migration, backup/restore, and release-gate automation
+- Vitest unit and architecture tests, Playwright browser tests, linting, strict type checking, configuration validation, production builds, migration tests, and restore checks
 
-### Phase 1 — sell one box (MVP commerce)
+## Retired architecture
 
-- [x] Auth flows (Supabase Auth: Google sign-in/out, session handling, customer row provisioning)
-- [x] Product detail page backed by database catalog rows
-- [x] Supabase Storage `product-images` bucket and RLS policies for public image reads plus staff/service-role writes
-- [x] Cart + checkout backend and browser PaymentIntent confirmation UI (server-derived pricing, inventory checks, Stripe Elements, retry/cancel states, and cart clearing only after confirmed client-side success)
-- [x] Webhook → `payments`/`orders` state machine for successful, failed, authorized, and refunded Stripe events
-- [x] Order confirmation email via Resend, with notification-row dedupe, provider-message tracking, disabled-provider skip state, and failure recording that does not roll back paid orders
-- [x] Admin: complete product/inventory CRUD (product create/update/archive, SKU create/update/archive, product image upload, integer-cent validation, and reason-coded inventory adjustment)
-- [x] Admin: storefront listing/configuration management for merchandising controls and catalog page copy
-- [x] Admin API: explicit order/payment actions for packing, shipping, unpaid cancellation, manual reconciliation, and payment exception flagging; generic order `status` PATCH is removed
-- [x] Admin API: order/payment exception queue backed by persisted manual flags plus derived stale/orphan/failed-payment signals
-- [x] Admin UI: live order/payment exception queue visibility
-- [x] Admin UI: reconciliation console for manual payment correction through the audited admin order action path
+The following earlier designs are intentionally not part of the active product:
 
-### Phase 2 — pre-orders (the differentiator)
+- **Stripe payments.** Runtime payment processing uses HitPay. Stripe references that remain in immutable migrations or historical research explain prior state and must not be treated as active integration points.
+- **Deposit-then-balance preorders.** Retail preorders are paid in full. The `deposit_cents` and `balance_cents` column names remain only for stored-schema compatibility; active rows require the full value in `deposit_cents` and zero balance.
+- **Wholesale/B2B checkout.** Manual invoice checkout, wholesale pricing tiers, credit controls, and B2B account tables were removed by the wholesale decommission migration. The supported sales channel is retail `b2c`.
+- **Fixture-backed authenticated commerce.** Customer order and preorder pages read live Supabase-shaped data and do not import marketplace fixtures.
 
-- [x] Storefront pre-order placement flow around the deposit API (product detail starts a server-priced Stripe Elements deposit flow)
-- [x] Pre-order deposit PaymentIntent API primitive normalized to immediate SGD PayNow payment, with persisted pre-order/payment rows
-- [x] Allocation run: `lib/allocation.ts` reads live inventory/rules and persists allocation deltas through a guarded database function
-- [x] Balance PaymentIntent + pre-order conversion via authenticated PayNow balance flow and idempotent Stripe webhook conversion
-- [x] Customer pre-order dashboard (read-only status, allocated quantity, deposit, and balance due from live rows)
-- [x] Waitlist + drop notifications (Telegram/WhatsApp adapters)
+Do not reintroduce retired providers or workflows through application code, environment variables, documentation, deployment configuration, or tests unless a new architecture decision explicitly restores them.
 
-### Phase 3 — B2B/wholesale
+## Remaining roadmap
 
-- [x] Customer B2B application page plus server-side approved-account channel gate, assigned-tier pricing, visible wholesale prices, and minimum-order enforcement in quote/checkout
-- [x] Admin B2B application review list, rejection flow, and approval with required pricing-tier assignment
-- [x] Tier pricing visible on catalog/product/cart before checkout for approved accounts with assigned tiers
-- [x] Invoice/PO-style checkout (manual invoice/bank-transfer order request reconciled through the audited admin payment path)
-- [x] Supplier purchase-order intake updating `incoming` stock
-- [x] Admin: B2B pricing-tier removal
+- Design-system consolidation and a fuller visual pass
+- Search infrastructure beyond database full-text search when measured relevance requires it
+- Analytics and operational dashboards for sell-through, margin, preorder conversion, and fulfillment performance
+- Carrier-rate integrations when static shipping policies are no longer sufficient
 
-### Phase 4 — scale & polish
+## Historical phase mapping
 
-- [ ] shadcn/ui component layer; proper design pass
-- [ ] Search upgrade (Typesense/Algolia) when FTS relevance fails
-- [ ] Integration tests: RLS assertions, Stripe flows, authenticated browser flows
-- [ ] Analytics/metrics dashboard (sell-through, margin, preorder conversion)
-- [ ] Shipping-rate integration (SingPost/Ninja Van/J&T APIs)
+The research report describes an earlier phase model. For traceability:
 
-## Deferred decisions
+1. **Retail commerce foundation:** implemented, with HitPay replacing the original Stripe design.
+2. **Preorder differentiation:** implemented, with full upfront payment replacing deposit/balance collection.
+3. **Wholesale/B2B:** implemented experimentally and subsequently retired from the active product architecture.
+4. **Scale and polish:** partially complete; the remaining roadmap is listed above.
 
-- Multi-currency display (schema-ready; UI later)
-- Marketplace/consignment for singles (out of scope: sealed-first strategy)
-- Moving off Vercel/Supabase to deeper GCP infrastructure (only if the business needs VPC-level control or outgrows hosted-platform constraints)
-
-## Admin workflow status
-
-The protected admin page now covers live inventory updates, product/SKU/image/catalog management, storefront listing and catalog-copy management, preorder allocation, payment-exception visibility, purchase-order visibility, B2B approval/rejection with pricing-tier assignment, and manual payment reconciliation from the exception queue. Supplier PO intake records a confirmed PO and increments incoming stock through an audited service-role RPC, assigned B2B pricing tiers can be removed through an audited service-role action, and product/listing/inventory management is available through audited admin actions.
-
-Admin work still requires runbook discipline for production review, supplier onboarding/maintenance, provider dashboard reconciliation, and data changes that affect money, inventory, storefront visibility, allocations, B2B status, or customer communication.
+Current implementation claims must be verified against executable code, migrations, tests, and the current documents linked at the top of this file—not against historical research recommendations.
