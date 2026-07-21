@@ -4,7 +4,6 @@ import { inspect } from "node:util";
 
 import { applyVersionedEnvironmentConfig } from "./environment-config.mjs";
 import { loadLocalDotenv } from "./generate-env.mjs";
-import { buildHitPayWebhookConfig, listHitPayWebhooks } from "./lib/hitpay-webhook.mjs";
 
 const PUBLIC_ENV_KEYS = Object.freeze([
   "TARGET_ENV",
@@ -15,8 +14,6 @@ const PUBLIC_ENV_KEYS = Object.freeze([
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "HITPAY_API_URL",
   "HITPAY_PAYMENT_METHODS",
-  "HITPAY_WEBHOOK_ID",
-  "HITPAY_WEBHOOK_ENABLED_EVENTS",
   "SUPABASE_PROJECT_REF",
   "GOOGLE_OAUTH_CLIENT_ID",
   "VERCEL_ORG_ID",
@@ -38,8 +35,6 @@ const STRICT_KEYS = Object.freeze([
   "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "HITPAY_API_URL",
-  "HITPAY_PAYMENT_METHODS",
   "HITPAY_API_KEY",
   "HITPAY_WEBHOOK_SALT",
   "SUPABASE_PROJECT_REF",
@@ -59,7 +54,6 @@ export async function resolveEnvironment(env = process.env, options = {}) {
   applyHitPayDefaults(env, targetEnv);
   await resolveVercelValues(env);
   await resolveSupabaseValues(env);
-  await resolveHitPayValues(env);
 
   const missing = missingRequired(env, options.requireDbPassword);
   if (options.strict && missing.length > 0) {
@@ -110,11 +104,6 @@ function applyHitPayDefaults(env, targetEnv) {
     targetEnv === "production" ? "https://api.hit-pay.com" : "https://api.sandbox.hit-pay.com"
   );
   setIfMissing(env, "HITPAY_PAYMENT_METHODS", "paynow_online");
-  setIfMissing(
-    env,
-    "HITPAY_WEBHOOK_ENABLED_EVENTS",
-    "payment_request.completed,payment_request.failed,charge.updated"
-  );
 }
 
 async function resolveVercelValues(env) {
@@ -159,29 +148,6 @@ async function resolveSupabaseValues(env) {
     selectSupabaseSecretKey(keys),
     env.SUPABASE_PROJECT_REF
   );
-}
-
-async function resolveHitPayValues(env) {
-  if (hasValue(env.HITPAY_WEBHOOK_ID)) return;
-  if (!hasValue(env.HITPAY_API_KEY) || !hasValue(env.NEXT_PUBLIC_SITE_URL)) return;
-  const config = buildHitPayWebhookConfig(env);
-  let webhooks;
-  try {
-    webhooks = await listHitPayWebhooks(config);
-  } catch (error) {
-    console.log(
-      `HitPay webhook id was not resolved: ${redact(error?.message || String(error), env)}`
-    );
-    return;
-  }
-  const matches = webhooks.filter((webhook) => webhook?.url === config.webhookUrl);
-  if (matches.length === 1 && matches[0]?.id) {
-    env.HITPAY_WEBHOOK_ID = String(matches[0].id);
-  } else if (matches.length > 1) {
-    console.log(
-      `HitPay webhook id was not resolved: multiple registrations match ${config.webhookUrl}.`
-    );
-  }
 }
 
 async function fetchVercelProject(token, idOrName, teamId) {

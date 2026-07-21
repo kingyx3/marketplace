@@ -39,12 +39,11 @@ try {
     console.log(
       inspect(
         {
+          apiUrl: config.apiUrl,
+          webhookName: config.webhookName,
           webhookUrl: config.webhookUrl,
           enabledEvents: config.enabledEvents,
-          existing:
-            webhooks.find(
-              (item) => item.id === config.webhookId || item.url === config.webhookUrl
-            ) || null,
+          existing: webhooks.find((item) => item?.url === config.webhookUrl) || null,
         },
         { colors: false, depth: null }
       )

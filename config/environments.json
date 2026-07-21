@@ -4,12 +4,7 @@
     "APP_NAME": "Marketplace",
     "GOOGLE_AUTH_ENABLED": "true",
     "HITPAY_API_URL": "https://api.sandbox.hit-pay.com",
-    "HITPAY_PAYMENT_METHODS": "paynow_online",
-    "HITPAY_WEBHOOK_ENABLED_EVENTS": [
-      "payment_request.completed",
-      "payment_request.failed",
-      "charge.updated"
-    ]
+    "HITPAY_PAYMENT_METHODS": "paynow_online"
   },
   "environments": {
     "development": {},

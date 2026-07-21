@@ -29,10 +29,6 @@ const sharedVariableValues = {
 };
 const commonVariables = [
   "NEXT_PUBLIC_SITE_URL",
-  "HITPAY_API_URL",
-  "HITPAY_PAYMENT_METHODS",
-  "HITPAY_WEBHOOK_ID",
-  "HITPAY_WEBHOOK_ENABLED_EVENTS",
   "GOOGLE_AUTH_ENABLED",
   "GOOGLE_OAUTH_CLIENT_ID",
   "RESEND_FROM_EMAIL",
@@ -154,7 +150,12 @@ for (const environment of deploymentEnvironments) {
     deleteEnvironmentSettingIfPresent("variable", environment, name);
   }
   deleteEnvironmentSettingIfPresent("secret", environment, "SENTRY_AUTH_TOKEN");
-  for (const legacy of ["HITPAY_API_URL", "HITPAY_WEBHOOK_ID"]) {
+  for (const legacy of [
+    "HITPAY_API_URL",
+    "HITPAY_PAYMENT_METHODS",
+    "HITPAY_WEBHOOK_ID",
+    "HITPAY_WEBHOOK_ENABLED_EVENTS",
+  ]) {
     deleteEnvironmentSettingIfPresent("variable", environment, legacy);
   }
   for (const legacy of ["HITPAY_API_KEY", "HITPAY_WEBHOOK_SALT"]) {
@@ -165,17 +166,7 @@ for (const pattern of deploymentPolicies(target)) ensureDeploymentPolicy(target,
 for (const name of environmentVariables) {
   const supplied = environmentValue(target, name);
   if (supplied) setVariable(target, name, supplied);
-  else if (name === "GOOGLE_AUTH_ENABLED") setVariable(target, name, "true");
-  else if (name === "HITPAY_API_URL") {
-    setVariable(
-      target,
-      name,
-      target === "production" ? "https://api.hit-pay.com" : "https://api.sandbox.hit-pay.com"
-    );
-  } else if (name === "HITPAY_PAYMENT_METHODS") setVariable(target, name, "paynow_online");
-  else if (name === "HITPAY_WEBHOOK_ENABLED_EVENTS") {
-    setVariable(target, name, "payment_request.completed,payment_request.failed,charge.updated");
-  } else if (name === "RESTORE_RTO_SECONDS") setVariable(target, name, "1800");
+  else if (name === "GOOGLE_AUTH_ENABLED") setVariable(target, name, "true"); else if (name === "RESTORE_RTO_SECONDS") setVariable(target, name, "1800");
   else if (name === "SUPABASE_MINIMUM_BACKUP_RETENTION_DAYS") setVariable(target, name, "7");
   else if (name === "CHECKOUT_AVAILABILITY_SLO_PERCENT") setVariable(target, name, "99.9");
   else if (name === "CHECKOUT_LATENCY_SLO_MS") setVariable(target, name, "5000");
@@ -192,9 +183,7 @@ console.log(
 );
 
 function variableIsRequired(name) {
-  if (["SUPPORT_EMAIL", "HITPAY_WEBHOOK_ID"].includes(name)) {
-    return name === "SUPPORT_EMAIL" && target === "production";
-  }
+  if (name === "SUPPORT_EMAIL") return target === "production";
   if (["SUPABASE_ADVISOR_ALLOWLIST", "GOOGLE_OAUTH_CLIENT_ID"].includes(name)) {
     return false;
   }
