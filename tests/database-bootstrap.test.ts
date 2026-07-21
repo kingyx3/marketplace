@@ -51,12 +51,24 @@ describe("database bootstrap", () => {
     expect(workflow).not.toContain("workflow_dispatch:");
     expect(workflow).toContain("environment: ${{ inputs.environment }}");
     expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: ${{ inputs.deployment_url }}");
+    expect(workflow).toContain("- name: Resolve Terraform inputs");
     expect(workflow).toContain("resolve-terraform-inputs.mjs bootstrap");
     expect(workflow).toContain("resolve-environment.mjs");
     expect(workflow).toContain("--verify-supabase-keys");
     expect(workflow).not.toContain("APP_NAME:");
     expect(workflow).not.toContain("VERCEL_TOKEN:");
     expect(workflow).not.toContain("SUPABASE_SECRET_KEY: ${{ secrets.");
+
+    const resolverStep = workflow.indexOf("- name: Resolve Terraform inputs");
+    const databaseStep = workflow.indexOf(
+      "- name: Resolve selected database from provisioned CI/CD state"
+    );
+    expect(resolverStep).toBeGreaterThan(-1);
+    expect(databaseStep).toBeGreaterThan(resolverStep);
+    expect(workflow.slice(resolverStep, databaseStep)).toContain(
+      "resolve-terraform-inputs.mjs bootstrap"
+    );
+    expect(workflow.slice(resolverStep, databaseStep)).not.toContain("terraform -chdir");
 
     expect(deploy).toContain("bootstrap-test-data:");
     expect(deploy).toContain("uses: ./.github/workflows/bootstrap-database.yml");
