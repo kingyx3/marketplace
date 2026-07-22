@@ -6,6 +6,14 @@ on:
       - agent/remove-sku-product-only-comprehensive
     paths:
       - .github/product-only-apply/ready
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 
 permissions:
   contents: write
@@ -16,6 +24,7 @@ concurrency:
 
 jobs:
   materialize:
+    if: github.event_name == 'push' || github.head_ref == 'agent/remove-sku-product-only-comprehensive'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +47,7 @@ jobs:
           rm -rf .github/product-only-apply
           rm .github/workflows/materialize-product-only.yml
 
-      - name: Format changed text files
+      - name: Install and format
         shell: bash
         run: |
           set -euo pipefail
@@ -47,6 +56,16 @@ jobs:
             | xargs -0 --no-run-if-empty npx prettier --write --ignore-unknown
           git add -A
           git diff --cached --check
+
+      - name: Validate comprehensive refactor
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run config:check
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run build
 
       - name: Commit comprehensive refactor
         shell: bash
