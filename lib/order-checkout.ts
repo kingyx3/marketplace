@@ -27,27 +27,27 @@ export function checkoutReturnUrl(
   env: NodeJS.ProcessEnv = process.env
 ): string {
   const appUrl = new URL(applicationUrl("/", env));
-  let target = new URL("/cart", appUrl);
+  let destination: "cart" | "order" = "cart";
 
   if (requestedUrl) {
     try {
       const requested = new URL(requestedUrl);
       if (requested.origin === appUrl.origin) {
         if (requested.pathname === "/orders") {
-          target = new URL(`/orders/${encodeURIComponent(orderId)}`, appUrl);
-        } else if (requested.pathname === "/cart") {
-          target = new URL(`${requested.pathname}${requested.search}${requested.hash}`, appUrl);
+          destination = "order";
         }
       }
     } catch {
-      // Fall back to the cart for malformed or untrusted return URLs.
+      // Fall back to the cart destination for malformed or untrusted return URLs.
     }
   }
 
-  target.searchParams.set("checkout", "processing");
-  if (target.pathname === "/cart") {
-    target.searchParams.set("order", orderId);
-  }
+  // Keep the provider return public. An authenticated destination can force a
+  // fresh OAuth flow when a browser does not restore the session after leaving
+  // HitPay, obscuring a successful payment with an unrelated sign-in error.
+  const target = new URL("/checkout/return", appUrl);
+  target.searchParams.set("order", orderId);
+  target.searchParams.set("destination", destination);
   return target.toString();
 }
 

@@ -38,6 +38,12 @@ Use plain language and avoid implementation terminology. A customer should not n
 - Delivery addresses currently belong to individual orders. The account page may show recent destinations, while customers enter a new destination during checkout; do not imply that a reusable address book exists until it is implemented.
 - Account deletion requires an explicit confirmation modal. Both the entry action and final confirmation use destructive styling, while cancellation remains prominent and safe.
 
+## Checkout returns
+
+- Hosted payment returns land on the public `/checkout/return` page before any authenticated order destination. A missing or stale browser session must not replace the payment result with a sign-in error.
+- The return page may explain the provider-reported outcome and link to the cart or order, but the signed payment webhook remains authoritative for payment and fulfilment state.
+- Authentication failures use customer-facing recovery language and preserve the intended internal destination. Do not expose provider configuration or environment troubleshooting instructions on the storefront.
+
 ## Out-of-stock and preorder behaviour
 
 Published products remain discoverable when they sell out so customers can review the product and subscribe to an availability alert. Use these rules consistently across the home page, product list, product detail, cart, and checkout:

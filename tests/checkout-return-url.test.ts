@@ -9,37 +9,34 @@ const env = {
 } as NodeJS.ProcessEnv;
 
 describe("checkout return URLs", () => {
-  it("routes an approved orders return to the newly created order", () => {
+  it("routes an approved orders return through the public payment result page", () => {
     const result = new URL(checkoutReturnUrl("https://shop.example.com/orders", orderId, env));
 
     expect(result.origin).toBe("https://shop.example.com");
-    expect(result.pathname).toBe(`/orders/${orderId}`);
-    expect(result.searchParams.get("checkout")).toBe("processing");
-    expect(result.searchParams.has("order")).toBe(false);
+    expect(result.pathname).toBe("/checkout/return");
+    expect(result.searchParams.get("order")).toBe(orderId);
+    expect(result.searchParams.get("destination")).toBe("order");
   });
 
-  it("preserves the standard cart return with its order reference", () => {
+  it("routes the standard cart return through the public payment result page", () => {
     const result = new URL(
       checkoutReturnUrl("https://shop.example.com/cart?source=checkout#summary", orderId, env)
     );
 
-    expect(result.pathname).toBe("/cart");
-    expect(result.searchParams.get("source")).toBe("checkout");
-    expect(result.searchParams.get("checkout")).toBe("processing");
+    expect(result.pathname).toBe("/checkout/return");
     expect(result.searchParams.get("order")).toBe(orderId);
-    expect(result.hash).toBe("#summary");
+    expect(result.searchParams.get("destination")).toBe("cart");
   });
 
-  it.each([
-    "https://attacker.example/orders",
-    "https://shop.example.com/control",
-    "not-a-url",
-  ])("falls back to the cart for an untrusted return URL: %s", (requestedUrl) => {
-    const result = new URL(checkoutReturnUrl(requestedUrl, orderId, env));
+  it.each(["https://attacker.example/orders", "https://shop.example.com/control", "not-a-url"])(
+    "falls back to the cart for an untrusted return URL: %s",
+    (requestedUrl) => {
+      const result = new URL(checkoutReturnUrl(requestedUrl, orderId, env));
 
-    expect(result.origin).toBe("https://shop.example.com");
-    expect(result.pathname).toBe("/cart");
-    expect(result.searchParams.get("checkout")).toBe("processing");
-    expect(result.searchParams.get("order")).toBe(orderId);
-  });
+      expect(result.origin).toBe("https://shop.example.com");
+      expect(result.pathname).toBe("/checkout/return");
+      expect(result.searchParams.get("order")).toBe(orderId);
+      expect(result.searchParams.get("destination")).toBe("cart");
+    }
+  );
 });
