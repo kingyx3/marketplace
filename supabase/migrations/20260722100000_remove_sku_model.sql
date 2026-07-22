@@ -617,9 +617,11 @@ begin
     v_quantity := v_quantity + v_item.quantity;
     if v_quantity > 24 then raise exception 'cart quantity limit exceeded' using errcode = '22023'; end if;
 
-    select id, price_cents, currency into v_product
-    from public.products
-    where id = v_item.product_id and active and price_cents > 0;
+    select product.id, product.price_cents, product.currency into v_product
+    from public.products product
+    where product.id = v_item.product_id
+      and product.active
+      and product.price_cents > 0;
     if v_product.id is null then raise exception 'product not available' using errcode = 'P0002'; end if;
     if v_currency is null then v_currency := upper(v_product.currency);
     elsif v_currency <> upper(v_product.currency) then
