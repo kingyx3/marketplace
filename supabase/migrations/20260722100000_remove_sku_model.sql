@@ -909,8 +909,9 @@ begin
     for update skip locked limit p_limit
   loop
     perform public.release_order_allocation(v_order.id);
-    update public.payments set status = 'cancelled'
-    where order_id = v_order.id and status in ('pending', 'requires_capture', 'authorized');
+    update public.payments payment set status = 'cancelled'
+    where payment.order_id = v_order.id
+      and payment.status in ('pending', 'requires_capture', 'authorized');
     update public.orders set status = 'cancelled', checkout_reserved_until = null
     where id = v_order.id;
     return query
