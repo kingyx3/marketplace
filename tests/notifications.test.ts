@@ -289,11 +289,7 @@ function paidOrder() {
         unit_price_cents: 19900,
         products: {
           referenceCode: "BOX-1",
-          product_variants: {
-            products: {
-              name: "Sample Booster Box",
-            },
-          },
+          name: "Sample Booster Box",
         },
       },
     ],

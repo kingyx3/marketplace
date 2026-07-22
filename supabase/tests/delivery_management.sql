@@ -5,8 +5,6 @@ declare
   v_category_id uuid := gen_random_uuid();
   v_set_id uuid := gen_random_uuid();
   v_product_id uuid := gen_random_uuid();
-  v_variant_id uuid := gen_random_uuid();
-  v_sku_id uuid := gen_random_uuid();
   v_customer_id uuid := gen_random_uuid();
   v_paid_order_id uuid := gen_random_uuid();
   v_underpaid_order_id uuid := gen_random_uuid();
@@ -21,21 +19,21 @@ begin
   insert into public.sets_releases (id, category_id, name, code, status)
   values (v_set_id, v_category_id, 'Delivery Test Set', 'DELIVERY', 'released');
 
-  insert into public.products (id, name, category_id, set_id, product_type, language)
+  insert into public.products (
+    id, name, category_id, set_id, product_type, language,
+    reference_code, price_cents, currency
+  )
   values (
     v_product_id,
     'Delivery Test Set Booster Box',
     v_category_id,
     v_set_id,
     'booster_box',
-    'EN'
+    'EN',
+    'DELIVERY-TEST-PRODUCT',
+    10000,
+    'SGD'
   );
-
-  insert into public.product_variants (id, product_id, name)
-  values (v_variant_id, v_product_id, 'default');
-
-  insert into public.booster_box_skus (id, product_variant_id, sku, price_cents, currency)
-  values (v_sku_id, v_variant_id, 'DELIVERY-TEST-SKU', 10000, 'SGD');
 
   insert into public.customers (id, email, name)
   values (v_customer_id, 'delivery-contract@example.test', 'Delivery Contract');
@@ -61,8 +59,8 @@ begin
     now()
   );
 
-  insert into public.order_items (order_id, sku_id, quantity, unit_price_cents)
-  values (v_paid_order_id, v_sku_id, 1, 10000);
+  insert into public.order_items (order_id, product_id, quantity, unit_price_cents)
+  values (v_paid_order_id, v_product_id, 1, 10000);
 
   insert into public.payments (
     order_id,
@@ -135,8 +133,8 @@ begin
     now()
   );
 
-  insert into public.order_items (order_id, sku_id, quantity, unit_price_cents)
-  values (v_underpaid_order_id, v_sku_id, 1, 10000);
+  insert into public.order_items (order_id, product_id, quantity, unit_price_cents)
+  values (v_underpaid_order_id, v_product_id, 1, 10000);
 
   insert into public.payments (
     order_id,
@@ -197,7 +195,7 @@ begin
   insert into public.preorders (
     id,
     customer_id,
-    sku_id,
+    product_id,
     quantity,
     unit_price_cents,
     deposit_cents,
@@ -210,7 +208,7 @@ begin
   values (
     v_preorder_id,
     v_customer_id,
-    v_sku_id,
+    v_product_id,
     1,
     12000,
     2000,
@@ -221,8 +219,8 @@ begin
     v_preorder_order_id
   );
 
-  insert into public.order_items (order_id, sku_id, preorder_id, quantity, unit_price_cents)
-  values (v_preorder_order_id, v_sku_id, v_preorder_id, 1, 12000);
+  insert into public.order_items (order_id, product_id, preorder_id, quantity, unit_price_cents)
+  values (v_preorder_order_id, v_product_id, v_preorder_id, 1, 12000);
 
   insert into public.payments (
     preorder_id,

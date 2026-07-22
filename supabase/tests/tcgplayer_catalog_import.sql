@@ -50,7 +50,7 @@ begin
 
   select result.*
     into strict v_result
-  from public.admin_create_tcgplayer_catalog_product(
+  from public.admin_import_tcgplayer_products(
     v_category_id,
     null,
     null,
@@ -71,8 +71,9 @@ begin
     128000001,
     jsonb_build_array(
       jsonb_build_object(
-        'sourceSkuId', 128000002,
-        'sku', 'TCG-AMBIGUITY-128',
+        'sourceVariantId', 128000002,
+        'referenceCode', 'TCG-AMBIGUITY-128',
+        'name', 'TCGplayer Import Ambiguity Contract Product',
         'condition', 'Unopened',
         'language', 'English',
         'printing', 'Normal',
@@ -82,25 +83,24 @@ begin
     v_actor_auth_user_id
   ) as result;
 
-  if v_result.product_id is null then
-    raise exception 'TCGplayer catalog import did not return a product id';
+  if v_result.import_id is null then
+    raise exception 'TCGplayer catalog import did not return an import id';
   end if;
 
-  if v_result.imported_sku_count <> 1 then
-    raise exception 'TCGplayer catalog import returned an unexpected SKU count: %',
-      v_result.imported_sku_count;
+  if v_result.product_count <> 1 then
+    raise exception 'TCGplayer catalog import returned an unexpected product count: %',
+      v_result.product_count;
   end if;
 
   if not exists (
     select 1
-    from public.booster_box_skus sku
-    join public.product_variants variant
-      on variant.id = sku.product_variant_id
-    where variant.product_id = v_result.product_id
-      and sku.sku = 'TCG-AMBIGUITY-128'
-      and variant.name = 'tcgplayer:128000002'
+    from public.catalog_import_products imported
+    join public.products product on product.id = imported.product_id
+    where imported.import_id = v_result.import_id
+      and product.reference_code = 'TCG-AMBIGUITY-128'
+      and product.source_metadata->>'variantId' = '128000002'
   ) then
-    raise exception 'TCGplayer catalog import did not persist the product SKU';
+    raise exception 'TCGplayer catalog import did not persist the product';
   end if;
 end;
 $$;

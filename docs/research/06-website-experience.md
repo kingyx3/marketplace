@@ -10,7 +10,7 @@ section is the _rationale_, not a duplicate status tracker).
 
 - Browse by game (MTG/Pokémon/etc.), set, and product type (booster
   box, collector box, bundle, case) — modeled by `tcg_categories` →
-  `sets_releases` → `products` → `product_variants` → `booster_box_skus`.
+  `sets_releases` → `products`. Each product is directly priced and inventoried.
 - Clear release/pre-order status per set (announced / pre-order open /
   pre-order closed / released / out of print) — `sets_releases.status`.
 - Search across name/description — Postgres full-text to start
@@ -21,7 +21,7 @@ section is the _rationale_, not a duplicate status tracker).
 - Deposit-now, balance-later checkout distinct from a normal add-to-cart
   flow — because none of the incumbent SEA channels model this
   natively ([§02](02-competitive-benchmarking.md)).
-- Visible, plain-language allocation policy on scarce SKUs ("we reserve
+- Visible, plain-language allocation policy on scarce products ("we reserve
   N units for direct customers, capped at 2 per customer; remainder
   goes to wholesale") rather than silent sell-outs.
 - Order/pre-order status page: deposited → allocated → balance due →
@@ -56,7 +56,7 @@ section is the _rationale_, not a duplicate status tracker).
 
 the business)
 
-- Inventory view against `inventory.on_hand/allocated/incoming` with
+- Inventory view against `product_inventory.on_hand/allocated/incoming` with
   the oversell guard enforced at the database level.
 - Purchase order intake tied to `purchase_orders`/`purchase_order_items`
   updating `incoming` stock.

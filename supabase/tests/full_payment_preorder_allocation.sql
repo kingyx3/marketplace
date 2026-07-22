@@ -8,7 +8,7 @@ declare
   v_auth_user_2 uuid := '10000000-0000-4000-8000-000000000012';
   v_customer_1 uuid;
   v_customer_2 uuid;
-  v_sku_id uuid;
+  v_product_id uuid;
   v_preorder_1 uuid := '20000000-0000-4000-8000-000000000011';
   v_preorder_2 uuid := '20000000-0000-4000-8000-000000000012';
   v_order_id uuid;
@@ -34,26 +34,26 @@ begin
     raise exception 'allocation customers were not provisioned';
   end if;
 
-  select id into v_sku_id
-  from public.booster_box_skus
-  where sku = 'MTG-SMP-PBB-EN';
+  select id into v_product_id
+  from public.products
+  where reference_code = 'MTG-SMP-PBB-EN';
 
-  if v_sku_id is null then
-    raise exception 'seed SKU not found';
+  if v_product_id is null then
+    raise exception 'seed product not found';
   end if;
 
-  update public.inventory
+  update public.product_inventory
      set on_hand = 1,
          incoming = 0,
          allocated = 0,
          safety_stock = 0
-   where sku_id = v_sku_id
+   where product_id = v_product_id
      and location = 'main';
 
   insert into public.preorders (
     id,
     customer_id,
-    sku_id,
+    product_id,
     channel,
     quantity,
     unit_price_cents,
@@ -66,7 +66,7 @@ begin
     (
       v_preorder_1,
       v_customer_1,
-      v_sku_id,
+      v_product_id,
       'b2c',
       1,
       19900,
@@ -78,7 +78,7 @@ begin
     (
       v_preorder_2,
       v_customer_2,
-      v_sku_id,
+      v_product_id,
       'b2c',
       1,
       19900,
@@ -104,7 +104,7 @@ begin
 
   select count(*)::integer into v_stage_count
   from public.stage_preorder_allocations(
-    v_sku_id,
+    v_product_id,
     jsonb_build_array(
       jsonb_build_object('preorder_id', v_preorder_1, 'allocated', 1),
       jsonb_build_object('preorder_id', v_preorder_2, 'allocated', 0)
@@ -140,8 +140,8 @@ begin
   end if;
 
   select allocated into v_inventory_allocated
-  from public.inventory
-  where sku_id = v_sku_id
+  from public.product_inventory
+  where product_id = v_product_id
     and location = 'main';
 
   if v_inventory_allocated <> 1 then
@@ -174,10 +174,10 @@ begin
       null,
       'staff:allocation-contract'
     );
-    raise exception 'shortfall finalized without HitPay refund confirmation';
+    raise exception 'shortfall finalized without refund confirmation';
   exception
     when sqlstate '22023' then
-      if sqlerrm not like '%HitPay refund confirmation required%' then
+      if sqlerrm not like '%refund confirmation required%' then
         raise;
       end if;
   end;

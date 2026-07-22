@@ -14,7 +14,7 @@ declare
   v_other_category_id uuid := gen_random_uuid();
   v_set_id uuid;
   v_product_id uuid;
-  v_sku_id uuid;
+  v_product_id_for_inventory uuid;
   v_supplier_id uuid;
   v_permissions text[];
 begin
@@ -178,15 +178,15 @@ begin
     when check_violation then null;
   end;
 
-  select sku.id
-    into v_sku_id
-  from public.booster_box_skus sku
-  order by sku.created_at, sku.id
+  select product.id
+    into v_product_id_for_inventory
+  from public.products product
+  order by product.created_at, product.id
   limit 1;
 
   begin
-    insert into public.sku_prices (
-      sku_id,
+    insert into public.product_prices (
+      product_id,
       currency,
       price_cents,
       compare_at_cents,
@@ -194,7 +194,7 @@ begin
       starts_at,
       ends_at
     ) values (
-      v_sku_id,
+      v_product_id_for_inventory,
       'SGD',
       19900,
       19900,
@@ -236,7 +236,7 @@ begin
   begin
     perform public.admin_create_supplier_purchase_order(
       v_supplier_id,
-      v_sku_id,
+      v_product_id_for_inventory,
       1,
       100,
       'SGD',
@@ -249,15 +249,15 @@ begin
     when insufficient_privilege then null;
   end;
 
-  update public.inventory
+  update public.product_inventory
   set on_hand = 5,
       incoming = 0,
       allocated = 5
-  where sku_id = v_sku_id and location = 'main';
+  where product_id = v_product_id_for_inventory and location = 'main';
 
   begin
     perform public.admin_adjust_inventory(
-      v_sku_id,
+      v_product_id_for_inventory,
       0,
       0,
       0,
