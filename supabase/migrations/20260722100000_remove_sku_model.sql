@@ -260,6 +260,10 @@ revoke all on function public.admin_set_pricing_promotion_active(uuid, boolean, 
 grant execute on function public.admin_set_pricing_promotion_active(uuid, boolean, uuid)
   to service_role;
 
+drop function if exists public.admin_adjust_inventory(
+  uuid, integer, integer, integer, text, text, uuid
+);
+
 create or replace function public.admin_adjust_inventory(
   p_product_id uuid,
   p_on_hand integer,
@@ -324,6 +328,10 @@ revoke all on function public.admin_adjust_inventory(
 grant execute on function public.admin_adjust_inventory(
   uuid, integer, integer, integer, text, text, uuid
 ) to service_role;
+
+drop function if exists public.admin_create_supplier_purchase_order(
+  uuid, uuid, integer, integer, text, date, text, uuid
+);
 
 create or replace function public.admin_create_supplier_purchase_order(
   p_supplier_id uuid,
@@ -401,6 +409,10 @@ revoke all on function public.admin_create_supplier_purchase_order(
 grant execute on function public.admin_create_supplier_purchase_order(
   uuid, uuid, integer, integer, text, date, text, uuid
 ) to service_role;
+
+drop function if exists public.create_checkout_order_from_cart(
+  uuid, jsonb, public.sales_channel, jsonb, integer, integer, integer, integer
+);
 
 create or replace function public.create_checkout_order_from_cart(
   p_auth_user_id uuid,
@@ -549,6 +561,8 @@ end;
 $$;
 revoke all on function public.release_order_allocation(uuid) from public, anon, authenticated;
 grant execute on function public.release_order_allocation(uuid) to service_role;
+
+drop function if exists public.stage_preorder_allocations(uuid, jsonb, text, text);
 
 create or replace function public.stage_preorder_allocations(
   p_product_id uuid,
