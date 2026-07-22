@@ -17,9 +17,18 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Export complete branch history
+        run: |
+          git bundle create product-only-history.bundle --all
+          git log --all --graph --decorate --oneline > product-only-history.log
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: product-only-materialized-source
-          path: .
+          path: |
+            .
+            product-only-history.bundle
+            product-only-history.log
           include-hidden-files: true
           retention-days: 1
