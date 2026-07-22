@@ -20,7 +20,7 @@ permissions:
 
 concurrency:
   group: materialize-product-only-refactor
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   materialize:
