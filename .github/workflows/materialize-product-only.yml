@@ -31,24 +31,52 @@ jobs:
         with:
           fetch-depth: 0
           ref: agent/remove-sku-product-only-comprehensive
+          show-progress: false
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
 
+      - name: Capture transfer diagnostics
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "parts"
+            wc -c .github/product-only-apply/part-*
+            sha256sum .github/product-only-apply/part-*
+            cat .github/product-only-apply/part-* > /tmp/product-only.patch.b64
+            echo "aggregate-b64"
+            wc -c /tmp/product-only.patch.b64
+            sha256sum /tmp/product-only.patch.b64
+            base64 --decode /tmp/product-only.patch.b64 > /tmp/product-only.patch.gz
+            echo "aggregate-gzip decode-exit=$?"
+            wc -c /tmp/product-only.patch.gz
+            sha256sum /tmp/product-only.patch.gz
+            gzip --test /tmp/product-only.patch.gz
+            echo "gzip-test-exit=$?"
+            gzip --decompress --stdout /tmp/product-only.patch.gz > /tmp/product-only.patch
+            echo "aggregate-patch decompress-exit=$?"
+            wc -c /tmp/product-only.patch
+            sha256sum /tmp/product-only.patch
+          } > /tmp/product-only-transfer-diagnostic.txt 2>&1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: product-only-transfer-diagnostic
+          path: /tmp/product-only-transfer-diagnostic.txt
+          retention-days: 1
+
       - name: Reconstruct and apply implementation patch
         shell: bash
         run: |
           set -euo pipefail
-          cat .github/product-only-apply/part-* > /tmp/product-only.patch.b64
           test "$(wc -c < /tmp/product-only.patch.b64)" -eq 145224
           echo "3f7788819acd1afe8d4c985d2f4a8130f3ba73413fd0126facc0cdce49e41af4  /tmp/product-only.patch.b64" | sha256sum --check
-          base64 --decode /tmp/product-only.patch.b64 > /tmp/product-only.patch.gz
           test "$(wc -c < /tmp/product-only.patch.gz)" -eq 108917
           echo "9a86b5621781a628fc1f6ad148d1b68aa6eb89466d105ab49f54596b91d98be7  /tmp/product-only.patch.gz" | sha256sum --check
           gzip --test /tmp/product-only.patch.gz
-          gzip --decompress --stdout /tmp/product-only.patch.gz > /tmp/product-only.patch
           test "$(wc -c < /tmp/product-only.patch)" -eq 535835
           echo "5de5b7ef44d37f3a6a07111bcef36b15f846da2fc9537996dcba624be1ed94bb  /tmp/product-only.patch" | sha256sum --check
           git apply --check --binary /tmp/product-only.patch
