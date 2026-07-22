@@ -13,7 +13,7 @@ import {
   type StorefrontAvailability,
   type StorefrontSetStatus,
 } from "@/lib/storefront-availability";
-import { indexBestDealsBySku } from "@/lib/storefront-deals";
+import { indexBestDealsByProduct } from "@/lib/storefront-deals";
 
 export const dynamic = "force-dynamic";
 
@@ -29,11 +29,11 @@ export default async function HomePage({
     getCatalogProducts(),
     getStorefrontDeals({ signedIn, limit: 100 }),
   ]);
-  const dealsBySku = indexBestDealsBySku(deals);
-  const productsWithSkus = (catalog ?? []).filter((product) => product.skus.length > 0);
+  const dealsByProduct = indexBestDealsByProduct(deals);
+  const sellableProducts = (catalog ?? []).filter((product) => product.referenceCode);
   const featuredProducts = [
-    ...productsWithSkus.filter((product) => dealsBySku.has(product.skus[0]?.sku ?? "")),
-    ...productsWithSkus.filter((product) => !dealsBySku.has(product.skus[0]?.sku ?? "")),
+    ...sellableProducts.filter((product) => dealsByProduct.has(product.referenceCode ?? "")),
+    ...sellableProducts.filter((product) => !dealsByProduct.has(product.referenceCode ?? "")),
   ].slice(0, 3);
 
   return (
@@ -104,8 +104,9 @@ export default async function HomePage({
         {featuredProducts.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
             {featuredProducts.map((product) => {
-              const sku = product.skus[0];
-              const deal = sku ? dealsBySku.get(sku.sku) : undefined;
+              const deal = product.referenceCode
+                ? dealsByProduct.get(product.referenceCode)
+                : undefined;
               const availability = catalogAvailability(product);
               return deal ? (
                 <DealCard availability={availability} key={product.id} deal={deal} />
@@ -168,8 +169,7 @@ function FeaturedProductCard({
   availability: StorefrontAvailability;
   product: CatalogProduct;
 }) {
-  const sku = product.skus[0];
-  if (!sku) return null;
+  if (!product.referenceCode) return null;
 
   return (
     <article className="grid overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -193,7 +193,7 @@ function FeaturedProductCard({
       </Link>
       <div className="grid gap-3 p-4 sm:p-5">
         <p className="text-xs font-semibold uppercase text-zinc-500">
-          {product.categoryName ?? "Trading card game"} · {product.setCode ?? sku.sku}
+          {product.categoryName ?? "Trading card game"} · {product.setCode ?? product.referenceCode}
         </p>
         <h3 className="text-lg font-semibold text-zinc-950">
           <Link className="hover:text-emerald-700" href={`/products/${product.slug}`}>
@@ -202,7 +202,7 @@ function FeaturedProductCard({
         </h3>
         <div>
           <p className="text-2xl font-bold text-zinc-950">
-            {formatMoney(sku.priceCents, sku.currency)}
+            {formatMoney(product.priceCents, product.currency)}
           </p>
           <p className="mt-1 text-xs font-semibold text-zinc-600">{availability.label}</p>
         </div>
@@ -212,13 +212,12 @@ function FeaturedProductCard({
 }
 
 function catalogAvailability(product: CatalogProduct): StorefrontAvailability {
-  const sku = product.skus[0];
   return getStorefrontAvailability({
     setStatus: validSetStatus(product.setStatus),
-    onHand: sku?.onHand ?? 0,
-    incoming: sku?.incoming ?? 0,
-    allocated: sku?.allocated ?? 0,
-    safetyStock: sku?.safetyStock ?? 0,
+    onHand: product.onHand,
+    incoming: product.incoming,
+    allocated: product.allocated,
+    safetyStock: product.safetyStock,
   });
 }
 

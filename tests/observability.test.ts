@@ -136,7 +136,7 @@ describe("observability helpers", () => {
         "catalog.sku_save_failed",
         {
           code: "42702",
-          message: 'column reference "sku_id" is ambiguous',
+          message: 'column reference "product_id" is ambiguous',
           details: "It could refer to either a PL/pgSQL variable or a table column.",
           hint: "Qualify the intended reference.",
         },
@@ -154,7 +154,7 @@ describe("observability helpers", () => {
     };
 
     expect(captured).toBeInstanceOf(Error);
-    expect(captured.message).toBe('column reference "sku_id" is ambiguous');
+    expect(captured.message).toBe('column reference "product_id" is ambiguous');
     expect(captured).toMatchObject({
       code: "42702",
       details: "It could refer to either a PL/pgSQL variable or a table column.",

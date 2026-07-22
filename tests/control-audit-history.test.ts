@@ -25,19 +25,19 @@ describe("control audit history", () => {
 
   it("presents recognizable labels before system identifiers", () => {
     const record = {
-      tableName: "booster_box_skus",
+      tableName: "products",
       oldData: null,
-      newData: { sku: "PKM-151-BOX", product_id: "product-id" },
+      newData: { referenceCode: "PKM-151-BOX", product_id: "product-id" },
     };
 
     expect(auditTargetName(record)).toBe("PKM-151-BOX");
-    expect(auditTableLabel(record.tableName)).toBe("SKU");
+    expect(auditTableLabel(record.tableName)).toBe("Product");
     expect(auditActionLabel("ADMIN_INVENTORY_ADJUSTMENT")).toBe("Inventory adjusted");
   });
 
   it("shows exact safe before-and-after values without exposing arbitrary fields", () => {
     const changes = auditChanges({
-      tableName: "inventory",
+      tableName: "product_inventory",
       oldData: { on_hand: 12, incoming: 4, secret_token: "before" },
       newData: { on_hand: 9, incoming: 4, allocated: 3, secret_token: "after" },
     });

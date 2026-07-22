@@ -25,7 +25,7 @@ export default async function PurchaseOrderPage({
   const { data, error } = await createSecretClient()
     .from("purchase_orders")
     .select(
-      "id, status, currency, placed_at, expected_at, total_cents, notes, created_at, suppliers(name), purchase_order_items(id, quantity, unit_cost_cents, received_quantity, booster_box_skus(sku))"
+      "id, status, currency, placed_at, expected_at, total_cents, notes, created_at, suppliers(name), purchase_order_items(id, quantity, unit_cost_cents, received_quantity, products(referenceCode))"
     )
     .eq("id", purchaseOrderId)
     .maybeSingle();
@@ -67,7 +67,7 @@ export default async function PurchaseOrderPage({
           {items.map((item) => (
             <div className="grid gap-2 py-3 text-sm sm:grid-cols-[1fr_auto_auto]" key={item.id}>
               <span className="font-medium text-zinc-950">
-                {toOne(item.booster_box_skus)?.sku ?? "Unknown SKU"}
+                {toOne(item.products)?.referenceCode ?? "Unknown product"}
               </span>
               <span>{item.quantity} ordered</span>
               <span>{item.received_quantity} received</span>

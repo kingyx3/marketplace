@@ -38,7 +38,7 @@ export function filterAndSortInventory(
     .filter((row) => {
       const matchesQuery =
         !query ||
-        [row.productName, row.sku, row.productId, row.skuId].some((value) =>
+        [row.productName, row.referenceCode, row.productId].some((value) =>
           normalize(value).includes(query)
         );
       const matchesFilter =
@@ -85,7 +85,7 @@ function inventoryPriority(row: ControlInventoryRow): number {
 }
 
 function compareNames(left: ControlInventoryRow, right: ControlInventoryRow): number {
-  return left.productName.localeCompare(right.productName) || left.sku.localeCompare(right.sku);
+  return left.productName.localeCompare(right.productName) || left.referenceCode.localeCompare(right.referenceCode);
 }
 
 function normalize(value: string): string {

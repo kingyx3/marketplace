@@ -8,8 +8,8 @@ export const PUBLIC_DEAL_PREVIEW_LIMIT = 3;
 export interface LimitedTimeDeal {
   id: string;
   code: string;
-  skuId: string;
-  sku: string;
+  productId: string;
+  referenceCode: string;
   productName: string;
   productSlug: string;
   productImageUrl: string | null;
@@ -28,33 +28,28 @@ export interface LimitedTimeDeal {
 interface DealRow {
   id: string;
   code: string;
-  sku_id: string;
+  product_id: string;
   title: string;
   description: string | null;
   deal_price_cents: number;
   visibility: "public" | "members";
   starts_at: string;
   ends_at: string;
-  booster_box_skus: {
-    sku: string;
+  products: {
+    reference_code: string;
+    name: string;
+    slug: string;
+    image_url: string | null;
     price_cents: number;
     currency: string;
     active: boolean;
-    product_variants: {
-      products: {
-        name: string;
-        slug: string;
-        image_url: string | null;
-        active: boolean;
-      } | null;
-    } | null;
   } | null;
 }
 
 interface ActiveDealPriceRow {
-  sku_id: string;
+  product_id: string;
   deal_price_cents: number;
-  booster_box_skus:
+  products:
     | { price_cents: number }
     | Array<{ price_cents: number }>
     | null;
@@ -78,35 +73,35 @@ export async function getStorefrontDeals({
   }
 }
 
-export async function getStorefrontDealForSku({
+export async function getStorefrontDealForProduct({
   signedIn,
-  skuId,
+  productId,
 }: {
   signedIn: boolean;
-  skuId: string;
+  productId: string;
 }): Promise<LimitedTimeDeal | null> {
   if (!hasSupabasePublicEnv()) return null;
 
   try {
     const supabase = signedIn ? await createUserClient() : createPublishableClient();
-    const deals = await queryStorefrontDeals(supabase, 20, skuId);
+    const deals = await queryStorefrontDeals(supabase, 20, productId);
     return deals.sort((a, b) => a.dealPriceCents - b.dealPriceCents)[0] ?? null;
   } catch (error) {
-    console.error("SKU deal lookup failed:", safeErrorMessage(error));
+    console.error("Product deal lookup failed:", safeErrorMessage(error));
     return null;
   }
 }
 
 export async function getActiveDealPrices(
   supabase: SupabaseClient,
-  skuIds: string[]
+  productIds: string[]
 ): Promise<Map<string, number>> {
-  const rows = await queryActiveDealPriceRows(supabase, skuIds);
+  const rows = await queryActiveDealPriceRows(supabase, productIds);
   const prices = new Map<string, number>();
 
   for (const row of rows) {
-    const sku = one(row.booster_box_skus);
-    const originalPriceCents = Number(sku?.price_cents);
+    const product = one(row.products);
+    const originalPriceCents = Number(product?.price_cents);
     const dealPriceCents = Number(row.deal_price_cents);
     if (
       !Number.isInteger(originalPriceCents) ||
@@ -116,29 +111,25 @@ export async function getActiveDealPrices(
     ) {
       continue;
     }
-    prices.set(row.sku_id, Math.min(prices.get(row.sku_id) ?? dealPriceCents, dealPriceCents));
+    prices.set(row.product_id, Math.min(prices.get(row.product_id) ?? dealPriceCents, dealPriceCents));
   }
   return prices;
 }
 
-/**
- * Compatibility helper for callers that still need percentage metadata. Exact
- * monetary calculations should use getActiveDealPrices instead.
- */
 export async function getActiveDealDiscounts(
   supabase: SupabaseClient,
-  skuIds: string[]
+  productIds: string[]
 ): Promise<Map<string, number>> {
-  const rows = await queryActiveDealPriceRows(supabase, skuIds);
+  const rows = await queryActiveDealPriceRows(supabase, productIds);
   const discounts = new Map<string, number>();
 
   for (const row of rows) {
-    const sku = one(row.booster_box_skus);
-    const originalPriceCents = Number(sku?.price_cents);
+    const product = one(row.products);
+    const originalPriceCents = Number(product?.price_cents);
     const dealPriceCents = Number(row.deal_price_cents);
     if (dealPriceCents <= 0 || dealPriceCents >= originalPriceCents) continue;
     const discountBps = calculateDealDiscountBps(originalPriceCents, dealPriceCents);
-    discounts.set(row.sku_id, Math.max(discounts.get(row.sku_id) ?? 0, discountBps));
+    discounts.set(row.product_id, Math.max(discounts.get(row.product_id) ?? 0, discountBps));
   }
   return discounts;
 }
@@ -168,16 +159,16 @@ export function formatDealDiscount(discountBps: number): string {
 
 async function queryActiveDealPriceRows(
   supabase: SupabaseClient,
-  skuIds: string[]
+  productIds: string[]
 ): Promise<ActiveDealPriceRow[]> {
-  const uniqueSkuIds = [...new Set(skuIds)];
-  if (uniqueSkuIds.length === 0) return [];
+  const uniqueProductIds = [...new Set(productIds)];
+  if (uniqueProductIds.length === 0) return [];
 
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("limited_time_deals")
-    .select("sku_id, deal_price_cents, booster_box_skus!inner(price_cents)")
-    .in("sku_id", uniqueSkuIds)
+    .select("product_id, deal_price_cents, products!inner(price_cents)")
+    .in("product_id", uniqueProductIds)
     .eq("active", true)
     .lte("starts_at", now)
     .gt("ends_at", now)
@@ -192,7 +183,7 @@ async function queryActiveDealPriceRows(
 async function queryStorefrontDeals(
   supabase: SupabaseClient,
   limit: number,
-  skuId?: string
+  productId?: string
 ): Promise<LimitedTimeDeal[]> {
   const now = new Date().toISOString();
   let query = supabase
@@ -201,34 +192,33 @@ async function queryStorefrontDeals(
       `
         id,
         code,
-        sku_id,
+        product_id,
         title,
         description,
         deal_price_cents,
         visibility,
         starts_at,
         ends_at,
-        booster_box_skus!inner(
-          sku,
+        products!inner(
+          reference_code,
+          name,
+          slug,
+          image_url,
           price_cents,
           currency,
-          active,
-          product_variants!inner(
-            products!inner(name, slug, image_url, active)
-          )
+          active
         )
       `
     )
     .eq("active", true)
     .lte("starts_at", now)
     .gt("ends_at", now)
-    .eq("booster_box_skus.active", true)
-    .eq("booster_box_skus.product_variants.products.active", true)
+    .eq("products.active", true)
     .order("sort_priority", { ascending: true })
     .order("ends_at", { ascending: true })
     .limit(Math.max(1, Math.min(100, limit)));
 
-  if (skuId) query = query.eq("sku_id", skuId);
+  if (productId) query = query.eq("product_id", productId);
 
   const { data, error } = await query;
   if (error) {
@@ -241,11 +231,10 @@ async function queryStorefrontDeals(
 }
 
 function mapDeal(row: DealRow): LimitedTimeDeal | null {
-  const sku = row.booster_box_skus;
-  const product = sku?.product_variants?.products;
-  if (!sku?.active || !product?.active) return null;
+  const product = row.products;
+  if (!product?.active) return null;
 
-  const regularPriceCents = Number(sku.price_cents);
+  const regularPriceCents = Number(product.price_cents);
   const dealPriceCents = Number(row.deal_price_cents);
   if (
     !Number.isInteger(regularPriceCents) ||
@@ -260,8 +249,8 @@ function mapDeal(row: DealRow): LimitedTimeDeal | null {
   return {
     id: row.id,
     code: row.code,
-    skuId: row.sku_id,
-    sku: sku.sku,
+    productId: row.product_id,
+    referenceCode: product.reference_code,
     productName: product.name,
     productSlug: product.slug,
     productImageUrl: product.image_url,
@@ -274,7 +263,7 @@ function mapDeal(row: DealRow): LimitedTimeDeal | null {
     regularPriceCents,
     dealPriceCents,
     savingsCents: regularPriceCents - dealPriceCents,
-    currency: sku.currency,
+    currency: product.currency,
   };
 }
 

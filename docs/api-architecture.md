@@ -130,7 +130,7 @@ Critical invariants belong in the database:
 
 - order creation and inventory reservation use atomic database functions;
 - stock checks and decrements occur in the same transaction with row locking or atomic conditional updates;
-- unique indexes prevent duplicate slugs, SKUs, provider IDs, and idempotency claims;
+- unique indexes prevent duplicate slugs, products, provider IDs, and idempotency claims;
 - reservation expiry and explicit cancellation release inventory through authoritative database functions;
 - Stripe webhooks reconcile final provider state and use unique provider event/payment identifiers;
 - preorder allocation and refund differences must be recorded transactionally before or alongside provider execution, with reconciliation for partial provider failures.

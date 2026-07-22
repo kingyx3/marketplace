@@ -8,13 +8,13 @@ import { badRequest, conflict } from "@/lib/api/errors";
 import { hitPayRefundStatus, type HitPayClient } from "@/lib/hitpay";
 
 export const preorderAllocationRequestSchema = z.object({
-  skuId: z.string().uuid(),
+  productId: z.string().uuid(),
   fingerprint: z.string().trim().length(64),
 });
 
-export interface PreorderAllocationSkuOption {
-  skuId: string;
-  sku: string;
+export interface PreorderAllocationProductOption {
+  productId: string;
+  referenceCode: string;
   productName: string;
   preorderCount: number;
 }
@@ -32,8 +32,8 @@ export interface PreorderAllocationPreviewRow {
 }
 
 export interface PreorderAllocationPreview {
-  skuId: string;
-  sku: string;
+  productId: string;
+  referenceCode: string;
   productName: string;
   availableQty: number;
   requestedQty: number;
@@ -82,55 +82,49 @@ interface StagedAllocationRow {
   currency: string;
 }
 
-export async function listPreorderAllocationSkus(
+export async function listPreorderAllocationProducts(
   supabase: SupabaseClient
-): Promise<PreorderAllocationSkuOption[]> {
+): Promise<PreorderAllocationProductOption[]> {
   const { data: preorders, error } = await supabase
     .from("preorders")
-    .select("sku_id")
+    .select("product_id")
     .eq("channel", "b2c")
     .eq("status", "paid");
   if (error) throw new Error(error.message);
 
-  const countBySku = new Map<string, number>();
+  const countByProduct = new Map<string, number>();
   for (const row of preorders ?? []) {
-    const skuId = String(row.sku_id);
-    countBySku.set(skuId, (countBySku.get(skuId) ?? 0) + 1);
+    const productId = String(row.product_id);
+    countByProduct.set(productId, (countByProduct.get(productId) ?? 0) + 1);
   }
-  const skuIds = [...countBySku.keys()];
-  if (skuIds.length === 0) return [];
+  const productIds = [...countByProduct.keys()];
+  if (productIds.length === 0) return [];
 
-  const { data: skus, error: skuError } = await supabase
-    .from("booster_box_skus")
-    .select("id, sku, product_variants(products(name))")
-    .in("id", skuIds)
-    .order("sku");
-  if (skuError) throw new Error(skuError.message);
+  const { data: products, error: productError } = await supabase
+    .from("products")
+    .select("id, reference_code, name")
+    .in("id", productIds)
+    .order("reference_code");
+  if (productError) throw new Error(productError.message);
 
-  return (skus ?? []).map((row) => {
-    const variant = one(row.product_variants as unknown);
-    const product = one((variant as { products?: unknown } | null)?.products as unknown) as {
-      name?: string;
-    } | null;
-    return {
-      skuId: String(row.id),
-      sku: String(row.sku),
-      productName: product?.name ?? "Unknown product",
-      preorderCount: countBySku.get(String(row.id)) ?? 0,
-    };
-  });
+  return (products ?? []).map((row) => ({
+      productId: String(row.id),
+      referenceCode: String(row.reference_code ?? row.id),
+      productName: String(row.name ?? "Unknown product"),
+      preorderCount: countByProduct.get(String(row.id)) ?? 0,
+    }));
 }
 
-export async function previewPreorderAllocationForSku(
+export async function previewPreorderAllocationForProduct(
   supabase: SupabaseClient,
-  skuId: string
+  productId: string
 ): Promise<PreorderAllocationPreview> {
-  const parsedSkuId = z.string().uuid().parse(skuId);
-  const [inventory, rules, preorders, sku] = await Promise.all([
-    loadInventoryCapacity(supabase, parsedSkuId),
-    loadAllocationRules(supabase, parsedSkuId),
-    loadPaidPreorders(supabase, parsedSkuId),
-    loadSkuLabel(supabase, parsedSkuId),
+  const parsedProductId = z.string().uuid().parse(productId);
+  const [inventory, rules, preorders, product] = await Promise.all([
+    loadInventoryCapacity(supabase, parsedProductId),
+    loadAllocationRules(supabase, parsedProductId),
+    loadPaidPreorders(supabase, parsedProductId),
+    loadProductLabel(supabase, parsedProductId),
   ]);
 
   if (preorders.length === 0) {
@@ -182,7 +176,7 @@ export async function previewPreorderAllocationForSku(
   const fingerprint = createHash("sha256")
     .update(
       JSON.stringify({
-        skuId: parsedSkuId,
+        productId: parsedProductId,
         availableQty,
         rows: rows.map((row) => ({
           preorderId: row.preorderId,
@@ -196,9 +190,9 @@ export async function previewPreorderAllocationForSku(
     .digest("hex");
 
   return {
-    skuId: parsedSkuId,
-    sku: sku.sku,
-    productName: sku.productName,
+    productId: parsedProductId,
+    referenceCode: product.referenceCode,
+    productName: product.productName,
     availableQty,
     requestedQty: rows.reduce((sum, row) => sum + row.requestedQty, 0),
     allocatedQty: rows.reduce((sum, row) => sum + row.allocatedQty, 0),
@@ -209,16 +203,16 @@ export async function previewPreorderAllocationForSku(
   };
 }
 
-export async function executePreorderAllocationForSku(
+export async function executePreorderAllocationForProduct(
   supabase: SupabaseClient,
   hitpay: HitPayClient,
-  input: { skuId: string; fingerprint: string; actor: string }
+  input: { productId: string; fingerprint: string; actor: string }
 ): Promise<PreorderAllocationExecution> {
   const parsed = preorderAllocationRequestSchema.parse(input);
-  let staged = await loadStagedAllocations(supabase, parsed.skuId, parsed.fingerprint);
+  let staged = await loadStagedAllocations(supabase, parsed.productId, parsed.fingerprint);
 
   if (staged.length === 0) {
-    const preview = await previewPreorderAllocationForSku(supabase, parsed.skuId);
+    const preview = await previewPreorderAllocationForProduct(supabase, parsed.productId);
     if (preview.fingerprint !== parsed.fingerprint) {
       throw conflict(
         "The preorder queue or available stock changed. Review a fresh allocation preview."
@@ -226,7 +220,7 @@ export async function executePreorderAllocationForSku(
     }
 
     const { data, error } = await supabase.rpc("stage_preorder_allocations", {
-      p_sku_id: parsed.skuId,
+      p_product_id: parsed.productId,
       p_allocations: preview.rows.map((row) => ({
         preorder_id: row.preorderId,
         allocated: row.allocatedQty,
@@ -283,12 +277,12 @@ export async function executePreorderAllocationForSku(
 
 async function loadInventoryCapacity(
   supabase: SupabaseClient,
-  skuId: string
+  productId: string
 ): Promise<InventoryCapacityRow> {
   const { data, error } = await supabase
-    .from("inventory")
+    .from("product_inventory")
     .select("on_hand, incoming, allocated, safety_stock")
-    .eq("sku_id", skuId)
+    .eq("product_id", productId)
     .eq("location", "main")
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -298,12 +292,12 @@ async function loadInventoryCapacity(
 
 async function loadAllocationRules(
   supabase: SupabaseClient,
-  skuId: string
+  productId: string
 ): Promise<AllocationRule[]> {
   const { data, error } = await supabase
     .from("allocation_rules")
     .select("priority, reserve_quantity, max_per_customer")
-    .eq("sku_id", skuId)
+    .eq("product_id", productId)
     .eq("channel", "b2c")
     .eq("active", true)
     .order("priority", { ascending: true });
@@ -321,13 +315,13 @@ async function loadAllocationRules(
   }));
 }
 
-async function loadPaidPreorders(supabase: SupabaseClient, skuId: string): Promise<PreorderRow[]> {
+async function loadPaidPreorders(supabase: SupabaseClient, productId: string): Promise<PreorderRow[]> {
   const { data, error } = await supabase
     .from("preorders")
     .select(
       "id, customer_id, quantity, unit_price_cents, currency, created_at, customers(email, name)"
     )
-    .eq("sku_id", skuId)
+    .eq("product_id", productId)
     .eq("channel", "b2c")
     .eq("status", "paid")
     .order("created_at", { ascending: true })
@@ -336,32 +330,32 @@ async function loadPaidPreorders(supabase: SupabaseClient, skuId: string): Promi
   return (data ?? []) as unknown as PreorderRow[];
 }
 
-async function loadSkuLabel(
+async function loadProductLabel(
   supabase: SupabaseClient,
-  skuId: string
-): Promise<{ sku: string; productName: string }> {
+  productId: string
+): Promise<{ referenceCode: string; productName: string }> {
   const { data, error } = await supabase
-    .from("booster_box_skus")
-    .select("sku, product_variants(products(name))")
-    .eq("id", skuId)
+    .from("products")
+    .select("reference_code, name")
+    .eq("id", productId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) throw badRequest("SKU not found");
-
-  const variant = one(data.product_variants as unknown) as { products?: unknown } | null;
-  const product = one(variant?.products as unknown) as { name?: string } | null;
-  return { sku: String(data.sku), productName: product?.name ?? "Unknown product" };
+  if (!data) throw badRequest("Product not found");
+  return {
+    referenceCode: String(data.reference_code ?? productId),
+    productName: String(data.name ?? "Unknown product"),
+  };
 }
 
 async function loadStagedAllocations(
   supabase: SupabaseClient,
-  skuId: string,
+  productId: string,
   fingerprint: string
 ): Promise<StagedAllocationRow[]> {
   const { data: preorders, error } = await supabase
     .from("preorders")
     .select("id, allocated_qty, allocation_refund_cents, currency")
-    .eq("sku_id", skuId)
+    .eq("product_id", productId)
     .eq("allocation_fingerprint", fingerprint)
     .in("status", ["allocated", "refund_pending"])
     .order("created_at", { ascending: true });

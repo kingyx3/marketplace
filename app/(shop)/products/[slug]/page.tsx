@@ -11,7 +11,7 @@ import { addToCart, buyNow } from "@/app/actions/cart";
 import { formatMoney, getProduct, type MarketplaceProduct } from "@/app/_data/marketplace-fixtures";
 import { getCurrentViewer } from "@/lib/auth";
 import { getCatalogProduct, type CatalogProduct } from "@/lib/catalog";
-import { formatDealDiscount, getStorefrontDealForSku } from "@/lib/deals";
+import { formatDealDiscount, getStorefrontDealForProduct } from "@/lib/deals";
 import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 import {
   getStorefrontAvailability,
@@ -50,9 +50,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   if (!product) notFound();
 
   const viewer = await getCurrentViewer();
-  const skuId = liveProduct?.skus[0]?.id ?? null;
-  const activeDeal = skuId
-    ? await getStorefrontDealForSku({ signedIn: Boolean(viewer.user), skuId })
+  const productId = liveProduct?.id ?? null;
+  const activeDeal = productId
+    ? await getStorefrontDealForProduct({ signedIn: Boolean(viewer.user), productId })
     : null;
   const availability = getStorefrontAvailability(product);
   const maxPurchaseQuantity = Math.min(availability.available, product.maxPerCustomer ?? 24, 24);
@@ -161,9 +161,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             ) : null}
 
             <div className="mt-5 grid gap-3">
-              {skuId && availability.mode === "order" && availability.purchasable ? (
+              {productId && availability.mode === "order" && availability.purchasable ? (
                 <form action={addToCart} className="grid gap-3">
-                  <input type="hidden" name="skuId" value={skuId} />
+                  <input type="hidden" name="productId" value={productId} />
                   <input type="hidden" name="returnPath" value={`/products/${product.slug}`} />
                   <label className="grid gap-2 text-sm font-medium text-zinc-700">
                     Quantity
@@ -193,7 +193,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 </form>
               ) : null}
 
-              {skuId && availability.mode === "preorder" && availability.purchasable ? (
+              {productId && availability.mode === "preorder" && availability.purchasable ? (
                 <>
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
                     Preorders are charged 100% upfront. If confirmed supplier allocation is lower
@@ -201,7 +201,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   </div>
                   <CartCheckoutPanel
                     authRedirectPath={`/products/${product.slug}`}
-                    items={[{ skuId, quantity: 1 }]}
+                    items={[{ productId, quantity: 1 }]}
                     mode="preorder"
                     startLabel="Place Order"
                     supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
@@ -217,7 +217,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 </div>
               ) : null}
 
-              {!skuId ? (
+              {!productId ? (
                 <Link
                   href="/products"
                   className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-5 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
@@ -226,11 +226,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 </Link>
               ) : null}
 
-              {skuId && availability.showWaitlist ? (
+              {productId && availability.showWaitlist ? (
                 <WaitlistSignupPanel
                   authRedirectPath={`/products/${product.slug}`}
                   inStock={false}
-                  skuId={skuId}
+                  productId={productId}
                   supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ""}
                   supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
                 />
@@ -307,8 +307,6 @@ function mergeProduct(
   fixture: MarketplaceProduct | undefined
 ): MarketplaceProduct | null {
   if (!liveProduct && !fixture) return null;
-  const sku = liveProduct?.skus[0];
-
   return {
     slug: liveProduct?.slug ?? fixture!.slug,
     name: liveProduct?.name ?? fixture!.name,
@@ -323,17 +321,17 @@ function mergeProduct(
       "announced",
     productType:
       liveProduct?.productType.replaceAll("_", " ") ?? fixture?.productType ?? "Booster box",
-    sku: sku?.sku ?? fixture?.sku ?? "SKU",
+    referenceCode: liveProduct?.referenceCode ?? fixture?.referenceCode ?? "PRODUCT",
     language: liveProduct?.language ?? fixture?.language ?? "EN",
-    priceCents: sku?.priceCents ?? fixture?.priceCents ?? 0,
-    msrpCents: sku?.msrpCents ?? fixture?.msrpCents ?? null,
-    currency: sku?.currency ?? fixture?.currency ?? "SGD",
-    packsPerBox: sku?.packsPerBox ?? fixture?.packsPerBox ?? 0,
-    cardsPerPack: sku?.cardsPerPack ?? fixture?.cardsPerPack ?? 0,
-    onHand: sku?.onHand ?? fixture?.onHand ?? 0,
-    incoming: sku?.incoming ?? fixture?.incoming ?? 0,
-    allocated: sku?.allocated ?? fixture?.allocated ?? 0,
-    safetyStock: sku?.safetyStock ?? fixture?.safetyStock ?? 0,
+    priceCents: liveProduct?.priceCents ?? fixture?.priceCents ?? 0,
+    msrpCents: liveProduct?.compareAtCents ?? fixture?.msrpCents ?? null,
+    currency: liveProduct?.currency ?? fixture?.currency ?? "SGD",
+    packsPerBox: liveProduct?.packsPerBox ?? fixture?.packsPerBox ?? 0,
+    cardsPerPack: liveProduct?.cardsPerPack ?? fixture?.cardsPerPack ?? 0,
+    onHand: liveProduct?.onHand ?? fixture?.onHand ?? 0,
+    incoming: liveProduct?.incoming ?? fixture?.incoming ?? 0,
+    allocated: liveProduct?.allocated ?? fixture?.allocated ?? 0,
+    safetyStock: liveProduct?.safetyStock ?? fixture?.safetyStock ?? 0,
     preorderReserve: liveProduct?.preorderReserve ?? fixture?.preorderReserve ?? 0,
     maxPerCustomer: liveProduct?.maxPerCustomer ?? fixture?.maxPerCustomer ?? null,
     image: liveProduct?.imageUrl ?? fixture?.image ?? "/images/sealed-tcg-hero.png",

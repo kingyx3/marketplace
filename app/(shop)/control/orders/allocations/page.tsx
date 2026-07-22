@@ -5,7 +5,7 @@ import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
-import { listPreorderAllocationSkus } from "@/lib/preorders";
+import { listPreorderAllocationProducts } from "@/lib/preorders";
 import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -18,13 +18,13 @@ export default async function ControlPreorderAllocationPage({
   await requireControlPermission("preorders.allocate", "/control/orders/allocations");
   await requireControlPermission("refunds.manage", "/control/orders/allocations");
   const params = (await searchParams) ?? {};
-  const options = await listPreorderAllocationSkus(createSecretClient());
+  const options = await listPreorderAllocationProducts(createSecretClient());
 
   return (
     <div className="space-y-8">
       <PageHeader
         action={<StatusBadge tone="warning">Admin confirmation required</StatusBadge>}
-        description="Choose a SKU queue to open its FIFO allocation preview and refund confirmation in a modal."
+        description="Choose a product queue to open its FIFO allocation preview and refund confirmation in a modal."
         eyebrow="Control"
         title="Preorder allocation"
       />
@@ -53,13 +53,13 @@ export default async function ControlPreorderAllocationPage({
             {options.map((option) => (
               <Link
                 className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
-                href={`/control/orders/allocations/${option.skuId}`}
-                key={option.skuId}
+                href={`/control/orders/allocations/${option.productId}`}
+                key={option.productId}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-zinc-950">{option.productName}</h3>
-                    <p className="mt-1 font-mono text-xs text-zinc-500">{option.sku}</p>
+                    <p className="mt-1 font-mono text-xs text-zinc-500">{option.referenceCode}</p>
                   </div>
                   <StatusBadge tone="warning">{option.preorderCount} waiting</StatusBadge>
                 </div>

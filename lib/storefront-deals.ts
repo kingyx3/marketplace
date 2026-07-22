@@ -1,12 +1,12 @@
 import type { LimitedTimeDeal } from "@/lib/deals";
 
-export function indexBestDealsBySku(deals: LimitedTimeDeal[]): Map<string, LimitedTimeDeal> {
+export function indexBestDealsByProduct(deals: LimitedTimeDeal[]): Map<string, LimitedTimeDeal> {
   const indexed = new Map<string, LimitedTimeDeal>();
 
   for (const deal of deals) {
-    const current = indexed.get(deal.sku);
+    const current = indexed.get(deal.referenceCode);
     if (!current || isBetterDeal(deal, current)) {
-      indexed.set(deal.sku, deal);
+      indexed.set(deal.referenceCode, deal);
     }
   }
 

@@ -12,7 +12,7 @@ import {
 } from "@/app/(shop)/control/_components/control-resource-ui";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { setSkuPrice } from "@/app/actions/pricing";
+import { setProductPrice } from "@/app/actions/pricing";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
 import { fetchControlProducts } from "@/lib/control-catalog";
 import { formatMoney } from "@/lib/money";
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 interface PriceHistoryRow {
   id: string;
-  sku_id: string;
+  product_id: string;
   currency: string;
   price_cents: number;
   compare_at_cents: number | null;
@@ -31,27 +31,26 @@ interface PriceHistoryRow {
   ends_at: string | null;
 }
 
-export default async function SkuPricePage({ params }: { params: Promise<{ skuId: string }> }) {
-  const { skuId } = await params;
+export default async function ProductPricePage({ params }: { params: Promise<{ productId: string }> }) {
+  const { productId } = await params;
   const { staff } = await requireControlPermission(
     "pricing.view",
-    `/control/pricing/skus/${skuId}`
+    `/control/pricing/products/${productId}`
   );
   const supabase = createSecretClient();
   const [products, pricesResult] = await Promise.all([
     fetchControlProducts(supabase),
     supabase
-      .from("sku_prices")
-      .select("id, sku_id, currency, price_cents, compare_at_cents, active, starts_at, ends_at")
-      .eq("sku_id", skuId)
+      .from("product_prices")
+      .select("id, product_id, currency, price_cents, compare_at_cents, active, starts_at, ends_at")
+      .eq("product_id", productId)
       .order("starts_at", { ascending: false }),
   ]);
   if (pricesResult.error)
     throw new Error(`Pricing history query failed: ${pricesResult.error.message}`);
 
-  const product = products.find((candidate) => candidate.skus.some((sku) => sku.skuId === skuId));
-  const sku = product?.skus.find((candidate) => candidate.skuId === skuId);
-  if (!product || !sku) notFound();
+  const product = products.find((candidate) => candidate.id === productId);
+  if (!product) notFound();
 
   const prices = (pricesResult.data ?? []) as PriceHistoryRow[];
   const current = prices.find((price) => price.active && !price.ends_at);
@@ -68,7 +67,7 @@ export default async function SkuPricePage({ params }: { params: Promise<{ skuId
             <ControlBackLink href="/control/pricing">Back to pricing</ControlBackLink>
           </>
         }
-        description={`${sku.sku} · Pricing remains independent from catalog identity and inventory.`}
+        description={`${product.referenceCode ?? "Reference required"} · Pricing remains independent from catalog identity and inventory.`}
         eyebrow="Control · Pricing"
         title={product.name}
       />
@@ -96,7 +95,7 @@ export default async function SkuPricePage({ params }: { params: Promise<{ skuId
             Saving closes the current version and creates a new auditable price.
           </p>
           <ControlActionForm
-            action={setSkuPrice}
+            action={setProductPrice}
             className="mt-5 grid gap-4 sm:grid-cols-2"
             confirmation={{
               title: "Create new price version?",
@@ -107,7 +106,7 @@ export default async function SkuPricePage({ params }: { params: Promise<{ skuId
             errorMessage="The new price could not be saved. Your price and currency entries have been preserved."
             successMessage="New price version created."
           >
-            <input name="skuId" type="hidden" value={skuId} />
+            <input name="productId" type="hidden" value={productId} />
             <AdminNumberField
               defaultValue={current?.price_cents}
               example="18900"

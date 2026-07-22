@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 interface PriceHistoryRow {
   id: string;
-  sku_id: string;
+  product_id: string;
   currency: string;
   price_cents: number;
   compare_at_cents: number | null;
@@ -28,21 +28,18 @@ export default async function ControlPricingPage() {
   const [products, pricesResult] = await Promise.all([
     fetchControlProducts(supabase),
     supabase
-      .from("sku_prices")
-      .select("id, sku_id, currency, price_cents, compare_at_cents, active, starts_at, ends_at")
+      .from("product_prices")
+      .select("id, product_id, currency, price_cents, compare_at_cents, active, starts_at, ends_at")
       .order("starts_at", { ascending: false })
       .limit(500),
   ]);
   if (pricesResult.error) throw new Error(`Pricing query failed: ${pricesResult.error.message}`);
 
   const prices = (pricesResult.data ?? []) as PriceHistoryRow[];
-  const activeBySku = new Map(
-    prices.filter((price) => price.active && !price.ends_at).map((price) => [price.sku_id, price])
+  const activeByProduct = new Map(
+    prices.filter((price) => price.active && !price.ends_at).map((price) => [price.product_id, price])
   );
-  const skus = products.flatMap((product) =>
-    product.skus.map((sku) => ({ ...sku, productName: product.name, productId: product.id }))
-  );
-  const priced = skus.filter((sku) => activeBySku.has(sku.skuId)).length;
+  const priced = products.filter((product) => activeByProduct.has(product.id)).length;
 
   return (
     <div className="space-y-8">
@@ -55,46 +52,46 @@ export default async function ControlPricingPage() {
             Open promotions
           </Link>
         }
-        description="Manage versioned commercial prices independently from product identity, physical SKU data, inventory, and publication."
+        description="Manage versioned commercial prices independently from product identity, inventory, and publication."
         eyebrow="Control"
         title="Pricing"
       />
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="SKUs" value={String(skus.length)} detail="Physical sellable variants" />
+        <MetricCard label="Products" value={String(products.length)} detail="Sellable catalog records" />
         <MetricCard label="Priced" value={String(priced)} detail="Current active base price" />
         <MetricCard
           label="Unpriced"
-          value={String(skus.length - priced)}
+          value={String(products.length - priced)}
           detail="Cannot be published"
         />
       </section>
 
-      {skus.length === 0 ? (
+      {products.length === 0 ? (
         <ControlEmptyState
-          description="Create a product SKU before configuring its active price."
-          title="No SKUs are available for pricing"
+          description="Create a product before configuring its active price."
+          title="No products are available for pricing"
         />
       ) : (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-zinc-950">SKU prices</h2>
-            <span className="text-sm text-zinc-500">{skus.length} records</span>
+            <h2 className="text-lg font-semibold text-zinc-950">Product prices</h2>
+            <span className="text-sm text-zinc-500">{products.length} records</span>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
-            {skus.map((sku) => {
-              const current = activeBySku.get(sku.skuId);
+            {products.map((product) => {
+              const current = activeByProduct.get(product.id);
               return (
                 <Link
                   className="group flex min-h-full flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-                  href={`/control/pricing/skus/${sku.skuId}`}
-                  key={sku.skuId}
+                  href={`/control/pricing/products/${product.id}`}
+                  key={product.id}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <h3 className="break-words font-semibold text-zinc-950">{sku.productName}</h3>
-                      <p className="mt-1 break-all font-mono text-xs text-zinc-500">{sku.sku}</p>
+                      <h3 className="break-words font-semibold text-zinc-950">{product.name}</h3>
+                      <p className="mt-1 break-all font-mono text-xs text-zinc-500">{product.referenceCode ?? "Reference required"}</p>
                     </div>
                     <div className="shrink-0">
                       <StatusBadge tone={current ? "success" : "warning"}>

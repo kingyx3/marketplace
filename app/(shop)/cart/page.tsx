@@ -6,7 +6,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { removeFromCart, updateCartQuantity } from "@/app/actions/cart";
 import { getCurrentUser } from "@/lib/auth";
 import { readCart } from "@/lib/cart";
-import { getSkuQuote } from "@/lib/catalog";
+import { getProductQuote } from "@/lib/catalog";
 import {
   calculateDealDiscountBps,
   formatDealDiscount,
@@ -30,7 +30,7 @@ export default async function CartPage({
   let quoteError: string | null = null;
 
   try {
-    quote = await getSkuQuote(cartItems);
+    quote = await getProductQuote(cartItems);
   } catch (error) {
     quote = { lines: [], subtotalCents: 0, currency: "SGD" };
     quoteError = error instanceof Error ? error.message : "Unable to quote cart";
@@ -38,10 +38,10 @@ export default async function CartPage({
 
   const dealPrices = await currentDealPrices(
     Boolean(user),
-    quote.lines.map((line) => line.skuId)
+    quote.lines.map((line) => line.productId)
   );
   const discountCents = quote.lines.reduce((total, line) => {
-    const dealPriceCents = dealPrices.get(line.skuId);
+    const dealPriceCents = dealPrices.get(line.productId);
     if (!dealPriceCents || dealPriceCents >= line.unitPriceCents) return total;
     return total + (line.unitPriceCents - dealPriceCents) * line.quantity;
   }, 0);
@@ -109,7 +109,7 @@ export default async function CartPage({
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0 space-y-4">
             {quote.lines.map((line) => {
-              const lineDealPriceCents = dealPrices.get(line.skuId);
+              const lineDealPriceCents = dealPrices.get(line.productId);
               const lineDealDiscountBps = lineDealPriceCents
                 ? calculateDealDiscountBps(line.unitPriceCents, lineDealPriceCents)
                 : 0;
@@ -131,7 +131,7 @@ export default async function CartPage({
 
               return (
                 <article
-                  key={line.skuId}
+                  key={line.productId}
                   className={`grid min-w-0 gap-4 rounded-lg border bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5 ${
                     outOfStock || shortStock ? "border-amber-300" : "border-zinc-200"
                   }`}
@@ -158,7 +158,7 @@ export default async function CartPage({
                         action={updateCartQuantity}
                         className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:flex sm:w-auto"
                       >
-                        <input type="hidden" name="skuId" value={line.skuId} />
+                        <input type="hidden" name="productId" value={line.productId} />
                         <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-700">
                           Quantity
                           <input
@@ -179,7 +179,7 @@ export default async function CartPage({
                         </button>
                       </form>
                       <form action={removeFromCart} className="grid w-full content-end sm:w-auto">
-                        <input type="hidden" name="skuId" value={line.skuId} />
+                        <input type="hidden" name="productId" value={line.productId} />
                         <button className="min-h-11 w-full rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:border-rose-400">
                           Remove
                         </button>
@@ -285,12 +285,12 @@ export default async function CartPage({
 
 async function currentDealPrices(
   signedIn: boolean,
-  skuIds: string[]
+  productIds: string[]
 ): Promise<Map<string, number>> {
-  if (skuIds.length === 0) return new Map();
+  if (productIds.length === 0) return new Map();
   try {
     const supabase = signedIn ? await createUserClient() : createPublishableClient();
-    return await getActiveDealPrices(supabase, skuIds);
+    return await getActiveDealPrices(supabase, productIds);
   } catch (error) {
     console.error("cart deal lookup failed:", safeError(error));
     return new Map();

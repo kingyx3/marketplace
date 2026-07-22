@@ -26,7 +26,7 @@ describe("TCGplayer catalog assist", () => {
     );
   });
 
-  it("normalizes product, set, category, SKU, and price data while rejecting unsafe URLs", () => {
+  it("normalizes product, set, category, variant, and price data while rejecting unsafe URLs", () => {
     const suggestion = normalizeTcgplayerCatalog({
       productId: 242811,
       fetchedAt: "2026-07-21T00:00:00.000Z",
@@ -59,10 +59,10 @@ describe("TCGplayer catalog assist", () => {
           },
         ],
       },
-      skus: {
-        skus: [
+      variants: {
+        variants: [
           {
-            skuId: 987,
+            providerVariantId: 987,
             productConditionId: 12,
             conditionName: "Near Mint",
             languageName: "English",
@@ -97,14 +97,14 @@ describe("TCGplayer catalog assist", () => {
       },
     });
     expect(suggestion.prices[0]).toMatchObject({ marketPrice: 129.99, lowPrice: 119.5 });
-    expect(suggestion.skus[0]).toMatchObject({
-      skuId: 987,
+    expect(suggestion.variants[0]).toMatchObject({
+      providerVariantId: 987,
       condition: "Near Mint",
       language: "English",
     });
   });
 
-  it("loads current storefront product details and embedded SKUs for newer product IDs", async () => {
+  it("loads current storefront product details and embedded variants for newer product IDs", async () => {
     const fetchImplementation = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "https://mp-search-api.tcgplayer.com/v2/product/692969/details") {
@@ -126,9 +126,9 @@ describe("TCGplayer catalog assist", () => {
             },
             skus: [
               {
-                sku: 880011,
+                skuId: 880011,
                 condition: "Unopened",
-                variant: "Normal",
+                printing: "Normal",
                 language: "English",
               },
             ],
@@ -171,8 +171,8 @@ describe("TCGplayer catalog assist", () => {
       },
     });
     expect(suggestion.prices[0]).toMatchObject({ marketPrice: 64.99, lowPrice: 59.5 });
-    expect(suggestion.skus[0]).toMatchObject({
-      skuId: 880011,
+    expect(suggestion.variants[0]).toMatchObject({
+      providerVariantId: 880011,
       condition: "Unopened",
       printing: "Normal",
       language: "English",
@@ -180,7 +180,7 @@ describe("TCGplayer catalog assist", () => {
     expect(suggestion.warnings).toEqual([]);
   });
 
-  it("treats price and SKU lookups as optional enrichment", async () => {
+  it("treats price and variant lookups as optional enrichment", async () => {
     const fetchImplementation = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("/details")) {
@@ -209,10 +209,10 @@ describe("TCGplayer catalog assist", () => {
     expect(suggestion.warnings).toEqual(
       expect.arrayContaining([
         "Live price points were unavailable; review pricing manually.",
-        "TCGplayer SKU variants were unavailable; configure the local SKU manually.",
+        "TCGplayer sellable variants were unavailable; review the product references manually.",
       ])
     );
     expect(suggestion.prices).toEqual([]);
-    expect(suggestion.skus).toEqual([]);
+    expect(suggestion.variants).toEqual([]);
   });
 });

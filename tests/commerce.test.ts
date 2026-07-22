@@ -17,19 +17,19 @@ const shippingAddress = {
   countryCode: "SG",
 };
 
-const skuId = "11111111-1111-4111-8111-111111111111";
+const productId = "11111111-1111-4111-8111-111111111111";
 
 describe("commerce helpers", () => {
   it("merges duplicate cart lines without changing first-seen ordering", () => {
     expect(
       normalizeCartItems([
-        { skuId: "sku-a", quantity: 1 },
-        { skuId: "sku-b", quantity: 2 },
-        { skuId: "sku-a", quantity: 3 },
+        { productId: "referenceCode-a", quantity: 1 },
+        { productId: "referenceCode-b", quantity: 2 },
+        { productId: "referenceCode-a", quantity: 3 },
       ])
     ).toEqual([
-      { skuId: "sku-a", quantity: 4, position: 0 },
-      { skuId: "sku-b", quantity: 2, position: 1 },
+      { productId: "referenceCode-a", quantity: 4, position: 0 },
+      { productId: "referenceCode-b", quantity: 2, position: 1 },
     ]);
   });
 
@@ -44,8 +44,8 @@ describe("commerce helpers", () => {
   it("rejects carts over the database checkout quantity limit", () => {
     expect(() =>
       normalizeCartItems([
-        { skuId: "sku-a", quantity: 13 },
-        { skuId: "sku-b", quantity: 12 },
+        { productId: "referenceCode-a", quantity: 13 },
+        { productId: "referenceCode-b", quantity: 12 },
       ])
     ).toThrow("Cart quantity exceeds 24");
   });
@@ -57,8 +57,8 @@ describe("commerce helpers", () => {
       currency: "SGD",
       lines: [
         {
-          skuId,
-          sku: "BOX-1",
+          productId,
+          referenceCode: "BOX-1",
           productName: "Booster Box",
           quantity: 2,
           unitPriceCents: 19900,
@@ -81,7 +81,7 @@ describe("commerce helpers", () => {
 
     expect(checkoutOrderRpcParams("user-123", quote, shippingAddress)).toEqual({
       p_auth_user_id: "user-123",
-      p_items: [{ sku_id: skuId, quantity: 2 }],
+      p_items: [{ product_id: productId, quantity: 2 }],
       p_channel: "b2c",
       p_shipping_address: shippingAddress,
       p_expected_subtotal_cents: 39800,
@@ -95,14 +95,14 @@ describe("commerce helpers", () => {
     const supabase = fakeQuoteSupabase({
       deals: [
         {
-          sku_id: skuId,
+          product_id: productId,
           deal_price_cents: 18905,
-          booster_box_skus: { price_cents: 19900 },
+          products: { price_cents: 19900 },
         },
         {
-          sku_id: skuId,
+          product_id: productId,
           deal_price_cents: 17910,
-          booster_box_skus: { price_cents: 19900 },
+          products: { price_cents: 19900 },
         },
       ],
     });
@@ -114,7 +114,7 @@ describe("commerce helpers", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ skuId, quantity: 1 }],
+          items: [{ productId, quantity: 1 }],
         },
         customerRecord()
       )
@@ -137,7 +137,7 @@ describe("commerce helpers", () => {
         {
           mode: "preorder",
           channel: "b2c",
-          items: [{ skuId, quantity: 2 }],
+          items: [{ productId, quantity: 2 }],
         },
         customerRecord()
       )
@@ -158,15 +158,15 @@ describe("commerce helpers", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ skuId, quantity: 1 }],
+          items: [{ productId, quantity: 1 }],
         },
         customerRecord()
       )
     ).rejects.toThrow("Shipping checkout is not configured");
   });
 
-  it("rejects inactive SKUs before creating payment state", async () => {
-    const supabase = fakeQuoteSupabase({ skuActive: false });
+  it("rejects inactive products before creating payment state", async () => {
+    const supabase = fakeQuoteSupabase({ productActive: false });
 
     await expect(
       quoteCheckout(
@@ -175,11 +175,11 @@ describe("commerce helpers", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ skuId, quantity: 1 }],
+          items: [{ productId, quantity: 1 }],
         },
         customerRecord()
       )
-    ).rejects.toThrow("SKU is not active");
+    ).rejects.toThrow("Product is not active");
   });
 });
 
@@ -197,14 +197,14 @@ function customerRecord() {
 }
 
 type DealFixture = {
-  sku_id: string;
+  product_id: string;
   deal_price_cents: number;
-  booster_box_skus: { price_cents: number };
+  products: { price_cents: number };
 };
 
 function fakeQuoteSupabase(options: {
   deals?: DealFixture[];
-  skuActive?: boolean;
+  productActive?: boolean;
   shippingActive?: boolean;
 }) {
   return {
@@ -218,7 +218,7 @@ function tableBuilder(
   table: string,
   options: {
     deals?: DealFixture[];
-    skuActive?: boolean;
+    productActive?: boolean;
     shippingActive?: boolean;
   }
 ) {
@@ -234,7 +234,7 @@ function tableBuilder(
         ? Promise.resolve({ data: options.deals ?? [], error: null })
         : builder,
     maybeSingle: async () => {
-      if (table === "inventory") {
+      if (table === "product_inventory") {
         return {
           data: { on_hand: 10, allocated: 0, incoming: 10, safety_stock: 0, available: 10 },
           error: null,
@@ -259,24 +259,18 @@ function tableBuilder(
       return { data: null, error: null };
     },
     single: async () => {
-      if (table === "booster_box_skus") {
+      if (table === "products") {
         return {
           data: {
-            id: skuId,
-            sku: "BOX-1",
-            active: options.skuActive ?? true,
+            id: productId,
+            reference_code: "BOX-1",
+            name: "Booster Box",
+            active: options.productActive ?? true,
             price_cents: 19900,
             currency: "SGD",
-            product_variant_id: "variant-123",
           },
           error: null,
         };
-      }
-      if (table === "product_variants") {
-        return { data: { product_id: "product-123" }, error: null };
-      }
-      if (table === "products") {
-        return { data: { name: "Booster Box", active: true }, error: null };
       }
       return { data: null, error: null };
     },

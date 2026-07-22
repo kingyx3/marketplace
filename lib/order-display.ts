@@ -5,23 +5,15 @@ type MaybeArray<T> = T | T[] | null | undefined;
 interface ProductRelation {
   slug: string | null;
   name: string | null;
-}
-
-interface VariantRelation {
-  products?: MaybeArray<ProductRelation>;
-}
-
-interface SkuRelation {
-  sku: string | null;
-  product_variants?: MaybeArray<VariantRelation>;
+  reference_code?: string | null;
 }
 
 export interface LiveOrderItem {
   id?: string;
-  sku_id: string;
+  product_id: string;
   quantity: number;
   unit_price_cents: number;
-  booster_box_skus?: MaybeArray<SkuRelation>;
+  products?: MaybeArray<ProductRelation>;
 }
 
 export interface LivePayment {
@@ -65,7 +57,7 @@ export interface LiveOrder {
 
 export interface LivePreorder {
   id: string;
-  sku_id: string;
+  product_id: string;
   channel: string;
   quantity: number;
   unit_price_cents: number;
@@ -79,7 +71,7 @@ export interface LivePreorder {
   order_id?: string | null;
   created_at: string;
   updated_at?: string | null;
-  booster_box_skus?: MaybeArray<SkuRelation>;
+  products?: MaybeArray<ProductRelation>;
   payments?: LivePayment[] | null;
 }
 
@@ -148,11 +140,11 @@ export function orderItemCount(order: LiveOrder): number {
 }
 
 export function productNameForItem(item: LiveOrderItem | LivePreorder): string {
-  return productForSku(item.booster_box_skus)?.name ?? "Product unavailable";
+  return one(item.products)?.name ?? "Product unavailable";
 }
 
 export function productHrefForItem(item: LiveOrderItem | LivePreorder): string | null {
-  const slug = productForSku(item.booster_box_skus)?.slug;
+  const slug = one(item.products)?.slug;
   return slug ? `/products/${slug}` : null;
 }
 
@@ -265,12 +257,6 @@ export function preorderTimeline(preorder: LivePreorder): TimelineItem[] {
       state: converted ? "complete" : "upcoming",
     },
   ];
-}
-
-function productForSku(skuValue: MaybeArray<SkuRelation>): ProductRelation | null {
-  const sku = one(skuValue);
-  const variant = one(sku?.product_variants);
-  return one(variant?.products);
 }
 
 function one<T>(value: MaybeArray<T>): T | null {

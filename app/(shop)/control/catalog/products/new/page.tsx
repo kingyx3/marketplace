@@ -36,7 +36,7 @@ export default async function NewControlProductPage() {
     <div className="space-y-8">
       <PageHeader
         action={<BackLink href="/control/catalog">Back to products</BackLink>}
-        description="Create the internal product draft first, then continue through SKU, Pricing, Supply, Listing, and Publication."
+        description="Create the internal product draft first, then continue through product, Pricing, Supply, Listing, and Publication."
         eyebrow="Control · Catalog"
         title="Create product"
       />

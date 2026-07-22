@@ -5,13 +5,14 @@ The executable source of truth is [`supabase/migrations/`](../supabase/migration
 ## Entity map
 
 ```text
-product_types -------------------------> products
-                                          ^
-tcg_categories -> sets_releases ---------+-> product_variants -> booster_box_skus -> sku_prices
-                                          |                         |
-                                          -> listing_items          |
-                                                                    v
-     suppliers -> purchase_orders -> purchase_order_items ------> inventory
+product_types --------------------------> products -> product_prices
+                                           |   |
+tcg_categories -> sets_releases ----------+   +-> listing_items
+                                           |
+     suppliers -> purchase_orders -> purchase_order_items
+                                           |
+                                           v
+                                   product_inventory
 
 customers -> preorders --(allocate)--> orders -> order_items
     |            |                       |-> shipments
@@ -21,28 +22,28 @@ customers -> preorders --(allocate)--> orders -> order_items
 
 allocation_rules     audit_logs     webhook_events     payment_exceptions
 storefront_configurations
-limited_time_deals -> booster_box_skus
+limited_time_deals -> products
 ```
 
 ## Core contracts
 
 ### Money and totals
 
-Money uses integer cents plus a currency code. Retail checkout quotes current SKU prices, active deals, shipping, tax, and inventory on the server. `create_checkout_order_from_cart` re-reads current data and compares expected totals before allocating stock.
+Money uses integer cents plus a currency code. Retail checkout quotes current product prices, active deals, shipping, tax, and inventory on the server. `create_checkout_order_from_cart` re-reads current data and compares expected totals before allocating stock.
 
 ### Catalog and listings
 
-Every product belongs to one category and one set. `product_types` stores the reusable administrator-managed type options shown in product forms. Product records do not require a separately entered name or slug: the database derives the display name from set, product type, and language, and derives the unique slug from category slug, set code, product type code, and language code. The canonical identity is therefore the category–set–type–language combination.
+Every product belongs to one category and one set. `product_types` stores the reusable administrator-managed type options shown in product forms. A product is both the customer-facing catalog record and the sellable unit. It owns its reference code, barcode, physical attributes, current price cache, source metadata, and lifecycle state.
 
-`products` and `booster_box_skus` use active/archive state rather than destructive deletion. Physical SKU records contain identifiers and pack configuration; money is versioned separately in `sku_prices`. The legacy amount fields on `booster_box_skus` are trigger-maintained compatibility caches for existing checkout reads.
+`products` uses active/archive state rather than destructive deletion. Money is versioned in `product_prices`; the current price is also stored on the product for atomic checkout reads.
 
-`listing_items` stores title overrides, badges, tags, customer limits, preorder reserve, featured ordering, availability mode, optional order windows, release date, and publish state. New listings default to unpublished. Publication requires an active product, active SKU, current price, and configured availability; `available_now` also requires sellable inventory. Active listings are retail-only and use `channels = ['b2c']`.
+`listing_items` stores title overrides, badges, tags, customer limits, preorder reserve, featured ordering, availability mode, optional order windows, release date, and publish state. New listings default to unpublished. Publication requires an active product with a reference, current price, and configured availability; `available_now` also requires sellable inventory. Active listings are retail-only and use `channels = ['b2c']`.
 
-`limited_time_deals` attaches time-bounded public or member offers to SKUs. Deals are presented inside Products and are revalidated during checkout.
+`limited_time_deals` attaches time-bounded public or member offers to products. Deals are presented inside Products and are revalidated during checkout.
 
 ### Inventory and purchasing
 
-`inventory` tracks on-hand, allocated, incoming, and safety stock. Its constraints prevent allocation beyond on-hand plus confirmed incoming stock. Supplier purchase-order intake records the PO and increments incoming stock in one database transaction.
+`product_inventory` tracks on-hand, allocated, incoming, and safety stock for each product. Its constraints prevent allocation beyond on-hand plus confirmed incoming stock. Supplier purchase-order intake records the PO and increments incoming stock in one database transaction.
 
 Normal-order checkout reserves inventory with a conditional database update. The pending order receives `checkout_reserved_until = now() + 15 minutes`. Expiry processing releases the allocation and cancels the unpaid order. A payment that succeeds after expiry cannot consume stock; the webhook records it and issues an idempotent HitPay refund.
 
@@ -66,7 +67,7 @@ Customers own their account, orders, preorders, payments, shipments, notificatio
 
 ### Admin operations
 
-Catalog, product-type, SKU, pricing, image, listing, deal, inventory, purchase-order, preorder-allocation, order, refund, reconciliation, and exception changes use explicit service-role functions. Critical mutations are recorded in `audit_logs`.
+Catalog, product-type, product, pricing, image, listing, deal, inventory, purchase-order, preorder-allocation, order, refund, reconciliation, and exception changes use explicit service-role functions. Critical mutations are recorded in `audit_logs`.
 
 Administrator coverage is stored as action-level rows in `admin_access_grant_permissions`. Roles remain provisioning templates. The UI and APIs authorize the exact permission for the owning domain, including separate `pricing.manage`, `storefront.publish`, `payments.reconcile`, and `refunds.manage` authority.
 

@@ -39,7 +39,7 @@ do $$
 begin
   if to_regclass('public.orders') is null
      or to_regclass('public.payments') is null
-     or to_regclass('public.inventory') is null
+     or to_regclass('public.product_inventory') is null
      or to_regclass('public.storefront_configurations') is null
      or to_regclass('public.limited_time_deals') is null
      or to_regclass('public.product_types') is null then
@@ -76,9 +76,9 @@ begin
 
   if not exists (
     select 1
-    from public.inventory i
-    join public.booster_box_skus sku on sku.id = i.sku_id
-    where sku.sku = 'MTG-SMP-PBB-EN'
+    from public.product_inventory i
+    join public.products product on product.id = i.product_id
+    where product.reference_code = 'MTG-SMP-PBB-EN'
       and i.location = 'main'
       and i.incoming = 24
       and i.safety_stock = 2

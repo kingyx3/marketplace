@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { joinWaitlist, normalizeWaitlistContact, notifyDropForSku } from "@/lib/waitlist";
+import { joinWaitlist, normalizeWaitlistContact, notifyDropForProduct } from "@/lib/waitlist";
 
-const SKU_ID = "00000000-0000-4000-8000-000000000001";
+const PRODUCT_ID = "00000000-0000-4000-8000-000000000001";
 const CUSTOMER_ID = "00000000-0000-4000-8000-000000000002";
 
 describe("waitlist restock alerts", () => {
@@ -20,19 +20,19 @@ describe("waitlist restock alerts", () => {
     );
   });
 
-  it("joins a customer to a SKU waitlist with server-normalized contact", async () => {
+  it("joins a customer to a Product waitlist with server-normalized contact", async () => {
     const { supabase, calls } = fakeSupabase();
 
     const entry = await joinWaitlist(supabase as never, customer(), {
-      skuId: SKU_ID,
+      productId: PRODUCT_ID,
       channel: "whatsapp",
       contact: "+65 9123 4567",
     });
 
     expect(entry).toMatchObject({
       id: "waitlist-1",
-      skuId: SKU_ID,
-      sku: "BOX-1",
+      productId: PRODUCT_ID,
+      referenceCode: "BOX-1",
       productName: "Sample Booster Box",
       productSlug: "sample-booster-box",
       channel: "whatsapp",
@@ -44,10 +44,10 @@ describe("waitlist restock alerts", () => {
     });
     expect(calls.upserts[0]).toMatchObject({
       table: "waitlist_entries",
-      options: { onConflict: "customer_id,sku_id,channel" },
+      options: { onConflict: "customer_id,product_id,channel" },
       row: {
         customer_id: CUSTOMER_ID,
-        sku_id: SKU_ID,
+        product_id: PRODUCT_ID,
         channel: "whatsapp",
         contact: "6591234567",
         status: "active",
@@ -63,7 +63,7 @@ describe("waitlist restock alerts", () => {
       return Response.json({ ok: true, result: { message_id: 42 } }, { status: 200 });
     });
 
-    const results = await notifyDropForSku(supabase as never, SKU_ID, {
+    const results = await notifyDropForProduct(supabase as never, PRODUCT_ID, {
       env: {
         APP_NAME: "Card Vault",
         NEXT_PUBLIC_SITE_URL: "https://shop.example.test",
@@ -99,7 +99,7 @@ describe("waitlist restock alerts", () => {
     const [, requestInit] = fetcher.mock.calls[0] as [RequestInfo | URL, RequestInit];
     const message = JSON.parse(String(requestInit.body));
     expect(message.text).toContain("Card Vault restock alert");
-    expect(message.text).not.toContain("SKU:");
+    expect(message.text).not.toContain("Product:");
     expect(calls.updates).toContainEqual({
       table: "notifications",
       update: {
@@ -142,8 +142,8 @@ function tableBuilder(table: string, calls: FakeCalls) {
       return { data: [], error: null };
     }),
     maybeSingle: vi.fn(async () => {
-      if (table === "booster_box_skus") {
-        return { data: skuRow(), error: null };
+      if (table === "products") {
+        return { data: productRow(), error: null };
       }
       return { data: null, error: null };
     }),
@@ -187,40 +187,31 @@ function customer() {
   };
 }
 
-function skuRow() {
+function productRow() {
   return {
-    id: SKU_ID,
-    sku: "BOX-1",
+    id: PRODUCT_ID,
+    reference_code: "BOX-1",
+    name: "Sample Booster Box",
+    slug: "sample-booster-box",
     active: true,
-    inventory: [{ available: 3, incoming: 0 }],
-    product_variants: {
-      products: {
-        name: "Sample Booster Box",
-        slug: "sample-booster-box",
-        active: true,
-      },
-    },
+    product_inventory: [{ available: 3, incoming: 0 }],
   };
 }
 
 function waitlistRow() {
   return {
     id: "waitlist-1",
-    sku_id: SKU_ID,
+    product_id: PRODUCT_ID,
     channel: "whatsapp",
     contact: "6591234567",
     status: "active",
     created_at: "2026-07-05T00:00:00.000Z",
     updated_at: "2026-07-05T00:00:00.000Z",
     notified_at: null,
-    booster_box_skus: {
-      sku: "BOX-1",
-      product_variants: {
-        products: {
-          name: "Sample Booster Box",
-          slug: "sample-booster-box",
-        },
-      },
+    products: {
+      reference_code: "BOX-1",
+      name: "Sample Booster Box",
+      slug: "sample-booster-box",
     },
   };
 }
@@ -229,7 +220,7 @@ function dropWaitlistRow() {
   return {
     id: "waitlist-1",
     customer_id: CUSTOMER_ID,
-    sku_id: SKU_ID,
+    product_id: PRODUCT_ID,
     channel: "telegram",
     contact: "123456789",
     status: "active",

@@ -2,14 +2,14 @@
 
 begin;
 
-update public.inventory i
+update public.product_inventory i
 set on_hand = 20,
     incoming = 0,
     allocated = 0,
     safety_stock = 0
-from public.booster_box_skus s
-where i.sku_id = s.id
-  and s.sku = 'MTG-SMP-PBB-EN'
+from public.products product
+where i.product_id = product.id
+  and product.reference_code = 'MTG-SMP-PBB-EN'
   and i.location = 'main';
 
 update public.storefront_configurations
@@ -21,7 +21,7 @@ do $$
 declare
   v_auth_user_id uuid := '10000000-0000-4000-8000-000000000001';
   v_customer_id uuid;
-  v_sku_id uuid;
+  v_product_id uuid;
   v_order record;
   v_allocated integer;
   v_reserved_until timestamptz;
@@ -41,36 +41,18 @@ begin
     raise exception 'auth user did not provision a customer';
   end if;
 
-  select id into v_sku_id
-  from public.booster_box_skus
-  where sku = 'MTG-SMP-PBB-EN';
+  select id into v_product_id
+  from public.products
+  where reference_code = 'MTG-SMP-PBB-EN';
 
-  if v_sku_id is null then
-    raise exception 'seed SKU not found';
+  if v_product_id is null then
+    raise exception 'seed product not found';
   end if;
-
-  begin
-    perform * from public.create_checkout_order_from_cart(
-      v_auth_user_id,
-      jsonb_build_array(jsonb_build_object('sku_id', v_sku_id, 'quantity', 1)),
-      'b2c'::public.sales_channel,
-      19900,
-      0,
-      0,
-      19900
-    );
-    raise exception 'legacy checkout unexpectedly succeeded';
-  exception
-    when sqlstate 'P0001' then
-      if sqlerrm not like '%shipping address%' then
-        raise;
-      end if;
-  end;
 
   select * into v_order
   from public.create_checkout_order_from_cart(
     v_auth_user_id,
-    jsonb_build_array(jsonb_build_object('sku_id', v_sku_id, 'quantity', 1)),
+    jsonb_build_array(jsonb_build_object('product_id', v_product_id, 'quantity', 1)),
     'b2c'::public.sales_channel,
     '{"recipientName":"Checkout Contract","line1":"1 Market Street","city":"Singapore","postalCode":"048940","countryCode":"SG"}'::jsonb,
     19900,
@@ -122,8 +104,8 @@ begin
   end if;
 
   select i.allocated into v_allocated
-  from public.inventory i
-  where i.sku_id = v_sku_id
+  from public.product_inventory i
+  where i.product_id = v_product_id
     and i.location = 'main';
   if v_allocated <> 0 then
     raise exception 'expired retail allocation was not released: %', v_allocated;

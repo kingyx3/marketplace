@@ -31,7 +31,7 @@ Use plain language and avoid implementation terminology. A customer should not n
 ## Customer navigation and account information
 
 - Keep regular orders and pre-orders in the same `/orders` purchase-history destination. Use separate sections so allocation and refund details remain clear without adding a second primary navigation item.
-- Do not expose SKU codes or database identifiers on product, cart, account, order, notification, or delivery screens. Product names are the customer-facing reference.
+- Do not expose product codes or database identifiers on product, cart, account, order, notification, or delivery screens. Product names are the customer-facing reference.
 - Show one availability status for each product. For example, an open pre-order displays `Preorder available`; it does not display a second `Preorder open` badge beside it.
 - Use `Restock alert` in customer-facing copy. Internal notification template and deduplication identifiers may retain stable legacy keys when changing them would break persisted data.
 - The account page prioritizes purchase history, recent delivery destinations, restock alerts, profile preferences, sign-out, and a clearly separated destructive account-deletion action.

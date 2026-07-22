@@ -8,7 +8,7 @@ import { StatusBadge } from "@/app/_components/status-badge";
 import { confirmPreorderAllocation } from "@/app/actions/preorder-allocation";
 import { requireControlPermission } from "@/lib/control-access";
 import { formatMoney } from "@/lib/money";
-import { previewPreorderAllocationForSku } from "@/lib/preorders";
+import { previewPreorderAllocationForProduct } from "@/lib/preorders";
 import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +17,13 @@ export default async function AllocationPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ skuId: string }>;
+  params: Promise<{ productId: string }>;
   searchParams?: Promise<{ error?: string }>;
 }) {
-  const { skuId } = await params;
-  await requireControlPermission("preorders.allocate", `/control/orders/allocations/${skuId}`);
-  await requireControlPermission("refunds.manage", `/control/orders/allocations/${skuId}`);
-  const preview = await previewPreorderAllocationForSku(createSecretClient(), skuId);
+  const { productId } = await params;
+  await requireControlPermission("preorders.allocate", `/control/orders/allocations/${productId}`);
+  await requireControlPermission("refunds.manage", `/control/orders/allocations/${productId}`);
+  const preview = await previewPreorderAllocationForProduct(createSecretClient(), productId);
   const error = (await searchParams)?.error;
   return (
     <div className="space-y-8">
@@ -36,7 +36,7 @@ export default async function AllocationPage({
             <ControlBackLink href="/control/orders/allocations">Back to queues</ControlBackLink>
           </>
         }
-        description={`${preview.sku} · Review the FIFO plan before confirming.`}
+        description={`${preview.referenceCode} · Review the FIFO plan before confirming.`}
         eyebrow="Control · Allocation"
         title={preview.productName}
       />
@@ -92,7 +92,7 @@ export default async function AllocationPage({
         errorMessage="The allocation could not be finalized. The preview remains open; refresh it before retrying."
         successMessage="Allocation finalized and required refunds submitted."
       >
-        <input name="skuId" type="hidden" value={preview.skuId} />
+        <input name="productId" type="hidden" value={preview.productId} />
         <input name="fingerprint" type="hidden" value={preview.fingerprint} />
         <label className="flex items-start gap-3 text-sm text-amber-950">
           <input className="mt-1" name="confirm" required type="checkbox" value="yes" />

@@ -6,11 +6,11 @@ import { redirect } from "next/navigation";
 import { adminCatalogProductCreateFromForm } from "@/lib/admin-catalog-forms";
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
-import type { TcgplayerSkuImportDraft } from "@/lib/tcgplayer-sku-import";
+import type { TcgplayerProductImportDraft } from "@/lib/tcgplayer-product-import";
 import { createSecretClient } from "@/lib/supabase";
 
-const SKU_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
-const MAX_IMPORTED_SKUS = 50;
+const REFERENCE_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
+const MAX_IMPORTED_PRODUCTS = 50;
 const MAX_IMPORT_PAYLOAD_BYTES = 100_000;
 
 export async function createTcgplayerCatalogProduct(
@@ -21,8 +21,7 @@ export async function createTcgplayerCatalogProduct(
     "catalog.manage",
     "/control/catalog",
   );
-  let createdProductId: string | undefined;
-  let importedSkuCount = 0;
+  let importId: string | undefined;
 
   try {
     const input = adminCatalogProductCreateFromForm(formData);
@@ -30,9 +29,9 @@ export async function createTcgplayerCatalogProduct(
       formData.get("tcgplayerProductId"),
       "TCGplayer product ID",
     );
-    const importedSkus = parseImportedSkus(formData.get("tcgplayerSkus"));
+    const importedProducts = parseImportedProducts(formData.get("tcgplayerProducts"));
     const { data, error } = await createSecretClient().rpc(
-      "admin_create_tcgplayer_catalog_product",
+      "admin_import_tcgplayer_products",
       {
         p_category_id: input.categoryId,
         p_new_category_slug: input.newCategorySlug,
@@ -52,7 +51,7 @@ export async function createTcgplayerCatalogProduct(
         p_image_url: input.imageUrl,
         p_active: input.active,
         p_tcgplayer_product_id: tcgplayerProductId,
-        p_skus: importedSkus,
+        p_products: importedProducts,
         p_actor_auth_user_id: user.id,
       },
     );
@@ -60,12 +59,10 @@ export async function createTcgplayerCatalogProduct(
     if (error) return productError(error);
 
     const result = (data?.[0] ?? null) as {
-      product_id?: string;
-      imported_sku_count?: number;
+      import_id?: string;
     } | null;
-    createdProductId = result?.product_id;
-    importedSkuCount = result?.imported_sku_count ?? 0;
-    revalidateCatalogPaths(createdProductId);
+    importId = result?.import_id;
+    revalidateCatalogPaths();
   } catch (error) {
     return {
       status: "error",
@@ -73,25 +70,24 @@ export async function createTcgplayerCatalogProduct(
     };
   }
 
-  if (validProductId(createdProductId ?? "")) {
-    redirect(`/control/catalog/products/${createdProductId}`);
+  if (validProductId(importId ?? "")) {
+    redirect(`/control/catalog/imports/${importId}`);
   }
 
   return {
     status: "success",
-    message:
-      importedSkuCount > 0
-        ? `Product created with ${importedSkuCount} imported SKU${importedSkuCount === 1 ? "" : "s"}.`
-        : "Product created. TCGplayer did not provide SKU records, so no local SKU was created.",
+    message: "Products created. Open the import confirmation to review each product.",
   };
 }
 
-function parseImportedSkus(
+function parseImportedProducts(
   value: FormDataEntryValue | null,
-): TcgplayerSkuImportDraft[] {
-  if (typeof value !== "string" || value.trim() === "") return [];
+): TcgplayerProductImportDraft[] {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error("At least one product is required.");
+  }
   if (new TextEncoder().encode(value).byteLength > MAX_IMPORT_PAYLOAD_BYTES) {
-    throw new Error("TCGplayer SKU data is too large to import safely.");
+    throw new Error("TCGplayer product data is too large to import safely.");
   }
 
   let parsed: unknown;
@@ -99,56 +95,56 @@ function parseImportedSkus(
     parsed = JSON.parse(value) as unknown;
   } catch {
     throw new Error(
-      "TCGplayer SKU data could not be read. Look up the product again.",
+      "TCGplayer product data could not be read. Look up the product again.",
     );
   }
 
   if (!Array.isArray(parsed)) {
-    throw new Error("TCGplayer SKU data must be a list.");
+    throw new Error("TCGplayer product data must be a list.");
   }
-  if (parsed.length > MAX_IMPORTED_SKUS) {
+  if (parsed.length === 0 || parsed.length > MAX_IMPORTED_PRODUCTS) {
     throw new Error(
-      `A maximum of ${MAX_IMPORTED_SKUS} TCGplayer SKUs can be imported at once.`,
+      `Between 1 and ${MAX_IMPORTED_PRODUCTS} products can be imported at once.`,
     );
   }
 
   return parsed.map((entry, index) => {
-    const record = objectValue(entry, `TCGplayer SKU ${index + 1}`);
-    const sku = requiredString(
-      record.sku,
-      `TCGplayer SKU ${index + 1} code`,
+    const record = objectValue(entry, `TCGplayer product ${index + 1}`);
+    const referenceCode = requiredString(
+      record.referenceCode,
+      `Product ${index + 1} reference`,
       64,
     ).toUpperCase();
-    if (!SKU_PATTERN.test(sku)) {
+    if (!REFERENCE_PATTERN.test(referenceCode)) {
       throw new Error(
-        `TCGplayer SKU ${index + 1} code may use only letters, numbers, dots, hyphens, and underscores.`,
+        `Product ${index + 1} reference may use only letters, numbers, dots, hyphens, and underscores.`,
       );
     }
 
     return {
-      sourceSkuId: optionalPositiveInteger(
-        record.sourceSkuId,
-        `TCGplayer SKU ${index + 1} source ID`,
+      sourceVariantId: optionalPositiveInteger(
+        record.sourceVariantId,
+        `TCGplayer product ${index + 1} source variant ID`,
       ),
       sourceProductConditionId: optionalPositiveInteger(
         record.sourceProductConditionId,
-        `TCGplayer SKU ${index + 1} product condition ID`,
+        `TCGplayer variant ${index + 1} product condition ID`,
       ),
       sourceConditionId: optionalPositiveInteger(
         record.sourceConditionId,
-        `TCGplayer SKU ${index + 1} condition ID`,
+        `TCGplayer variant ${index + 1} condition ID`,
       ),
       sourceLanguageId: optionalPositiveInteger(
         record.sourceLanguageId,
-        `TCGplayer SKU ${index + 1} language ID`,
+        `TCGplayer variant ${index + 1} language ID`,
       ),
       sourcePrintingId: optionalPositiveInteger(
         record.sourcePrintingId,
-        `TCGplayer SKU ${index + 1} printing ID`,
+        `TCGplayer variant ${index + 1} printing ID`,
       ),
-      sourceVariantId: optionalPositiveInteger(
-        record.sourceVariantId,
-        `TCGplayer SKU ${index + 1} variant ID`,
+      sourceProviderVariantId: optionalPositiveInteger(
+        record.sourceProviderVariantId,
+        `TCGplayer variant ${index + 1} variant ID`,
       ),
       condition: optionalString(record.condition, 160),
       language: optionalString(record.language, 80),
@@ -158,7 +154,8 @@ function parseImportedSkus(
       midPriceUsd: optionalNonNegativeNumber(record.midPriceUsd),
       highPriceUsd: optionalNonNegativeNumber(record.highPriceUsd),
       directLowPriceUsd: optionalNonNegativeNumber(record.directLowPriceUsd),
-      sku,
+      name: requiredString(record.name, `Product ${index + 1} name`, 160),
+      referenceCode,
       barcode: optionalString(record.barcode, 64),
       packsPerBox: optionalPositiveInteger(record.packsPerBox, "Packs per box"),
       cardsPerPack: optionalPositiveInteger(
@@ -187,11 +184,11 @@ function requiredString(value: unknown, label: string, max: number): string {
 function optionalString(value: unknown, max: number): string | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value !== "string")
-    throw new Error("Imported SKU text is invalid.");
+    throw new Error("Imported product text is invalid.");
   const result = value.trim();
   if (!result) return null;
   if (result.length > max)
-    throw new Error(`Imported SKU text must be ${max} characters or fewer.`);
+    throw new Error(`Imported product text must be ${max} characters or fewer.`);
   return result;
 }
 
@@ -238,24 +235,24 @@ function productError(error: {
     return {
       status: "error",
       message:
-        "One of the imported barcodes is already assigned to another SKU.",
+        "One of the imported barcodes is already assigned to another product.",
     };
   }
   if (
-    message.includes("sku") &&
+    message.includes("reference") &&
     (error.code === "23505" || message.includes("duplicate"))
   ) {
     return {
       status: "error",
       message:
-        "One of the imported TCGplayer SKU codes is already assigned to another product.",
+        "One of the imported product references is already assigned to another product.",
     };
   }
   return {
     status: "error",
     message:
       error.message ||
-      "The product and its TCGplayer SKUs could not be created.",
+      "The TCGplayer products could not be created.",
   };
 }
 
@@ -278,5 +275,5 @@ function validProductId(value: string) {
 function safeError(error: unknown) {
   return error instanceof Error
     ? error.message
-    : "The product and its TCGplayer SKUs could not be created.";
+    : "The product and its TCGplayer variants could not be created.";
 }

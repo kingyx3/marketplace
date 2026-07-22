@@ -40,8 +40,8 @@ describe("catalog administration workflow", () => {
     expect(action).toContain("redirect(`/control/catalog/products/${createdProductId}`)");
   });
 
-  it("keeps editable product and SKU details inside Catalog", async () => {
-    const [detail, detailsEditor, skuEditor] = await Promise.all([
+  it("keeps all editable sellable-product details inside Catalog", async () => {
+    const [detail, detailsEditor, productEditor] = await Promise.all([
       readFile(
         new URL("../app/(shop)/control/catalog/products/[productId]/page.tsx", import.meta.url),
         "utf8"
@@ -60,12 +60,14 @@ describe("catalog administration workflow", () => {
     ]);
     expect(detail).toContain("ProductListingWorkflow");
     expect(detail).toContain("CatalogProductDetailsEditor");
-    expect(detail).toContain("CatalogSkuManager");
+    expect(detail).not.toContain("CatalogSkuManager");
     expect(detailsEditor).toContain("ProductImageUploader");
-    expect(skuEditor).toContain("upsertCatalogSku");
-    expect(skuEditor).toContain("Add SKU");
-    expect(skuEditor).not.toContain('name="priceCents"');
-    expect(skuEditor).not.toContain('name="published"');
+    expect(productEditor).toContain('name="referenceCode"');
+    expect(productEditor).toContain('name="barcode"');
+    expect(productEditor).toContain('name="packsPerBox"');
+    expect(productEditor).not.toContain("Add product");
+    expect(productEditor).not.toContain('name="priceCents"');
+    expect(productEditor).not.toContain('name="published"');
   });
 
   it("surfaces duplicate generated category slugs without leaving or clearing the form", async () => {

@@ -25,11 +25,11 @@ Pull-request CI runs independent checks in parallel without production secrets. 
 - `tests/allocation.test.ts` — retail FIFO allocation, per-customer caps, partial fills, and no oversell.
 - `tests/commerce.test.ts` — cart normalization, integer-cent deals, deposits, shipping, checkout limits, current-price quoting, and the order RPC contract.
 - `tests/admin-orders.test.ts` — explicit order actions, payment reconciliation, cancellation, and exception behavior.
-- `tests/admin-catalog.test.ts` — product and SKU forms, inventory adjustment parsing, and catalog migration markers.
+- `tests/admin-catalog.test.ts` — product and product forms, inventory adjustment parsing, and catalog migration markers.
 - `tests/purchase-orders.test.ts` — supplier purchase-order intake and inventory integration markers.
-- `tests/control-operations-surface.test.ts` — protected catalog, SKU, inventory, purchasing, allocation, and payment-exception controls.
+- `tests/control-operations-surface.test.ts` — protected catalog, product, inventory, purchasing, allocation, and payment-exception controls.
 - `tests/notifications.test.ts` — order confirmation and configured drop-alert providers, deduplication, failures, and disabled-provider behavior.
-- `tests/waitlist.test.ts` — SKU/customer binding, contact normalization, claims, dispatch, and notified state.
+- `tests/waitlist.test.ts` — product/customer binding, contact normalization, claims, dispatch, and notified state.
 - `tests/preorder-flow.test.ts` — retail allocation queries, HitPay deposit/balance behavior, and removal of invoice checkout.
 - `tests/live-customer-pages.test.ts` — live customer page data and guards against fixture-backed authenticated flows.
 - `tests/frontend-access.test.tsx` — anonymous, customer, and staff navigation visibility.

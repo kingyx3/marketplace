@@ -138,7 +138,7 @@ async function createPreorderPayment(
       .from("preorders")
       .insert({
         customer_id: auth.customer.id,
-        sku_id: line.skuId,
+        product_id: line.productId,
         channel: "b2c",
         quantity: line.quantity,
         unit_price_cents: line.unitPriceCents,

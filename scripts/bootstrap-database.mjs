@@ -17,10 +17,11 @@ export const SEEDED_PUBLIC_TABLES = [
   "api_idempotency_records",
   "api_rate_limit_buckets",
   "audit_logs",
-  "booster_box_skus",
+  "products",
+  "catalog_import_products",
+  "catalog_imports",
   "control_permission_definitions",
   "customers",
-  "inventory",
   "limited_time_deals",
   "listing_items",
   "notifications",
@@ -30,14 +31,13 @@ export const SEEDED_PUBLIC_TABLES = [
   "payments",
   "preorders",
   "product_types",
-  "product_variants",
-  "products",
+  "product_inventory",
+  "product_prices",
   "purchase_order_items",
   "purchase_orders",
   "refunds",
   "sets_releases",
   "shipments",
-  "sku_prices",
   "staff_users",
   "storefront_configurations",
   "suppliers",
@@ -53,8 +53,6 @@ const FIXTURE_IDS = Object.freeze({
   set: "10000000-0000-4000-8000-000000000004",
   productType: "10000000-0000-4000-8000-000000000005",
   product: "10000000-0000-4000-8000-000000000006",
-  variant: "10000000-0000-4000-8000-000000000007",
-  sku: "10000000-0000-4000-8000-000000000008",
   inventory: "10000000-0000-4000-8000-000000000010",
   storefrontConfiguration: "10000000-0000-4000-8000-000000000012",
   deal: "10000000-0000-4000-8000-000000000013",
@@ -93,7 +91,7 @@ const RELEASE = Object.freeze({
 
 const PRODUCT_TYPE = Object.freeze({ code: "bootstrap_box", name: "Bootstrap box" });
 const PRODUCT_NAME = "Bootstrap Visibility Product";
-const SKU = "BOOTSTRAP-BST-BOX-EN";
+const PRODUCT_REFERENCE = "BOOTSTRAP-BST-BOX-EN";
 const CURRENCY = "SGD";
 const PRICE_CENTS = 19_900;
 const COMPARE_AT_CENTS = 22_000;
@@ -182,7 +180,7 @@ async function main() {
       target,
       product_id: FIXTURE_IDS.product,
       customer_id: customerId,
-      sku: SKU,
+      referenceCode: PRODUCT_REFERENCE,
       deal_price_cents: DEAL_PRICE_CENTS,
       visible: true,
     },
@@ -196,7 +194,7 @@ async function main() {
     target,
     productId: FIXTURE_IDS.product,
     productSlug: product.slug,
-    sku: SKU,
+    referenceCode: PRODUCT_REFERENCE,
     dealPriceCents: DEAL_PRICE_CENTS,
     publicTablesCovered: SEEDED_PUBLIC_TABLES.length,
     anonymousReadVerified: true,
@@ -323,50 +321,30 @@ async function seedCatalogBase(client, target, dates) {
     language: "EN",
     image_url: null,
     active: true,
+    reference_code: PRODUCT_REFERENCE,
+    barcode: "888800000001",
+    packs_per_box: 24,
+    cards_per_pack: 12,
+    compare_at_cents: COMPARE_AT_CENTS,
+    price_cents: PRICE_CENTS,
+    currency: CURRENCY,
+    weight_grams: 900,
+    source_metadata: { bootstrap: true, target },
   });
+  await deleteWhere(client, "product_prices", "product_id", FIXTURE_IDS.product);
   await upsert(
     client,
-    "product_variants",
-    {
-      id: FIXTURE_IDS.variant,
-      product_id: FIXTURE_IDS.product,
-      name: "default",
-      attributes: { bootstrap: true, target },
-    },
-    "product_id,name"
-  );
-  await upsert(
-    client,
-    "booster_box_skus",
-    {
-      id: FIXTURE_IDS.sku,
-      product_variant_id: FIXTURE_IDS.variant,
-      sku: SKU,
-      barcode: "888800000001",
-      packs_per_box: 24,
-      cards_per_pack: 12,
-      msrp_cents: COMPARE_AT_CENTS,
-      price_cents: PRICE_CENTS,
-      currency: CURRENCY,
-      weight_grams: 900,
-      active: true,
-    },
-    "sku"
-  );
-  await deleteWhere(client, "sku_prices", "sku_id", FIXTURE_IDS.sku);
-  await upsert(
-    client,
-    "inventory",
+    "product_inventory",
     {
       id: FIXTURE_IDS.inventory,
-      sku_id: FIXTURE_IDS.sku,
+      product_id: FIXTURE_IDS.product,
       location: "main",
       on_hand: 24,
       allocated: 0,
       incoming: 6,
       safety_stock: 2,
     },
-    "sku_id,location"
+    "product_id,location"
   );
   await upsert(
     client,
@@ -397,7 +375,7 @@ async function seedCatalogBase(client, target, dates) {
       key: "bootstrap_fixture",
       label: "Database bootstrap fixture",
       description: "Records the most recent successful bootstrap target.",
-      value: { target, productId: FIXTURE_IDS.product, sku: SKU },
+      value: { target, productId: FIXTURE_IDS.product, referenceCode: PRODUCT_REFERENCE },
       active: true,
     },
     "key"
@@ -427,7 +405,7 @@ async function seedCatalogBase(client, target, dates) {
   await upsert(client, "purchase_order_items", {
     id: FIXTURE_IDS.purchaseOrderItem,
     purchase_order_id: FIXTURE_IDS.purchaseOrder,
-    sku_id: FIXTURE_IDS.sku,
+    product_id: FIXTURE_IDS.product,
     quantity: 2,
     unit_cost_cents: 7_500,
     received_quantity: 0,
@@ -464,7 +442,7 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
   await upsert(client, "preorders", {
     id: FIXTURE_IDS.preorder,
     customer_id: customer.id,
-    sku_id: FIXTURE_IDS.sku,
+    product_id: FIXTURE_IDS.product,
     channel: "b2c",
     quantity: 1,
     unit_price_cents: PRICE_CENTS,
@@ -496,7 +474,7 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
   await upsert(client, "order_items", {
     id: FIXTURE_IDS.orderItem,
     order_id: FIXTURE_IDS.order,
-    sku_id: FIXTURE_IDS.sku,
+    product_id: FIXTURE_IDS.product,
     preorder_id: null,
     quantity: 1,
     unit_price_cents: PRICE_CENTS,
@@ -557,7 +535,7 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
   await upsert(client, "allocation_rules", {
     id: FIXTURE_IDS.allocationRule,
     set_id: null,
-    sku_id: FIXTURE_IDS.sku,
+    product_id: FIXTURE_IDS.product,
     channel: "b2c",
     priority: 100,
     reserve_quantity: 0,
@@ -569,7 +547,7 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
     customer_id: customer.id,
     channel: "email",
     template: "bootstrap_fixture",
-    payload: { target, sku: SKU },
+    payload: { target, referenceCode: PRODUCT_REFERENCE },
     status: "queued",
     provider: null,
     provider_message_id: null,
@@ -607,13 +585,13 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
     {
       id: FIXTURE_IDS.waitlist,
       customer_id: customer.id,
-      sku_id: FIXTURE_IDS.sku,
+      product_id: FIXTURE_IDS.product,
       channel: "email",
       contact: customerEmail,
       status: "active",
       notified_at: null,
     },
-    "customer_id,sku_id,channel"
+    "customer_id,product_id,channel"
   );
 
   return customer.id;
@@ -696,7 +674,7 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-  await rpc(client, "admin_upsert_catalog_product", {
+  await rpc(client, "admin_update_catalog_product", {
     p_product_id: FIXTURE_IDS.product,
     p_name: PRODUCT_NAME,
     p_category_id: FIXTURE_IDS.category,
@@ -707,21 +685,15 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_language: "EN",
     p_image_url: null,
     p_active: true,
-    p_actor: `staff:${actorAuthUserId}`,
-  });
-  await rpc(client, "admin_upsert_catalog_sku", {
-    p_sku_id: FIXTURE_IDS.sku,
-    p_product_id: FIXTURE_IDS.product,
-    p_sku: SKU,
+    p_reference_code: PRODUCT_REFERENCE,
     p_barcode: "888800000001",
     p_packs_per_box: 24,
     p_cards_per_pack: 12,
     p_weight_grams: 900,
-    p_active: true,
     p_actor_auth_user_id: actorAuthUserId,
   });
-  await rpc(client, "admin_set_sku_price", {
-    p_sku_id: FIXTURE_IDS.sku,
+  await rpc(client, "admin_set_product_price", {
+    p_product_id: FIXTURE_IDS.product,
     p_currency: CURRENCY,
     p_price_cents: PRICE_CENTS,
     p_compare_at_cents: COMPARE_AT_CENTS,
@@ -755,10 +727,10 @@ async function exerciseAdminMutationApis(client, actorAuthUserId, dates) {
     p_release_date: dates.releaseDate,
     p_actor_auth_user_id: actorAuthUserId,
   });
-  await rpc(client, "admin_upsert_pricing_promotion", {
+  await rpc(client, "admin_upsert_product_promotion", {
     p_deal_id: FIXTURE_IDS.deal,
     p_code: "bootstrap_launch",
-    p_sku_id: FIXTURE_IDS.sku,
+    p_product_id: FIXTURE_IDS.product,
     p_title: "Bootstrap launch offer",
     p_description: "API-managed public promotion fixture.",
     p_deal_price_cents: DEAL_PRICE_CENTS,
@@ -798,7 +770,7 @@ async function verifySecretRead(client) {
   const { data: product, error: productError } = await client
     .from("products")
     .select(
-      "id,slug,name,active,product_variants(booster_box_skus(id,active,sku_prices(active,price_cents,starts_at,ends_at),inventory(on_hand,allocated,safety_stock)))"
+      "id,slug,name,active,price_cents,product_inventory(on_hand,allocated,safety_stock),product_prices(active,price_cents,starts_at,ends_at)"
     )
     .eq("id", FIXTURE_IDS.product)
     .single();
@@ -822,15 +794,12 @@ async function verifySecretRead(client) {
     .single();
   if (dealError) throw new Error(`Bootstrap deal verification query failed: ${dealError.message}`);
 
-  const variant = one(product.product_variants);
-  const sku = one(variant?.booster_box_skus);
-  const activePrice = (sku?.sku_prices ?? []).find((price) => price.active);
-  const inventory = one(sku?.inventory);
+  const activePrice = (product.product_prices ?? []).find((price) => price.active);
+  const inventory = one(product.product_inventory);
   if (
     !product.active ||
     !listing.published ||
     listing.availability_mode !== "available_now" ||
-    !sku?.active ||
     !activePrice ||
     Number(activePrice.price_cents) <= 0 ||
     !deal.active ||
@@ -1102,7 +1071,7 @@ async function appendGithubSummary(summary) {
       "",
       `- Target: \`${summary.target}\``,
       `- Product: \`${summary.productSlug}\``,
-      `- SKU: \`${summary.sku}\``,
+      `- product: \`${summary.referenceCode}\``,
       `- Deal price: ${summary.dealPriceCents} cents`,
       `- Public tables covered: ${summary.publicTablesCovered}`,
       `- Anonymous read: ${summary.anonymousReadVerified ? "verified" : "skipped"}`,

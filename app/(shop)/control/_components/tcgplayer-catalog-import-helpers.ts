@@ -6,15 +6,15 @@ import type {
 import { ApiClientError } from "@/lib/api/client";
 import type { TcgplayerCatalogSuggestion } from "@/lib/tcgplayer-catalog";
 import {
-  buildTcgplayerSkuImportDrafts,
-  type TcgplayerSkuImportDraft,
-} from "@/lib/tcgplayer-sku-import";
+  buildTcgplayerProductImportDrafts,
+  type TcgplayerProductImportDraft,
+} from "@/lib/tcgplayer-product-import";
 
 const NEW_VALUE = "__new__";
 
 type SuggestionSetters = {
   setSuggestion: (value: TcgplayerCatalogSuggestion) => void;
-  setSkuDrafts: (value: TcgplayerSkuImportDraft[]) => void;
+  setProductDrafts: (value: TcgplayerProductImportDraft[]) => void;
   setName: (value: string) => void;
   setDescription: (value: string) => void;
   setImageUrl: (value: string) => void;
@@ -51,7 +51,7 @@ export function applySuggestion(
   const productType = findProductType(productTypes, suggestion);
 
   setters.setSuggestion(suggestion);
-  setters.setSkuDrafts(buildTcgplayerSkuImportDrafts(suggestion));
+  setters.setProductDrafts(buildTcgplayerProductImportDrafts(suggestion));
   setters.setName(
     cleanExternalText(suggestion.product.cleanName ?? suggestion.product.name),
   );
@@ -155,7 +155,7 @@ function suggestProductTypeName(
 function suggestLanguage(suggestion: TcgplayerCatalogSuggestion): string {
   const source =
     suggestion.product.language ??
-    suggestion.skus.find((sku) => sku.language)?.language;
+    suggestion.variants.find((variant) => variant.language)?.language;
   if (!source) return "EN";
   const codeByName: Record<string, string> = {
     english: "EN",

@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   adminCatalogProductCreateFromForm,
   adminCatalogProductFromForm,
-  adminCatalogSkuFromForm,
   adminInventoryAdjustmentFromForm,
 } from "@/lib/admin-catalog-forms";
-import { catalogSkuErrorCode, catalogSkuErrorMessage } from "@/lib/catalog-sku-errors";
 
 describe("admin catalog management", () => {
   it("parses product display names, relational identity fields, and normalized language", () => {
@@ -89,7 +87,7 @@ describe("admin catalog management", () => {
     );
   });
 
-  it("rejects invalid product types and negative physical SKU attributes", () => {
+  it("rejects invalid product types and negative physical product attributes", () => {
     const product = new FormData();
     product.set("name", "Example Booster Box");
     product.set("categoryId", "22222222-2222-4222-8222-222222222222");
@@ -98,39 +96,14 @@ describe("admin catalog management", () => {
 
     expect(() => adminCatalogProductFromForm(product)).toThrow("Select a valid product type");
 
-    const sku = new FormData();
-    sku.set("productId", "11111111-1111-4111-8111-111111111111");
-    sku.set("sku", "box-1");
-    sku.set("packsPerBox", "-1");
-    expect(() => adminCatalogSkuFromForm(sku)).toThrow("packsPerBox must be at least 1");
-  });
-
-  it("maps SKU save failures to actionable operator guidance", () => {
-    expect(
-      catalogSkuErrorCode({
-        code: "23514",
-        message: 'new row violates check constraint "booster_box_skus_price_cents_check"',
-      })
-    ).toBe("positive-price");
-    expect(
-      catalogSkuErrorCode({
-        code: "23505",
-        message: 'duplicate key violates constraint "booster_box_skus_sku_key"',
-      })
-    ).toBe("duplicate-sku");
-    expect(
-      catalogSkuErrorCode({
-        code: "23505",
-        message: 'duplicate key violates constraint "booster_box_skus_barcode_key"',
-      })
-    ).toBe("duplicate-barcode");
-    expect(catalogSkuErrorMessage("positive-price")).toContain("greater than 0 cents");
-    expect(catalogSkuErrorMessage("duplicate-sku")).toContain("already exists");
+    product.set("productType", "booster_box");
+    product.set("packsPerBox", "-1");
+    expect(() => adminCatalogProductFromForm(product)).toThrow("packsPerBox must be at least 1");
   });
 
   it("requires reason-coded non-negative inventory adjustments", () => {
     const form = new FormData();
-    form.set("skuId", "11111111-1111-4111-8111-111111111111");
+    form.set("productId", "11111111-1111-4111-8111-111111111111");
     form.set("onHand", "2");
     form.set("incoming", "10");
     form.set("safetyStock", "1");
@@ -138,7 +111,7 @@ describe("admin catalog management", () => {
     form.set("reasonNote", "Cycle count");
 
     expect(adminInventoryAdjustmentFromForm(form)).toEqual({
-      skuId: "11111111-1111-4111-8111-111111111111",
+      productId: "11111111-1111-4111-8111-111111111111",
       onHand: 2,
       incoming: 10,
       safetyStock: 1,
@@ -152,7 +125,7 @@ describe("admin catalog management", () => {
 
   it("keeps catalog admin mutations service-role-only and audited", async () => {
     const migration = await readFile(
-      new URL("../supabase/migrations/20260705020250_admin_catalog_crud.sql", import.meta.url),
+      new URL("../supabase/migrations/20260722090000_product_only_tcgplayer_import.sql", import.meta.url),
       "utf8"
     );
     const displayNameMigration = await readFile(
@@ -163,25 +136,13 @@ describe("admin catalog management", () => {
       "utf8"
     );
     const action = await readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8");
-    const skuErrorPage = await readFile(
-      new URL("../app/(shop)/control/catalog/sku-error/page.tsx", import.meta.url),
-      "utf8"
-    );
-
-    expect(migration).toContain("add column if not exists active boolean");
-    expect(migration).toContain("admin_upsert_catalog_product");
-    expect(migration).toContain("admin_upsert_booster_box_sku");
-    expect(migration).toContain("admin_set_product_image");
-    expect(migration).toContain("admin_adjust_inventory");
-    expect(migration).toContain("ADMIN_INVENTORY_ADJUSTMENT");
-    expect(migration).toContain("and s.active");
+    expect(migration).toContain("admin_update_catalog_product");
+    expect(migration).toContain("admin_import_tcgplayer_products");
+    expect(migration).toContain("product_inventory");
     expect(migration).toContain("from public, anon, authenticated");
     expect(migration).toContain("to service_role");
     expect(displayNameMigration).toContain("'name', v_name");
     expect(displayNameMigration).toContain("'slug', v_product_slug");
-    expect(action).toContain("catalog.sku_save_rejected");
-    expect(action).toContain("catalogSkuErrorMessage(errorCode)");
-    expect(action).toContain("fieldErrors: field ?");
-    expect(skuErrorPage).toContain("SKU could not be saved");
+    expect(action).toContain('rpc("admin_update_catalog_product"');
   });
 });

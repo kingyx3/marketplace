@@ -6,7 +6,7 @@ const MAX_UPSTREAM_RESPONSE_BYTES = 2_000_000;
 const UPSTREAM_TIMEOUT_MS = 10_000;
 
 export type TcgplayerPricePoint = {
-  skuId: number | null;
+  providerVariantId: number | null;
   productConditionId: number | null;
   condition: string | null;
   language: string | null;
@@ -18,8 +18,8 @@ export type TcgplayerPricePoint = {
   directLowPrice: number | null;
 };
 
-export type TcgplayerSkuReference = {
-  skuId: number | null;
+export type TcgplayerVariantReference = {
+  providerVariantId: number | null;
   productConditionId: number | null;
   conditionId: number | null;
   languageId: number | null;
@@ -68,7 +68,7 @@ export type TcgplayerCatalogSuggestion = {
     releaseDate: string | null;
   };
   prices: TcgplayerPricePoint[];
-  skus: TcgplayerSkuReference[];
+  variants: TcgplayerVariantReference[];
   warnings: string[];
 };
 
@@ -99,7 +99,7 @@ type NormalizationInput = {
   productId: number;
   details: unknown;
   prices?: unknown;
-  skus?: unknown;
+  variants?: unknown;
   warnings?: string[];
   fetchedAt?: string;
 };
@@ -156,8 +156,8 @@ export async function fetchTcgplayerCatalogSuggestion(
   );
   const detailsRecord = unwrapRecord(details);
   const embeddedPrices = normalizePricePoints(undefined, detailsRecord);
-  const embeddedSkus = normalizeSkus(detailsRecord);
-  const [prices, skus] = await Promise.all([
+  const embeddedVariants = normalizeVariants(detailsRecord);
+  const [prices, variants] = await Promise.all([
     fetchOptionalJson(
       `${TCGPLAYER_PRODUCT_ENRICHMENT_API}/${productId}/pricepoints`,
       fetchImplementation,
@@ -173,9 +173,9 @@ export async function fetchTcgplayerCatalogSuggestion(
       "Live price points were unavailable; review pricing manually.",
     );
   }
-  if (!skus.ok && embeddedSkus.length === 0) {
+  if (!variants.ok && embeddedVariants.length === 0) {
     warnings.push(
-      "TCGplayer SKU variants were unavailable; configure the local SKU manually.",
+      "TCGplayer sellable variants were unavailable; review the product references manually.",
     );
   }
 
@@ -183,7 +183,7 @@ export async function fetchTcgplayerCatalogSuggestion(
     productId,
     details,
     prices: prices.ok ? prices.value : detailsRecord,
-    skus: skus.ok ? skus.value : detailsRecord,
+    variants: variants.ok ? variants.value : detailsRecord,
     warnings,
     fetchedAt: (options.now?.() ?? new Date()).toISOString(),
   });
@@ -197,13 +197,13 @@ export function normalizeTcgplayerCatalog(
     getCaseInsensitive(details, "customAttributes"),
   );
   const normalizedPrices = normalizePricePoints(input.prices, details);
-  const enrichmentSkus = normalizeSkus(input.skus);
-  const sourceSkus =
-    enrichmentSkus.length > 0 ? enrichmentSkus : normalizeSkus(details);
-  const normalizedSkus = enrichSkusWithPrices(sourceSkus, normalizedPrices);
-  const skuLanguages = uniqueStrings(
-    normalizedSkus
-      .map((sku) => sku.language)
+  const enrichmentVariants = normalizeVariants(input.variants);
+  const sourceVariants =
+    enrichmentVariants.length > 0 ? enrichmentVariants : normalizeVariants(details);
+  const normalizedVariants = enrichVariantsWithPrices(sourceVariants, normalizedPrices);
+  const variantLanguages = uniqueStrings(
+    normalizedVariants
+      .map((variant) => variant.language)
       .filter((language): language is string => Boolean(language)),
   );
   const name =
@@ -245,7 +245,7 @@ export function normalizeTcgplayerCatalog(
       : null);
   const language =
     readNamedValue(details, ["languageName", "language"]) ??
-    (skuLanguages.length === 1 ? skuLanguages[0] : null);
+    (variantLanguages.length === 1 ? variantLanguages[0] : null);
 
   if (!categoryName) warnings.push("TCGplayer did not return a category name.");
   if (!setName) warnings.push("TCGplayer did not return a set or group name.");
@@ -307,7 +307,7 @@ export function normalizeTcgplayerCatalog(
       releaseDate: normalizeDate(releaseDate),
     },
     prices: normalizedPrices,
-    skus: normalizedSkus,
+    variants: normalizedVariants,
     warnings: uniqueStrings(warnings),
   };
 }
@@ -440,7 +440,7 @@ function normalizePricePoints(
   }
 
   return records.slice(0, 30).map((record) => ({
-    skuId: readNumber(record, ["skuId", "sku"]),
+    providerVariantId: readNumber(record, ["skuId", "sku"]),
     productConditionId: readNumber(record, ["productConditionId"]),
     condition: readNamedValue(record, ["conditionName", "condition"]),
     language: readNamedValue(record, ["languageName", "language"]),
@@ -458,54 +458,54 @@ function normalizePricePoints(
   }));
 }
 
-function enrichSkusWithPrices(
-  skus: TcgplayerSkuReference[],
+function enrichVariantsWithPrices(
+  variants: TcgplayerVariantReference[],
   prices: TcgplayerPricePoint[],
-): TcgplayerSkuReference[] {
-  return skus.map((sku) => {
+): TcgplayerVariantReference[] {
+  return variants.map((variant) => {
     if (
-      sku.marketPrice !== null &&
-      sku.lowPrice !== null &&
-      sku.midPrice !== null &&
-      sku.highPrice !== null &&
-      sku.directLowPrice !== null
+      variant.marketPrice !== null &&
+      variant.lowPrice !== null &&
+      variant.midPrice !== null &&
+      variant.highPrice !== null &&
+      variant.directLowPrice !== null
     ) {
-      return sku;
+      return variant;
     }
 
     const exactIdMatch = prices.find(
       (price) =>
-        (sku.skuId !== null && price.skuId === sku.skuId) ||
-        (sku.productConditionId !== null &&
-          price.productConditionId === sku.productConditionId),
+        (variant.providerVariantId !== null && price.providerVariantId === variant.providerVariantId) ||
+        (variant.productConditionId !== null &&
+          price.productConditionId === variant.productConditionId),
     );
-    const labelMatches = prices.filter((price) => priceLabelsMatch(sku, price));
+    const labelMatches = prices.filter((price) => priceLabelsMatch(variant, price));
     const matchedPrice =
       exactIdMatch ??
       (labelMatches.length === 1 ? labelMatches[0] : undefined) ??
-      (skus.length === 1 && prices.length === 1 ? prices[0] : undefined);
+      (variants.length === 1 && prices.length === 1 ? prices[0] : undefined);
 
     return matchedPrice
       ? {
-          ...sku,
-          marketPrice: sku.marketPrice ?? matchedPrice.marketPrice,
-          lowPrice: sku.lowPrice ?? matchedPrice.lowPrice,
-          midPrice: sku.midPrice ?? matchedPrice.midPrice,
-          highPrice: sku.highPrice ?? matchedPrice.highPrice,
-          directLowPrice: sku.directLowPrice ?? matchedPrice.directLowPrice,
+          ...variant,
+          marketPrice: variant.marketPrice ?? matchedPrice.marketPrice,
+          lowPrice: variant.lowPrice ?? matchedPrice.lowPrice,
+          midPrice: variant.midPrice ?? matchedPrice.midPrice,
+          highPrice: variant.highPrice ?? matchedPrice.highPrice,
+          directLowPrice: variant.directLowPrice ?? matchedPrice.directLowPrice,
         }
-      : sku;
+      : variant;
   });
 }
 
 function priceLabelsMatch(
-  sku: TcgplayerSkuReference,
+  variant: TcgplayerVariantReference,
   price: TcgplayerPricePoint,
 ): boolean {
   const pairs = [
-    [sku.condition, price.condition],
-    [sku.language, price.language],
-    [sku.printing, price.printing],
+    [variant.condition, price.condition],
+    [variant.language, price.language],
+    [variant.printing, price.printing],
   ] as const;
   const comparable = pairs.filter(([left, right]) => left && right);
   return (
@@ -526,11 +526,11 @@ function normalizeComparable(value: string | null): string {
     .trim();
 }
 
-function normalizeSkus(payload: unknown): TcgplayerSkuReference[] {
-  return extractRecords(payload, ["skus", "results", "data"])
+function normalizeVariants(payload: unknown): TcgplayerVariantReference[] {
+  return extractRecords(payload, ["variants", "skus", "results", "data"])
     .slice(0, 50)
     .map((record) => ({
-      skuId: readNumber(record, ["skuId", "sku", "id"]),
+      providerVariantId: readNumber(record, ["providerVariantId", "skuId", "sku", "id"]),
       productConditionId: readNumber(record, ["productConditionId"]),
       conditionId: readNumber(record, ["conditionId"]),
       languageId: readNumber(record, ["languageId"]),

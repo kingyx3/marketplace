@@ -9,7 +9,7 @@ import {
 import {
   DealForm,
   type DealRecord,
-  type DealSkuOption,
+  type DealProductOption,
 } from "@/app/(shop)/control/_components/deal-form";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
@@ -35,54 +35,48 @@ export default async function DealDetailPage({
   const canManage = hasControlPermission(staff, "pricing.manage");
   const canApprove = hasControlPermission(staff, "pricing.approve");
   const supabase = createSecretClient();
-  const [dealResult, skuResult] = await Promise.all([
+  const [dealResult, productResult] = await Promise.all([
     supabase
       .from("limited_time_deals")
       .select(
-        "id, code, sku_id, title, description, discount_bps, deal_price_cents, visibility, starts_at, ends_at, sort_priority, active"
+        "id, code, product_id, title, description, discount_bps, deal_price_cents, visibility, starts_at, ends_at, sort_priority, active"
       )
       .eq("id", dealId)
       .maybeSingle(),
     supabase
-      .from("booster_box_skus")
+      .from("products")
       .select(
-        "id, sku, active, price_cents, currency, product_variants!inner(products!inner(name, active))"
+        "id, reference_code, name, active, price_cents, currency"
       )
-      .order("sku", { ascending: true }),
+      .order("reference_code", { ascending: true }),
   ]);
 
   if (dealResult.error) throw new Error(`Deal lookup failed: ${dealResult.error.message}`);
-  if (skuResult.error) throw new Error(`SKU lookup failed: ${skuResult.error.message}`);
+  if (productResult.error) throw new Error(`product lookup failed: ${productResult.error.message}`);
   if (!dealResult.data) notFound();
 
   const deal = dealResult.data as DealRecord;
-  const skus = (
-    (skuResult.data ?? []) as unknown as Array<{
+  const products = (
+    (productResult.data ?? []) as unknown as Array<{
       id: string;
-      sku: string;
+      reference_code: string;
+      name: string;
       active: boolean;
       price_cents: number;
       currency: string;
-      product_variants:
-        | { products: { name: string; active: boolean } | null }
-        | Array<{ products: { name: string; active: boolean } | null }>
-        | null;
     }>
-  ).map((row): DealSkuOption => {
-    const variant = Array.isArray(row.product_variants)
-      ? (row.product_variants[0] ?? null)
-      : row.product_variants;
+  ).map((row): DealProductOption => {
     return {
       id: row.id,
-      sku: row.sku,
+      referenceCode: row.reference_code,
       active: row.active,
-      productName: variant?.products?.name ?? "Unknown product",
-      productActive: variant?.products?.active ?? false,
+      productName: row.name,
+      productActive: row.active,
       priceCents: Number(row.price_cents),
       currency: row.currency,
     };
   });
-  const selectedSku = skus.find((sku) => sku.id === deal.sku_id);
+  const selectedProduct = products.find((product) => product.id === deal.product_id);
   const paramsValue = (await searchParams) ?? {};
   const conflict =
     paramsValue.error === "duplicate-deal"
@@ -119,21 +113,21 @@ export default async function DealDetailPage({
         <Summary
           label="Original price"
           value={
-            selectedSku
-              ? formatMoney(selectedSku.priceCents, selectedSku.currency)
+            selectedProduct
+              ? formatMoney(selectedProduct.priceCents, selectedProduct.currency)
               : "Price unavailable"
           }
         />
         <Summary
           label="Deal price"
-          value={formatMoney(deal.deal_price_cents, selectedSku?.currency ?? "SGD")}
+          value={formatMoney(deal.deal_price_cents, selectedProduct?.currency ?? "SGD")}
         />
         <Summary label="Window" value={`${formatDate(deal.starts_at)} – ${formatDate(deal.ends_at)}`} />
       </section>
 
       {canManage ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-          <DealForm deal={deal} error={conflict} skus={skus} />
+          <DealForm deal={deal} error={conflict} products={products} />
         </section>
       ) : null}
 

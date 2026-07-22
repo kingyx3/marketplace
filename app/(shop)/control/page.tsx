@@ -21,7 +21,7 @@ const workspaces: Array<{
   {
     href: "/control/catalog",
     label: "Catalog",
-    detail: "Product identity, taxonomy, media, and physical SKU definitions.",
+    detail: "Product identity, taxonomy, media, and physical product definitions.",
     permissions: ["catalog.view"],
   },
   {

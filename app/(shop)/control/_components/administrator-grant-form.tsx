@@ -36,7 +36,7 @@ const templates: Array<{ value: StaffRole; label: string; detail: string }> = [
     label: "Support agent",
     detail: "Customers, communications, and order context",
   },
-  { value: "catalog", label: "Catalog editor", detail: "Product identity and physical SKU data" },
+  { value: "catalog", label: "Catalog editor", detail: "Product identity and physical product data" },
   {
     value: "operations",
     label: "Operations",

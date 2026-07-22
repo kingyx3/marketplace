@@ -10,7 +10,7 @@ import {
 
 export interface AdminPurchaseOrderInput {
   supplierId: string;
-  skuId: string;
+  productId: string;
   quantity: number;
   unitCostCents: number;
   currency: string;
@@ -28,7 +28,7 @@ export function adminPurchaseOrderFromForm(formData: FormData): AdminPurchaseOrd
 
   return {
     supplierId: requiredUuid(formData, "supplierId", "supplierId"),
-    skuId: requiredUuid(formData, "skuId", "skuId"),
+    productId: requiredUuid(formData, "productId", "productId"),
     quantity,
     unitCostCents,
     currency,

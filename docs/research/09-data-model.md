@@ -6,19 +6,18 @@ see `docs/data-model.md` for the technical/RLS reference. The point
 here is *why* each requirement exists, traced back to the preceding
 research sections.
 
-## Catalog: category → set → product → variant → SKU
+## Catalog: category → set → product
 
-Five levels, not three, because the business genuinely needs to
-distinguish them: a **category** (MTG, Pokémon, One Piece — the
+Three levels keep the business model explicit without creating duplicate sellable identities:
+a **category** (MTG, Pokémon, One Piece — the
 multi-game assortment identified as a differentiator in
 [§02](02-competitive-benchmarking.md)) contains **sets/releases** (each
 with its own pre-order window — `preorder_open_at`/`preorder_close_at`
 — because pre-order timing is set-specific, not category-wide, per the
 LotR case study **[S4]**), which contain **products** (a set has a
-booster box, a collector box, a bundle — different product types with
-different economics), which have **variants** (language, print-run
-wave) that resolve to a **SKU** — the actual sellable, priced,
-inventoried unit.
+booster box, a collector box, a bundle, or a language/printing-specific item — each with
+different economics). The product is the sellable, priced, and inventoried unit; external
+catalog variant identifiers remain source metadata. See ADR 0001.
 
 ## Inventory: on_hand / allocated / incoming, with an oversell guard
 

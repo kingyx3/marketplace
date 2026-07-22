@@ -7,7 +7,6 @@ import { redirect } from "next/navigation";
 import {
   adminCatalogProductCreateFromForm,
   adminCatalogProductFromForm,
-  adminCatalogSkuFromForm,
 } from "@/lib/admin-catalog-forms";
 import { requiredBoolean, requiredUuid } from "@/lib/admin-form-values";
 import {
@@ -16,10 +15,8 @@ import {
   isProductImageContentType,
   productImageExtension,
 } from "@/lib/catalog-product-images";
-import { catalogSkuErrorCode, catalogSkuErrorMessage } from "@/lib/catalog-sku-errors";
 import type { CatalogProductActionState } from "@/lib/catalog-product-action-state";
 import { requireControlPermission } from "@/lib/control-access";
-import { logError, logWarn } from "@/lib/observability";
 import { createSecretClient } from "@/lib/supabase";
 
 export async function createCatalogProduct(
@@ -114,7 +111,7 @@ export async function upsertCatalogProduct(formData: FormData) {
   const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
   const input = adminCatalogProductFromForm(formData);
 
-  const { error } = await createSecretClient().rpc("admin_upsert_catalog_product", {
+  const { error } = await createSecretClient().rpc("admin_update_catalog_product", {
     p_product_id: input.productId,
     p_name: input.name,
     p_category_id: input.categoryId,
@@ -124,7 +121,12 @@ export async function upsertCatalogProduct(formData: FormData) {
     p_language: input.language,
     p_image_url: input.imageUrl,
     p_active: input.active,
-    p_actor: `staff:${user.id}`,
+    p_reference_code: input.referenceCode,
+    p_barcode: input.barcode,
+    p_packs_per_box: input.packsPerBox,
+    p_cards_per_pack: input.cardsPerPack,
+    p_weight_grams: input.weightGrams,
+    p_actor_auth_user_id: user.id,
   });
 
   if (error?.code === "23505") {
@@ -189,82 +191,6 @@ export async function uploadCatalogProductImage(formData: FormData) {
     throw new Error(`Product image assignment failed: ${error.message}`);
   }
   revalidateCatalogPaths(productId);
-}
-
-export async function upsertCatalogSku(formData: FormData) {
-  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
-  const operation = formData.get("skuId") ? "update" : "create";
-  const productId = String(formData.get("productId") ?? "");
-  let failure: unknown = null;
-
-  try {
-    const input = adminCatalogSkuFromForm(formData);
-    const { error } = await createSecretClient().rpc("admin_upsert_catalog_sku", {
-      p_sku_id: input.skuId,
-      p_product_id: input.productId,
-      p_sku: input.sku,
-      p_barcode: input.barcode,
-      p_packs_per_box: input.packsPerBox,
-      p_cards_per_pack: input.cardsPerPack,
-      p_weight_grams: input.weightGrams,
-      p_active: input.active,
-      p_actor_auth_user_id: user.id,
-    });
-
-    if (error) {
-      failure = error;
-    } else {
-      revalidateCatalogPaths(input.productId);
-      return;
-    }
-  } catch (error) {
-    failure = error;
-  }
-
-  const errorCode = catalogSkuErrorCode(failure);
-  const detailRoute = validProductId(productId)
-    ? `/control/catalog/products/${productId}`
-    : "/control/catalog";
-  const context = {
-    route: detailRoute,
-    userId: user.id,
-    operation,
-    errorCode,
-  };
-
-  if (errorCode === "save-failed") {
-    logError("catalog.sku_save_failed", failure, context);
-  } else {
-    logWarn("catalog.sku_save_rejected", context);
-  }
-
-  const field =
-    errorCode === "duplicate-barcode"
-      ? "barcode"
-      : ["duplicate-sku", "sku-required"].includes(errorCode)
-        ? "sku"
-        : undefined;
-  return {
-    status: "error" as const,
-    message: catalogSkuErrorMessage(errorCode),
-    fieldErrors: field ? { [field]: catalogSkuErrorMessage(errorCode) } : undefined,
-  };
-}
-
-export async function setCatalogSkuActive(formData: FormData) {
-  const { user } = await requireControlPermission("catalog.manage", "/control/catalog");
-  const skuId = requiredUuid(formData, "skuId", "skuId");
-  const productId = requiredUuid(formData, "productId", "productId");
-  const active = requiredBoolean(formData, "active");
-
-  const { error } = await createSecretClient().rpc("admin_set_booster_box_sku_active", {
-    p_sku_id: skuId,
-    p_active: active,
-    p_actor: `staff:${user.id}`,
-  });
-
-  if (error) throw new Error(`SKU ${active ? "restore" : "archive"} failed: ${error.message}`);
-  revalidateCatalogPaths(validProductId(productId) ? productId : undefined);
 }
 
 function revalidateCatalogPaths(productId?: string) {

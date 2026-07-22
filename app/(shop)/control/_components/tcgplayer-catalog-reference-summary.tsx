@@ -56,8 +56,8 @@ export function CatalogReferenceSummary({
       <div className="grid content-start gap-2 text-sm text-zinc-700">
         <p className="font-semibold text-zinc-950">Import coverage</p>
         <p>
-          {suggestion.skus.length} SKU variant
-          {suggestion.skus.length === 1 ? "" : "s"} returned.
+          {suggestion.variants.length} variant variant
+          {suggestion.variants.length === 1 ? "" : "s"} returned.
         </p>
         <p>
           Packaging:{" "}

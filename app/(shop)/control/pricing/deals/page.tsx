@@ -16,7 +16,7 @@ import { createSecretClient } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 type DealListRecord = DealRecord & {
-  booster_box_skus:
+  products:
     | { price_cents: number; currency: string }
     | Array<{ price_cents: number; currency: string }>
     | null;
@@ -36,7 +36,7 @@ export default async function ControlDealsPage({
   const { data, error } = await createSecretClient()
     .from("limited_time_deals")
     .select(
-      "id, code, sku_id, title, description, discount_bps, deal_price_cents, visibility, starts_at, ends_at, sort_priority, active, booster_box_skus(price_cents, currency)"
+      "id, code, product_id, title, description, discount_bps, deal_price_cents, visibility, starts_at, ends_at, sort_priority, active, products(price_cents, currency)"
     )
     .order("starts_at", { ascending: false });
 
@@ -63,7 +63,7 @@ export default async function ControlDealsPage({
             ) : null}
           </>
         }
-        description="Review scheduled promotions and open a deal to change its SKU, exact deal price, audience, window, or lifecycle."
+        description="Review scheduled promotions and open a deal to change its product, exact deal price, audience, window, or lifecycle."
         eyebrow="Control"
         title="Limited-time deals"
       />
@@ -122,8 +122,8 @@ export default async function ControlDealsPage({
       ) : (
         <section className="grid gap-4 xl:grid-cols-2">
           {deals.map((deal) => {
-            const skuPrice = one(deal.booster_box_skus);
-            const currency = skuPrice?.currency ?? "SGD";
+            const productPrice = one(deal.products);
+            const currency = productPrice?.currency ?? "SGD";
             return (
               <Link
                 className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow-md"
@@ -147,7 +147,7 @@ export default async function ControlDealsPage({
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
                   <ControlData
                     label="Original"
-                    value={skuPrice ? formatMoney(skuPrice.price_cents, currency) : "Unavailable"}
+                    value={productPrice ? formatMoney(productPrice.price_cents, currency) : "Unavailable"}
                   />
                   <ControlData label="Deal price" value={formatMoney(deal.deal_price_cents, currency)} />
                   <ControlData label="Starts" value={formatDate(deal.starts_at)} />

@@ -25,7 +25,7 @@ export async function saveCatalogProduct(
 
   try {
     const input = adminCatalogProductFromForm(formData);
-    const { error } = await createSecretClient().rpc("admin_upsert_catalog_product", {
+    const { error } = await createSecretClient().rpc("admin_update_catalog_product", {
       p_product_id: input.productId,
       p_name: input.name,
       p_category_id: input.categoryId,
@@ -35,7 +35,12 @@ export async function saveCatalogProduct(
       p_language: input.language,
       p_image_url: input.imageUrl,
       p_active: input.active,
-      p_actor: `staff:${user.id}`,
+      p_reference_code: input.referenceCode,
+      p_barcode: input.barcode,
+      p_packs_per_box: input.packsPerBox,
+      p_cards_per_pack: input.cardsPerPack,
+      p_weight_grams: input.weightGrams,
+      p_actor_auth_user_id: user.id,
     });
 
     if (error) {

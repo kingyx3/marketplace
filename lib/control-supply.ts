@@ -3,9 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { toOne } from "@/lib/supabase-relations";
 
 export interface ControlInventoryRow {
-  skuId: string;
-  sku: string;
   productId: string;
+  referenceCode: string;
   productName: string;
   onHand: number;
   incoming: number;
@@ -36,40 +35,39 @@ export async function fetchControlInventory(
   supabase: SupabaseClient
 ): Promise<ControlInventoryRow[]> {
   const { data, error } = await supabase
-    .from("inventory")
+    .from("product_inventory")
     .select(
-      "sku_id, on_hand, incoming, allocated, safety_stock, available, updated_at, booster_box_skus(sku, product_variants(products(id, name)))"
+      "product_id, on_hand, incoming, allocated, safety_stock, available, updated_at, products(reference_code, name)"
     )
     .order("updated_at", { ascending: false })
     .limit(250);
   if (error) throw new Error(`Inventory query failed: ${error.message}`);
   return (
     (data ?? []) as unknown as Array<{
-      sku_id: string;
+      product_id: string;
       on_hand: number;
       incoming: number;
       allocated: number;
       safety_stock: number;
       available: number;
       updated_at: string;
-      booster_box_skus:
+      products:
         | {
-            sku: string;
-            product_variants: { products: { id: string; name: string } | null } | null;
+            reference_code: string | null;
+            name: string;
           }
         | Array<{
-            sku: string;
-            product_variants: { products: { id: string; name: string } | null } | null;
+            reference_code: string | null;
+            name: string;
           }>
         | null;
     }>
   ).map((row) => {
-    const sku = toOne(row.booster_box_skus);
+    const product = toOne(row.products);
     return {
-      skuId: row.sku_id,
-      sku: sku?.sku ?? "Unknown SKU",
-      productId: sku?.product_variants?.products?.id ?? "",
-      productName: sku?.product_variants?.products?.name ?? "Unknown product",
+      productId: row.product_id,
+      referenceCode: product?.reference_code ?? "Unassigned",
+      productName: product?.name ?? "Unknown product",
       onHand: row.on_hand,
       incoming: row.incoming,
       allocated: row.allocated,

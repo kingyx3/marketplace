@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  AdminNumberField,
   AdminSelectField,
   AdminTextField,
   AdminTextareaField,
@@ -42,6 +43,8 @@ export function CatalogProductSaveForm({
   const [imageUrl, setImageUrl] = useState(product.imageUrl ?? "");
   const [active, setActive] = useState(product.active);
   const [description, setDescription] = useState(product.description ?? "");
+  const [referenceCode, setReferenceCode] = useState(product.referenceCode ?? "");
+  const [barcode, setBarcode] = useState(product.barcode ?? "");
 
   useEffect(() => {
     if (state.status === "success") {
@@ -79,6 +82,28 @@ export function CatalogProductSaveForm({
         required
         value={name}
       />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminTextField
+          example="DRI-BBX-EN"
+          hint="Stable internal product reference; normalized to uppercase."
+          label="Product reference"
+          maxLength={64}
+          name="referenceCode"
+          onValueChange={(value) => setReferenceCode(value.toUpperCase())}
+          pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
+          patternMessage="Reference may use letters, numbers, dots, hyphens, and underscores."
+          value={referenceCode}
+        />
+        <AdminTextField
+          example="01987654321098"
+          hint="Optional supplier or retail barcode."
+          label="Barcode"
+          maxLength={64}
+          name="barcode"
+          onValueChange={setBarcode}
+          value={barcode}
+        />
+      </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <AdminSelectField
           example={categories[0]?.name ?? "Select a category"}
@@ -181,6 +206,29 @@ export function CatalogProductSaveForm({
         onValueChange={setDescription}
         value={description}
       />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <AdminNumberField
+          defaultValue={product.packsPerBox ?? undefined}
+          example="36"
+          label="Packs per box"
+          min={1}
+          name="packsPerBox"
+        />
+        <AdminNumberField
+          defaultValue={product.cardsPerPack ?? undefined}
+          example="10"
+          label="Cards per pack"
+          min={1}
+          name="cardsPerPack"
+        />
+        <AdminNumberField
+          defaultValue={product.weightGrams ?? undefined}
+          example="720"
+          label="Weight grams"
+          min={1}
+          name="weightGrams"
+        />
+      </div>
       {state.status !== "idle" ? (
         <p
           aria-live="polite"

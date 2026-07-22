@@ -13,7 +13,7 @@ export interface CatalogFilterProduct {
   setCode: string;
   setStatus: SetStatus;
   productType: string;
-  sku: string;
+  referenceCode: string;
   language: string;
   description: string;
   tags: string[];
@@ -49,7 +49,7 @@ export function createCatalogFilterProduct(product: MarketplaceProduct): Catalog
     setCode: product.setCode,
     setStatus: product.setStatus,
     productType: product.productType,
-    sku: product.sku,
+    referenceCode: product.referenceCode,
     language: product.language,
     description: product.description,
     tags: [...product.tags],
@@ -114,7 +114,7 @@ function catalogSearchText(product: CatalogFilterProduct): string {
       product.setName,
       product.setCode,
       product.productType,
-      product.sku,
+      product.referenceCode,
       product.language,
       product.description,
       ...product.tags,

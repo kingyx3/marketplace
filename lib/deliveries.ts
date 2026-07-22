@@ -42,13 +42,13 @@ export interface AdminDeliveryOrder {
   createdAt: string;
   updatedAt: string;
   customer: { id: string; email: string; name: string | null } | null;
-  items: Array<{ id: string; quantity: number; productName: string; sku: string | null }>;
+  items: Array<{ id: string; quantity: number; productName: string; referenceCode: string | null }>;
   shipments: AdminDeliveryShipment[];
   latestShipment: AdminDeliveryShipment | null;
 }
 
 const deliveryOrderSelect =
-  "id, status, currency, total_cents, shipping_address, shipping_service, placed_at, created_at, updated_at, customers(id, email, name), order_items(id, preorder_id, quantity, booster_box_skus(sku, product_variants(products(name))), preorders(id, payments(id, amount_cents, currency, status, refunds(amount_cents, status)))), payments(id, amount_cents, currency, status, refunds(amount_cents, status)), shipments(id, carrier, tracking_number, status, shipped_at, delivered_at, created_at, updated_at)";
+  "id, status, currency, total_cents, shipping_address, shipping_service, placed_at, created_at, updated_at, customers(id, email, name), order_items(id, preorder_id, quantity, products(reference_code, name), preorders(id, payments(id, amount_cents, currency, status, refunds(amount_cents, status)))), payments(id, amount_cents, currency, status, refunds(amount_cents, status)), shipments(id, carrier, tracking_number, status, shipped_at, delivered_at, created_at, updated_at)";
 
 export async function listAdminDeliveryOrders(
   supabase: SupabaseClient,
@@ -145,9 +145,8 @@ function mapDeliveryOrder(row: RawDeliveryOrder): AdminDeliveryOrder {
     items: (row.order_items ?? []).map((item) => ({
       id: item.id,
       quantity: item.quantity,
-      productName:
-        one(one(item.booster_box_skus)?.product_variants)?.products?.name ?? "Unknown product",
-      sku: one(item.booster_box_skus)?.sku ?? null,
+      productName: one(item.products)?.name ?? "Unknown product",
+      referenceCode: one(item.products)?.reference_code ?? null,
     })),
     shipments,
     latestShipment: shipments[0] ?? null,
@@ -181,20 +180,14 @@ interface RawDeliveryOrder {
     id: string;
     preorder_id: string | null;
     quantity: number;
-    booster_box_skus:
+    products:
       | {
-          sku: string | null;
-          product_variants:
-            | { products: { name: string } | null }
-            | Array<{ products: { name: string } | null }>
-            | null;
+          reference_code: string | null;
+          name: string;
         }
       | Array<{
-          sku: string | null;
-          product_variants:
-            | { products: { name: string } | null }
-            | Array<{ products: { name: string } | null }>
-            | null;
+          reference_code: string | null;
+          name: string;
         }>
       | null;
     preorders:

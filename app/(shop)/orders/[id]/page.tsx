@@ -85,7 +85,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
               return (
                 <div
                   className="grid gap-3 border-b border-zinc-100 pb-4 sm:grid-cols-[1fr_auto]"
-                  key={line.id ?? `${order.id}-${line.sku_id}`}
+                  key={line.id ?? `${order.id}-${line.product_id}`}
                 >
                   <div>
                     {href ? (

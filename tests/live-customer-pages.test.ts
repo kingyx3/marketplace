@@ -53,17 +53,13 @@ describe("live customer pages", () => {
       order_items: [
         {
           id: "line-1",
-          sku_id: "sku-1",
+          product_id: "referenceCode-1",
           quantity: 2,
           unit_price_cents: 9950,
-          booster_box_skus: {
-            sku: "MTG-SMP-PBB-EN",
-            product_variants: {
-              products: {
-                slug: "smp-play-booster-box",
-                name: "Sample Set Play Booster Box",
-              },
-            },
+          products: {
+            reference_code: "MTG-SMP-PBB-EN",
+            slug: "smp-play-booster-box",
+            name: "Sample Set Play Booster Box",
           },
         },
       ],
@@ -86,7 +82,7 @@ describe("live customer pages", () => {
   it("derives customer preorder display fields from live Supabase-shaped rows", () => {
     const preorder: LivePreorder = {
       id: "pre-live",
-      sku_id: "sku-2",
+      product_id: "referenceCode-2",
       channel: "b2c",
       quantity: 1,
       unit_price_cents: 21400,
@@ -97,14 +93,10 @@ describe("live customer pages", () => {
       allocated_qty: 1,
       order_id: null,
       created_at: "2026-07-04T02:00:00.000Z",
-      booster_box_skus: {
-        sku: "LOR-AUR-BB-EN",
-        product_variants: {
-          products: {
-            slug: "aurora-booster-box",
-            name: "Aurora Skies Booster Box",
-          },
-        },
+      products: {
+        reference_code: "LOR-AUR-BB-EN",
+        slug: "aurora-booster-box",
+        name: "Aurora Skies Booster Box",
       },
       payments: [{ kind: "deposit", status: "authorized", created_at: "2026-07-04T02:01:00.000Z" }],
     };
@@ -120,7 +112,7 @@ describe("live customer pages", () => {
   it("translates active preorder states into customer outcomes", () => {
     const preorder = {
       id: "pre-live",
-      sku_id: "sku-2",
+      product_id: "referenceCode-2",
       channel: "b2c",
       quantity: 3,
       unit_price_cents: 21400,

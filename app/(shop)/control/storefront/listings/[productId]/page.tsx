@@ -50,20 +50,15 @@ export default async function ListingDetailPage({
   const product = data as unknown as ProductRow;
   const listing = one(product.listing_items);
   const catalogProduct = await fetchControlProduct(productId, createSecretClient());
-  const skuIds = catalogProduct?.skus.map((sku) => sku.skuId) ?? [];
-  const inventoryResult = skuIds.length
-    ? await createSecretClient()
-        .from("inventory")
-        .select("sku_id, available, safety_stock")
-        .in("sku_id", skuIds)
-    : { data: [], error: null };
+  const inventoryResult = await createSecretClient()
+    .from("product_inventory")
+    .select("product_id, available, safety_stock")
+    .eq("product_id", productId);
   if (inventoryResult.error) {
     throw new Error(`Listing inventory readiness failed: ${inventoryResult.error.message}`);
   }
-  const activeSkuReady = Boolean(catalogProduct?.skus.some((sku) => sku.skuActive));
-  const priceReady = Boolean(
-    catalogProduct?.skus.some((sku) => sku.skuActive && sku.priceCents > 0)
-  );
+  const productReady = Boolean(catalogProduct?.active && catalogProduct.referenceCode);
+  const priceReady = Boolean(catalogProduct && catalogProduct.priceCents > 0);
   const availabilityReady = Boolean(listing?.availability_mode !== "unavailable");
   const stockReady =
     listing?.availability_mode !== "available_now" ||
@@ -132,7 +127,7 @@ export default async function ListingDetailPage({
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Readiness label="Product active" ready={product.active} />
-          <Readiness label="Physical SKU" ready={activeSkuReady} />
+          <Readiness label="Product details" ready={productReady} />
           <Readiness label="Current price" ready={priceReady} />
           <Readiness label="Availability" ready={availabilityReady} />
           <Readiness label="Sellable stock" ready={stockReady} />
@@ -145,7 +140,7 @@ export default async function ListingDetailPage({
               title: listing?.published ? "Unpublish listing?" : "Publish listing?",
               description: listing?.published
                 ? "Customers will no longer be able to discover or order this listing. Existing orders are unaffected."
-                : "This makes the listing customer-facing. Product, SKU, price, supply, and availability readiness will be checked again on the server.",
+                : "This makes the listing customer-facing. Product, price, supply, and availability readiness will be checked again on the server.",
               confirmLabel: listing?.published ? "Unpublish listing" : "Approve and publish",
               tone: listing?.published ? "danger" : "default",
             }}

@@ -66,7 +66,7 @@ describe("API request protections", () => {
           scope: "checkout.create",
           actorId: "00000000-0000-4000-8000-000000000001",
           key: "checkout-12345678",
-          requestBody: { items: [{ skuId: "sku-1", quantity: 1 }] },
+          requestBody: { items: [{ productId: "referenceCode-1", quantity: 1 }] },
         },
         operation
       )
@@ -104,7 +104,7 @@ describe("API request protections", () => {
           scope: "checkout.create",
           actorId: "00000000-0000-4000-8000-000000000001",
           key: "checkout-12345678",
-          requestBody: { items: [{ skuId: "sku-1", quantity: 1 }] },
+          requestBody: { items: [{ productId: "referenceCode-1", quantity: 1 }] },
         },
         operation
       )

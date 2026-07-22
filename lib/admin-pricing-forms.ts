@@ -7,9 +7,9 @@ import {
   requiredUuid,
 } from "@/lib/admin-form-values";
 
-const skuPriceSchema = z
+const productPriceSchema = z
   .object({
-    skuId: z.uuid(),
+    productId: z.uuid(),
     currency: z.string().regex(/^[A-Z]{3}$/),
     priceCents: z.number().int().positive(),
     compareAtCents: z.number().int().positive().nullable(),
@@ -24,9 +24,9 @@ const skuPriceSchema = z
     }
   });
 
-export function adminSkuPriceFromForm(formData: FormData) {
-  const input = skuPriceSchema.parse({
-    skuId: requiredUuid(formData, "skuId", "skuId"),
+export function adminProductPriceFromForm(formData: FormData) {
+  const input = productPriceSchema.parse({
+    productId: requiredUuid(formData, "productId", "productId"),
     currency: requiredCurrency(formData),
     priceCents: requiredInteger(formData, "priceCents", { min: 1 }),
     compareAtCents: optionalInteger(formData, "compareAtCents", { min: 1 }),

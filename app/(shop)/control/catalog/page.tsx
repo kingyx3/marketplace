@@ -22,10 +22,8 @@ export default async function ControlCatalogPage() {
     fetchControlSets(supabase),
   ]);
   const canManage = hasControlPermission(staff, "catalog.manage");
-  const withoutSku = products.filter((product) => product.skus.length === 0).length;
-  const unpriced = products.filter(
-    (product) => product.skus.length > 0 && !product.skus.some((sku) => sku.priceCents > 0)
-  ).length;
+  const withoutReference = products.filter((product) => !product.referenceCode).length;
+  const unpriced = products.filter((product) => product.priceCents <= 0).length;
 
   return (
     <div className="space-y-8">
@@ -35,7 +33,7 @@ export default async function ControlCatalogPage() {
             <PrimaryLink href="/control/catalog/products/new">Create product</PrimaryLink>
           ) : undefined
         }
-        description="Maintain product identity, taxonomy, media, and physical SKU definitions without changing price, stock, or publication."
+        description="Maintain complete sellable products: identity, taxonomy, media, references, and physical attributes."
         eyebrow="Control"
         title="Catalog"
       />
@@ -69,8 +67,8 @@ export default async function ControlCatalogPage() {
         <MetricCard label="Sets" value={String(sets.length)} detail="Releases" />
         <MetricCard
           label="Needs setup"
-          value={String(withoutSku + unpriced)}
-          detail={`${withoutSku} without SKU · ${unpriced} unpriced`}
+          value={String(withoutReference + unpriced)}
+          detail={`${withoutReference} without reference · ${unpriced} unpriced`}
         />
       </section>
 
@@ -98,10 +96,10 @@ export default async function ControlCatalogPage() {
                       {product.active ? "Active" : "Archived"}
                     </StatusBadge>
                     {product.published ? <StatusBadge tone="info">Published</StatusBadge> : null}
-                    {product.skus.length === 0 ? (
-                      <StatusBadge tone="warning">SKU required</StatusBadge>
+                    {!product.referenceCode ? (
+                      <StatusBadge tone="warning">Reference required</StatusBadge>
                     ) : null}
-                    {product.skus.length > 0 && !product.skus.some((sku) => sku.priceCents > 0) ? (
+                    {product.priceCents <= 0 ? (
                       <StatusBadge tone="warning">Price required</StatusBadge>
                     ) : null}
                   </div>
@@ -112,7 +110,7 @@ export default async function ControlCatalogPage() {
                   </p>
                 </div>
                 <span className="text-sm font-semibold text-zinc-600">
-                  {product.skus.length} SKU{product.skus.length === 1 ? "" : "s"} →
+                  {product.referenceCode ?? "Reference required"} →
                 </span>
               </Link>
             ))}
