@@ -1,0 +1,46 @@
+name: Materialize product-only PR 143
+
+on:
+  push:
+    branches:
+      - agent/export-current-main-source
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          path: transfer
+      - id: patch
+        name: Assemble source patch when all parts exist
+        shell: bash
+        run: |
+          shopt -s nullglob
+          parts=(transfer/.github/materialize/part-*)
+          if [ "${#parts[@]}" -ne 16 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cat "${parts[@]}" | base64 --decode | gzip --decompress > "$RUNNER_TEMP/product-only.patch"
+          echo "64ef64ecd20cc26d2951acae9adc99dcd391ea81787093a443cf4bc886cb0418  $RUNNER_TEMP/product-only.patch" | sha256sum --check
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - if: steps.patch.outputs.ready == 'true'
+        uses: actions/checkout@v7.0.0
+        with:
+          ref: main
+          fetch-depth: 0
+          path: repository
+      - if: steps.patch.outputs.ready == 'true'
+        name: Replace PR 143 with materialized source
+        working-directory: repository
+        run: |
+          git apply --check "$RUNNER_TEMP/product-only.patch"
+          git apply --index "$RUNNER_TEMP/product-only.patch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Collapse catalog into a product-only model"
+          git push --force origin HEAD:agent/product-only-catalog-independent
