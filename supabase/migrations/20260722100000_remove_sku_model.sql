@@ -715,7 +715,7 @@ begin
   if v_inventory.id is null then raise exception 'inventory not found' using errcode = 'P0002'; end if;
 
   for v_candidate in
-    select preorder_id, allocated
+    select item.preorder_id, item.allocated
     from jsonb_to_recordset(p_allocations) as item(preorder_id uuid, allocated integer)
   loop
     select * into v_preorder from public.preorders
@@ -733,7 +733,7 @@ begin
   update public.product_inventory set allocated = allocated + v_total where id = v_inventory.id;
 
   for v_candidate in
-    select preorder_id, allocated
+    select item.preorder_id, item.allocated
     from jsonb_to_recordset(p_allocations) as item(preorder_id uuid, allocated integer)
   loop
     update public.preorders set
