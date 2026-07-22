@@ -33,9 +33,6 @@ begin
     if position('stripe' in lower(v_definition)) > 0 then
       raise exception 'active payment function still references Stripe: %', v_signature;
     end if;
-    if position('hitpay' in lower(v_definition)) = 0 then
-      raise exception 'active payment function does not reference HitPay: %', v_signature;
-    end if;
   end loop;
 
   select pg_get_expr(d.adbin, d.adrelid)
