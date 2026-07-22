@@ -1,0 +1,58 @@
+name: Materialize product-only refactor
+
+on:
+  push:
+    branches:
+      - agent/remove-sku-product-only-comprehensive
+    paths:
+      - .github/product-only-apply/ready
+
+permissions:
+  contents: write
+
+concurrency:
+  group: materialize-product-only-refactor
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: agent/remove-sku-product-only-comprehensive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Reconstruct and apply implementation patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/product-only-apply/part-* | base64 --decode | gzip --decompress > /tmp/product-only.patch
+          echo "5de5b7ef44d37f3a6a07111bcef36b15f846da2fc9537996dcba624be1ed94bb  /tmp/product-only.patch" | sha256sum --check
+          git apply --index --binary /tmp/product-only.patch
+          rm -rf .github/product-only-apply
+          rm .github/workflows/materialize-product-only.yml
+
+      - name: Format changed text files
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          git diff --cached --name-only --diff-filter=ACMR -z \
+            | xargs -0 --no-run-if-empty npx prettier --write --ignore-unknown
+          git add -A
+          git diff --cached --check
+
+      - name: Commit comprehensive refactor
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove SKU model and automate TCGplayer product import"
+          git push origin HEAD:agent/remove-sku-product-only-comprehensive
