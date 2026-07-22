@@ -20,6 +20,15 @@ alter table public.preorders rename column sku_id to product_id;
 alter table public.order_items rename column sku_id to product_id;
 alter table public.allocation_rules rename column sku_id to product_id;
 
+alter index if exists public.idx_preorders_sku
+  rename to idx_preorders_product;
+alter index if exists public.idx_preorders_sku_status_created
+  rename to idx_preorders_product_status_created;
+alter index if exists public.idx_limited_time_deals_sku_window
+  rename to idx_limited_time_deals_product_window;
+alter index if exists public.idx_waitlist_entries_sku_status_created
+  rename to idx_waitlist_entries_product_status_created;
+
 drop table if exists public.sku_prices cascade;
 drop table if exists public.inventory cascade;
 drop table if exists public.booster_box_skus cascade;
@@ -36,6 +45,71 @@ drop function if exists public.admin_set_sku_price(uuid, text, integer, integer,
 drop function if exists public.enforce_listing_sellable_sku() cascade;
 drop function if exists public.unpublish_listing_without_sellable_sku() cascade;
 drop function if exists public.sync_sku_price_cache() cascade;
+drop function if exists public.create_checkout_order(
+  uuid, uuid, integer, public.sales_channel
+) cascade;
+drop function if exists public.create_checkout_order_from_cart(
+  uuid, jsonb, public.sales_channel
+) cascade;
+drop function if exists public.create_checkout_order_from_cart(
+  uuid, jsonb, public.sales_channel, integer, integer, integer, integer
+) cascade;
+drop function if exists public.admin_cancel_unpaid_order(uuid, text, text) cascade;
+drop function if exists public.admin_record_manual_reconciliation(
+  uuid, text, text, integer, text, text, text
+) cascade;
+drop function if exists public.apply_preorder_allocations(uuid, jsonb, text) cascade;
+drop function if exists public.mark_preorder_balance_paid(
+  uuid, text, integer, text
+) cascade;
+drop function if exists public.admin_upsert_limited_time_deal(
+  uuid, text, uuid, text, text, integer, text, timestamptz,
+  timestamptz, integer, boolean, text
+) cascade;
+drop function if exists public.admin_upsert_pricing_promotion(
+  uuid, text, uuid, text, text, integer, text, timestamptz,
+  timestamptz, integer, boolean, uuid
+) cascade;
+drop function if exists public.admin_create_tcgplayer_catalog_product(
+  uuid, text, text, text, uuid, text, text, date, public.set_status,
+  text, text, text, text, text, text, text, boolean, bigint, jsonb, uuid
+) cascade;
+
+create or replace function public.write_audit_log()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_old_data jsonb;
+  v_new_data jsonb;
+  v_record_data jsonb;
+  v_record_id text;
+begin
+  if tg_op in ('UPDATE', 'DELETE') then v_old_data := to_jsonb(old); end if;
+  if tg_op in ('INSERT', 'UPDATE') then v_new_data := to_jsonb(new); end if;
+  v_record_data := coalesce(v_new_data, v_old_data, '{}'::jsonb);
+  v_record_id := coalesce(
+    v_record_data->>'id',
+    (v_record_data->>'grant_id') || ':' || (v_record_data->>'permission_key'),
+    v_record_data->>'key',
+    v_record_data->>'order_id',
+    v_record_data->>'product_id'
+  );
+
+  insert into public.audit_logs (actor, table_name, record_id, action, old_data, new_data)
+  values (
+    coalesce(auth.uid()::text, 'service'),
+    tg_table_name,
+    v_record_id,
+    tg_op,
+    v_old_data,
+    v_new_data
+  );
+  return coalesce(new, old);
+end;
+$$;
 
 alter table public.purchase_order_items
   add constraint purchase_order_items_product_id_fkey
@@ -259,6 +333,53 @@ revoke all on function public.admin_set_pricing_promotion_active(uuid, boolean, 
   from public, anon, authenticated;
 grant execute on function public.admin_set_pricing_promotion_active(uuid, boolean, uuid)
   to service_role;
+
+create or replace function public.validate_limited_time_deal_price()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_original_price_cents integer;
+begin
+  select product.price_cents into v_original_price_cents
+  from public.products product
+  where product.id = new.product_id;
+
+  if v_original_price_cents is null then
+    raise exception 'deal product not found' using errcode = 'P0002';
+  end if;
+  if v_original_price_cents <= 0 then
+    raise exception 'deal product must have a positive original price' using errcode = '22023';
+  end if;
+  if new.deal_price_cents is null
+     or new.deal_price_cents <= 0
+     or new.deal_price_cents >= v_original_price_cents then
+    raise exception 'deal price must be positive and lower than the original price'
+      using errcode = '22023';
+  end if;
+
+  new.discount_bps := greatest(
+    1,
+    least(
+      9999,
+      round(
+        ((v_original_price_cents - new.deal_price_cents)::numeric * 10000)
+        / v_original_price_cents::numeric
+      )::integer
+    )
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_validate_limited_time_deal_price
+  on public.limited_time_deals;
+create trigger trg_validate_limited_time_deal_price
+before insert or update of product_id, deal_price_cents
+on public.limited_time_deals
+for each row execute function public.validate_limited_time_deal_price();
 
 drop function if exists public.admin_adjust_inventory(
   uuid, integer, integer, integer, text, text, uuid
