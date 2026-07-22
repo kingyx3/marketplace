@@ -657,6 +657,7 @@ begin
     discount_cents = p_discount_cents,
     discount_bps = p_discount_bps,
     shipping_cents = v_shipping,
+    tax_cents = round(p_expected_total_cents * 9.0 / 109.0)::integer,
     total_cents = p_expected_total_cents
   where id = v_order_id;
 
