@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       supabase = await createUserClient();
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("Supabase is not configured")) {
-        return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+        return NextResponse.redirect(authCodeErrorUrl(origin, next));
       }
       throw error;
     }
@@ -31,7 +31,13 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(authCodeErrorUrl(origin, next));
+}
+
+function authCodeErrorUrl(origin: string, next: string): string {
+  const url = new URL("/auth/auth-code-error", origin);
+  url.searchParams.set("next", next);
+  return url.toString();
 }
 
 function sanitizeNextPath(next: string | null): string {
