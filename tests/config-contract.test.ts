@@ -9,6 +9,7 @@ describe("platform config contract", () => {
     const headers = flattenHeaders(vercel.headers);
     const apiHeaders = headersForSource(vercel.headers, "/api/(.*)");
     expect(vercel.framework).toBe("nextjs");
+    expect(vercel.regions).toEqual(["sin1"]);
     expect(vercel.installCommand).toBe("npm ci");
     expect(vercel.buildCommand).toBe("npm run build");
     expect(headers).toMatchObject({
@@ -159,6 +160,10 @@ describe("platform config contract", () => {
       new URL("../infra/terraform/platform/versions.tf", import.meta.url),
       "utf8"
     );
+    const platformMain = await readFile(
+      new URL("../infra/terraform/platform/main.tf", import.meta.url),
+      "utf8"
+    );
     const bootstrapLock = await readFile(
       new URL("../infra/terraform/bootstrap/.terraform.lock.hcl", import.meta.url),
       "utf8"
@@ -174,6 +179,10 @@ describe("platform config contract", () => {
     const ci = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
     expect(bootstrapVersions).toContain('required_version = "= 1.15.8"');
     expect(platformVersions).toContain('required_version = "= 1.15.8"');
+    expect(platformMain).toContain('vercel_function_regions       = toset(["sin1"])');
+    expect(
+      platformMain.match(/function_default_regions = local\.vercel_function_regions/g)
+    ).toHaveLength(2);
     expect(platformVersions).not.toContain('version = ">=');
     expect(bootstrapLock).toContain('provider "registry.terraform.io/hashicorp/google"');
     expect(platformLock).toContain('provider "registry.terraform.io/supabase/supabase"');
