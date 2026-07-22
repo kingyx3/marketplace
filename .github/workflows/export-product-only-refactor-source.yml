@@ -1,0 +1,26 @@
+name: Export product-only refactor source
+
+on:
+  push:
+    branches:
+      - agent/product-only-tcgplayer-import
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Remove Git metadata
+        run: rm -rf .git
+      - name: Upload repository source
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-product-only-source
+          path: .
+          include-hidden-files: true
+          retention-days: 1
