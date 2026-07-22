@@ -3,6 +3,7 @@
 do $test$
 declare
   v_definition text;
+  v_invoice_job_scheduled boolean := false;
 begin
   if to_regclass('public.payment_attempts') is null
      or to_regclass('public.refund_attempts') is null
@@ -31,8 +32,18 @@ begin
     raise exception 'obsolete invoice expiry function is active';
   end if;
 
-  if to_regnamespace('cron') is not null
-     and exists (select 1 from cron.job where jobname = 'expire-stale-invoice-orders-hourly') then
+  if to_regclass('cron.job') is not null then
+    execute $sql$
+      select exists (
+        select 1
+        from cron.job
+        where jobname = 'expire-stale-invoice-orders-hourly'
+      )
+    $sql$
+    into v_invoice_job_scheduled;
+  end if;
+
+  if v_invoice_job_scheduled then
     raise exception 'obsolete invoice expiry cron job is still scheduled';
   end if;
 end
