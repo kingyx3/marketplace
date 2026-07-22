@@ -1,0 +1,25 @@
+name: Export current main source
+
+on:
+  push:
+    branches:
+      - agent/export-current-main-source
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.event_name == 'push' || github.head_ref == 'agent/export-current-main-source'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: current-main-source
+          path: .
+          include-hidden-files: true
+          retention-days: 1
