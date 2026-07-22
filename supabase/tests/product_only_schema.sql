@@ -60,5 +60,21 @@ begin
   if v_name is not null then
     raise exception 'legacy catalog implementation remains: %', v_name;
   end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'products'
+      and policyname = 'catalog readable'
+      and 'anon' = any(roles)
+  ) or not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'product_inventory'
+      and policyname = 'availability readable'
+      and 'anon' = any(roles)
+  ) then
+    raise exception 'product-only storefront read policies are incomplete';
+  end if;
 end;
 $$;

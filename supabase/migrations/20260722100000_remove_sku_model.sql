@@ -133,6 +133,36 @@ alter table public.allocation_rules
   add constraint allocation_rules_scope
     check (set_id is not null or product_id is not null);
 
+drop policy if exists "catalog readable" on public.products;
+create policy "catalog readable" on public.products
+  for select
+  to anon, authenticated
+  using (
+    active
+    and exists (
+      select 1
+      from public.listing_items listing
+      where listing.product_id = products.id
+        and listing.published
+    )
+  );
+
+drop policy if exists "availability readable" on public.product_inventory;
+create policy "availability readable" on public.product_inventory
+  for select
+  to anon, authenticated
+  using (
+    exists (
+      select 1
+      from public.products product
+      join public.listing_items listing on listing.product_id = product.id
+      where product.id = product_inventory.product_id
+        and product.active
+        and listing.published
+    )
+  );
+grant select on table public.product_inventory to anon, authenticated;
+
 create or replace function public.product_is_sellable(p_product_id uuid)
 returns boolean
 language sql
