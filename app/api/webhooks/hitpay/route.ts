@@ -67,7 +67,7 @@ export const POST = withApiHandler(
         },
         error,
       );
-      throw serviceUnavailable("Webhook inbox is temporarily unavailable");
+      throw serviceUnavailable("Payment settlement temporarily unavailable");
     }
 
     const { error } = await supabase.from("webhook_events").insert({
