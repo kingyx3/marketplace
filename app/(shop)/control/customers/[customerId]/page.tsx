@@ -5,6 +5,11 @@ import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/c
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
+import {
+  customerAccountLabel,
+  customerAccountSystemStatus,
+  customerProvisioningLabel,
+} from "@/lib/control-customer-view";
 import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +61,10 @@ export default async function CustomerDetailPage({
         action={
           <>
             <StatusBadge tone={deleted ? "danger" : "success"}>
-              {deleted ? "Deleted" : "Active"}
+              {customerAccountLabel(customer.deleted_at)}
+            </StatusBadge>
+            <StatusBadge tone={provisioningTone(customer.provisioning_state)}>
+              {customerProvisioningLabel(customer.provisioning_state)}
             </StatusBadge>
             <ControlBackLink href="/control/customers">Back to customers</ControlBackLink>
           </>
@@ -69,7 +77,10 @@ export default async function CustomerDetailPage({
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Summary label="Orders" value={String(customer.orders?.length ?? 0)} />
         <Summary label="Preorders" value={String(customer.preorders?.length ?? 0)} />
-        <Summary label="Provisioning" value={formatLabel(customer.provisioning_state)} />
+        <Summary
+          label="Provisioning"
+          value={customerProvisioningLabel(customer.provisioning_state)}
+        />
         <Summary label="Created" value={formatDate(customer.created_at)} />
       </section>
 
@@ -78,14 +89,32 @@ export default async function CustomerDetailPage({
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
           <ControlData
             label="Customer ID"
-            value={<span className="font-mono text-xs">{customer.id}</span>}
+            value={<span className="select-all font-mono text-xs">{customer.id}</span>}
+          />
+          <ControlData
+            label="Auth user ID"
+            value={
+              customer.auth_user_id ? (
+                <span className="select-all font-mono text-xs">{customer.auth_user_id}</span>
+              ) : (
+                "Not linked"
+              )
+            }
+          />
+          <ControlData
+            label="System status"
+            value={
+              <span className="font-mono text-xs">
+                {customerAccountSystemStatus(customer.deleted_at)} · {customer.provisioning_state}
+              </span>
+            }
           />
           <ControlData label="Updated" value={formatDateTime(customer.updated_at)} />
           <ControlData
-            label="Deleted"
+            label="Access disabled"
             value={customer.deleted_at ? formatDateTime(customer.deleted_at) : "No"}
           />
-          <ControlData label="Deletion actor" value={customer.deletion_actor ?? "Not recorded"} />
+          <ControlData label="Disable actor" value={customer.deletion_actor ?? "Not recorded"} />
           <ControlData
             label="Restored"
             value={customer.restored_at ? formatDateTime(customer.restored_at) : "Not recorded"}
@@ -126,15 +155,14 @@ function Summary({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function formatLabel(value: string): string {
-  return value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-SG", { dateStyle: "medium" }).format(new Date(value));
+}
+
+function provisioningTone(value: string) {
+  if (value === "error") return "danger" as const;
+  if (value === "pending") return "warning" as const;
+  return "success" as const;
 }
 
 function formatDateTime(value: string): string {

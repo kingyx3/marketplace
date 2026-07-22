@@ -129,10 +129,15 @@ Publication is rejected unless the product is active, an active physical SKU and
 
 ## Customers and communications
 
-- `customers.view` can search and inspect retained lifecycle context.
+- `customers.view` can search by name, email, customer ID, or linked Auth user ID; filter by
+  access, sign-in identity, and provisioning state; sort and paginate the result; and inspect exact
+  labeled identifiers plus human and system statuses. Active filter indicators remain visible so
+  support staff can verify the scope of the current account queue.
 - `customers.manage` is required to disable or restore access.
 - `communications.manage` is required for operational and restock notifications.
-- Deleted customer rows remain retained for audit; a row without a linked Auth identity cannot be restored through the console.
+- Disabled customer rows remain retained for audit; the underlying `deleted_at` lifecycle field is
+  not presented as permanent deletion. A row without a linked Auth identity cannot be restored
+  through the console.
 
 ## Audit and operational safety
 
