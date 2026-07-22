@@ -18,7 +18,7 @@ Use these documents for current behavior:
 - Hosted HitPay payment requests, signed webhook processing, idempotent payment transitions, refunds, and failed/expired reservation safety
 - Retail preorders charged 100% upfront, followed by reviewed allocation, exact shortfall refunds, and conversion into paid orders
 - Supabase PostgreSQL migrations, row-level security, service-role commercial mutations, audit logging, seed data, and SQL contract tests
-- Protected control-console workflows for catalog, products, product types, SKUs, pricing, images, listings, deals, inventory, purchase orders, preorder allocation, orders, refunds, reconciliation, and payment exceptions
+- Protected control-console workflows for catalog, products, product types, products, pricing, images, listings, deals, inventory, purchase orders, preorder allocation, orders, refunds, reconciliation, and payment exceptions
 - Customer waitlists and drop notifications with server-side delivery adapters
 - Sentry observability, health/readiness endpoints, request correlation, and operational verification
 - Vercel, Supabase, Terraform, and GitHub Actions bootstrap, deployment, migration, backup/restore, and release-gate automation

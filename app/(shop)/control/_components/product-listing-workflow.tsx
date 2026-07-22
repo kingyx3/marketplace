@@ -15,7 +15,6 @@ interface WorkflowStep {
 export function ProductListingWorkflow({
   productId,
   productComplete,
-  skuComplete,
   pricingComplete,
   supplyComplete,
   listingComplete,
@@ -24,7 +23,6 @@ export function ProductListingWorkflow({
 }: {
   productId: string;
   productComplete: boolean;
-  skuComplete: boolean;
   pricingComplete: boolean;
   supplyComplete: boolean;
   listingComplete: boolean;
@@ -34,16 +32,9 @@ export function ProductListingWorkflow({
   const steps: WorkflowStep[] = [
     {
       label: "Product",
-      detail: "Identity, taxonomy, media",
+      detail: "Identity, physical details, taxonomy, media",
       complete: productComplete,
       href: `/control/catalog/products/${productId}`,
-      permission: "catalog.view",
-    },
-    {
-      label: "Physical SKU",
-      detail: "Code, barcode, pack configuration",
-      complete: skuComplete,
-      href: `#skus`,
       permission: "catalog.view",
     },
     {
@@ -71,7 +62,7 @@ export function ProductListingWorkflow({
       label: "Readiness review",
       detail: "Product, price, supply, listing",
       complete:
-        productComplete && skuComplete && pricingComplete && supplyComplete && listingComplete,
+        productComplete && pricingComplete && supplyComplete && listingComplete,
       href: `/control/storefront/listings/${productId}`,
       permission: "storefront.view",
     },

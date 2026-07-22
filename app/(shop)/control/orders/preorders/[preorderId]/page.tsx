@@ -18,7 +18,7 @@ export default async function PreorderPage({
   await requireControlPermission("orders.view", `/control/orders/preorders/${preorderId}`);
   const preorder = await getAdminPreorder(createSecretClient(), preorderId);
   const customer = toOne(preorder.customers);
-  const sku = toOne(preorder.booster_box_skus);
+  const referenceCode = toOne(preorder.products);
   return (
     <div className="space-y-8">
       <PageHeader
@@ -33,7 +33,7 @@ export default async function PreorderPage({
         title={customer?.name || "Preorder"}
       />
       <section className="grid gap-4 sm:grid-cols-4">
-        <Summary label="SKU" value={sku?.sku ?? "Unknown"} />
+        <Summary label="Product" value={referenceCode?.reference_code ?? "Unknown"} />
         <Summary label="Requested" value={String(preorder.quantity)} />
         <Summary label="Allocated" value={String(preorder.allocated_qty)} />
         <Summary

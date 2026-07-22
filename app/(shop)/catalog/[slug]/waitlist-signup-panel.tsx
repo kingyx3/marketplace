@@ -11,13 +11,13 @@ type AlertChannel = "email" | "telegram" | "whatsapp";
 export function WaitlistSignupPanel({
   authRedirectPath,
   inStock,
-  skuId,
+  productId,
   supabaseAnonKey,
   supabaseUrl,
 }: {
   authRedirectPath: string;
   inStock: boolean;
-  skuId: string;
+  productId: string;
   supabaseAnonKey: string;
   supabaseUrl: string;
 }) {
@@ -50,7 +50,7 @@ export function WaitlistSignupPanel({
       await api.request<{ entry: unknown }>("/api/waitlist", {
         method: "POST",
         body: {
-          skuId,
+          productId,
           channel,
           contact: channel === "email" ? undefined : contact,
         },

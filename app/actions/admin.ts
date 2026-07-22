@@ -29,26 +29,26 @@ export async function upsertLimitedTimeDeal(
   if (input.active) await requireControlPermission("pricing.approve", returnPath);
 
   const supabase = createSecretClient();
-  const { data: sku, error: skuError } = await supabase
-    .from("booster_box_skus")
+  const { data: product, error: productError } = await supabase
+    .from("products")
     .select("price_cents, currency")
-    .eq("id", input.skuId)
+    .eq("id", input.productId)
     .maybeSingle();
-  if (skuError) throw new Error(`Deal SKU price lookup failed: ${skuError.message}`);
-  if (!sku) {
+  if (productError) throw new Error(`Deal product price lookup failed: ${productError.message}`);
+  if (!product) {
     return {
       status: "error",
-      message: "The selected SKU could not be found.",
-      fieldErrors: { skuId: "Select an existing SKU." },
+      message: "The selected product could not be found.",
+      fieldErrors: { productId: "Select an existing product." },
     };
   }
 
-  const originalPriceCents = Number(sku.price_cents);
+  const originalPriceCents = Number(product.price_cents);
   if (!Number.isInteger(originalPriceCents) || originalPriceCents <= 0) {
     return {
       status: "error",
-      message: "The selected SKU needs a valid original price before a deal can be created.",
-      fieldErrors: { skuId: "Set a positive SKU price in Pricing first." },
+      message: "The selected product needs a valid original price before a deal can be created.",
+      fieldErrors: { productId: "Set a positive product price in Pricing first." },
     };
   }
   if (input.dealPriceCents >= originalPriceCents) {
@@ -59,10 +59,10 @@ export async function upsertLimitedTimeDeal(
     };
   }
 
-  const { data, error } = await supabase.rpc("admin_upsert_pricing_promotion", {
+  const { data, error } = await supabase.rpc("admin_upsert_product_promotion", {
     p_deal_id: input.dealId,
     p_code: input.code,
-    p_sku_id: input.skuId,
+    p_product_id: input.productId,
     p_title: input.title,
     p_description: input.description,
     p_deal_price_cents: input.dealPriceCents,
@@ -219,7 +219,7 @@ export async function updateInventory(formData: FormData) {
   const input = adminInventoryAdjustmentFromForm(formData);
 
   const { error } = await createSecretClient().rpc("admin_adjust_inventory", {
-    p_sku_id: input.skuId,
+    p_product_id: input.productId,
     p_on_hand: input.onHand,
     p_incoming: input.incoming,
     p_safety_stock: input.safetyStock,
@@ -267,7 +267,7 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
 
   const { data, error } = await createSecretClient().rpc("admin_create_supplier_purchase_order", {
     p_supplier_id: input.supplierId,
-    p_sku_id: input.skuId,
+    p_product_id: input.productId,
     p_quantity: input.quantity,
     p_unit_cost_cents: input.unitCostCents,
     p_currency: input.currency,
@@ -293,8 +293,8 @@ export async function recordSupplierPurchaseOrder(formData: FormData) {
 
 export async function runPreorderAllocation(formData: FormData) {
   await requireControlPermission("preorders.allocate", "/control/orders/allocations");
-  const skuId = requiredUuid(formData, "skuId", "skuId");
-  redirect(`/control/orders/allocations/${encodeURIComponent(skuId)}`);
+  const productId = requiredUuid(formData, "productId", "productId");
+  redirect(`/control/orders/allocations/${encodeURIComponent(productId)}`);
 }
 
 function readRpcId(data: unknown, key: string): string | null {

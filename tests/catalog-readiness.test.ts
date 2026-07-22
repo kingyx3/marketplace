@@ -1,21 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-import { hasSellableCatalogSku } from "@/lib/catalog-readiness";
+import { isSellableCatalogProduct } from "@/lib/catalog-readiness";
 
-describe("catalog SKU readiness", () => {
+describe("catalog product readiness", () => {
   it("preserves the legacy checkout-cache readiness helper", () => {
-    expect(hasSellableCatalogSku({ product_variants: null })).toBe(false);
-    expect(
-      hasSellableCatalogSku({
-        product_variants: [{ booster_box_skus: [{ active: true, price_cents: 0 }] }],
-      })
-    ).toBe(false);
-    expect(
-      hasSellableCatalogSku({
-        product_variants: [{ booster_box_skus: [{ active: true, price_cents: 12900 }] }],
-      })
-    ).toBe(true);
+    expect(isSellableCatalogProduct({ active: false, price_cents: 12900 })).toBe(false);
+    expect(isSellableCatalogProduct({ active: true, price_cents: 0 })).toBe(false);
+    expect(isSellableCatalogProduct({ active: true, price_cents: 12900 })).toBe(true);
   });
 
   it("shows per-product readiness in the guided workflow", async () => {

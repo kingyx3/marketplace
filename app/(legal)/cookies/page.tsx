@@ -16,7 +16,7 @@ export default function CookiesPage() {
       <PolicySection title="Essential storage">
         <p>
           Supabase Auth uses cookies to maintain and refresh a secure sign-in session. The
-          marketplace cart cookie stores only SKU identifiers and quantities for up to 30 days. A
+          marketplace cart cookie stores only product identifiers and quantities for up to 30 days. A
           preference cookie remembers whether you selected essential-only or optional analytics.
           These are needed to provide the choices and features you request.
         </p>

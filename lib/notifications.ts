@@ -271,7 +271,7 @@ async function fetchOrderForConfirmation(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, customer_id, status, currency, total_cents, placed_at, customers(id, email, name), order_items(quantity, unit_price_cents, booster_box_skus(sku, product_variants(products(name))))"
+      "id, customer_id, status, currency, total_cents, placed_at, customers(id, email, name), order_items(quantity, unit_price_cents, products(reference_code, name))"
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -342,7 +342,7 @@ function buildOrderConfirmationMessage(
   const appName = getAppName(env);
   const items = (order.order_items ?? []).map((item) => ({
     name: productNameForItem(item),
-    sku: skuForItem(item),
+    referenceCode: referenceForItem(item),
     quantity: item.quantity,
     unitPrice: formatMoney(item.unit_price_cents, order.currency),
   }));
@@ -366,7 +366,7 @@ function buildOrderConfirmationMessage(
     `Status: ${order.status}`,
     `Total: ${formatMoney(order.total_cents, order.currency)}`,
     `Items:`,
-    ...items.map((item) => `- ${item.quantity} x ${item.name} (${item.sku}) at ${item.unitPrice}`),
+    ...items.map((item) => `- ${item.quantity} x ${item.name} (${item.referenceCode}) at ${item.unitPrice}`),
     `View: ${orderUrl}`,
     `Support: ${supportEmail}`,
   ].join("\n");
@@ -382,7 +382,7 @@ function buildOrderConfirmationMessage(
           .map(
             (item) =>
               `<li>${escapeHtml(String(item.quantity))} x ${escapeHtml(item.name)} (${escapeHtml(
-                item.sku
+                item.referenceCode
               )}) at ${escapeHtml(item.unitPrice)}</li>`
           )
           .join("")}
@@ -440,15 +440,12 @@ function whatsappErrorMessage(body: Record<string, unknown> | null, status: numb
 }
 
 function productNameForItem(item: OrderItemRow): string {
-  const sku = one(item.booster_box_skus);
-  const variant = one(sku?.product_variants);
-  const product = one(variant?.products);
-  return product?.name ?? sku?.sku ?? "Sealed product";
+  const product = one(item.products);
+  return product?.name ?? product?.reference_code ?? "Sealed product";
 }
 
-function skuForItem(item: OrderItemRow): string {
-  const sku = one(item.booster_box_skus);
-  return sku?.sku ?? "SKU";
+function referenceForItem(item: OrderItemRow): string {
+  return one(item.products)?.reference_code ?? "product";
 }
 
 function escapeHtml(value: string): string {
@@ -484,18 +481,10 @@ interface CustomerRow {
 interface OrderItemRow {
   quantity: number;
   unit_price_cents: number;
-  booster_box_skus?: SkuRow | SkuRow[] | null;
-}
-
-interface SkuRow {
-  sku: string;
-  product_variants?: ProductVariantRow | ProductVariantRow[] | null;
-}
-
-interface ProductVariantRow {
   products?: ProductRow | ProductRow[] | null;
 }
 
 interface ProductRow {
   name: string;
+  reference_code: string | null;
 }

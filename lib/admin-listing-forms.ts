@@ -40,7 +40,7 @@ export interface AdminStorefrontConfigurationInput {
 export interface AdminLimitedTimeDealInput {
   dealId: string | null;
   code: string;
-  skuId: string;
+  productId: string;
   title: string;
   description: string | null;
   dealPriceCents: number;
@@ -55,7 +55,7 @@ const CONFIG_KEY_PATTERN = /^[a-z0-9]+(?:[_:-][a-z0-9]+)*$/;
 const DEAL_CODE_PATTERN = /^[a-z0-9]+(?:[_-][a-z0-9]+)*$/;
 export function adminLimitedTimeDealFromForm(formData: FormData): AdminLimitedTimeDealInput {
   const dealId = optionalUuid(formData, "dealId", "dealId");
-  const skuId = requiredUuid(formData, "skuId", "skuId");
+  const productId = requiredUuid(formData, "productId", "productId");
   const code = requiredString(formData, "code", { max: 80, label: "Deal code" }).toLowerCase();
   const title = requiredString(formData, "title", { max: 160, label: "Deal title" });
   const dealPriceCents = requiredMoneyCents(formData, "dealPrice", "Deal price");
@@ -76,7 +76,7 @@ export function adminLimitedTimeDealFromForm(formData: FormData): AdminLimitedTi
   return {
     dealId,
     code,
-    skuId,
+    productId,
     title,
     description:
       optionalString(formData, "description", { max: 500, label: "Deal description" }) ?? null,

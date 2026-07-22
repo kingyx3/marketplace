@@ -7,9 +7,9 @@ This document is the release contract for audience-aware navigation, page protec
 | Surface                                               | Public visitor                              | Signed-in customer                           | Active staff                     | Enforcement                                                             |
 | ----------------------------------------------------- | ------------------------------------------- | -------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------- |
 | Home, catalog, product details, wholesale information | Visible                                     | Visible                                      | Visible                          | Public server components; failures degrade to safe empty states         |
-| Regular product prices                                | Visible                                     | Visible                                      | Visible                          | Read from active catalog SKUs                                           |
+| Regular product prices                                | Visible                                     | Visible                                      | Visible                          | Read from active catalog products                                           |
 | Deals index                                           | At most three currently active public deals | All currently active public and member deals | Same storefront eligibility      | Supabase RLS plus a public application limit                            |
-| Cart                                                  | Visible; checkout requests sign-in          | Visible and eligible deals are revalidated   | Visible                          | Server-side SKU, inventory, price, deal, shipping, and total quote      |
+| Cart                                                  | Visible; checkout requests sign-in          | Visible and eligible deals are revalidated   | Visible                          | Server-side product, inventory, price, deal, shipping, and total quote      |
 | Account, orders, preorders                            | Sign-in link only; direct access redirects  | Visible for the current customer             | Visible for the current customer | `requireCustomer`; pages are `noindex`                                  |
 | Admin navigation                                      | Hidden                                      | Hidden                                       | Visible                          | Email allowlist plus active `staff_users`; failures hide privileged navigation |
 | Admin routes and actions                              | Redirect to sign-in                         | Access-denied response                       | Visible                          | The same two-part check guards layouts, actions, and admin APIs         |
@@ -18,10 +18,10 @@ UI visibility is not treated as authorization. Privileged database mutations use
 
 ## Promotion rules
 
-- Regular SKU prices remain public.
+- Regular product prices remain public.
 - Anonymous deal previews are restricted to active, in-window rows marked `public`, and the deals page displays no more than three.
 - Signed-in customers may read active, in-window `public` and `members` deals.
-- The server selects the highest eligible deal for each SKU and revalidates it during retail checkout.
+- The server selects the highest eligible deal for each product and revalidates it during retail checkout.
 - Wholesale tier pricing and limited-time retail deals do not stack.
 - Staff schedule actual start and end timestamps; storefront copy must not use invented countdowns, stock warnings, or savings.
 

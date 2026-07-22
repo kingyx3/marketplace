@@ -17,8 +17,8 @@ describe("separated product-to-listing workflow", () => {
     expect(shell).toContain('label: "Storefront"');
   });
 
-  it("keeps Catalog limited to identity and physical SKU attributes", async () => {
-    const [catalogAction, skuForm, intake, editor] = await Promise.all([
+  it("keeps Catalog responsible for the complete product definition", async () => {
+    const [catalogAction, productForm, intake, editor] = await Promise.all([
       readFile(new URL("../app/actions/catalog.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/admin-catalog-forms.ts", import.meta.url), "utf8"),
       readFile(
@@ -30,11 +30,10 @@ describe("separated product-to-listing workflow", () => {
         "utf8"
       ),
     ]);
-    expect(catalogAction).toContain('rpc("admin_upsert_catalog_sku"');
+    expect(catalogAction).toContain('rpc("admin_update_catalog_product"');
     expect(catalogAction).not.toContain("p_price_cents");
     expect(catalogAction).not.toContain("p_published");
-    expect(skuForm).not.toContain("priceCents");
-    expect(skuForm).not.toContain("msrpCents");
+    expect(productForm).toContain("referenceCode");
     expect(intake).not.toContain('name="published"');
     expect(editor).not.toContain('name="published"');
     expect(editor).not.toContain('name="priceCents"');
@@ -47,11 +46,11 @@ describe("separated product-to-listing workflow", () => {
         "utf8"
       ),
       readFile(
-        new URL("../app/(shop)/control/pricing/skus/[skuId]/page.tsx", import.meta.url),
+        new URL("../app/(shop)/control/pricing/products/[productId]/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
-        new URL("../app/(shop)/control/supply/inventory/[skuId]/page.tsx", import.meta.url),
+        new URL("../app/(shop)/control/supply/inventory/[productId]/page.tsx", import.meta.url),
         "utf8"
       ),
       readFile(
@@ -66,7 +65,6 @@ describe("separated product-to-listing workflow", () => {
     ]);
     for (const step of [
       "Product",
-      "Physical SKU",
       "Pricing",
       "Supply",
       "Availability & listing",
@@ -75,7 +73,7 @@ describe("separated product-to-listing workflow", () => {
     ]) {
       expect(workflow).toContain(step);
     }
-    expect(pricing).toContain("setSkuPrice");
+    expect(pricing).toContain("setProductPrice");
     expect(supply).toContain("updateInventory");
     expect(listing).toContain('name="availabilityMode"');
     expect(listing).toContain('name="orderOpenAt"');

@@ -381,7 +381,7 @@ export function ProductIntakeForm({
             </label>
           </div>
           <p className="max-w-2xl text-xs text-zinc-500">
-            New products start as internal drafts. Add a physical SKU, price it, configure supply,
+            New products start as internal drafts. Add a physical product, price it, configure supply,
             and complete the listing before publication.
           </p>
         </div>

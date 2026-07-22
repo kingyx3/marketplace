@@ -32,7 +32,7 @@ cross-origin, browser permissions are minimized, and API routes return
 RLS is enabled on every table and Data API exposure is granted explicitly in
 migrations. Policy tiers:
 
-1. **Public read** — catalog products/SKUs, availability, published listing
+1. **Public read** — catalog products/products, availability, published listing
    items, and active storefront configuration only.
 2. **Own rows** — customers select their own commercial documents via
    `auth.uid()`; customer profile updates include `WITH CHECK` so a row cannot
@@ -85,7 +85,7 @@ Control roles use least privilege:
 - `admin` — full operations and administrator management
 - `owner` — full control, including owner-level access changes
 
-Supplier, category, set, product/SKU, listing/configuration, inventory, purchase
+Supplier, category, set, product/product, listing/configuration, inventory, purchase
 order, deal, payment reconciliation, and administrator changes are explicit,
 validated server actions backed by service-role RPCs. Important mutations record
 an actor and target in `audit_logs`; table triggers retain old and new row images.

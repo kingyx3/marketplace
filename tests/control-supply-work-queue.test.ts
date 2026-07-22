@@ -16,42 +16,40 @@ describe("control supply work queue", () => {
       inventory({
         productName: "Pokémon Journey Together Booster Box",
         productId: "product-journey",
-        sku: "PKM-JTG-BB-EN",
-        skuId: "sku-journey",
+        referenceCode: "PKM-JTG-BB-EN",
       }),
       inventory({
         productName: "One Piece Royal Blood Booster Box",
         productId: "product-royal",
-        sku: "OP-10-BB-EN",
-        skuId: "sku-royal",
+        referenceCode: "OP-10-BB-EN",
       }),
     ];
 
-    for (const query of ["journey together", "PKM-JTG-BB-EN", "product-journey", "sku-journey"]) {
+    for (const query of ["journey together", "PKM-JTG-BB-EN", "product-journey"]) {
       expect(
         filterAndSortInventory(rows, { query, filter: "all", sort: "attention" }).map(
-          (row) => row.skuId
+          (row) => row.productId
         )
-      ).toEqual(["sku-journey"]);
+      ).toEqual(["product-journey"]);
     }
   });
 
   it("surfaces allocation gaps and no-stock records before passive inventory", () => {
     const rows = [
-      inventory({ skuId: "sellable", available: 12, safetyStock: 2, incoming: 0 }),
-      inventory({ skuId: "incoming-only", available: 2, safetyStock: 2, incoming: 10 }),
-      inventory({ skuId: "empty", available: 0, safetyStock: 2, incoming: 0 }),
-      inventory({ skuId: "allocation-gap", available: -4, safetyStock: 0, incoming: 8 }),
+      inventory({ productId: "sellable", available: 12, safetyStock: 2, incoming: 0 }),
+      inventory({ productId: "incoming-only", available: 2, safetyStock: 2, incoming: 10 }),
+      inventory({ productId: "empty", available: 0, safetyStock: 2, incoming: 0 }),
+      inventory({ productId: "allocation-gap", available: -4, safetyStock: 0, incoming: 8 }),
     ];
 
     expect(
       filterAndSortInventory(rows, { query: "", filter: "all", sort: "attention" }).map(
-        (row) => row.skuId
+        (row) => row.productId
       )
     ).toEqual(["allocation-gap", "empty", "incoming-only", "sellable"]);
     expect(
       filterAndSortInventory(rows, { query: "", filter: "attention", sort: "attention" }).map(
-        (row) => row.skuId
+        (row) => row.productId
       )
     ).toEqual(["allocation-gap", "empty", "incoming-only"]);
     expect(getSellableUnits(rows[0])).toBe(10);
@@ -76,7 +74,7 @@ describe("control supply work queue", () => {
     expect(page).toContain("INVENTORY_PAGE_SIZE = 25");
     expect(page).toContain('aria-label="Active inventory filters"');
     expect(page).toContain("Product ID");
-    expect(page).toContain("SKU ID");
+    expect(page).toContain("product ID");
     expect(page).toContain("System status:");
     expect(page).toContain("row.available");
     expect(page).toContain("row.safetyStock");
@@ -88,9 +86,8 @@ describe("control supply work queue", () => {
 
 function inventory(overrides: Partial<ControlInventoryRow> = {}): ControlInventoryRow {
   return {
-    skuId: "sku-default",
-    sku: "SKU-DEFAULT",
     productId: "product-default",
+    referenceCode: "PRODUCT-DEFAULT",
     productName: "Default product",
     onHand: 12,
     incoming: 0,

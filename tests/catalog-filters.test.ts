@@ -28,7 +28,7 @@ describe("catalog filters", () => {
         "setCode",
         "setName",
         "setStatus",
-        "sku",
+        "referenceCode",
         "slug",
         "tags",
       ].sort()

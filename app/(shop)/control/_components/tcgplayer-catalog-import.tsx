@@ -138,7 +138,7 @@ export function TcgplayerCatalogImport({
         <h2 className="text-xl font-semibold text-zinc-950">Create a draft from TCGplayer</h2>
         <p className="max-w-3xl text-sm text-zinc-600">
           Paste a TCGplayer product URL or product ID to prefill the product, category, set, type,
-          image, language, SKU-reference, and market-price context. This creates only an internal
+          image, language, variant-reference, and market-price context. This creates only an internal
           catalog draft; pricing, inventory, listing approval, and publication remain separate.
         </p>
       </div>
@@ -403,7 +403,7 @@ export function TcgplayerCatalogImport({
 
 function CatalogReferenceSummary({ suggestion }: { suggestion: TcgplayerCatalogSuggestion }) {
   const primaryPrice = suggestion.prices.find((price) => price.marketPrice !== null);
-  const visibleSkus = suggestion.skus.slice(0, 6);
+  const visibleVariants = suggestion.variants.slice(0, 6);
 
   return (
     <div className="grid gap-4 rounded-lg border border-indigo-200 bg-white p-4 lg:grid-cols-[1fr_1fr]">
@@ -446,22 +446,22 @@ function CatalogReferenceSummary({ suggestion }: { suggestion: TcgplayerCatalogS
       </div>
 
       <div className="grid content-start gap-2 text-sm text-zinc-700">
-        <p className="font-semibold text-zinc-950">SKU references</p>
-        {visibleSkus.length > 0 ? (
+        <p className="font-semibold text-zinc-950">variant references</p>
+        {visibleVariants.length > 0 ? (
           <ul className="grid gap-1">
-            {visibleSkus.map((sku, index) => (
+            {visibleVariants.map((variant, index) => (
               <li
                 className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1"
-                key={sku.skuId ?? index}
+                key={variant.providerVariantId ?? index}
               >
-                {[sku.language, sku.condition, sku.printing].filter(Boolean).join(" · ") ||
-                  `TCGplayer SKU ${sku.skuId ?? "variant"}`}
-                {sku.marketPrice !== null ? ` · ${formatUsd(sku.marketPrice)}` : ""}
+                {[variant.language, variant.condition, variant.printing].filter(Boolean).join(" · ") ||
+                  `TCGplayer variant ${variant.providerVariantId ?? "variant"}`}
+                {variant.marketPrice !== null ? ` · ${formatUsd(variant.marketPrice)}` : ""}
               </li>
             ))}
           </ul>
         ) : (
-          <p>No SKU variants were returned.</p>
+          <p>No variant variants were returned.</p>
         )}
         {suggestion.warnings.length > 0 ? (
           <ul className="grid gap-1 text-xs text-amber-800">
@@ -605,7 +605,7 @@ function suggestProductTypeName(suggestion: TcgplayerCatalogSuggestion): string 
 
 function suggestLanguage(suggestion: TcgplayerCatalogSuggestion): string {
   const language =
-    suggestion.product.language ?? suggestion.skus.find((sku) => sku.language)?.language;
+    suggestion.product.language ?? suggestion.variants.find((variant) => variant.language)?.language;
   if (!language) return "EN";
   const codeByName: Record<string, string> = {
     english: "EN",

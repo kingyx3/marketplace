@@ -9,19 +9,15 @@ import { AdminSubmitButton } from "@/app/(shop)/control/_components/admin-action
 import { ControlActionForm } from "@/app/(shop)/control/_components/control-resource-ui";
 import {
   setCatalogProductActive,
-  setCatalogSkuActive,
   uploadCatalogProductImage,
   upsertCatalogProduct,
-  upsertCatalogSku,
 } from "@/app/actions/catalog";
 import { StatusBadge } from "@/app/_components/status-badge";
-import { formatMoney } from "@/lib/money";
 import type {
   ControlCategoryOption,
   ControlProductRow,
   ControlProductTypeOption,
   ControlSetOption,
-  ControlCatalogSku,
 } from "@/lib/control-catalog";
 
 export function CatalogProductEditor({
@@ -72,6 +68,27 @@ export function CatalogProductEditor({
           name="name"
           required
         />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <AdminTextField
+            defaultValue={product.referenceCode ?? ""}
+            example="DRI-BBX-EN"
+            hint="Stable internal product reference; normalized to uppercase."
+            label="Product reference"
+            maxLength={64}
+            name="referenceCode"
+            pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
+            patternMessage="Reference may use letters, numbers, dots, hyphens, and underscores."
+            required
+          />
+          <AdminTextField
+            defaultValue={product.barcode ?? ""}
+            example="01987654321098"
+            hint="Optional supplier or retail barcode."
+            label="Barcode"
+            maxLength={64}
+            name="barcode"
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <AdminSelectField
             defaultValue={product.categoryId}
@@ -145,6 +162,29 @@ export function CatalogProductEditor({
           maxLength={2000}
           name="description"
         />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <AdminNumberField
+            defaultValue={product.packsPerBox ?? undefined}
+            example="36"
+            label="Packs per box"
+            min={1}
+            name="packsPerBox"
+          />
+          <AdminNumberField
+            defaultValue={product.cardsPerPack ?? undefined}
+            example="10"
+            label="Cards per pack"
+            min={1}
+            name="cardsPerPack"
+          />
+          <AdminNumberField
+            defaultValue={product.weightGrams ?? undefined}
+            example="720"
+            label="Weight grams"
+            min={1}
+            name="weightGrams"
+          />
+        </div>
         <SecondaryButton>Save product</SecondaryButton>
       </ControlActionForm>
 
@@ -175,142 +215,6 @@ export function CatalogProductEditor({
         />
       </div>
     </section>
-  );
-}
-
-export function CatalogSkuManager({ product }: { product: ControlProductRow }) {
-  return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-zinc-950">SKUs</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            Add and maintain the sellable SKU records attached to this product.
-          </p>
-        </div>
-        <StatusBadge tone={product.skus.length > 0 ? "info" : "warning"}>
-          {product.skus.length} {product.skus.length === 1 ? "SKU" : "SKUs"}
-        </StatusBadge>
-      </div>
-
-      <ControlActionForm
-        action={upsertCatalogSku}
-        className={editorClass}
-        errorMessage="The SKU could not be created. Your entries are still here; review them and try again."
-        successMessage="SKU created."
-      >
-        <input name="productId" type="hidden" value={product.id} />
-        <h3 className="font-semibold text-zinc-950">Add SKU</h3>
-        <SkuFields />
-        <PrimaryButton>Create SKU</PrimaryButton>
-      </ControlActionForm>
-
-      <div className="mt-6 grid gap-4">
-        {product.skus.length === 0 ? (
-          <EmptyState text="No SKUs have been created for this product." />
-        ) : (
-          product.skus.map((sku) => <SkuEditor key={sku.skuId} productId={product.id} sku={sku} />)
-        )}
-      </div>
-    </section>
-  );
-}
-
-function SkuEditor({ productId, sku }: { productId: string; sku: ControlCatalogSku }) {
-  return (
-    <article className="rounded-lg border border-zinc-200 p-4 sm:p-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-zinc-950">{sku.sku}</h3>
-          <p className="mt-1 text-xs text-zinc-500">
-            {formatMoney(sku.priceCents, sku.currency)}
-            {sku.barcode ? ` · ${sku.barcode}` : ""}
-          </p>
-        </div>
-        <StatusBadge tone={sku.skuActive ? "success" : "warning"}>
-          {sku.skuActive ? "Active" : "Archived"}
-        </StatusBadge>
-      </div>
-
-      <ControlActionForm
-        action={upsertCatalogSku}
-        className="grid gap-4"
-        errorMessage="The SKU could not be saved. Your entries are still here; review them and try again."
-        successMessage="SKU saved."
-      >
-        <input name="productId" type="hidden" value={productId} />
-        <input name="skuId" type="hidden" value={sku.skuId} />
-        <SkuFields sku={sku} />
-        <SecondaryButton>Save SKU</SecondaryButton>
-      </ControlActionForm>
-
-      <div className="mt-3">
-        <ToggleForm
-          action={setCatalogSkuActive}
-          active={sku.skuActive}
-          id={sku.skuId}
-          idName="skuId"
-          noun="SKU"
-        />
-      </div>
-    </article>
-  );
-}
-
-function SkuFields({ sku }: { sku?: ControlCatalogSku }) {
-  return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <AdminTextField
-          defaultValue={sku?.sku}
-          example="DRI-BBX-EN"
-          hint="Use a stable internal identifier; it is normalized to uppercase."
-          label="SKU"
-          maxLength={64}
-          name="sku"
-          pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
-          patternMessage="SKU may use letters, numbers, dots, hyphens, and underscores."
-          required
-        />
-        <AdminTextField
-          defaultValue={sku?.barcode ?? ""}
-          example="01987654321098"
-          hint="Optional supplier or retail barcode."
-          label="Barcode"
-          maxLength={64}
-          name="barcode"
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <BooleanField checked={sku?.skuActive ?? true} label="Active" name="active" />
-        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600">
-          Save the physical SKU here, then set its commercial price in Pricing.
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <AdminNumberField
-          defaultValue={sku?.packsPerBox ?? undefined}
-          example="36"
-          label="Packs per box"
-          min={1}
-          name="packsPerBox"
-        />
-        <AdminNumberField
-          defaultValue={sku?.cardsPerPack ?? undefined}
-          example="10"
-          label="Cards per pack"
-          min={1}
-          name="cardsPerPack"
-        />
-        <AdminNumberField
-          defaultValue={sku?.weightGrams ?? undefined}
-          example="720"
-          label="Weight grams"
-          min={1}
-          name="weightGrams"
-        />
-      </div>
-    </>
   );
 }
 
@@ -358,17 +262,6 @@ function BooleanField({ label, name, checked }: { label: string; name: string; c
   );
 }
 
-function PrimaryButton({ children }: { children: React.ReactNode }) {
-  return (
-    <AdminSubmitButton
-      className="min-h-10 rounded-md bg-zinc-950 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
-      pendingLabel="Creating…"
-    >
-      {children}
-    </AdminSubmitButton>
-  );
-}
-
 function SecondaryButton({ children }: { children: React.ReactNode }) {
   return (
     <AdminSubmitButton
@@ -390,13 +283,3 @@ function DangerButton({ children }: { children: React.ReactNode }) {
     </AdminSubmitButton>
   );
 }
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <p className="rounded-md border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
-      {text}
-    </p>
-  );
-}
-
-const editorClass = "grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 sm:p-5";

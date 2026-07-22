@@ -58,7 +58,7 @@ export function CatalogBrowser({
             onChange={(event) =>
               setDraftFilters((current) => ({ ...current, query: event.target.value }))
             }
-            placeholder="Set, game, SKU"
+            placeholder="Set, game, product reference"
             type="search"
             value={draftFilters.query}
           />

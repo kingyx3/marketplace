@@ -1,71 +1,54 @@
 # TCGplayer catalog assist
 
-The Catalog control centre can use a TCGplayer product URL or numeric product ID to prefill a new internal product and the physical SKUs returned for it. This is an operator convenience layer, not a source of truth and not a replacement for local pricing, supply, storefront, or publication approvals.
+Catalog assist turns a TCGplayer product URL or numeric product ID into complete local product
+drafts. It is an operator convenience layer; TCGplayer remains reference data, not the local
+source of truth.
+
+The local domain has one sellable entity: **Product**. TCGplayer's sellable variant records are treated as
+external variants. Each returned sellable variant becomes an independent local product with its
+own reference, barcode, packaging attributes, pricing, inventory, listing, and publication state.
+See [ADR 0001](adr/0001-product-is-the-sellable-unit.md).
 
 ## Operator workflow
 
 1. Open **Control → Catalog → Create product**.
-2. Paste a TCGplayer product URL or product ID into **Catalog assist**.
-3. Review the returned product name, image, language, category, set, product type, SKU variants, packaging values, and market-price reference.
-4. Map the suggestion to existing local records or choose to create a new category, set, or product type.
-5. Review each imported SKU. The form fills the local SKU code, barcode, packs per box, cards per pack, and weight whenever TCGplayer supplies them. Values TCGplayer does not supply remain blank.
-6. Create the internal draft. The product hierarchy and all returned SKUs are written in one database transaction.
-7. Continue through the normal pricing, supply, listing, readiness, and publication steps.
+2. Paste a TCGplayer product URL or numeric product ID into **Catalog assist**.
+3. The application fetches product details, prices, and variants automatically.
+4. Review the shared category, set, and product-type mappings and each product draft. Missing
+   provider values remain blank and can be filled locally.
+5. Submit once. The hierarchy, every product, zero-stock inventory rows, source metadata, and
+   the import receipt are written in one transaction.
+6. The application opens an import confirmation screen. Every created product has a separate,
+   expandable section with a direct **Open and edit product** action.
+7. Complete local pricing, inventory, listing approval, and publication as needed.
 
-The manual hierarchy form remains available on the same page when the external lookup is unavailable or unsuitable.
+When TCGplayer returns no variants, the workflow still creates one product from product-level
+details. The manual product form remains available when the provider is unavailable or unsuitable.
 
-## Endpoint review and provider choice
+## Data retained from TCGplayer
 
-TCGplayer's documented Catalog API exposes categories, groups/sets, products, and product SKU relationships, while its Pricing API exposes group and product pricing. Access requires an existing TCGplayer API application and new API access is no longer generally issued.
+- Product name, description, image, category, set, product type, and product-level UPC.
+- Every returned variant's condition, language, printing, barcode, packaging values, and
+  provider identifiers.
+- USD market, low, mid, high, and direct-low price references.
 
-The implemented fallback uses the read-only public storefront product endpoints:
-
-- `mp-search-api.tcgplayer.com/v2/product/{productId}/details`
-- `mpapi.tcgplayer.com/v2/product/{productId}/pricepoints`
-- `mpapi.tcgplayer.com/v2/product/{productId}/skus`
-
-The public set-wide price-guide endpoint under `infinite-api.tcgplayer.com` is not used. Product intake needs one bounded product record, and a set-wide response is larger, less targeted, and unnecessary for this workflow.
-
-These storefront endpoints are undocumented and may change without notice. The integration therefore remains optional and never blocks manual catalog administration.
-
-## SKU import behaviour
-
-- Every returned TCGplayer SKU is included by default, up to the existing 50-SKU response cap.
-- The stable local SKU code is generated from the TCGplayer product and SKU IDs and remains editable before creation.
-- SKU-specific barcode and packaging values take precedence over product-level values.
-- A product UPC is used as the barcode only when TCGplayer returns exactly one SKU and no SKU-specific barcode.
-- Condition, language, printing, every returned TCGplayer SKU/condition/language/printing/variant identifier, and USD market/low/mid/high/direct-low price references are retained in the product variant attributes for traceability.
-- Market prices are not promoted to local selling prices. Pricing remains versioned and permissioned in the Pricing domain.
-- Inventory records are initialized with zero stock, consistent with normal local SKU creation.
+Provider identifiers live in `products.source_metadata`; they are never local record IDs.
+Provider prices are reference metadata and never become local selling prices. Product inventory
+and local price start at zero.
 
 ## Security and reliability controls
 
 - The browser calls only the same-origin application API.
-- The API and creation action require the existing `catalog.manage` permission.
+- Lookup and creation require `catalog.manage`.
 - Requests are rate-limited per authenticated administrator.
-- The server constructs requests from a numeric product ID and fixed provider hosts; it never fetches an administrator-supplied host.
-- Input accepts only a numeric ID or a `tcgplayer.com` product URL.
-- Upstream calls use a ten-second timeout, a two-megabyte response limit, `no-store`, and JSON-only parsing.
-- Returned source and image URLs are normalized to HTTP or HTTPS; the source link is restricted to the TCGplayer domain.
-- Product details are required, while prices and SKU variants are optional enrichment with clear warnings when unavailable.
-- External descriptions are stripped of markup before they are placed in the editable form.
-- The submitted SKU payload is size-limited, capped at 50 entries, normalized in the server action, validated again in PostgreSQL, and written atomically with the product.
+- The server constructs requests from a numeric product ID and fixed provider hosts; it never
+  fetches an administrator-supplied host.
+- Inputs accept only a numeric ID or a `tcgplayer.com` product URL.
+- Upstream calls have a ten-second timeout, a two-megabyte response limit, `no-store`, and
+  JSON-only parsing.
+- External descriptions are stripped of markup before entering editable fields.
+- The submitted product list is size-limited, capped at 50, normalized in the server action,
+  validated again in PostgreSQL, and written atomically.
 
-## Domain boundaries
-
-Catalog assist may prefill or create:
-
-- category
-- set
-- product type
-- product draft
-- physical SKU records and their source variant metadata
-
-It does not automatically create or approve:
-
-- local selling prices
-- non-zero inventory or purchase-order supply
-- storefront availability or listing content
-- publication state
-
-Those values continue through their established domain permissions, validations, audit logs, readiness checks, and approval actions.
+The storefront endpoints are undocumented and can change without notice. Catalog assist is
+optional and never blocks manual administration.

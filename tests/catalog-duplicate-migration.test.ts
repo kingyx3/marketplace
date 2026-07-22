@@ -20,7 +20,7 @@ describe("canonical duplicate product migration", () => {
 
     expect(source).toContain("insert into public.listing_items as current_listing");
     expect(source).toContain("on conflict (product_id) do update");
-    expect(source).toContain("update public.booster_box_skus");
+    expect(source).toContain("update public.products");
     expect(source).toContain("update public.product_variants");
     expect(source).toContain("CATALOG_PRODUCT_DUPLICATE_COLLAPSE");
   });

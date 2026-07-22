@@ -14,7 +14,7 @@ import { upsertLimitedTimeDeal } from "@/app/actions/admin";
 export interface DealRecord {
   id: string;
   code: string;
-  sku_id: string;
+  product_id: string;
   title: string;
   description: string | null;
   discount_bps: number;
@@ -26,9 +26,9 @@ export interface DealRecord {
   active: boolean;
 }
 
-export interface DealSkuOption {
+export interface DealProductOption {
   id: string;
-  sku: string;
+  referenceCode: string;
   active: boolean;
   productName: string;
   productActive: boolean;
@@ -38,11 +38,11 @@ export interface DealSkuOption {
 
 export function DealForm({
   deal,
-  skus,
+  products,
   error,
 }: {
   deal?: DealRecord;
-  skus: DealSkuOption[];
+  products: DealProductOption[];
   error?: string;
 }) {
   return (
@@ -70,8 +70,8 @@ export function DealForm({
 
       <DealPricingFields
         dealPriceCents={deal?.deal_price_cents}
-        selectedSkuId={deal?.sku_id}
-        skus={skus}
+        selectedProductId={deal?.product_id}
+        products={products}
       />
 
       <AdminTextField

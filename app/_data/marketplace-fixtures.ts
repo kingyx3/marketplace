@@ -13,7 +13,7 @@ export type MarketplaceProduct = {
   releaseDate: string;
   setStatus: SetStatus;
   productType: string;
-  sku: string;
+  referenceCode: string;
   language: string;
   priceCents: number;
   msrpCents: number | null;
@@ -101,7 +101,7 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     releaseDate: "2026-08-01",
     setStatus: "preorder_open",
     productType: "Booster box",
-    sku: "MTG-SMP-PBB-EN",
+    referenceCode: "MTG-SMP-PBB-EN",
     language: "EN",
     priceCents: 19900,
     msrpCents: 22000,
@@ -129,7 +129,7 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     releaseDate: "2026-09-18",
     setStatus: "announced",
     productType: "Collector box",
-    sku: "PKM-PRI-CBB-EN",
+    referenceCode: "PKM-PRI-CBB-EN",
     language: "EN",
     priceCents: 32900,
     msrpCents: null,
@@ -157,7 +157,7 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     releaseDate: "2026-07-24",
     setStatus: "released",
     productType: "Sealed case",
-    sku: "OP-GLC-CASE-EN",
+    referenceCode: "OP-GLC-CASE-EN",
     language: "EN",
     priceCents: 109900,
     msrpCents: null,
@@ -185,7 +185,7 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     releaseDate: "2026-10-02",
     setStatus: "preorder_open",
     productType: "Booster box",
-    sku: "LOR-AUR-BB-EN",
+    referenceCode: "LOR-AUR-BB-EN",
     language: "EN",
     priceCents: 21400,
     msrpCents: 22800,

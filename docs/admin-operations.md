@@ -6,9 +6,9 @@ The protected `/control` console is organized by ownership domain. Each task has
 
 | Domain     | Canonical route       | Owns                                                                      | Does not own                             |
 | ---------- | --------------------- | ------------------------------------------------------------------------- | ---------------------------------------- |
-| Catalog    | `/control/catalog`    | Product identity, taxonomy, media, physical SKU attributes                | Price, stock, availability, publication  |
+| Catalog    | `/control/catalog`    | Product identity, taxonomy, media, physical product attributes                | Price, stock, availability, publication  |
 | Pricing    | `/control/pricing`    | Versioned base/compare-at prices and promotions                           | Product identity, inventory, publication |
-| Storefront | `/control/storefront` | Listing content, availability, selling windows, release date, publication | Physical SKU or price                    |
+| Storefront | `/control/storefront` | Listing content, availability, selling windows, release date, publication | Physical product or price                    |
 | Supply     | `/control/supply`     | Suppliers, purchase orders, on-hand/incoming/safety stock                 | Customer orders or fulfilment            |
 | Orders     | `/control/orders`     | Normal orders, preorders, order lifecycle, allocation                     | Payment reconciliation or shipping       |
 | Fulfilment | `/control/fulfilment` | Packing, shipment arrangement, tracking, delivery exceptions              | Payment decisions                        |
@@ -29,7 +29,7 @@ Every control centre opens on its record list, queue, or dashboard. Administrato
 - Canonical detail routes remain refreshable and bookmarkable; client-side navigation from a control list is intercepted into the modal layer.
 - Read-only administrators use the same record modal without mutation controls. Permissions continue to be checked by the record page and again by every Server Action or RPC.
 
-This model applies to products, categories, sets, SKU prices, promotions, listings, storefront configurations, inventory, suppliers, purchase orders, orders, preorders, allocation queues, deliveries, customers, payment exceptions, reconciliation, and administrator grants. Audit evidence remains a read-only table because it has no create or edit workflow.
+This model applies to products, categories, sets, product prices, promotions, listings, storefront configurations, inventory, suppliers, purchase orders, orders, preorders, allocation queues, deliveries, customers, payment exceptions, reconciliation, and administrator grants. Audit evidence remains a read-only table because it has no create or edit workflow.
 
 ## Form, modal, and confirmation contract
 
@@ -38,7 +38,7 @@ All standard control mutations use the shared action-form layer. Product intake,
 - A submit validates native constraints and cross-field relationships, focuses the first invalid control, announces a global summary, and applies field-level red error treatment. Server validation remains authoritative.
 - While a request is in flight, the form exposes `aria-busy`, its submit control is disabled, and its label describes the operation. Repeated submits are ignored.
 - A failed request leaves the modal and every entered value in place. Safe actionable errors are announced; unexpected server errors use generic retry guidance rather than exposing database or provider details.
-- Success clears the dirty marker, refreshes server-rendered data, announces completion when the form remains open, and returns to the canonical list when the workflow is complete. Product creation continues to product/SKU readiness because it is a multi-domain flow.
+- Success clears the dirty marker, refreshes server-rendered data, announces completion when the form remains open, and returns to the canonical list when the workflow is complete. Product creation continues to the product readiness view because it is a multi-domain flow.
 - Closing a dirty modal by Close, backdrop, `Escape`, or browser back opens the same accessible discard dialog. Focus is trapped inside both modal layers and restored to the launching control on close. Page unload also receives the browser's unsaved-change safeguard.
 - Lifecycle and customer-facing state changes use an explicit confirmation. High-risk actions—customer disable, order cancellation, manual reconciliation, and preorder allocation/refunds—also require typed confirmation.
 - Search and filter forms are read-only navigation controls and intentionally do not use mutation confirmations or dirty-state tracking.
@@ -50,8 +50,8 @@ The following inventory is the required regression scope for changes to `/contro
 
 | Domain     | Workflows reviewed                                                                                                                                                       | Consequential safeguards and failure behavior                                                                                                                                                  |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Catalog    | Product intake and hierarchy creation; product identity/media update; SKU create/update; product/SKU archive and restore; category and set create/update/archive/restore | Generated identifier collisions remain on the active form; product/SKU/category/set lifecycle changes are confirmed; active relationships and UUID/value constraints are rechecked server-side |
-| Pricing    | SKU price version creation; promotion create/update; promotion activate/deactivate                                                                                       | New prices and promotion activation are confirmed; compare-at price and promotion windows are validated on client and server; pricing approval remains distinct from editing                   |
+| Catalog    | Product intake and hierarchy creation; product identity, reference, physical attributes, media, archive and restore; category and set management | Generated identifier collisions remain on the active form; lifecycle changes are confirmed; active relationships and UUID/value constraints are rechecked server-side |
+| Pricing    | Product price version creation; promotion create/update; promotion activate/deactivate | New prices and promotion activation are confirmed; compare-at price and promotion windows are validated on client and server; pricing approval remains distinct from editing |
 | Storefront | Listing content, limits, availability mode/windows, configuration JSON, publish/unpublish                                                                                | JSON, tags, and date relationships receive field errors; customer-facing configuration and publication are confirmed; publish readiness is transactionally rechecked                           |
 | Supply     | Inventory adjustment; supplier create/update/archive/restore; purchase-order intake                                                                                      | Stock adjustments and supplier commitments are confirmed and audited; open dependants prevent archive; failed submissions preserve counts, costs, and notes                                    |
 | Orders     | Normal order review, unpaid cancellation, payment-exception flagging; preorder review; allocation preview/finalization                                                   | Cancellation requires `CANCEL`; allocation requires the reviewed fingerprint, refund permission, checkbox, and typed `ALLOCATE`; stale previews and provider failures remain reviewable        |
@@ -79,7 +79,7 @@ Sensitive permissions are intentionally separate: `pricing.approve`, `storefront
 
 - Treat browser constraints as operator guidance only. Every control mutation parses and normalizes its `FormData` again in the Server Action before a service-role call.
 - Record identifiers must be UUIDs; money uses integer minor units and an uppercase three-letter currency code; calendar dates use `YYYY-MM-DD`. Datetime-local values entered in the control console are interpreted in Singapore time and stored as UTC instants.
-- Names, codes, notes, URLs, JSON configuration, tags, contact details, and fulfilment addresses have explicit size and shape limits. Optional physical SKU measurements must be positive when present, and compare-at prices must be greater than the selling price.
+- Names, codes, notes, URLs, JSON configuration, tags, contact details, and fulfilment addresses have explicit size and shape limits. Optional physical product measurements must be positive when present, and compare-at prices must be greater than the selling price.
 - Database constraints repeat durable shape rules and protect new or updated rows even when data arrives outside the control UI. Relationship constraints ensure a product's selected set belongs to its selected category.
 - Supply RPCs verify active referenced records and the exact action permission. Purchase-order totals must fit the database integer range, and inventory cannot be reduced below already allocated stock.
 - A delegated access grant is atomically bound to its first authenticated Supabase user. After acceptance, authorization uses that bound Auth identity, the invitation email is immutable, and owner-only permissions are enforced in both the form parser and database function.
@@ -87,27 +87,26 @@ Sensitive permissions are intentionally separate: `pricing.approve`, `storefront
 
 ## Product-to-listing flow
 
-1. **Product** — Select **Create product** from `/control/catalog`; the modal sets identity, category, release, type, language, description, and media.
-2. **Physical SKU** — Select the product record from `/control/catalog`, then add the SKU code, barcode, box/pack configuration, weight, and active state in its modal.
-3. **Pricing** — Select a SKU from `/control/pricing` to open its versioned base and optional compare-at price form. Catalog SKU saves never write money.
-4. **Supply** — Select an inventory record from `/control/supply`, or use **Create purchase order**, to update stock and incoming commitments in a modal.
-5. **Availability and listing** — Select the product from `/control/storefront/listings` to set `available_now`, `preorder`, `coming_soon`, or `unavailable`, plus optional order windows, release date, merchandising, and customer limits.
-6. **Readiness review** — Review product, SKU, current price, supply, availability, and storefront content from the guided product workflow.
-7. **Publish** — An administrator with `storefront.publish` makes the final customer-facing decision.
+1. **Product** — Select **Create product** from `/control/catalog`; the modal sets identity, category, release, type, language, reference, barcode, physical configuration, description, and media.
+2. **Pricing** — Select the same product from `/control/pricing` to open its versioned base and optional compare-at price form.
+3. **Supply** — Select the product inventory record from `/control/supply`, or use **Create purchase order**, to update stock and incoming commitments in a modal.
+4. **Availability and listing** — Select the product from `/control/storefront/listings` to set `available_now`, `preorder`, `coming_soon`, or `unavailable`, plus optional order windows, release date, merchandising, and customer limits.
+5. **Readiness review** — Review the product, current price, supply, availability, and storefront content from the guided workflow.
+6. **Publish** — An administrator with `storefront.publish` makes the final customer-facing decision.
 
-Publication is rejected unless the product is active, an active physical SKU and current price exist, and availability is not `unavailable`. `available_now` also requires inventory above safety stock. New products and listings default to unpublished.
+Publication is rejected unless the product is active, has a physical reference and current price, and availability is not `unavailable`. `available_now` also requires inventory above safety stock. New products and listings default to unpublished.
 
 ## Pricing and promotions
 
-- `sku_prices` is the versioned pricing source. `booster_box_skus.price_cents`, `msrp_cents`, and `currency` are compatibility caches maintained by a database trigger for existing checkout reads.
+- `product_prices` is the versioned pricing source. `products.price_cents`, `compare_at_cents`, and `currency` hold the current checkout values.
 - Saving a new current price closes the previous open price and writes an audit record.
 - Promotion drafts require `pricing.manage`; activating a promotion additionally requires `pricing.approve`.
 - Verify the effective price and eligible promotion in the public product and checkout flows after a change.
 
 ## Supply and preorder allocation
 
-- `/control/supply` presents inventory as a bounded work queue. It searches product names, SKUs,
-  product IDs, and SKU IDs; filters by attention, sellable, or incoming state; sorts records with
+- `/control/supply` presents inventory as a bounded work queue. It searches product names,
+  references, and product IDs; filters by attention, sellable, or incoming state; sorts records with
   allocation gaps and no-sellable-stock exceptions first; and preserves the active view across
   pagination. Each row retains exact on-hand, allocated, unallocated, safety-stock, sellable, and
   incoming quantities plus the last update time. Purchase orders show the supplier as the primary
@@ -117,7 +116,7 @@ Publication is rejected unless the product is active, an active physical SKU and
 - Inventory adjustments require a reason code and optional reviewer note in the selected `/control/supply` inventory modal.
 - **Create purchase order** opens purchase-order intake as a modal and records the order and incoming inventory transactionally.
 - Suppliers with open purchase orders cannot be archived.
-- Preorder allocation begins with the queue list at `/control/orders/allocations`; selecting a SKU opens the reviewed plan and confirmation in a modal. It requires both `preorders.allocate` and `refunds.manage` because partial allocation can create Stripe refunds.
+- Preorder allocation begins with the queue list at `/control/orders/allocations`; selecting a product opens the reviewed plan and confirmation in a modal. It requires both `preorders.allocate` and `refunds.manage` because partial allocation can create Stripe refunds.
 - Allocation remains FIFO, fingerprints the reviewed queue, rejects stale confirmations, and is idempotent for refunds.
 
 ## Orders, finance, and fulfilment

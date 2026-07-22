@@ -144,7 +144,7 @@ export function checkoutOrderRpcParams(
   return {
     p_auth_user_id: authUserId,
     p_items: quote.lines.map((line) => ({
-      sku_id: line.skuId,
+      product_id: line.productId,
       quantity: line.quantity,
     })),
     p_channel: "b2c",

@@ -6,7 +6,7 @@ describe("admin supplier purchase orders", () => {
   it("builds service-role intake payloads from required admin form fields", () => {
     const form = new FormData();
     form.set("supplierId", "22222222-2222-4222-8222-222222222222");
-    form.set("skuId", "11111111-1111-4111-8111-111111111111");
+    form.set("productId", "11111111-1111-4111-8111-111111111111");
     form.set("quantity", "12");
     form.set("unitCostCents", "15000");
     form.set("currency", "sgd");
@@ -15,7 +15,7 @@ describe("admin supplier purchase orders", () => {
 
     expect(adminPurchaseOrderFromForm(form)).toEqual({
       supplierId: "22222222-2222-4222-8222-222222222222",
-      skuId: "11111111-1111-4111-8111-111111111111",
+      productId: "11111111-1111-4111-8111-111111111111",
       quantity: 12,
       unitCostCents: 15000,
       currency: "SGD",
@@ -27,7 +27,7 @@ describe("admin supplier purchase orders", () => {
   it("rejects missing quantity and malformed currency before calling Supabase", () => {
     const form = new FormData();
     form.set("supplierId", "22222222-2222-4222-8222-222222222222");
-    form.set("skuId", "11111111-1111-4111-8111-111111111111");
+    form.set("productId", "11111111-1111-4111-8111-111111111111");
     form.set("quantity", "0");
     form.set("unitCostCents", "15000");
     form.set("currency", "SG");
@@ -43,7 +43,7 @@ describe("admin supplier purchase orders", () => {
   it("keeps supplier PO intake service-role-only and stock-affecting", async () => {
     const migration = await readFile(
       new URL(
-        "../supabase/migrations/20260705012808_supplier_purchase_order_intake.sql",
+        "../supabase/migrations/20260722100000_remove_sku_model.sql",
         import.meta.url
       ),
       "utf8"
@@ -53,7 +53,7 @@ describe("admin supplier purchase orders", () => {
     expect(migration).toContain("status");
     expect(migration).toContain("'confirmed'");
     expect(migration).toContain("insert into public.purchase_order_items");
-    expect(migration).toContain("on conflict (sku_id, location) do update");
+    expect(migration).toContain("on conflict (product_id, location) do update");
     expect(migration).toContain("set incoming = inventory_row.incoming + excluded.incoming");
     expect(migration).toContain("ADMIN_SUPPLIER_PO_INTAKE");
     expect(migration).toContain("from public, anon, authenticated");

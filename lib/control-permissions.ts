@@ -23,19 +23,19 @@ export const CONTROL_PERMISSION_DEFINITIONS = [
     key: "catalog.view",
     domain: "catalog",
     label: "View catalog",
-    description: "Review products, SKUs, categories, sets, and product types.",
+    description: "Review products, products, categories, sets, and product types.",
   },
   {
     key: "catalog.manage",
     domain: "catalog",
     label: "Manage catalog",
-    description: "Create and edit product identity, media, and physical SKU data.",
+    description: "Create and edit product identity, media, and physical product data.",
   },
   {
     key: "pricing.view",
     domain: "pricing",
     label: "View pricing",
-    description: "Review current and historical SKU prices.",
+    description: "Review current and historical product prices.",
   },
   {
     key: "pricing.manage",

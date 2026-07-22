@@ -23,7 +23,7 @@ Browser ──▶ Vercel (Next.js 16, App Router)
 - **Database**: Supabase Postgres. SQL migrations in `supabase/migrations/` are the schema source of truth.
 - **Auth**: Supabase Auth with Google OAuth. `/auth/sign-in` starts the flow, `/auth/callback` exchanges the PKCE code, and middleware refreshes Supabase SSR cookies.
 - **Payments**: HitPay PaymentIntents support retail orders, preorder deposits, and preorder balances. Server code derives totals, verifies stock, and records payment state before trusted webhook transitions complete the workflow.
-- **Catalog/storefront**: products and SKUs are the sellable source of truth. `listing_items` and `storefront_configurations` add merchandising state, visibility, customer limits, featured order, and concise catalog copy. Deals are time-bounded SKU offers presented inside Catalog.
+- **Catalog/storefront**: products and products are the sellable source of truth. `listing_items` and `storefront_configurations` add merchandising state, visibility, customer limits, featured order, and concise catalog copy. Deals are time-bounded product offers presented inside Catalog.
 - **Search**: Postgres full-text search with a GIN index on products. Typesense or Algolia remains an upgrade path if the catalog outgrows Postgres relevance.
 - **Notifications**: a provider-agnostic interface supports order confirmations and configured drop-alert channels.
 - **Product media**: the Supabase Storage `product-images` bucket is publicly readable; writes remain service-role-only behind the admin gate.

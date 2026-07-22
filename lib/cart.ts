@@ -1,13 +1,13 @@
 import { cookies } from "next/headers";
 
-import { getSkuQuote } from "@/lib/catalog";
+import { getProductQuote } from "@/lib/catalog";
 
 const CART_COOKIE = "marketplace_cart";
 const MAX_LINES = 10;
 const MAX_QUANTITY_PER_LINE = 24;
 
 export interface CartItem {
-  skuId: string;
+  productId: string;
   quantity: number;
 }
 
@@ -43,47 +43,47 @@ export async function clearCart() {
 }
 
 export async function getCartQuote() {
-  return getSkuQuote(await readCart());
+  return getProductQuote(await readCart());
 }
 
-export function addCartItem(items: CartItem[], skuId: string, quantity: number): CartItem[] {
+export function addCartItem(items: CartItem[], productId: string, quantity: number): CartItem[] {
   const current = normalizeCart(items);
-  const existing = current.find((item) => item.skuId === skuId);
+  const existing = current.find((item) => item.productId === productId);
   if (existing) {
     existing.quantity = clampQuantity(existing.quantity + quantity);
   } else {
-    current.push({ skuId, quantity: clampQuantity(quantity) });
+    current.push({ productId, quantity: clampQuantity(quantity) });
   }
   return normalizeCart(current);
 }
 
-export function updateCartItem(items: CartItem[], skuId: string, quantity: number): CartItem[] {
+export function updateCartItem(items: CartItem[], productId: string, quantity: number): CartItem[] {
   return normalizeCart(
     items
-      .map((item) => (item.skuId === skuId ? { ...item, quantity: clampQuantity(quantity) } : item))
+      .map((item) => (item.productId === productId ? { ...item, quantity: clampQuantity(quantity) } : item))
       .filter((item) => item.quantity > 0)
   );
 }
 
-export function removeCartItem(items: CartItem[], skuId: string): CartItem[] {
-  return normalizeCart(items.filter((item) => item.skuId !== skuId));
+export function removeCartItem(items: CartItem[], productId: string): CartItem[] {
+  return normalizeCart(items.filter((item) => item.productId !== productId));
 }
 
 function normalizeCart(items: unknown[]): CartItem[] {
-  const bySku = new Map<string, number>();
+  const byProduct = new Map<string, number>();
   for (const item of items) {
     if (!item || typeof item !== "object") continue;
-    const skuId = "skuId" in item ? String(item.skuId) : "";
+    const productId = "productId" in item ? String(item.productId) : "";
     const quantity = "quantity" in item ? Number(item.quantity) : 0;
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(skuId)) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(productId)) {
       continue;
     }
-    bySku.set(skuId, clampQuantity((bySku.get(skuId) ?? 0) + quantity));
+    byProduct.set(productId, clampQuantity((byProduct.get(productId) ?? 0) + quantity));
   }
 
-  return [...bySku.entries()]
+  return [...byProduct.entries()]
     .slice(0, MAX_LINES)
-    .map(([skuId, quantity]) => ({ skuId, quantity }))
+    .map(([productId, quantity]) => ({ productId, quantity }))
     .filter((item) => item.quantity > 0);
 }
 

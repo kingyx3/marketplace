@@ -117,7 +117,7 @@ export default async function OrdersPage({
                       {(order.order_items ?? []).slice(0, 3).map((line) => (
                         <div
                           className="flex justify-between gap-4"
-                          key={line.id ?? `${order.id}-${line.sku_id}`}
+                          key={line.id ?? `${order.id}-${line.product_id}`}
                         >
                           <span className="text-sm text-zinc-700">{productNameForItem(line)}</span>
                           <span className="text-sm font-semibold text-zinc-950">

@@ -6,66 +6,66 @@ import {
   AdminSelectField,
   AdminTextField,
 } from "@/app/(shop)/control/_components/admin-form-fields";
-import type { DealSkuOption } from "@/app/(shop)/control/_components/deal-form";
+import type { DealProductOption } from "@/app/(shop)/control/_components/deal-form";
 import { formatMoney } from "@/lib/money";
 
 export function DealPricingFields({
   dealPriceCents,
-  selectedSkuId,
-  skus,
+  selectedProductId,
+  products,
 }: {
   dealPriceCents?: number;
-  selectedSkuId?: string;
-  skus: DealSkuOption[];
+  selectedProductId?: string;
+  products: DealProductOption[];
 }) {
-  const [skuId, setSkuId] = useState(selectedSkuId ?? "");
-  const selectedSku = useMemo(() => skus.find((sku) => sku.id === skuId), [skuId, skus]);
-  const originalPriceCents = selectedSku?.priceCents ?? 0;
-  const currency = selectedSku?.currency ?? "SGD";
+  const [productId, setProductId] = useState(selectedProductId ?? "");
+  const selectedProduct = useMemo(() => products.find((product) => product.id === productId), [productId, products]);
+  const originalPriceCents = selectedProduct?.priceCents ?? 0;
+  const currency = selectedProduct?.currency ?? "SGD";
   const initialDealPrice =
     dealPriceCents && dealPriceCents > 0 ? (dealPriceCents / 100).toFixed(2) : "";
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
       <AdminSelectField
-        example={skus[0] ? `${skus[0].productName} — ${skus[0].sku}` : "Select a SKU"}
-        hint="Archived products and SKUs remain visible only for existing deals."
-        label="SKU"
-        name="skuId"
-        onValueChange={setSkuId}
-        optionalLabel="Select a SKU"
-        options={skus.map((sku) => ({
-          value: sku.id,
-          label: `${sku.productName} — ${sku.sku} · ${formatMoney(sku.priceCents, sku.currency)}${
-            sku.active && sku.productActive ? "" : " (archived)"
+        example={products[0] ? `${products[0].productName} — ${products[0].referenceCode}` : "Select a product"}
+        hint="Archived products remain visible only for existing deals."
+        label="Product"
+        name="productId"
+        onValueChange={setProductId}
+        optionalLabel="Select a product"
+        options={products.map((product) => ({
+          value: product.id,
+          label: `${product.productName} — ${product.referenceCode} · ${formatMoney(product.priceCents, product.currency)}${
+            product.active && product.productActive ? "" : " (archived)"
           }`,
-          disabled: (!sku.active || !sku.productActive) && sku.id !== selectedSkuId,
+          disabled: (!product.active || !product.productActive) && product.id !== selectedProductId,
         }))}
         required
-        value={skuId}
+        value={productId}
       />
 
       <AdminTextField
         example="S$199.00"
-        hint="Read from the SKU's current selling price and cannot be edited here."
+        hint="Read from the product's current selling price and cannot be edited here."
         label="Original price"
         name="originalPrice"
         readOnly
-        value={selectedSku ? formatMoney(originalPriceCents, currency) : ""}
+        value={selectedProduct ? formatMoney(originalPriceCents, currency) : ""}
       />
       <input name="originalPriceCents" type="hidden" value={originalPriceCents || ""} />
 
       <AdminTextField
         defaultValue={initialDealPrice}
-        disabled={!selectedSku || originalPriceCents <= 1}
+        disabled={!selectedProduct || originalPriceCents <= 1}
         example="184.00"
         hint={
-          selectedSku
+          selectedProduct
             ? `Enter the exact ${currency} deal price. It must be lower than ${formatMoney(
                 originalPriceCents,
                 currency
               )}.`
-            : "Select a priced SKU before entering a deal price."
+            : "Select a priced product before entering a deal price."
         }
         inputMode="decimal"
         label={`Deal price (${currency})`}

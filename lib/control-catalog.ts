@@ -6,21 +6,6 @@ import {
 import { createSecretClient } from "@/lib/supabase";
 import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
-export interface ControlCatalogSku {
-  skuId: string;
-  sku: string;
-  skuActive: boolean;
-  barcode: string | null;
-  packsPerBox: number | null;
-  cardsPerPack: number | null;
-  msrpCents: number | null;
-  priceCents: number;
-  currency: string;
-  weightGrams: number | null;
-  productId: string;
-  productName: string;
-}
-
 export interface ControlProductRow {
   id: string;
   categoryId: string;
@@ -36,7 +21,14 @@ export interface ControlProductRow {
   imageUrl: string | null;
   active: boolean;
   published: boolean;
-  skus: ControlCatalogSku[];
+  referenceCode: string | null;
+  barcode: string | null;
+  packsPerBox: number | null;
+  cardsPerPack: number | null;
+  compareAtCents: number | null;
+  priceCents: number;
+  currency: string;
+  weightGrams: number | null;
 }
 
 export interface ControlCategoryOption extends CatalogCategoryOption {
@@ -62,23 +54,17 @@ interface ProductQueryRow {
   language: string;
   image_url: string | null;
   active: boolean;
+  reference_code: string | null;
+  barcode: string | null;
+  packs_per_box: number | null;
+  cards_per_pack: number | null;
+  compare_at_cents: number | null;
+  price_cents: number;
+  currency: string;
+  weight_grams: number | null;
   listing_items: SupabaseToOne<{ published: boolean }>;
   tcg_categories: { name: string } | null;
   sets_releases: { name: string; code: string } | null;
-  product_variants: Array<{
-    booster_box_skus: Array<{
-      id: string;
-      sku: string;
-      active: boolean;
-      barcode: string | null;
-      packs_per_box: number | null;
-      cards_per_pack: number | null;
-      msrp_cents: number | null;
-      price_cents: number;
-      currency: string;
-      weight_grams: number | null;
-    }>;
-  }>;
 }
 
 const CONTROL_PRODUCT_SELECT = `
@@ -92,23 +78,17 @@ const CONTROL_PRODUCT_SELECT = `
   language,
   image_url,
   active,
+  reference_code,
+  barcode,
+  packs_per_box,
+  cards_per_pack,
+  compare_at_cents,
+  price_cents,
+  currency,
+  weight_grams,
   listing_items(published),
   tcg_categories(name),
-  sets_releases!products_set_belongs_to_category(name, code),
-  product_variants(
-    booster_box_skus(
-      id,
-      sku,
-      active,
-      barcode,
-      packs_per_box,
-      cards_per_pack,
-      msrp_cents,
-      price_cents,
-      currency,
-      weight_grams
-    )
-  )
+  sets_releases!products_set_belongs_to_category(name, code)
 `;
 
 export async function fetchControlProducts(
@@ -197,23 +177,6 @@ export async function fetchControlProductTypes(
 
 function mapProduct(row: ProductQueryRow): ControlProductRow {
   const listing = toOne(row.listing_items);
-  const skus = (row.product_variants ?? []).flatMap((variant) =>
-    (variant.booster_box_skus ?? []).map((sku) => ({
-      skuId: sku.id,
-      sku: sku.sku,
-      skuActive: sku.active,
-      barcode: sku.barcode,
-      packsPerBox: sku.packs_per_box,
-      cardsPerPack: sku.cards_per_pack,
-      msrpCents: sku.msrp_cents,
-      priceCents: sku.price_cents,
-      currency: sku.currency,
-      weightGrams: sku.weight_grams,
-      productId: row.id,
-      productName: row.name,
-    }))
-  );
-
   return {
     id: row.id,
     categoryId: row.category_id,
@@ -229,6 +192,13 @@ function mapProduct(row: ProductQueryRow): ControlProductRow {
     imageUrl: row.image_url,
     active: row.active,
     published: Boolean(listing?.published),
-    skus,
+    referenceCode: row.reference_code,
+    barcode: row.barcode,
+    packsPerBox: row.packs_per_box,
+    cardsPerPack: row.cards_per_pack,
+    compareAtCents: row.compare_at_cents,
+    priceCents: row.price_cents,
+    currency: row.currency,
+    weightGrams: row.weight_grams,
   };
 }

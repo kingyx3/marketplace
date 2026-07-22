@@ -17,7 +17,7 @@ import { getStorefrontDeals } from "@/lib/deals";
 import { hasSupabasePublicEnv } from "@/lib/env";
 import { previewFixturesEnabled } from "@/lib/preview-fixtures";
 import { getStorefrontAvailability } from "@/lib/storefront-availability";
-import { indexBestDealsBySku } from "@/lib/storefront-deals";
+import { indexBestDealsByProduct } from "@/lib/storefront-deals";
 import { createPublishableClient } from "@/lib/supabase";
 import { toOne, type SupabaseToOne } from "@/lib/supabase-relations";
 
@@ -42,12 +42,18 @@ interface ListingItemRow {
 
 interface CatalogRow {
   id: string;
+  reference_code: string | null;
   name: string;
   slug: string;
   product_type: string;
   description: string | null;
   language: string;
   image_url: string | null;
+  price_cents: number;
+  compare_at_cents: number | null;
+  currency: string;
+  packs_per_box: number | null;
+  cards_per_pack: number | null;
   listing_items: SupabaseToOne<ListingItemRow>;
   sets_releases: {
     name: string;
@@ -59,29 +65,12 @@ interface CatalogRow {
     name: string;
     publisher: string | null;
   } | null;
-  product_variants:
-    | {
-        booster_box_skus:
-          | {
-              sku: string;
-              active: boolean;
-              packs_per_box: number | null;
-              cards_per_pack: number | null;
-              msrp_cents: number | null;
-              price_cents: number;
-              currency: string;
-              inventory:
-                | {
-                    on_hand: number;
-                    incoming: number;
-                    allocated: number;
-                    safety_stock: number;
-                  }[]
-                | null;
-            }[]
-          | null;
-      }[]
-    | null;
+  product_inventory: Array<{
+    on_hand: number;
+    incoming: number;
+    allocated: number;
+    safety_stock: number;
+  }> | null;
 }
 
 type CatalogSource = "live" | "preview" | "unavailable";
@@ -99,8 +88,7 @@ function isSetStatus(value: string | undefined): value is SetStatus {
 function normalizeRow(row: CatalogRow): MarketplaceProduct {
   const fixture = previewFixturesEnabled() ? getProduct(row.slug) : undefined;
   const listing = listingForRow(row);
-  const sku = row.product_variants?.[0]?.booster_box_skus?.find((candidate) => candidate.active);
-  const inventory = sku?.inventory ?? [];
+  const inventory = row.product_inventory ?? [];
   const hasLiveInventory = inventory.length > 0;
 
   return {
@@ -115,13 +103,13 @@ function normalizeRow(row: CatalogRow): MarketplaceProduct {
       ? row.sets_releases.status
       : (fixture?.setStatus ?? "announced"),
     productType: row.product_type.replaceAll("_", " "),
-    sku: sku?.sku ?? fixture?.sku ?? row.id,
+    referenceCode: row.reference_code ?? fixture?.referenceCode ?? row.id,
     language: row.language ?? fixture?.language ?? "EN",
-    priceCents: sku?.price_cents ?? fixture?.priceCents ?? 0,
-    msrpCents: sku?.msrp_cents ?? fixture?.msrpCents ?? null,
-    currency: sku?.currency ?? fixture?.currency ?? "SGD",
-    packsPerBox: sku?.packs_per_box ?? fixture?.packsPerBox ?? 0,
-    cardsPerPack: sku?.cards_per_pack ?? fixture?.cardsPerPack ?? 0,
+    priceCents: row.price_cents ?? fixture?.priceCents ?? 0,
+    msrpCents: row.compare_at_cents ?? fixture?.msrpCents ?? null,
+    currency: row.currency ?? fixture?.currency ?? "SGD",
+    packsPerBox: row.packs_per_box ?? fixture?.packsPerBox ?? 0,
+    cardsPerPack: row.cards_per_pack ?? fixture?.cardsPerPack ?? 0,
     onHand: hasLiveInventory
       ? inventory.reduce((sum, item) => sum + item.on_hand, 0)
       : (fixture?.onHand ?? 0),
@@ -159,12 +147,18 @@ async function fetchProducts(): Promise<{
     .select(
       `
         id,
+        reference_code,
         name,
         slug,
         product_type,
         description,
         language,
         image_url,
+        price_cents,
+        compare_at_cents,
+        currency,
+        packs_per_box,
+        cards_per_pack,
         listing_items!inner(
           title_override,
           badge_label,
@@ -178,18 +172,7 @@ async function fetchProducts(): Promise<{
         ),
         sets_releases!products_set_belongs_to_category(name, code, status, release_date),
         tcg_categories(name, publisher),
-        product_variants(
-          booster_box_skus(
-            sku,
-            active,
-            packs_per_box,
-            cards_per_pack,
-            msrp_cents,
-            price_cents,
-            currency,
-            inventory(on_hand, incoming, allocated, safety_stock)
-          )
-        )
+        product_inventory(on_hand, incoming, allocated, safety_stock)
       `
     )
     .eq("active", true)
@@ -217,7 +200,7 @@ export default async function ProductsPage() {
     fetchProducts(),
     getStorefrontDeals({ signedIn, limit: 100 }),
   ]);
-  const dealsBySku = indexBestDealsBySku(deals);
+  const dealsByProduct = indexBestDealsByProduct(deals);
 
   return (
     <div className="space-y-8">
@@ -243,7 +226,7 @@ export default async function ProductsPage() {
       ) : (
         <CatalogBrowser products={products.map(createCatalogFilterProduct)}>
           {products.map((product) => {
-            const deal = dealsBySku.get(product.sku);
+            const deal = dealsByProduct.get(product.referenceCode);
             const availability = getStorefrontAvailability(product);
             return deal ? (
               <DealCard availability={availability} key={product.slug} deal={deal} />

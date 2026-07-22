@@ -101,7 +101,7 @@ describe("storefront availability", () => {
     expect(cartPage).toContain("hasAvailabilityIssue");
     expect(cartPage).toContain("Checkout is disabled until unavailable quantities are corrected.");
     expect(cartAction).toContain("requestedQuantityAvailable");
-    expect(cartAction).toContain("getSkuQuote(nextCart)");
+    expect(cartAction).toContain("getProductQuote(nextCart)");
     expect(catalog).toContain("inventory.available - inventory.safety_stock");
     expect(catalog).not.toContain("inventory.available + inventory.incoming");
     expect(reservations).toContain("now() + interval '15 minutes'");

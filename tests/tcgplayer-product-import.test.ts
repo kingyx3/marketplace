@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { normalizeTcgplayerCatalog } from "@/lib/tcgplayer-catalog";
-import { buildTcgplayerSkuImportDrafts } from "@/lib/tcgplayer-sku-import";
+import { buildTcgplayerProductImportDrafts } from "@/lib/tcgplayer-product-import";
 
-describe("TCGplayer SKU import", () => {
-  it("fills every supported local SKU field and leaves unavailable values blank", () => {
+describe("TCGplayer product import", () => {
+  it("creates one complete local product draft per provider variant", () => {
     const suggestion = normalizeTcgplayerCatalog({
       productId: 242811,
       details: {
@@ -38,10 +38,10 @@ describe("TCGplayer SKU import", () => {
           },
         ],
       },
-      skus: {
-        skus: [
+      variants: {
+        variants: [
           {
-            skuId: 987,
+            providerVariantId: 987,
             productConditionId: 12,
             conditionId: 1,
             languageId: 1,
@@ -52,7 +52,7 @@ describe("TCGplayer SKU import", () => {
             barcode: "998877665544",
           },
           {
-            skuId: 988,
+            providerVariantId: 988,
             conditionName: "Unopened",
             languageName: "Japanese",
             printingName: "Normal",
@@ -66,21 +66,22 @@ describe("TCGplayer SKU import", () => {
       cardsPerPack: 10,
       weightGrams: 720,
     });
-    expect(suggestion.skus[0]).toMatchObject({
+    expect(suggestion.variants[0]).toMatchObject({
       barcode: "998877665544",
       packsPerBox: null,
       cardsPerPack: null,
       weightGrams: null,
     });
 
-    expect(buildTcgplayerSkuImportDrafts(suggestion)).toEqual([
+    expect(buildTcgplayerProductImportDrafts(suggestion)).toEqual([
       expect.objectContaining({
-        sourceSkuId: 987,
+        sourceVariantId: 987,
         sourceProductConditionId: 12,
         sourceConditionId: 1,
         sourceLanguageId: 1,
-        sourceVariantId: 11,
-        sku: "TCG-242811-987",
+        sourceProviderVariantId: 11,
+        referenceCode: "TCG-242811-987",
+        name: "Example Booster Box — English · Unopened · Normal",
         barcode: "998877665544",
         packsPerBox: 36,
         cardsPerPack: 10,
@@ -95,8 +96,8 @@ describe("TCGplayer SKU import", () => {
         directLowPriceUsd: 121,
       }),
       expect.objectContaining({
-        sourceSkuId: 988,
-        sku: "TCG-242811-988",
+        sourceVariantId: 988,
+        referenceCode: "TCG-242811-988",
         barcode: null,
         packsPerBox: 36,
         cardsPerPack: 10,
@@ -105,27 +106,27 @@ describe("TCGplayer SKU import", () => {
     ]);
   });
 
-  it("uses the product UPC only when exactly one SKU was returned", () => {
+  it("uses the product UPC only when exactly one variant was returned", () => {
     const suggestion = normalizeTcgplayerCatalog({
       productId: 77,
       details: {
-        productName: "Single SKU product",
+        productName: "Single variant product",
         categoryName: "Magic: The Gathering",
         groupName: "Example Set",
         productTypeName: "Sealed Products",
         upc: "111122223333",
       },
-      skus: {
-        skus: [{ skuId: 88, condition: "Unopened", language: "English" }],
+      variants: {
+        variants: [{ providerVariantId: 88, condition: "Unopened", language: "English" }],
       },
     });
 
-    expect(buildTcgplayerSkuImportDrafts(suggestion)[0]?.barcode).toBe(
+    expect(buildTcgplayerProductImportDrafts(suggestion)[0]?.barcode).toBe(
       "111122223333",
     );
   });
 
-  it("creates the product and SKU records through one permissioned database transaction", async () => {
+  it("creates products and a review receipt through one permissioned transaction", async () => {
     const [component, helpers, action, migration] = await Promise.all([
       readFile(
         new URL(
@@ -147,24 +148,25 @@ describe("TCGplayer SKU import", () => {
       ),
       readFile(
         new URL(
-          "../supabase/migrations/20260721190000_import_tcgplayer_skus.sql",
+          "../supabase/migrations/20260722090000_product_only_tcgplayer_import.sql",
           import.meta.url,
         ),
         "utf8",
       ),
     ]);
 
-    expect(component).toContain('name="tcgplayerSkus"');
-    expect(component).toContain("ImportedSkuFields");
-    expect(helpers).toContain("buildTcgplayerSkuImportDrafts");
+    expect(component).toContain('name="tcgplayerProducts"');
+    expect(component).toContain("ImportedProductFields");
+    expect(helpers).toContain("buildTcgplayerProductImportDrafts");
     expect(action).toContain("requireControlPermission(");
     expect(action).toContain('"catalog.manage"');
-    expect(action).toContain('"admin_create_tcgplayer_catalog_product"');
+    expect(action).toContain('"admin_import_tcgplayer_products"');
     expect(migration).toContain(
       "from public.admin_create_catalog_product_hierarchy(",
     );
-    expect(migration).toContain("TCGPLAYER_SKU_IMPORT");
-    expect(migration).toContain("jsonb_array_length(v_skus) > 50");
+    expect(migration).toContain("TCGPLAYER_PRODUCT_IMPORT");
+    expect(migration).toContain("jsonb_array_length(p_products) not between 1 and 50");
+    expect(migration).toContain("catalog_import_products");
     expect(migration).not.toContain("admin_set_sku_price");
   });
 });

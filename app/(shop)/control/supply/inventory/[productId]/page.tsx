@@ -23,15 +23,15 @@ export const dynamic = "force-dynamic";
 export default async function InventoryRecordPage({
   params,
 }: {
-  params: Promise<{ skuId: string }>;
+  params: Promise<{ productId: string }>;
 }) {
-  const { skuId } = await params;
+  const { productId } = await params;
   const { staff } = await requireControlPermission(
     "supply.view",
-    `/control/supply/inventory/${skuId}`
+    `/control/supply/inventory/${productId}`
   );
   const row = (await fetchControlInventory(createSecretClient())).find(
-    (item) => item.skuId === skuId
+    (item) => item.productId === productId
   );
   if (!row) notFound();
   const canAdjust = hasControlPermission(staff, "inventory.adjust");
@@ -47,7 +47,7 @@ export default async function InventoryRecordPage({
             <ControlBackLink href="/control/supply">Back to supply</ControlBackLink>
           </>
         }
-        description={`${row.sku} · Physical stock only; pricing and publication remain unchanged.`}
+        description={`${row.referenceCode} · Physical stock only; pricing and publication remain unchanged.`}
         eyebrow="Control · Inventory"
         title={row.productName}
       />
@@ -72,7 +72,7 @@ export default async function InventoryRecordPage({
             errorMessage="The stock adjustment could not be applied. Your counts and reason have been preserved."
             successMessage="Inventory adjusted and storefront availability refreshed."
           >
-            <input name="skuId" type="hidden" value={row.skuId} />
+            <input name="productId" type="hidden" value={row.productId} />
             <AdminNumberField
               defaultValue={row.onHand}
               example="24"

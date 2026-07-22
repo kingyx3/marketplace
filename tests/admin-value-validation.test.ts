@@ -4,13 +4,13 @@ import { describe, expect, it } from "vitest";
 import { adminDeliveryArrangementFromForm } from "@/lib/admin-delivery-forms";
 import { isExactIsoDate, requiredSingaporeDateTime, requiredUuid } from "@/lib/admin-form-values";
 import { adminListingItemFromForm } from "@/lib/admin-listing-forms";
-import { adminSkuPriceFromForm } from "@/lib/admin-pricing-forms";
+import { adminProductPriceFromForm } from "@/lib/admin-pricing-forms";
 import { adminPurchaseOrderFromForm } from "@/lib/admin-purchase-order-forms";
 import { controlAccessGrantFromForm } from "@/lib/control-forms";
 
 const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";
 const SUPPLIER_ID = "22222222-2222-4222-8222-222222222222";
-const SKU_ID = "33333333-3333-4333-8333-333333333333";
+const product_ID = "33333333-3333-4333-8333-333333333333";
 
 describe("administrator value validation", () => {
   it("rejects impossible calendar dates and normalizes Singapore local time", () => {
@@ -58,7 +58,7 @@ describe("administrator value validation", () => {
   it("rejects purchase orders that overflow the database total", () => {
     const form = new FormData();
     form.set("supplierId", SUPPLIER_ID);
-    form.set("skuId", SKU_ID);
+    form.set("productId", product_ID);
     form.set("quantity", "2");
     form.set("unitCostCents", "1073741824");
     form.set("currency", "SGD");
@@ -71,7 +71,7 @@ describe("administrator value validation", () => {
   it("rejects alternate numeric notation for integer database fields", () => {
     const form = new FormData();
     form.set("supplierId", SUPPLIER_ID);
-    form.set("skuId", SKU_ID);
+    form.set("productId", product_ID);
     form.set("quantity", "1e2");
     form.set("unitCostCents", "100");
     form.set("currency", "SGD");
@@ -81,12 +81,12 @@ describe("administrator value validation", () => {
 
   it("requires a real comparison discount", () => {
     const form = new FormData();
-    form.set("skuId", SKU_ID);
+    form.set("productId", product_ID);
     form.set("currency", "SGD");
     form.set("priceCents", "19900");
     form.set("compareAtCents", "19900");
 
-    expect(() => adminSkuPriceFromForm(form)).toThrow(
+    expect(() => adminProductPriceFromForm(form)).toThrow(
       "Comparison price must be above the selling price"
     );
   });

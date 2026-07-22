@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireControlPermission } from "@/lib/control-access";
 import { createHitPayClient } from "@/lib/hitpay";
-import { executePreorderAllocationForSku } from "@/lib/preorders";
+import { executePreorderAllocationForProduct } from "@/lib/preorders";
 import { createSecretClient } from "@/lib/supabase";
 
 export async function confirmPreorderAllocation(formData: FormData): Promise<void> {
@@ -14,23 +14,23 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
     "/control/orders/allocations"
   );
   await requireControlPermission("refunds.manage", "/control/orders/allocations");
-  const skuId = String(formData.get("skuId") ?? "").trim();
+  const productId = String(formData.get("productId") ?? "").trim();
   const fingerprint = String(formData.get("fingerprint") ?? "").trim();
   const confirmed = String(formData.get("confirm") ?? "") === "yes";
 
   if (!confirmed) {
     redirect(
-      `/control/orders/allocations/${encodeURIComponent(skuId)}?error=confirmation-required`
+      `/control/orders/allocations/${encodeURIComponent(productId)}?error=confirmation-required`
     );
   }
 
   let summary: string;
   try {
-    const result = await executePreorderAllocationForSku(
+    const result = await executePreorderAllocationForProduct(
       createSecretClient(),
       createHitPayClient(),
       {
-        skuId,
+        productId,
         fingerprint,
         actor: `staff:${user.id}`,
       }
@@ -43,7 +43,7 @@ export async function confirmPreorderAllocation(formData: FormData): Promise<voi
     summary = `${result.finalized}-${result.refundsCreated}-${result.refundCents}`;
   } catch (error) {
     const code = allocationErrorCode(error);
-    redirect(`/control/orders/allocations/${encodeURIComponent(skuId)}?error=${code}`);
+    redirect(`/control/orders/allocations/${encodeURIComponent(productId)}?error=${code}`);
   }
 
   redirect(`/control/orders/allocations?success=${encodeURIComponent(summary)}`);

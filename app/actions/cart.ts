@@ -4,18 +4,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { addCartItem, readCart, removeCartItem, updateCartItem, writeCart } from "@/lib/cart";
-import { getSkuQuote } from "@/lib/catalog";
+import { getProductQuote } from "@/lib/catalog";
 
 export async function addToCart(formData: FormData) {
-  const skuId = String(formData.get("skuId") ?? "");
+  const productId = String(formData.get("productId") ?? "");
   const quantity = quantityFrom(formData);
   const returnPath = safeReturnPath(String(formData.get("returnPath") ?? "/products"));
-  const nextCart = addCartItem(await readCart(), skuId, quantity);
+  const nextCart = addCartItem(await readCart(), productId, quantity);
 
   let requestedQuantityAvailable = false;
   try {
-    const quote = await getSkuQuote(nextCart);
-    const line = quote.lines.find((item) => item.skuId === skuId);
+    const quote = await getProductQuote(nextCart);
+    const line = quote.lines.find((item) => item.productId === productId);
     requestedQuantityAvailable = Boolean(line && line.available >= line.quantity);
   } catch {
     requestedQuantityAvailable = false;
@@ -31,41 +31,41 @@ export async function addToCart(formData: FormData) {
 }
 
 export async function buyNow(formData: FormData) {
-  const skuId = String(formData.get("skuId") ?? "");
+  const productId = String(formData.get("productId") ?? "");
   const quantity = quantityFrom(formData);
   const returnPath = safeReturnPath(String(formData.get("returnPath") ?? "/products"));
-  const directItems = [{ skuId, quantity }];
+  const directItems = [{ productId, quantity }];
 
-  if (!(await requestedQuantityIsAvailable(directItems, skuId))) {
+  if (!(await requestedQuantityIsAvailable(directItems, productId))) {
     redirect(withCartError(returnPath));
   }
 
-  const query = new URLSearchParams({ sku: skuId, quantity: String(quantity) });
+  const query = new URLSearchParams({ product: productId, quantity: String(quantity) });
   redirect(`/buy-now?${query.toString()}#checkout`);
 }
 
 export async function updateCartQuantity(formData: FormData) {
-  const skuId = String(formData.get("skuId") ?? "");
+  const productId = String(formData.get("productId") ?? "");
   const quantity = Number(formData.get("quantity") ?? 0);
 
-  await writeCart(updateCartItem(await readCart(), skuId, quantity));
+  await writeCart(updateCartItem(await readCart(), productId, quantity));
   revalidatePath("/cart");
 }
 
 export async function removeFromCart(formData: FormData) {
-  const skuId = String(formData.get("skuId") ?? "");
+  const productId = String(formData.get("productId") ?? "");
 
-  await writeCart(removeCartItem(await readCart(), skuId));
+  await writeCart(removeCartItem(await readCart(), productId));
   revalidatePath("/cart");
 }
 
 async function requestedQuantityIsAvailable(
-  items: Array<{ skuId: string; quantity: number }>,
-  skuId: string
+  items: Array<{ productId: string; quantity: number }>,
+  productId: string
 ): Promise<boolean> {
   try {
-    const quote = await getSkuQuote(items);
-    const line = quote.lines.find((item) => item.skuId === skuId);
+    const quote = await getProductQuote(items);
+    const line = quote.lines.find((item) => item.productId === productId);
     return Boolean(line && line.available >= line.quantity);
   } catch {
     return false;

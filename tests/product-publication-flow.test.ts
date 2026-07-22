@@ -24,7 +24,7 @@ describe("product publication flow", () => {
         readFile(new URL("../app/actions/admin.ts", import.meta.url), "utf8"),
         readFile(
           new URL(
-            "../supabase/migrations/20260720100000_admin_domain_permissions_and_pricing.sql",
+            "../supabase/migrations/20260722100000_remove_sku_model.sql",
             import.meta.url
           ),
           "utf8"
@@ -39,11 +39,11 @@ describe("product publication flow", () => {
     expect(listingAction).toContain('rpc("admin_upsert_storefront_listing"');
     expect(listingDetail).toContain('name="published"');
     expect(listingAction).toContain('rpc("admin_set_listing_publication"');
-    expect(migration).toContain("alter column published set default false");
+    expect(migration).toContain("enforce_listing_sellable_product");
     expect(migration).toContain("storefront publication permission required");
     expect(migration).toContain("admin_set_listing_publication");
-    expect(migration).toContain("an active physical SKU is required before publishing");
-    expect(migration).toContain("a current SKU price is required before publishing");
+    expect(migration).toContain("an active physical product is required before publishing");
+    expect(migration).toContain("a current product price is required before publishing");
     expect(migration).toContain("available-now publication requires sellable inventory");
   });
 });

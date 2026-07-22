@@ -16,7 +16,7 @@ import { createApiClient } from "@/lib/api/client";
 import { createBrowserSessionProvider } from "@/lib/auth/browser-session";
 import { initialCatalogProductActionState } from "@/lib/catalog-product-action-state";
 import type { TcgplayerCatalogSuggestion } from "@/lib/tcgplayer-catalog";
-import type { TcgplayerSkuImportDraft } from "@/lib/tcgplayer-sku-import";
+import type { TcgplayerProductImportDraft } from "@/lib/tcgplayer-product-import";
 import { CatalogReferenceSummary } from "@/app/(shop)/control/_components/tcgplayer-catalog-reference-summary";
 import {
   applySuggestion,
@@ -24,7 +24,7 @@ import {
   findNameMatch,
 } from "@/app/(shop)/control/_components/tcgplayer-catalog-import-helpers";
 import { ImportSubmitButton } from "@/app/(shop)/control/_components/tcgplayer-import-submit-button";
-import { ImportedSkuFields } from "@/app/(shop)/control/_components/tcgplayer-sku-import-fields";
+import { ImportedProductFields } from "@/app/(shop)/control/_components/tcgplayer-product-import-fields";
 
 const NEW_VALUE = "__new__";
 const APPROVAL_BOUNDARY_COPY =
@@ -46,7 +46,7 @@ export function TcgplayerCatalogImport({
   const [reference, setReference] = useState("");
   const [suggestion, setSuggestion] =
     useState<TcgplayerCatalogSuggestion | null>(null);
-  const [skuDrafts, setSkuDrafts] = useState<TcgplayerSkuImportDraft[]>([]);
+  const [productDrafts, setProductDrafts] = useState<TcgplayerProductImportDraft[]>([]);
   const [lookupStatus, setLookupStatus] = useState<
     "idle" | "loading" | "error" | "success"
   >("idle");
@@ -104,7 +104,7 @@ export function TcgplayerCatalogImport({
       );
       applySuggestion(result, categories, sets, productTypes, {
         setSuggestion,
-        setSkuDrafts,
+        setProductDrafts,
         setName,
         setDescription,
         setImageUrl,
@@ -119,13 +119,13 @@ export function TcgplayerCatalogImport({
       });
       setLookupStatus("success");
       setLookupMessage(
-        result.skus.length > 0
-          ? `Catalog data loaded with ${result.skus.length} SKU${result.skus.length === 1 ? "" : "s"}. Review every field before creating the draft.`
-          : "Catalog data loaded. TCGplayer did not return SKU records, so add the local SKU after creating the product.",
+        result.variants.length > 0
+          ? `Catalog data loaded. ${result.variants.length} complete local product${result.variants.length === 1 ? "" : "s"} will be created from the returned variants.`
+          : "Catalog data loaded. One local product will be created from the product-level details.",
       );
     } catch (error) {
       setSuggestion(null);
-      setSkuDrafts([]);
+      setProductDrafts([]);
       setLookupStatus("error");
       setLookupMessage(errorMessage(error));
     }
@@ -146,11 +146,11 @@ export function TcgplayerCatalogImport({
     setSetChoice(matchedSet?.id ?? NEW_VALUE);
   }
 
-  function updateSkuDraft(
+  function updateProductDraft(
     index: number,
-    patch: Partial<TcgplayerSkuImportDraft>,
+    patch: Partial<TcgplayerProductImportDraft>,
   ) {
-    setSkuDrafts((current) =>
+    setProductDrafts((current) =>
       current.map((draft, draftIndex) =>
         draftIndex === index ? { ...draft, ...patch } : draft,
       ),
@@ -173,7 +173,7 @@ export function TcgplayerCatalogImport({
         </h2>
         <p className="max-w-3xl text-sm text-zinc-600">
           Paste a TCGplayer product URL or product ID to prefill the product
-          hierarchy and every available local SKU field. Missing values stay
+          hierarchy and every available product field. Missing values stay
           blank; {APPROVAL_BOUNDARY_COPY}.
         </p>
       </div>
@@ -243,9 +243,9 @@ export function TcgplayerCatalogImport({
               value={suggestion.productId}
             />
             <input
-              name="tcgplayerSkus"
+              name="tcgplayerProducts"
               type="hidden"
-              value={JSON.stringify(skuDrafts)}
+              value={JSON.stringify(productDrafts)}
             />
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -400,7 +400,7 @@ export function TcgplayerCatalogImport({
               </div>
             </div>
 
-            <ImportedSkuFields drafts={skuDrafts} onChange={updateSkuDraft} />
+            <ImportedProductFields drafts={productDrafts} onChange={updateProductDraft} />
 
             <input
               name="categoryMode"

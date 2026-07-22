@@ -4,19 +4,19 @@ import { z } from "zod";
 import { requireApiPermission } from "@/lib/api/auth";
 import { toErrorResponse } from "@/lib/api/errors";
 import { readJsonBody } from "@/lib/api/request";
-import { notifyDropForSku } from "@/lib/waitlist";
+import { notifyDropForProduct } from "@/lib/waitlist";
 
 export const dynamic = "force-dynamic";
 
 const notifyRequestSchema = z.object({
-  skuId: z.string().uuid(),
+  productId: z.string().uuid(),
 });
 
 export async function POST(request: Request) {
   try {
     const auth = await requireApiPermission(request, "communications.manage");
     const input = notifyRequestSchema.parse(await readJsonBody(request));
-    const results = await notifyDropForSku(auth.supabase, input.skuId);
+    const results = await notifyDropForProduct(auth.supabase, input.productId);
     return NextResponse.json({
       sent: results.filter((result) => result.status === "sent").length,
       skipped: results.filter((result) => result.status === "skipped").length,

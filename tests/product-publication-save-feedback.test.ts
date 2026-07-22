@@ -22,7 +22,7 @@ describe("product save feedback", () => {
     expect(form).not.toContain("checked={published}");
     expect(form).toContain('role={state.status === "error" ? "alert" : "status"}');
     expect(action).toContain("Pricing and storefront publication remain unchanged");
-    expect(action).toContain('rpc("admin_upsert_catalog_product"');
+    expect(action).toContain('rpc("admin_update_catalog_product"');
     expect(action).not.toContain("with_publication");
   });
 });

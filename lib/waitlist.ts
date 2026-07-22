@@ -25,7 +25,7 @@ interface EnvLike {
 }
 
 export const joinWaitlistRequestSchema = z.object({
-  skuId: z.string().uuid(),
+  productId: z.string().uuid(),
   channel: z.enum(["email", "telegram", "whatsapp"]).default("email"),
   contact: z.string().trim().max(255).optional(),
 });
@@ -34,8 +34,8 @@ export type JoinWaitlistRequest = z.infer<typeof joinWaitlistRequestSchema>;
 
 export interface CustomerWaitlistEntry {
   id: string;
-  skuId: string;
-  sku: string;
+  productId: string;
+  referenceCode: string;
   productName: string;
   productSlug: string;
   channel: WaitlistChannel;
@@ -61,7 +61,7 @@ export async function joinWaitlist(
   input: JoinWaitlistRequest
 ): Promise<CustomerWaitlistEntry> {
   const parsed = joinWaitlistRequestSchema.parse(input);
-  const sku = await fetchWaitlistSku(supabase, parsed.skuId);
+  const product = await fetchWaitlistProduct(supabase, parsed.productId);
   const contact = normalizeWaitlistContact(parsed.channel, parsed.contact, customer.email);
 
   const { data, error } = await supabase
@@ -69,13 +69,13 @@ export async function joinWaitlist(
     .upsert(
       {
         customer_id: customer.id,
-        sku_id: sku.id,
+        product_id: product.id,
         channel: parsed.channel,
         contact,
         status: "active",
         notified_at: null,
       },
-      { onConflict: "customer_id,sku_id,channel" }
+      { onConflict: "customer_id,product_id,channel" }
     )
     .select(WAITLIST_SELECT)
     .single();
@@ -109,14 +109,14 @@ export async function listCustomerWaitlist(
   return ((data ?? []) as unknown as WaitlistRow[]).map(mapWaitlistEntry);
 }
 
-export async function notifyDropForSku(
+export async function notifyDropForProduct(
   supabase: SupabaseClient,
-  skuId: string,
+  productId: string,
   options: { env?: EnvLike; fetcher?: typeof fetch; limit?: number } = {}
 ): Promise<DropNotificationResult[]> {
   const env = options.env ?? process.env;
-  const sku = await fetchWaitlistSku(supabase, skuId);
-  const availability = sku.inventory.reduce(
+  const product = await fetchWaitlistProduct(supabase, productId);
+  const availability = product.product_inventory.reduce(
     (total, row) => total + row.available + row.incoming,
     0
   );
@@ -126,8 +126,8 @@ export async function notifyDropForSku(
 
   const { data, error } = await supabase
     .from("waitlist_entries")
-    .select("id, customer_id, sku_id, channel, contact, status, updated_at")
-    .eq("sku_id", skuId)
+    .select("id, customer_id, product_id, channel, contact, status, updated_at")
+    .eq("product_id", productId)
     .eq("status", "active")
     .order("created_at", { ascending: true })
     .limit(options.limit ?? 200);
@@ -139,7 +139,7 @@ export async function notifyDropForSku(
   const entries = (data ?? []) as unknown as DropWaitlistRow[];
   const results: DropNotificationResult[] = [];
   for (const entry of entries) {
-    results.push(await sendDropNotification(supabase, entry, sku, env, options.fetcher));
+    results.push(await sendDropNotification(supabase, entry, product, env, options.fetcher));
   }
   return results;
 }
@@ -179,11 +179,11 @@ export function normalizeWaitlistContact(
 async function sendDropNotification(
   supabase: SupabaseClient,
   entry: DropWaitlistRow,
-  sku: WaitlistSkuRow,
+  product: WaitlistProductRow,
   env: EnvLike,
   fetcher?: typeof fetch
 ): Promise<DropNotificationResult> {
-  const message = buildDropNotificationMessage(entry, sku, env);
+  const message = buildDropNotificationMessage(entry, product, env);
   const provider = providers[entry.channel];
   const claim = await claimNotification(supabase, message, {
     provider: providerName(entry.channel),
@@ -247,16 +247,15 @@ async function sendDropNotification(
 
 function buildDropNotificationMessage(
   entry: DropWaitlistRow,
-  sku: WaitlistSkuRow,
+  product: WaitlistProductRow,
   env: EnvLike
 ): NotificationMessage {
-  const product = productForSku(sku);
   const appName = getAppName(env);
   const siteUrl = (env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
   const productPath = `/products/${product.slug}`;
   const productUrl = siteUrl ? `${siteUrl}${productPath}` : productPath;
   const payload = {
-    skuId: sku.id,
+    productId: product.id,
     productName: product.name,
     productUrl,
     appName,
@@ -281,34 +280,34 @@ function buildDropNotificationMessage(
   };
 }
 
-async function fetchWaitlistSku(supabase: SupabaseClient, skuId: string): Promise<WaitlistSkuRow> {
+async function fetchWaitlistProduct(
+  supabase: SupabaseClient,
+  productId: string,
+): Promise<WaitlistProductRow> {
   const { data, error } = await supabase
-    .from("booster_box_skus")
+    .from("products")
     .select(
-      "id, sku, active, inventory(available, incoming), product_variants(products(name, slug, active))"
+      "id, reference_code, name, slug, active, product_inventory(available, incoming)"
     )
-    .eq("id", skuId)
+    .eq("id", productId)
     .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
   }
-  const row = data as unknown as WaitlistSkuRow | null;
-  const product = row ? productForSku(row) : null;
-  if (!row || !row.active || !product?.active) {
+  const product = data as unknown as WaitlistProductRow | null;
+  if (!product?.active) {
     throw notFound("This product is not available for restock alerts");
   }
-  return row;
+  return product;
 }
 
 function mapWaitlistEntry(row: WaitlistRow): CustomerWaitlistEntry {
-  const sku = one(row.booster_box_skus);
-  const variant = one(sku?.product_variants);
-  const product = one(variant?.products);
+  const product = one(row.products);
   return {
     id: row.id,
-    skuId: row.sku_id,
-    sku: sku?.sku ?? "",
+    productId: row.product_id,
+    referenceCode: product?.reference_code ?? "",
     productName: product?.name ?? "Sealed product",
     productSlug: product?.slug ?? "",
     channel: row.channel as WaitlistChannel,
@@ -318,12 +317,6 @@ function mapWaitlistEntry(row: WaitlistRow): CustomerWaitlistEntry {
     updatedAt: row.updated_at,
     notifiedAt: row.notified_at,
   };
-}
-
-function productForSku(row: WaitlistSkuRow): WaitlistProductRow {
-  const variant = one(row.product_variants);
-  const product = one(variant?.products);
-  return product ?? { name: row.sku, slug: "", active: false };
 }
 
 function providerName(channel: NotificationChannel): string {
@@ -347,56 +340,41 @@ function one<T>(value: T | T[] | null | undefined): T | null {
 }
 
 const WAITLIST_SELECT =
-  "id, sku_id, channel, contact, status, created_at, updated_at, notified_at, booster_box_skus(sku, product_variants(products(name, slug)))";
+  "id, product_id, channel, contact, status, created_at, updated_at, notified_at, products(reference_code, name, slug)";
 
 interface WaitlistRow {
   id: string;
-  sku_id: string;
+  product_id: string;
   channel: WaitlistChannel;
   contact: string;
   status: "active" | "notified" | "cancelled";
   created_at: string;
   updated_at: string;
   notified_at: string | null;
-  booster_box_skus?: WaitlistSkuLookupRow | WaitlistSkuLookupRow[] | null;
+  products?: WaitlistProductLookupRow | WaitlistProductLookupRow[] | null;
 }
 
-interface WaitlistSkuLookupRow {
-  sku: string;
-  product_variants?: WaitlistVariantLookupRow | WaitlistVariantLookupRow[] | null;
-}
-
-interface WaitlistVariantLookupRow {
-  products?:
-    | Pick<WaitlistProductRow, "name" | "slug">
-    | Array<Pick<WaitlistProductRow, "name" | "slug">>
-    | null;
+interface WaitlistProductLookupRow {
+  reference_code: string;
+  name: string;
+  slug: string;
 }
 
 interface DropWaitlistRow {
   id: string;
   customer_id: string;
-  sku_id: string;
+  product_id: string;
   channel: NotificationChannel;
   contact: string;
   status: string;
   updated_at: string;
 }
 
-interface WaitlistSkuRow {
-  id: string;
-  sku: string;
-  active: boolean;
-  inventory: Array<{ available: number; incoming: number }>;
-  product_variants?: WaitlistVariantRow | WaitlistVariantRow[] | null;
-}
-
-interface WaitlistVariantRow {
-  products?: WaitlistProductRow | WaitlistProductRow[] | null;
-}
-
 interface WaitlistProductRow {
+  id: string;
+  reference_code: string;
   name: string;
   slug: string;
   active: boolean;
+  product_inventory: Array<{ available: number; incoming: number }>;
 }

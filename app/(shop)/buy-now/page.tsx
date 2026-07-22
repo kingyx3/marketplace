@@ -5,8 +5,8 @@ import { CartCheckoutPanel } from "@/app/(shop)/cart/checkout-panel";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { getCurrentUser } from "@/lib/auth";
-import { getSkuQuote } from "@/lib/catalog";
-import { getStorefrontDealForSku } from "@/lib/deals";
+import { getProductQuote } from "@/lib/catalog";
+import { getStorefrontDealForProduct } from "@/lib/deals";
 import { applicationUrl } from "@/lib/hitpay";
 import { formatMoney } from "@/lib/money";
 
@@ -19,26 +19,26 @@ export const metadata = {
 export default async function BuyNowPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ sku?: string; quantity?: string }>;
+  searchParams?: Promise<{ product?: string; quantity?: string }>;
 }) {
   const params = (await searchParams) ?? {};
-  const skuId = validSkuId(params.sku);
+  const productId = validProductId(params.product);
   const quantity = validQuantity(params.quantity);
-  if (!skuId || !quantity) notFound();
+  if (!productId || !quantity) notFound();
 
-  const items = [{ skuId, quantity }];
+  const items = [{ productId, quantity }];
   const user = await getCurrentUser();
-  const quote = await getSkuQuote(items).catch(() => null);
-  const line = quote?.lines.find((item) => item.skuId === skuId);
+  const quote = await getProductQuote(items).catch(() => null);
+  const line = quote?.lines.find((item) => item.productId === productId);
   if (!quote || !line) notFound();
 
-  const deal = await getStorefrontDealForSku({ signedIn: Boolean(user), skuId });
+  const deal = await getStorefrontDealForProduct({ signedIn: Boolean(user), productId });
   const unitPriceCents = deal?.dealPriceCents ?? line.unitPriceCents;
   const merchandiseTotalCents = unitPriceCents * quantity;
   const gstCents = Math.round((merchandiseTotalCents * 9) / 109);
   const hasAvailabilityIssue = line.available < quantity;
   const checkoutPath = `/buy-now?${new URLSearchParams({
-    sku: skuId,
+    product: productId,
     quantity: String(quantity),
   }).toString()}#checkout`;
   const recipientName = authenticatedDisplayName(user?.user_metadata);
@@ -167,7 +167,7 @@ export default async function BuyNowPage({
   );
 }
 
-function validSkuId(value: string | undefined): string | null {
+function validProductId(value: string | undefined): string | null {
   if (!value) return null;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value

@@ -38,7 +38,7 @@ export default async function NewPurchaseOrderPage() {
           confirmation={{
             title: "Record supplier commitment?",
             description:
-              "This creates a purchase order and immediately adds its quantity to incoming stock. Verify the supplier, SKU, quantity, and unit cost.",
+              "This creates a purchase order and immediately adds its quantity to incoming stock. Verify the supplier, product, quantity, and unit cost.",
             confirmLabel: "Record purchase order",
           }}
           errorMessage="The purchase order could not be recorded. All entered values have been preserved."
@@ -53,12 +53,12 @@ export default async function NewPurchaseOrderPage() {
             required
           />
           <AdminSelectField
-            example="Select SKU"
-            label="SKU"
-            name="skuId"
+            example="Select product"
+            label="product"
+            name="productId"
             options={inventory.map((row) => ({
-              value: row.skuId,
-              label: `${row.productName} · ${row.sku}`,
+              value: row.productId,
+              label: `${row.productName} · ${row.referenceCode}`,
             }))}
             required
           />

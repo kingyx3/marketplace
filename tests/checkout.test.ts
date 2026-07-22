@@ -28,8 +28,8 @@ const quote: CheckoutQuote = {
   currency: "SGD",
   lines: [
     {
-      skuId: "11111111-1111-4111-8111-111111111111",
-      sku: "BOX-1",
+      productId: "11111111-1111-4111-8111-111111111111",
+      referenceCode: "BOX-1",
       productName: "Booster Box",
       quantity: 1,
       unitPriceCents: 19900,
@@ -73,7 +73,7 @@ describe("hosted HitPay checkout", () => {
         mode: "order",
         channel: "b2c",
         shippingAddress,
-        items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+        items: [{ productId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
       },
       hitpay as never
     );
@@ -82,7 +82,7 @@ describe("hosted HitPay checkout", () => {
       supabase,
       expect.objectContaining({
         shippingAddress,
-        items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+        items: [{ productId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
       }),
       auth.customer
     );
@@ -126,7 +126,7 @@ describe("hosted HitPay checkout", () => {
     const { auth } = fakeAuthContext({
       rpcSingle: {
         data: null,
-        error: { message: "insufficient inventory for sku" },
+        error: { message: "insufficient inventory for referenceCode" },
       },
     });
     const hitpay = fakeHitPay();
@@ -138,7 +138,7 @@ describe("hosted HitPay checkout", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+          items: [{ productId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
         },
         hitpay as never
       )
@@ -160,7 +160,7 @@ describe("hosted HitPay checkout", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ skuId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+          items: [{ productId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
         },
         hitpay as never
       )

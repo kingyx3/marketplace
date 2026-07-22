@@ -93,10 +93,9 @@ describe("domain-based control console", () => {
     expect(control).toContain('requireControlPermission("governance.manage"');
     expect(control).toContain('rpc("admin_upsert_access_grant_permissions"');
     expect(catalog).toContain('requireControlPermission("catalog.manage", "/control/catalog")');
-    expect(catalog).toContain('rpc("admin_upsert_catalog_sku"');
-    expect(catalog).not.toContain("p_price_cents");
+    expect(catalog).toContain('rpc("admin_update_catalog_product"');
     expect(pricing).toContain('requireControlPermission("pricing.manage"');
-    expect(pricing).toContain('rpc("admin_set_sku_price"');
+    expect(pricing).toContain('rpc("admin_set_product_price"');
     expect(operational).toContain('requireControlPermission("inventory.adjust"');
     expect(operational).toContain('requireControlPermission("purchase_orders.manage"');
     expect(operational).toContain('"payments.reconcile"');
@@ -123,21 +122,18 @@ describe("domain-based control console", () => {
   it("migrates granular grants, versioned pricing, availability, and publish readiness", async () => {
     const migration = await readFile(
       new URL(
-        "../supabase/migrations/20260720100000_admin_domain_permissions_and_pricing.sql",
+        "../supabase/migrations/20260722100000_remove_sku_model.sql",
         import.meta.url
       ),
       "utf8"
     );
-    expect(migration).toContain("create table public.control_permission_definitions");
-    expect(migration).toContain("create table public.admin_access_grant_permissions");
-    expect(migration).toContain("admin_upsert_access_grant_permissions");
-    expect(migration).toContain("create table public.sku_prices");
-    expect(migration).toContain("Current-price compatibility cache");
-    expect(migration).toContain("when msrp_cents >= price_cents then msrp_cents");
-    expect(migration).toContain("availability_mode");
+    expect(migration).toContain("drop table if exists public.product_variants cascade");
+    expect(migration).toContain("create or replace function public.product_is_sellable");
+    expect(migration).toContain("product_inventory");
+    expect(migration).toContain("product_prices");
     expect(migration).toContain("admin_upsert_storefront_listing");
     expect(migration).toContain("storefront publication permission required");
-    expect(migration).toContain("a current SKU price is required before publishing");
+    expect(migration).toContain("a current product price is required before publishing");
   });
 });
 

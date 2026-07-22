@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CatalogProductDetailsEditor as CatalogProductEditor } from "@/app/(shop)/control/_components/catalog-product-details-editor";
-import { CatalogSkuManager } from "@/app/(shop)/control/_components/catalog-product-editor";
 import { ProductListingWorkflow } from "@/app/(shop)/control/_components/product-listing-workflow";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
@@ -44,21 +43,20 @@ export default async function ControlProductPage({ params }: ControlProductPageP
   if (listingResult.error)
     throw new Error(`Listing readiness query failed: ${listingResult.error.message}`);
 
-  const skuIds = product.skus.map((sku) => sku.skuId);
-  const inventoryResult =
-    skuIds.length > 0
-      ? await supabase.from("inventory").select("sku_id, on_hand, incoming").in("sku_id", skuIds)
-      : { data: [], error: null };
+  const inventoryResult = await supabase
+    .from("product_inventory")
+    .select("product_id, on_hand, incoming")
+    .eq("product_id", productId);
   if (inventoryResult.error)
     throw new Error(`Supply readiness query failed: ${inventoryResult.error.message}`);
 
-  const hasSellableSku = product.skus.some((sku) => sku.skuActive && sku.priceCents > 0);
+  const hasSellableProduct = product.active && product.priceCents > 0;
   const storefrontStatus = !product.published
     ? "Not published"
     : !product.active
       ? "Published · product archived"
-      : !hasSellableSku
-        ? "Published · active priced SKU required"
+      : !hasSellableProduct
+        ? "Published · positive price required"
         : "Visible";
 
   return (
@@ -81,23 +79,19 @@ export default async function ControlProductPage({ params }: ControlProductPageP
         <Summary label="Slug" value={`/${product.slug}`} />
         <Summary label="Publication" value={product.published ? "Published" : "Not published"} />
         <Summary label="Storefront" value={storefrontStatus} />
-        <Summary
-          label="SKUs"
-          value={`${product.skus.length} ${product.skus.length === 1 ? "SKU" : "SKUs"}`}
-        />
+        <Summary label="Reference" value={product.referenceCode ?? "Not assigned"} />
       </section>
 
       <ProductListingWorkflow
         listingComplete={Boolean(
           listingResult.data?.id && listingResult.data.availability_mode !== "unavailable"
         )}
-        pricingComplete={product.skus.some((sku) => sku.skuActive && sku.priceCents > 0)}
+        pricingComplete={product.priceCents > 0}
         productComplete={Boolean(
           product.active && product.name && product.categoryId && product.setId
         )}
         productId={product.id}
         published={Boolean(listingResult.data?.published)}
-        skuComplete={product.skus.some((sku) => sku.skuActive)}
         staff={staff}
         supplyComplete={(inventoryResult.data ?? []).some(
           (row) => row.on_hand > 0 || row.incoming > 0
@@ -112,9 +106,6 @@ export default async function ControlProductPage({ params }: ControlProductPageP
             productTypes={productTypes}
             sets={sets}
           />
-          <div id="skus">
-            <CatalogSkuManager product={product} />
-          </div>
         </>
       ) : (
         <p className="rounded-xl border border-zinc-200 bg-white p-5 text-sm text-zinc-600">

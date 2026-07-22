@@ -14,7 +14,7 @@ export type CheckoutMode = "order" | "preorder";
 export type SalesChannel = "b2c";
 
 export const cartItemSchema = z.object({
-  skuId: z.string().uuid(),
+  productId: z.string().uuid(),
   quantity: z.number().int().min(1).max(MAX_QUANTITY_PER_LINE),
 });
 
@@ -28,7 +28,7 @@ export const checkoutRequestSchema = z.object({
 });
 
 export interface CartItem {
-  skuId: string;
+  productId: string;
   quantity: number;
 }
 
@@ -46,8 +46,8 @@ export interface CheckoutRequest {
 }
 
 export interface CheckoutLine {
-  skuId: string;
-  sku: string;
+  productId: string;
+  referenceCode: string;
   productName: string;
   quantity: number;
   unitPriceCents: number;
@@ -73,13 +73,13 @@ export interface CheckoutQuote {
   balanceCents: number;
 }
 
-interface SkuRecord {
+interface ProductRecord {
   id: string;
-  sku: string;
+  reference_code: string | null;
+  name: string;
   active: boolean;
   price_cents: number;
   currency: string;
-  product_variant_id: string;
 }
 
 interface InventoryRecord {
@@ -91,26 +91,26 @@ interface InventoryRecord {
 }
 
 export function normalizeCartItems(items: CartItem[]): NormalizedCartItem[] {
-  const bySku = new Map<string, NormalizedCartItem>();
+  const byProduct = new Map<string, NormalizedCartItem>();
 
   items.forEach((item, index) => {
-    const existing = bySku.get(item.skuId);
+    const existing = byProduct.get(item.productId);
     if (existing) {
       existing.quantity += item.quantity;
       if (existing.quantity > MAX_QUANTITY_PER_LINE) {
-        throw badRequest(`Quantity for SKU ${item.skuId} exceeds ${MAX_QUANTITY_PER_LINE}`);
+        throw badRequest(`Quantity for product ${item.productId} exceeds ${MAX_QUANTITY_PER_LINE}`);
       }
       return;
     }
 
-    bySku.set(item.skuId, {
-      skuId: item.skuId,
+    byProduct.set(item.productId, {
+      productId: item.productId,
       quantity: item.quantity,
       position: index,
     });
   });
 
-  const normalized = [...bySku.values()].sort((a, b) => a.position - b.position);
+  const normalized = [...byProduct.values()].sort((a, b) => a.position - b.position);
   const totalQuantity = normalized.reduce((sum, item) => sum + item.quantity, 0);
   if (totalQuantity > MAX_CHECKOUT_TOTAL_QUANTITY) {
     throw badRequest(`Cart quantity exceeds ${MAX_CHECKOUT_TOTAL_QUANTITY}`);
@@ -139,7 +139,7 @@ export async function quoteCheckout(
 ): Promise<CheckoutQuote> {
   const items = normalizeCartItems(request.items);
   if (request.mode === "preorder" && items.length !== 1) {
-    throw badRequest("Pre-order checkout currently supports one SKU per payment");
+    throw badRequest("Pre-order checkout currently supports one product per payment");
   }
 
   const lines: CheckoutLine[] = [];
@@ -161,11 +161,11 @@ export async function quoteCheckout(
     request.mode === "order"
       ? await getActiveDealPrices(
           supabase,
-          lines.map((line) => line.skuId)
+          lines.map((line) => line.productId)
         )
       : new Map<string, number>();
   const discountCents = lines.reduce((total, line) => {
-    const dealPriceCents = dealPrices.get(line.skuId);
+    const dealPriceCents = dealPrices.get(line.productId);
     if (!dealPriceCents || dealPriceCents >= line.unitPriceCents) return total;
     return total + (line.unitPriceCents - dealPriceCents) * line.quantity;
   }, 0);
@@ -206,18 +206,17 @@ async function quoteLine(
   item: NormalizedCartItem,
   mode: CheckoutMode
 ): Promise<CheckoutLine> {
-  const { data: sku, error: skuError } = await supabase
-    .from("booster_box_skus")
-    .select("id, sku, active, price_cents, currency, product_variant_id")
-    .eq("id", item.skuId)
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("id, reference_code, name, active, price_cents, currency")
+    .eq("id", item.productId)
     .single();
-  if (skuError || !sku) throw notFound("SKU not found");
+  if (productError || !product) throw notFound("Product not found");
 
-  const skuRecord = sku as SkuRecord;
-  if (!skuRecord.active) throw badRequest("SKU is not active");
+  const productRecord = product as ProductRecord;
+  if (!productRecord.active) throw badRequest("Product is not active");
 
-  const productName = await productNameForSku(supabase, skuRecord.product_variant_id);
-  const inventory = await inventoryForSku(supabase, skuRecord.id);
+  const inventory = await inventoryForProduct(supabase, productRecord.id);
   const availableToSell = availableQuantity(inventory, mode);
 
   if (availableToSell < item.quantity) {
@@ -229,47 +228,31 @@ async function quoteLine(
   }
 
   return {
-    skuId: skuRecord.id,
-    sku: skuRecord.sku,
-    productName,
+    productId: productRecord.id,
+    referenceCode: productRecord.reference_code ?? productRecord.id,
+    productName: productRecord.name,
     quantity: item.quantity,
-    unitPriceCents: skuRecord.price_cents,
-    lineTotalCents: skuRecord.price_cents * item.quantity,
-    currency: skuRecord.currency,
+    unitPriceCents: productRecord.price_cents,
+    lineTotalCents: productRecord.price_cents * item.quantity,
+    currency: productRecord.currency,
     availableToSell,
   };
 }
 
-async function productNameForSku(supabase: SupabaseClient, variantId: string): Promise<string> {
-  const variantResult = await supabase
-    .from("product_variants")
-    .select("product_id")
-    .eq("id", variantId)
-    .single();
-  if (variantResult.error || !variantResult.data) throw notFound("Product variant not found");
-
-  const productResult = await supabase
-    .from("products")
-    .select("name, active")
-    .eq("id", variantResult.data.product_id)
-    .single();
-  if (productResult.error || !productResult.data) throw notFound("Product not found");
-  if (!productResult.data.active) throw badRequest("Product is not active");
-
-  return productResult.data.name;
-}
-
-async function inventoryForSku(supabase: SupabaseClient, skuId: string): Promise<InventoryRecord> {
+async function inventoryForProduct(
+  supabase: SupabaseClient,
+  productId: string
+): Promise<InventoryRecord> {
   const { data, error } = await supabase
-    .from("inventory")
+    .from("product_inventory")
     .select("on_hand, allocated, incoming, safety_stock, available")
-    .eq("sku_id", skuId)
+    .eq("product_id", productId)
     .order("location", { ascending: true })
     .limit(1)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (!data) throw badRequest("Inventory is not available for this SKU");
+  if (!data) throw badRequest("Inventory is not available for this product");
   return data as InventoryRecord;
 }
 

@@ -56,10 +56,10 @@ describe("catalog product save action", () => {
       message: "Product details saved. Pricing and storefront publication remain unchanged.",
     });
     expect(rpc).toHaveBeenCalledWith(
-      "admin_upsert_catalog_product",
+      "admin_update_catalog_product",
       expect.objectContaining({
         p_product_id: productId,
-        p_actor: "staff:staff-user-123",
+        p_actor_auth_user_id: "staff-user-123",
       })
     );
     expect(mocks.revalidatePath).toHaveBeenCalledWith(`/control/catalog/products/${productId}`);
@@ -103,7 +103,7 @@ describe("catalog product save action", () => {
       "Product details saved. Pricing and storefront publication remain unchanged."
     );
     expect(rpc).toHaveBeenCalledWith(
-      "admin_upsert_catalog_product",
+      "admin_update_catalog_product",
       expect.not.objectContaining({ p_published: expect.anything() })
     );
   });

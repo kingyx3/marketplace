@@ -80,7 +80,7 @@ describe("limited-time deals", () => {
 function validDealForm(): FormData {
   const form = new FormData();
   form.set("code", "Launch_Week");
-  form.set("skuId", "11111111-1111-4111-8111-111111111111");
+  form.set("productId", "11111111-1111-4111-8111-111111111111");
   form.set("title", "Launch week offer");
   form.set("description", "A real, scheduled promotion.");
   form.set("dealPrice", "184.00");

@@ -22,6 +22,11 @@ export interface AdminCatalogProductInput {
   language: string;
   imageUrl: string | null;
   active: boolean;
+  referenceCode: string | null;
+  barcode: string | null;
+  packsPerBox: number | null;
+  cardsPerPack: number | null;
+  weightGrams: number | null;
 }
 
 export interface AdminCatalogProductCreateInput extends Omit<
@@ -42,19 +47,8 @@ export interface AdminCatalogProductCreateInput extends Omit<
   newProductTypeCode: string | null;
 }
 
-export interface AdminCatalogSkuInput {
-  skuId: string | null;
-  productId: string;
-  sku: string;
-  barcode: string | null;
-  packsPerBox: number | null;
-  cardsPerPack: number | null;
-  weightGrams: number | null;
-  active: boolean;
-}
-
 export interface AdminInventoryAdjustmentInput {
-  skuId: string;
+  productId: string;
   onHand: number;
   incoming: number;
   safetyStock: number;
@@ -66,7 +60,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SET_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,15}$/;
 const PRODUCT_TYPE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const LANGUAGE_PATTERN = /^[A-Z]{2,8}$/;
-const SKU_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
+const PRODUCT_REFERENCE_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const SET_STATUSES = [
   "announced",
   "preorder_open",
@@ -85,11 +79,24 @@ export function adminCatalogProductFromForm(formData: FormData): AdminCatalogPro
     throw badRequest("Select a valid product type");
   }
 
+  const referenceCode =
+    optionalString(formData, "referenceCode", { max: 64 })?.toUpperCase() ?? null;
+  if (referenceCode && !PRODUCT_REFERENCE_PATTERN.test(referenceCode)) {
+    throw badRequest(
+      "Product reference must use letters, numbers, dots, hyphens, or underscores",
+    );
+  }
+
   return {
     productId: optionalUuid(formData, "productId", "productId"),
     categoryId: requiredUuid(formData, "categoryId", "categoryId"),
     setId: requiredUuid(formData, "setId", "setId"),
     productType,
+    referenceCode,
+    barcode: optionalString(formData, "barcode", { max: 64, label: "Barcode" }) ?? null,
+    packsPerBox: optionalInteger(formData, "packsPerBox", { min: 1 }),
+    cardsPerPack: optionalInteger(formData, "cardsPerPack", { min: 1 }),
+    weightGrams: optionalInteger(formData, "weightGrams", { min: 1 }),
     ...commonProductFieldsFromForm(formData),
   };
 }
@@ -186,6 +193,11 @@ export function adminCatalogProductCreateFromForm(
     productType,
     newProductTypeName,
     newProductTypeCode,
+    referenceCode: null,
+    barcode: null,
+    packsPerBox: null,
+    cardsPerPack: null,
+    weightGrams: null,
     ...commonProductFieldsFromForm(formData),
   };
 }
@@ -249,28 +261,6 @@ function commonProductFieldsFromForm(
   };
 }
 
-export function adminCatalogSkuFromForm(formData: FormData): AdminCatalogSkuInput {
-  const sku = requiredString(formData, "sku").toUpperCase();
-  if (!SKU_PATTERN.test(sku)) {
-    throw badRequest(
-      "SKU must be 1-64 characters using letters, numbers, dots, hyphens, or underscores"
-    );
-  }
-
-  const barcode = optionalString(formData, "barcode", { max: 64, label: "Barcode" }) ?? null;
-
-  return {
-    skuId: optionalUuid(formData, "skuId", "skuId"),
-    productId: requiredUuid(formData, "productId", "productId"),
-    sku,
-    barcode,
-    packsPerBox: optionalInteger(formData, "packsPerBox", { min: 1 }),
-    cardsPerPack: optionalInteger(formData, "cardsPerPack", { min: 1 }),
-    weightGrams: optionalInteger(formData, "weightGrams", { min: 1 }),
-    active: booleanField(formData, "active", true),
-  };
-}
-
 export function adminInventoryAdjustmentFromForm(
   formData: FormData
 ): AdminInventoryAdjustmentInput {
@@ -280,7 +270,7 @@ export function adminInventoryAdjustmentFromForm(
   }
 
   return {
-    skuId: requiredUuid(formData, "skuId", "skuId"),
+    productId: requiredUuid(formData, "productId", "productId"),
     onHand: requiredInteger(formData, "onHand", { min: 0 }),
     incoming: requiredInteger(formData, "incoming", { min: 0 }),
     safetyStock: requiredInteger(formData, "safetyStock", { min: 0 }),

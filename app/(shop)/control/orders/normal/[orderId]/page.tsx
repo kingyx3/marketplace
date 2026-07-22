@@ -58,7 +58,7 @@ export default async function NormalOrderPage({
           {(order.order_items ?? []).map((item) => (
             <div className="grid gap-2 py-3 text-sm sm:grid-cols-[1fr_auto_auto]" key={item.id}>
               <span className="font-medium text-zinc-950">
-                {toOne(item.booster_box_skus)?.sku ?? "SKU"}
+                {toOne(item.products)?.reference_code ?? "Product"}
               </span>
               <span>{item.quantity} units</span>
               <span>{formatMoney(item.quantity * item.unit_price_cents, order.currency)}</span>

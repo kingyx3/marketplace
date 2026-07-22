@@ -64,7 +64,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
             <div className="flex justify-between gap-4" key={item.id}>
               <span className="text-zinc-700">{item.productName}</span>
               <span className="shrink-0 font-medium text-zinc-950">
-                {item.quantity} × {item.sku ?? "SKU"}
+                {item.quantity} × {item.referenceCode ?? "product"}
               </span>
             </div>
           ))}

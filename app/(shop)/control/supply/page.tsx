@@ -98,7 +98,7 @@ export default async function ControlSupplyPage({
               {attentionCount} inventory record{attentionCount === 1 ? "" : "s"} require attention
             </h2>
             <p className="mt-1 text-sm leading-6 text-amber-900">
-              These SKUs have no units above safety stock. Incoming stock remains separate until it
+              These products have no units above safety stock. Incoming stock remains separate until it
               is received.
             </p>
           </div>
@@ -142,7 +142,7 @@ export default async function ControlSupplyPage({
             defaultValue={query}
             maxLength={120}
             name="q"
-            placeholder="Product, SKU, product ID, or SKU ID"
+            placeholder="Product, product, product ID, or product ID"
           />
         </label>
         <label className="grid gap-1 text-sm font-medium text-zinc-700">
@@ -238,21 +238,21 @@ export default async function ControlSupplyPage({
               return (
                 <Link
                   className="grid gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-emerald-500 hover:shadow-md lg:grid-cols-[minmax(16rem,2fr)_minmax(9rem,1fr)_repeat(6,minmax(4.5rem,.6fr))_minmax(6rem,.7fr)] lg:items-center"
-                  href={`/control/supply/inventory/${row.skuId}`}
-                  key={row.skuId}
+                  href={`/control/supply/inventory/${row.productId}`}
+                  key={row.productId}
                 >
                   <div className="min-w-0">
                     <h3 className="font-semibold text-zinc-950">{row.productName}</h3>
                     <p className="mt-1 text-sm font-medium text-zinc-700">
-                      <span className="text-zinc-500">SKU</span>{" "}
-                      <span className="select-all font-mono">{row.sku}</span>
+                      <span className="text-zinc-500">product</span>{" "}
+                      <span className="select-all font-mono">{row.referenceCode}</span>
                     </p>
                     <div className="mt-2 grid gap-1 text-xs text-zinc-500">
                       <p>
                         Product ID <span className="select-all font-mono">{row.productId}</span>
                       </p>
                       <p>
-                        SKU ID <span className="select-all font-mono">{row.skuId}</span>
+                        product ID <span className="select-all font-mono">{row.productId}</span>
                       </p>
                       <p>Updated {formatDateTime(row.updatedAt)}</p>
                     </div>

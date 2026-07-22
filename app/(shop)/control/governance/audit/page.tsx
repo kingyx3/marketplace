@@ -125,7 +125,7 @@ export default async function ControlAuditPage({
             defaultValue={params.q ?? ""}
             maxLength={100}
             name="q"
-            placeholder="Name, SKU, ID, action, or actor email"
+            placeholder="Name, product, ID, action, or actor email"
           />
         </label>
         <label className="grid gap-1 text-sm font-medium text-zinc-700">

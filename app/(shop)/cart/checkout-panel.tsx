@@ -15,7 +15,7 @@ import { createApiClient } from "@/lib/api/client";
 import { createBrowserSessionProvider } from "@/lib/auth/browser-session";
 
 interface CartCheckoutItem {
-  skuId: string;
+  productId: string;
   quantity: number;
 }
 
