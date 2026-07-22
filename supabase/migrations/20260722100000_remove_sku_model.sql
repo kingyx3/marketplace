@@ -74,6 +74,12 @@ drop function if exists public.admin_create_tcgplayer_catalog_product(
   uuid, text, text, text, uuid, text, text, date, public.set_status,
   text, text, text, text, text, text, text, boolean, bigint, jsonb, uuid
 ) cascade;
+drop function if exists public.legacy_admin_adjust_inventory(
+  uuid, integer, integer, integer, text, text, text
+) cascade;
+drop function if exists public.legacy_admin_create_supplier_purchase_order(
+  uuid, uuid, integer, integer, text, date, text, text
+) cascade;
 
 create or replace function public.write_audit_log()
 returns trigger
