@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - agent/export-product-only-materialized
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   export:
+    if: github.event_name == 'push' || github.head_ref == 'agent/export-product-only-materialized'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.0
