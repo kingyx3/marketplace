@@ -3,6 +3,7 @@ locals {
   staging_vercel_project_name   = "${local.vercel_project_name}-staging"
   vercel_team_id                = var.vercel_team_id == "" ? null : var.vercel_team_id
   vercel_root_directory         = var.vercel_root_directory == "" ? null : var.vercel_root_directory
+  vercel_function_regions       = toset(["sin1"])
   base_supabase_environments    = toset(["development", "production"])
   release_supabase_environments = var.enable_release_topology ? toset(["staging", "recovery"]) : toset([])
   active_supabase_environments  = setunion(local.base_supabase_environments, local.release_supabase_environments)
@@ -24,6 +25,9 @@ resource "vercel_project" "app" {
   team_id                                           = local.vercel_team_id
   preview_deployments_disabled                      = false
   automatically_expose_system_environment_variables = true
+  resource_config = {
+    function_default_regions = local.vercel_function_regions
+  }
 }
 
 resource "vercel_project" "staging" {
@@ -37,6 +41,9 @@ resource "vercel_project" "staging" {
   team_id                                           = local.vercel_team_id
   preview_deployments_disabled                      = true
   automatically_expose_system_environment_variables = true
+  resource_config = {
+    function_default_regions = local.vercel_function_regions
+  }
 }
 
 resource "supabase_project" "app" {

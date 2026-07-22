@@ -63,6 +63,8 @@ Until staging exists, the release instead runs the complete shared deployment ch
 
 The app deployment helper validates environment and Terraform outputs, checks migrations transactionally, pushes hosted migrations, reconciles provider/runtime state, deploys or reuses the identical Vercel revision, and performs health checks. Staging and production fail closed on infrastructure or provider drift.
 
+Vercel Functions run in Singapore (`sin1`) for every deployment and for both Terraform-managed Vercel projects. Vercel's CDN remains globally distributed.
+
 ## Reusable helpers
 
 The orchestrators compose these internal workflows:

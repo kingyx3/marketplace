@@ -21,6 +21,8 @@ async function main() {
 
   if (vercel) {
     if (vercel.framework !== "nextjs") errors.push("vercel.json must set framework=nextjs");
+    if (JSON.stringify(vercel.regions) !== JSON.stringify(["sin1"]))
+      errors.push("vercel.json must set regions=[sin1]");
     if (vercel.installCommand !== "npm ci")
       errors.push("vercel.json must set installCommand=npm ci");
     if (vercel.buildCommand !== "npm run build")
