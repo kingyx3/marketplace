@@ -39,7 +39,7 @@ do $$
 begin
   if to_regclass('public.orders') is null
      or to_regclass('public.payments') is null
-     or to_regclass('public.inventory') is null
+     or to_regclass('public.product_inventory') is null
      or to_regclass('public.storefront_configurations') is null
      or to_regclass('public.limited_time_deals') is null
      or to_regclass('public.product_types') is null then
