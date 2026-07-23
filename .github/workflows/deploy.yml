@@ -181,6 +181,11 @@ jobs:
       - name: Deploy or reuse identical Vercel deployment
         id: vercel
         run: node scripts/deploy-vercel.mjs
+      - name: Reconcile HitPay webhook to deployed application
+        if: ${{ inputs.environment != 'development' }}
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ steps.vercel.outputs.deployment_url }}
+        run: node scripts/configure-hitpay.mjs --apply
 
   bootstrap-test-data:
     needs: deploy
