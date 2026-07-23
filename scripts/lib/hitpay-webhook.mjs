@@ -50,7 +50,9 @@ export async function listHitPayWebhooks(config) {
 export async function reconcileHitPayWebhook(config) {
   assertWebhookConfig(config);
   const webhooks = await listHitPayWebhooks(config);
-  const existing = webhooks.find((item) => item?.url === config.webhookUrl);
+  const existing =
+    webhooks.find((item) => item?.name === config.webhookName) ||
+    webhooks.find((item) => item?.url === config.webhookUrl);
   const desired = {
     name: config.webhookName,
     url: config.webhookUrl,
