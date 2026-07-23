@@ -89,6 +89,7 @@ describe("hosted HitPay checkout", () => {
         ],
       },
       hitpay as never,
+      "https://marketplace-4pw03z00j-marketplace-production.vercel.app",
     );
 
     expect(mockedQuoteCheckout).toHaveBeenCalledWith(
@@ -109,6 +110,8 @@ describe("hosted HitPay checkout", () => {
         name: "Buyer",
         purpose: "Marketplace order order-123",
         referenceNumber: "attempt:attempt-123",
+        redirectUrl:
+          "https://marketplace-4pw03z00j-marketplace-production.vercel.app/checkout/return?order=order-123&destination=cart",
         expiresAfter: "15 minutes",
       }),
     );
