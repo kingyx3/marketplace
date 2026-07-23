@@ -39,7 +39,7 @@ describe("checkout production readiness", () => {
   it("passes the live request origin into hosted checkout creation", async () => {
     const checkoutRoute = await read("app/api/checkout/route.ts");
 
-    expect(checkoutRoute).toContain("request.nextUrl.origin");
+    expect(checkoutRoute).toContain("new URL(request.url).origin");
     expect(checkoutRoute).toContain("createCheckoutPayment(");
   });
 
