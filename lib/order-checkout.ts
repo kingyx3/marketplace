@@ -35,18 +35,22 @@ export function checkoutResponseBody(result: CheckoutResult) {
 export function checkoutReturnUrl(
   requestedUrl: string | undefined,
   orderId: string,
+  currentOrigin: string | undefined = undefined,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const appUrl = new URL(applicationUrl("/", env));
+  const configuredAppUrl = new URL(applicationUrl("/", env));
+  const appUrl = checkoutApplicationUrl(currentOrigin, configuredAppUrl);
+  const trustedOrigins = new Set([appUrl.origin, configuredAppUrl.origin]);
   let destination: "cart" | "order" = "cart";
 
   if (requestedUrl) {
     try {
       const requested = new URL(requestedUrl);
-      if (requested.origin === appUrl.origin) {
-        if (requested.pathname === "/orders") {
-          destination = "order";
-        }
+      if (
+        trustedOrigins.has(requested.origin) &&
+        requested.pathname === "/orders"
+      ) {
+        destination = "order";
       }
     } catch {
       // Fall back to the cart destination for malformed or untrusted return URLs.
@@ -62,10 +66,23 @@ export function checkoutReturnUrl(
   return target.toString();
 }
 
+function checkoutApplicationUrl(currentOrigin: string | undefined, fallback: URL): URL {
+  if (!currentOrigin) return fallback;
+
+  try {
+    const current = new URL(currentOrigin);
+    if (!["http:", "https:"].includes(current.protocol)) return fallback;
+    return new URL(current.origin);
+  } catch {
+    return fallback;
+  }
+}
+
 export async function createCheckoutPayment(
   auth: ApiCustomerContext,
   body: unknown,
   hitpay: HitPayClient = createHitPayClient(),
+  currentOrigin?: string,
 ): Promise<CheckoutResult> {
   const request = checkoutRequestSchema.parse(body) as CheckoutRequest;
   if (request.mode === "preorder") {
@@ -116,7 +133,7 @@ export async function createCheckoutPayment(
       phone: shippingAddress.phone,
       purpose: `Marketplace order ${orderId}`,
       referenceNumber: `attempt:${attempt.id}`,
-      redirectUrl: checkoutReturnUrl(request.successUrl, orderId),
+      redirectUrl: checkoutReturnUrl(request.successUrl, orderId, currentOrigin),
       expiresAfter: "15 minutes",
     });
     paymentRequestId = paymentRequest.id;

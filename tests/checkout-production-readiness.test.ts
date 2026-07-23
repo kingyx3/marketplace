@@ -36,6 +36,13 @@ describe("checkout production readiness", () => {
     expect(checkoutPanel).toContain('document.getElementById(targetId)?.focus()');
   });
 
+  it("passes the live request origin into hosted checkout creation", async () => {
+    const checkoutRoute = await read("app/api/checkout/route.ts");
+
+    expect(checkoutRoute).toContain("new URL(request.url).origin");
+    expect(checkoutRoute).toContain("createCheckoutPayment(");
+  });
+
   it("pins the resolved Supabase secret and gates development on deep readiness", async () => {
     const [deployScript, workflow, webhook] = await Promise.all([
       read("scripts/deploy-vercel.mjs"),

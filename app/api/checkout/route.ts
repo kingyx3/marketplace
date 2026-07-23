@@ -35,7 +35,12 @@ export const POST = withApiHandler(
         ttlSeconds: 60 * 60,
       },
       async () => {
-        const result = await createCheckoutPayment(auth, body);
+        const result = await createCheckoutPayment(
+          auth,
+          body,
+          undefined,
+          new URL(request.url).origin,
+        );
         logInfo("checkout.payment_created", {
           ...context,
           orderId: result.orderId,
