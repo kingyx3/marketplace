@@ -18,6 +18,49 @@ describe("checkout return URLs", () => {
     expect(result.searchParams.get("destination")).toBe("order");
   });
 
+  it("does not send production returns to an older immutable Vercel deployment", () => {
+    const result = new URL(
+      checkoutReturnUrl("https://marketplace-current-team.vercel.app/orders", orderId, {
+        ...env,
+        NEXT_PUBLIC_SITE_URL: "https://marketplace-o7hsjxyt2-marketplace-production.vercel.app",
+        TARGET_ENV: "production",
+        VERCEL_URL: "marketplace-current-team.vercel.app",
+        VERCEL_PROJECT_PRODUCTION_URL: "marketplace-production.vercel.app",
+      })
+    );
+
+    expect(result.origin).toBe("https://marketplace-current-team.vercel.app");
+    expect(result.pathname).toBe("/checkout/return");
+    expect(result.searchParams.get("destination")).toBe("order");
+  });
+
+  it("keeps an explicitly configured custom production domain", () => {
+    const result = new URL(
+      checkoutReturnUrl("https://shop.example.com/orders", orderId, {
+        ...env,
+        VERCEL_ENV: "production",
+        VERCEL_PROJECT_PRODUCTION_URL: "marketplace-production.vercel.app",
+      })
+    );
+
+    expect(result.origin).toBe("https://shop.example.com");
+    expect(result.searchParams.get("destination")).toBe("order");
+  });
+
+  it("falls back to the stable production URL when the current deployment URL is unavailable", () => {
+    const result = new URL(
+      checkoutReturnUrl("https://marketplace-production.vercel.app/orders", orderId, {
+        ...env,
+        NEXT_PUBLIC_SITE_URL: "https://marketplace-previous-team.vercel.app",
+        VERCEL_ENV: "production",
+        VERCEL_PROJECT_PRODUCTION_URL: "marketplace-production.vercel.app",
+      })
+    );
+
+    expect(result.origin).toBe("https://marketplace-production.vercel.app");
+    expect(result.searchParams.get("destination")).toBe("order");
+  });
+
   it("routes the standard cart return through the public payment result page", () => {
     const result = new URL(
       checkoutReturnUrl("https://shop.example.com/cart?source=checkout#summary", orderId, env)
