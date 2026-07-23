@@ -9,6 +9,7 @@ import { requireCustomer } from "@/lib/auth";
 import { createSecretClient } from "@/lib/supabase";
 import { getCustomerOrder } from "@/lib/orders";
 import { formatMoney } from "@/lib/money";
+import { reconcileOrderPayment } from "@/lib/payment-reconciliation";
 import {
   formatDate,
   formatStatus,
@@ -21,6 +22,7 @@ import {
 
 type OrderPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ checkout?: string }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -30,9 +32,13 @@ export async function generateMetadata({ params }: OrderPageProps) {
   return { title: `${id} | ${getAppName()}` };
 }
 
-export default async function OrderPage({ params }: OrderPageProps) {
+export default async function OrderPage({
+  params,
+  searchParams,
+}: OrderPageProps) {
   const { customer } = await requireCustomer("/orders");
   const { id } = await params;
+  const checkout = (await searchParams)?.checkout;
   const supabase = createSecretClient();
   let order: LiveOrder | null = null;
   let dataError = false;
@@ -43,6 +49,18 @@ export default async function OrderPage({ params }: OrderPageProps) {
     if (error instanceof ApiError && error.code === "not_found") notFound();
     dataError = true;
     console.error("order detail query failed:", error instanceof Error ? error.message : "unknown");
+  }
+
+  if (checkout === "processing" && order?.status === "pending_payment") {
+    try {
+      await reconcileOrderPayment(supabase, id);
+      order = (await getCustomerOrder(supabase, customer, id)) as LiveOrder;
+    } catch (error) {
+      console.error(
+        "order payment reconciliation failed:",
+        error instanceof Error ? error.message : "unknown",
+      );
+    }
   }
 
   if (!order) {
