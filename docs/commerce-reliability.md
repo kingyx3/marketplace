@@ -13,9 +13,17 @@ database settlement function can make an order paid.
 - `/api/cron/commerce-worker` leases inbox and outbox rows with `SKIP LOCKED`,
   retries with bounded exponential backoff, and dead-letters after ten attempts.
 - Checkout return pages poll `/api/checkout/status` and never infer paid state
-  from provider query parameters.
+  from provider query parameters. Pending reads reconcile the saved payment request
+  against HitPay, so a missed webhook can still settle the order idempotently.
+- Order details opened with `checkout=processing` perform the same reconciliation
+  before rendering the authoritative database state.
 
 ## Deployment contract
+
+After Vercel returns the deployment URL, the deployment workflow moves the named
+HitPay webhook endpoint to that exact application's `/api/webhooks/hitpay` route.
+This prevents immutable deployment URLs from leaving provider delivery pointed at
+an older release.
 
 Production database changes are expand/contract:
 
