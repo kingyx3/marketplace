@@ -27,7 +27,9 @@ export const SEEDED_PUBLIC_TABLES = [
   "notifications",
   "order_items",
   "orders",
+  "outbox_events",
   "payment_exceptions",
+  "payment_attempts",
   "payments",
   "preorders",
   "product_types",
@@ -35,6 +37,7 @@ export const SEEDED_PUBLIC_TABLES = [
   "product_prices",
   "purchase_order_items",
   "purchase_orders",
+  "refund_attempts",
   "refunds",
   "sets_releases",
   "shipments",
@@ -73,23 +76,31 @@ const FIXTURE_IDS = Object.freeze({
   waitlist: "10000000-0000-4000-8000-000000000028",
   audit: "10000000-0000-4000-8000-000000000029",
   idempotency: "10000000-0000-4000-8000-000000000030",
+  paymentAttempt: "10000000-0000-4000-8000-000000000031",
+  refundAttempt: "10000000-0000-4000-8000-000000000032",
+  outboxEvent: "10000000-0000-4000-8000-000000000033",
 });
 
 const CATEGORY = Object.freeze({
   slug: "bootstrap-fixture",
   name: "Bootstrap Fixture TCG",
   publisher: "Marketplace QA",
-  description: "Stable catalog data created by the database bootstrap workflow.",
+  description:
+    "Stable catalog data created by the database bootstrap workflow.",
   sortOrder: 999,
 });
 
 const RELEASE = Object.freeze({
   name: "Bootstrap Visibility Set",
   code: "BST",
-  description: "A released set used to verify catalog lifecycle and storefront visibility.",
+  description:
+    "A released set used to verify catalog lifecycle and storefront visibility.",
 });
 
-const PRODUCT_TYPE = Object.freeze({ code: "bootstrap_box", name: "Bootstrap box" });
+const PRODUCT_TYPE = Object.freeze({
+  code: "bootstrap_box",
+  name: "Bootstrap box",
+});
 const PRODUCT_NAME = "Bootstrap Visibility Product";
 const PRODUCT_REFERENCE = "BOOTSTRAP-BST-BOX-EN";
 const CURRENCY = "SGD";
@@ -101,15 +112,19 @@ const IDEMPOTENCY_REQUEST_HASH = "b".repeat(64);
 
 export function discoverActivePublicTables(sqlByFilename) {
   const active = new Set();
-  const entries = Object.entries(sqlByFilename).sort(([a], [b]) => a.localeCompare(b));
+  const entries = Object.entries(sqlByFilename).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
 
   for (const [, sql] of entries) {
     for (const match of sql.matchAll(
-      /create\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-z0-9_]+)/gi
+      /create\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-z0-9_]+)/gi,
     )) {
       active.add(match[1].toLowerCase());
     }
-    for (const statement of sql.matchAll(/drop\s+table\s+(?:if\s+exists\s+)?([^;]+);/gi)) {
+    for (const statement of sql.matchAll(
+      /drop\s+table\s+(?:if\s+exists\s+)?([^;]+);/gi,
+    )) {
       for (const table of statement[1].matchAll(/public\.([a-z0-9_]+)/gi)) {
         active.delete(table[1].toLowerCase());
       }
@@ -119,7 +134,10 @@ export function discoverActivePublicTables(sqlByFilename) {
   return [...active].sort();
 }
 
-export function compareBootstrapCoverage(activeTables, seededTables = SEEDED_PUBLIC_TABLES) {
+export function compareBootstrapCoverage(
+  activeTables,
+  seededTables = SEEDED_PUBLIC_TABLES,
+) {
   const active = new Set(activeTables);
   const seeded = new Set(seededTables);
   return {
@@ -136,23 +154,34 @@ async function main() {
 
   const supabaseUrl = requireEnvironment("NEXT_PUBLIC_SUPABASE_URL");
   const secretKey = requireEnvironment("SUPABASE_SECRET_KEY");
-  const publishableKey = requireEnvironment("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+  const publishableKey = requireEnvironment(
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  );
   const siteUrl = requireEnvironment("NEXT_PUBLIC_SITE_URL");
-  const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  const vercelBypassSecret =
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
   assertTargetSafety(target, supabaseUrl);
 
   const secretClient = createClient(supabaseUrl, secretKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
   });
   const now = new Date();
   const dates = createFixtureDates(now);
   const actorEmail = `bootstrap-admin-${target}@example.com`;
   const customerEmail = `bootstrap-customer-${target}@example.com`;
-  const actorUser = await ensureAuthUser(secretClient, actorEmail, "Database Bootstrap Admin");
+  const actorUser = await ensureAuthUser(
+    secretClient,
+    actorEmail,
+    "Database Bootstrap Admin",
+  );
   const customerUser = await ensureAuthUser(
     secretClient,
     customerEmail,
-    "Database Bootstrap Customer"
+    "Database Bootstrap Customer",
   );
 
   await seedAdministrator(secretClient, actorUser, actorEmail, now);
@@ -163,7 +192,7 @@ async function main() {
     customerEmail,
     target,
     now,
-    dates
+    dates,
   );
   await seedServerLedgers(secretClient, actorUser.id, target, now, dates);
   await exerciseAdminMutationApis(secretClient, actorUser.id, dates);
@@ -209,7 +238,9 @@ function createFixtureDates(now) {
     releaseDate: now.toISOString().slice(0, 10),
     startsAt: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
     endsAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    expectedAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    expectedAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
     ledgerExpiresAt: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
     expiredAt: new Date(now.getTime() - 1000).toISOString(),
   };
@@ -232,7 +263,7 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
     .maybeSingle();
   if (existingGrantError) {
     throw new Error(
-      `Could not read bootstrap administrator grant: ${existingGrantError.message}`
+      `Could not read bootstrap administrator grant: ${existingGrantError.message}`,
     );
   }
   await upsert(client, "admin_access_grants", {
@@ -250,12 +281,12 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
     client,
     "control_permission_definitions",
     "permission_key",
-    "control.view"
+    "control.view",
   );
   const permissionKeys = await selectColumn(
     client,
     "control_permission_definitions",
-    "permission_key"
+    "permission_key",
   );
   await upsertMany(
     client,
@@ -265,7 +296,7 @@ async function seedAdministrator(client, actorUser, actorEmail, now) {
       permission_key: permissionKey,
       created_by_staff_id: FIXTURE_IDS.staff,
     })),
-    "grant_id,permission_key"
+    "grant_id,permission_key",
   );
 }
 
@@ -280,7 +311,7 @@ async function seedCatalogBase(client, target, dates) {
       active: true,
       sort_order: 999,
     },
-    "code"
+    "code",
   );
   await upsert(
     client,
@@ -295,7 +326,7 @@ async function seedCatalogBase(client, target, dates) {
       active: true,
       sort_order: CATEGORY.sortOrder,
     },
-    "slug"
+    "slug",
   );
   await upsert(client, "sets_releases", {
     id: FIXTURE_IDS.set,
@@ -331,7 +362,12 @@ async function seedCatalogBase(client, target, dates) {
     weight_grams: 900,
     source_metadata: { bootstrap: true, target },
   });
-  await deleteWhere(client, "product_prices", "product_id", FIXTURE_IDS.product);
+  await deleteWhere(
+    client,
+    "product_prices",
+    "product_id",
+    FIXTURE_IDS.product,
+  );
   await upsert(
     client,
     "product_inventory",
@@ -344,7 +380,7 @@ async function seedCatalogBase(client, target, dates) {
       incoming: 6,
       safety_stock: 2,
     },
-    "product_id,location"
+    "product_id,location",
   );
   await upsert(
     client,
@@ -365,7 +401,7 @@ async function seedCatalogBase(client, target, dates) {
       order_close_at: null,
       release_date: dates.releaseDate,
     },
-    "product_id"
+    "product_id",
   );
   await upsert(
     client,
@@ -375,10 +411,14 @@ async function seedCatalogBase(client, target, dates) {
       key: "bootstrap_fixture",
       label: "Database bootstrap fixture",
       description: "Records the most recent successful bootstrap target.",
-      value: { target, productId: FIXTURE_IDS.product, referenceCode: PRODUCT_REFERENCE },
+      value: {
+        target,
+        productId: FIXTURE_IDS.product,
+        referenceCode: PRODUCT_REFERENCE,
+      },
       active: true,
     },
-    "key"
+    "key",
   );
   await upsert(client, "suppliers", {
     id: FIXTURE_IDS.supplier,
@@ -412,7 +452,13 @@ async function seedCatalogBase(client, target, dates) {
   });
 }
 
-async function seedCustomerAndCommerce(client, customerUser, customerEmail, target, now) {
+async function seedCustomerAndCommerce(
+  client,
+  customerUser,
+  customerEmail,
+  target,
+  now,
+) {
   const address = {
     recipientName: "Bootstrap Customer",
     line1: "1 Test Data Way",
@@ -436,7 +482,7 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
       provisioning_error: null,
     },
     "auth_user_id",
-    "id"
+    "id",
   );
 
   await upsert(client, "preorders", {
@@ -494,7 +540,7 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
       status: "captured",
       captured_at: now.toISOString(),
     },
-    "provider,provider_payment_id"
+    "provider,provider_payment_id",
   );
   await upsert(
     client,
@@ -511,7 +557,7 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
       status: "captured",
       captured_at: now.toISOString(),
     },
-    "provider,provider_payment_id"
+    "provider,provider_payment_id",
   );
   await upsert(client, "refunds", {
     id: FIXTURE_IDS.refund,
@@ -521,6 +567,43 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
     currency: CURRENCY,
     reason: "Bootstrap pending refund fixture.",
     status: "pending",
+  });
+  await upsert(client, "payment_attempts", {
+    id: FIXTURE_IDS.paymentAttempt,
+    order_id: FIXTURE_IDS.order,
+    payment_id: FIXTURE_IDS.orderPayment,
+    provider: "bootstrap",
+    provider_payment_id: `bootstrap-order-${target}`,
+    idempotency_key: `bootstrap-payment-attempt-${target}`,
+    amount_cents: PRICE_CENTS,
+    currency: CURRENCY,
+    status: "succeeded",
+    attempt_count: 1,
+    completed_at: now.toISOString(),
+  });
+  await upsert(client, "refund_attempts", {
+    id: FIXTURE_IDS.refundAttempt,
+    refund_id: FIXTURE_IDS.refund,
+    payment_id: FIXTURE_IDS.orderPayment,
+    provider: "bootstrap",
+    provider_refund_id: `bootstrap-refund-${target}`,
+    dedupe_key: `bootstrap-refund-attempt-${target}`,
+    amount_cents: 100,
+    currency: CURRENCY,
+    status: "succeeded",
+    attempt_count: 1,
+    completed_at: now.toISOString(),
+  });
+  await upsert(client, "outbox_events", {
+    id: FIXTURE_IDS.outboxEvent,
+    topic: "bootstrap.completed",
+    aggregate_type: "order",
+    aggregate_id: FIXTURE_IDS.order,
+    dedupe_key: `bootstrap-outbox-${target}`,
+    payload: { target, orderId: FIXTURE_IDS.order },
+    status: "processed",
+    attempt_count: 1,
+    processed_at: now.toISOString(),
   });
   await upsert(client, "shipments", {
     id: FIXTURE_IDS.shipment,
@@ -564,9 +647,10 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
       event_id: `bootstrap-event-${target}`,
       event_type: "bootstrap.completed",
       payload: { target, productId: FIXTURE_IDS.product },
+      status: "processed",
       processed_at: now.toISOString(),
     },
-    "provider,event_id"
+    "provider,event_id",
   );
   await upsert(client, "payment_exceptions", {
     id: FIXTURE_IDS.paymentException,
@@ -591,7 +675,7 @@ async function seedCustomerAndCommerce(client, customerUser, customerEmail, targ
       status: "active",
       notified_at: null,
     },
-    "customer_id,product_id,channel"
+    "customer_id,product_id,channel",
   );
 
   return customer.id;
@@ -608,7 +692,7 @@ async function seedServerLedgers(client, actorId, target, now, dates) {
       request_count: 0,
       expires_at: dates.expiredAt,
     },
-    "bucket_key"
+    "bucket_key",
   );
   const consumed = await rpc(client, "consume_api_rate_limit", {
     p_bucket_key: bucketKey,
@@ -617,7 +701,9 @@ async function seedServerLedgers(client, actorId, target, now, dates) {
   });
   const result = one(consumed);
   if (!result?.allowed || Number(result.remaining) !== 9) {
-    throw new Error("API rate-limit smoke test did not consume the isolated bootstrap bucket");
+    throw new Error(
+      "API rate-limit smoke test did not consume the isolated bootstrap bucket",
+    );
   }
 
   await upsert(
@@ -636,7 +722,7 @@ async function seedServerLedgers(client, actorId, target, now, dates) {
       expires_at: dates.ledgerExpiresAt,
       updated_at: now.toISOString(),
     },
-    "scope,actor_id,idempotency_key_hash"
+    "scope,actor_id,idempotency_key_hash",
   );
   await rpc(client, "complete_api_idempotency", {
     p_scope: `bootstrap.${target}`,
@@ -756,13 +842,16 @@ async function verifyCompletedIdempotency(client, actorId) {
     .eq("actor_id", actorId)
     .eq("idempotency_key_hash", IDEMPOTENCY_KEY_HASH)
     .single();
-  if (error) throw new Error(`Idempotency verification failed: ${error.message}`);
+  if (error)
+    throw new Error(`Idempotency verification failed: ${error.message}`);
   if (
     data.status !== "completed" ||
     data.response_status !== 200 ||
     data.response_body?.ok !== true
   ) {
-    throw new Error("Idempotency completion API did not persist the bootstrap response");
+    throw new Error(
+      "Idempotency completion API did not persist the bootstrap response",
+    );
   }
 }
 
@@ -770,12 +859,14 @@ async function verifySecretRead(client) {
   const { data: product, error: productError } = await client
     .from("products")
     .select(
-      "id,slug,name,active,price_cents,product_inventory(on_hand,allocated,safety_stock),product_prices(active,price_cents,starts_at,ends_at)"
+      "id,slug,name,active,price_cents,product_inventory(on_hand,allocated,safety_stock),product_prices(active,price_cents,starts_at,ends_at)",
     )
     .eq("id", FIXTURE_IDS.product)
     .single();
   if (productError) {
-    throw new Error(`Bootstrap product verification query failed: ${productError.message}`);
+    throw new Error(
+      `Bootstrap product verification query failed: ${productError.message}`,
+    );
   }
 
   const { data: listing, error: listingError } = await client
@@ -784,7 +875,9 @@ async function verifySecretRead(client) {
     .eq("product_id", FIXTURE_IDS.product)
     .single();
   if (listingError) {
-    throw new Error(`Bootstrap listing verification query failed: ${listingError.message}`);
+    throw new Error(
+      `Bootstrap listing verification query failed: ${listingError.message}`,
+    );
   }
 
   const { data: deal, error: dealError } = await client
@@ -792,9 +885,14 @@ async function verifySecretRead(client) {
     .select("active,deal_price_cents")
     .eq("id", FIXTURE_IDS.deal)
     .single();
-  if (dealError) throw new Error(`Bootstrap deal verification query failed: ${dealError.message}`);
+  if (dealError)
+    throw new Error(
+      `Bootstrap deal verification query failed: ${dealError.message}`,
+    );
 
-  const activePrice = (product.product_prices ?? []).find((price) => price.active);
+  const activePrice = (product.product_prices ?? []).find(
+    (price) => price.active,
+  );
   const inventory = one(product.product_inventory);
   if (
     !product.active ||
@@ -808,14 +906,20 @@ async function verifySecretRead(client) {
     Number(inventory?.on_hand ?? 0) - Number(inventory?.allocated ?? 0) <=
       Number(inventory?.safety_stock ?? 0)
   ) {
-    throw new Error("Bootstrap product does not satisfy the storefront visibility contract");
+    throw new Error(
+      "Bootstrap product does not satisfy the storefront visibility contract",
+    );
   }
   return product;
 }
 
 async function verifyAnonymousRead(supabaseUrl, publishableKey) {
   const publicClient = createClient(supabaseUrl, publishableKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
   });
   const { data: product, error: productError } = await publicClient
     .from("products")
@@ -840,21 +944,28 @@ async function verifyAnonymousRead(supabaseUrl, publishableKey) {
     .select("deal_price_cents")
     .eq("id", FIXTURE_IDS.deal)
     .single();
-  if (dealError) throw new Error(`Anonymous deal read failed: ${dealError.message}`);
+  if (dealError)
+    throw new Error(`Anonymous deal read failed: ${dealError.message}`);
   if (
     !product ||
     !listing.published ||
     listing.availability_mode !== "available_now" ||
     Number(deal.deal_price_cents) !== DEAL_PRICE_CENTS
   ) {
-    throw new Error("Anonymous storefront read did not return the exact bootstrap deal price");
+    throw new Error(
+      "Anonymous storefront read did not return the exact bootstrap deal price",
+    );
   }
 }
 
 const HOSTED_FETCH_ATTEMPTS = 5;
 const HOSTED_FETCH_TIMEOUT_MS = 15_000;
 
-async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) {
+async function verifyHostedStorefront(
+  siteUrl,
+  productSlug,
+  vercelBypassSecret,
+) {
   const base = new URL(siteUrl);
   const headers = { "user-agent": "marketplace-database-bootstrap/1.0" };
   if (vercelBypassSecret) {
@@ -864,23 +975,30 @@ async function verifyHostedStorefront(siteUrl, productSlug, vercelBypassSecret) 
   const catalogResponse = await fetchHostedPage(
     new URL("/products", base),
     headers,
-    "Hosted catalog"
+    "Hosted catalog",
   );
   if (!catalogResponse.ok) {
-    throw new Error(`Hosted catalog verification failed with HTTP ${catalogResponse.status}`);
+    throw new Error(
+      `Hosted catalog verification failed with HTTP ${catalogResponse.status}`,
+    );
   }
   const catalogHtml = await catalogResponse.text();
-  if (!catalogHtml.includes(PRODUCT_NAME) && !catalogHtml.includes(productSlug)) {
+  if (
+    !catalogHtml.includes(PRODUCT_NAME) &&
+    !catalogHtml.includes(productSlug)
+  ) {
     throw new Error("Hosted catalog did not render the bootstrap product");
   }
 
   const detailResponse = await fetchHostedPage(
     new URL(`/products/${productSlug}`, base),
     headers,
-    "Hosted product"
+    "Hosted product",
   );
   if (!detailResponse.ok) {
-    throw new Error(`Hosted product verification failed with HTTP ${detailResponse.status}`);
+    throw new Error(
+      `Hosted product verification failed with HTTP ${detailResponse.status}`,
+    );
   }
 }
 
@@ -902,7 +1020,7 @@ async function fetchHostedPage(url, headers, label) {
     await delay(attempt * 2_000);
   }
   throw new Error(
-    `${label} fetch failed after ${HOSTED_FETCH_ATTEMPTS} attempts for ${url.hostname}: ${describeError(lastError)}`
+    `${label} fetch failed after ${HOSTED_FETCH_ATTEMPTS} attempts for ${url.hostname}: ${describeError(lastError)}`,
   );
 }
 
@@ -941,31 +1059,49 @@ async function ensureAuthUser(client, email, fullName) {
   if (error) {
     const afterConflict = await findAuthUser(client, email);
     if (afterConflict) return afterConflict;
-    throw new Error(`Could not create bootstrap auth user ${email}: ${error.message}`);
+    throw new Error(
+      `Could not create bootstrap auth user ${email}: ${error.message}`,
+    );
   }
-  if (!data.user) throw new Error(`Supabase did not return the created bootstrap user ${email}`);
+  if (!data.user)
+    throw new Error(
+      `Supabase did not return the created bootstrap user ${email}`,
+    );
   return data.user;
 }
 
 async function findAuthUser(client, email) {
   for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await client.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) throw new Error(`Could not list Supabase auth users: ${error.message}`);
-    const match = data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
+    const { data, error } = await client.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+    if (error)
+      throw new Error(`Could not list Supabase auth users: ${error.message}`);
+    const match = data.users.find(
+      (user) => user.email?.toLowerCase() === email.toLowerCase(),
+    );
     if (match) return match;
     if (data.users.length < 200) return null;
   }
-  throw new Error(`Could not resolve bootstrap auth user ${email} within the bounded user scan`);
+  throw new Error(
+    `Could not resolve bootstrap auth user ${email} within the bounded user scan`,
+  );
 }
 
 async function upsert(client, table, row, onConflict = "id") {
-  const { error } = await client.from(table).upsert(row, { onConflict, ignoreDuplicates: false });
+  const { error } = await client
+    .from(table)
+    .upsert(row, { onConflict, ignoreDuplicates: false });
   if (error) throw new Error(`Upsert failed for ${table}: ${error.message}`);
 }
 
 async function upsertMany(client, table, rows, onConflict) {
-  if (rows.length === 0) throw new Error(`No rows were supplied for required table ${table}`);
-  const { error } = await client.from(table).upsert(rows, { onConflict, ignoreDuplicates: false });
+  if (rows.length === 0)
+    throw new Error(`No rows were supplied for required table ${table}`);
+  const { error } = await client
+    .from(table)
+    .upsert(rows, { onConflict, ignoreDuplicates: false });
   if (error) throw new Error(`Upsert failed for ${table}: ${error.message}`);
 }
 
@@ -981,19 +1117,31 @@ async function upsertAndSelect(client, table, row, onConflict, columns) {
 
 async function deleteWhere(client, table, column, value) {
   const { error } = await client.from(table).delete().eq(column, value);
-  if (error) throw new Error(`Fixture cleanup failed for ${table}: ${error.message}`);
+  if (error)
+    throw new Error(`Fixture cleanup failed for ${table}: ${error.message}`);
 }
 
 async function selectColumn(client, table, column) {
   const { data, error } = await client.from(table).select(column);
-  if (error) throw new Error(`Read failed for ${table}.${column}: ${error.message}`);
+  if (error)
+    throw new Error(`Read failed for ${table}.${column}: ${error.message}`);
   return data.map((row) => row[column]);
 }
 
 async function verifyReferenceRow(client, table, column, value) {
-  const { data, error } = await client.from(table).select(column).eq(column, value).maybeSingle();
-  if (error) throw new Error(`Reference-data verification failed for ${table}: ${error.message}`);
-  if (!data) throw new Error(`Required migration-owned reference row is missing from ${table}`);
+  const { data, error } = await client
+    .from(table)
+    .select(column)
+    .eq(column, value)
+    .maybeSingle();
+  if (error)
+    throw new Error(
+      `Reference-data verification failed for ${table}: ${error.message}`,
+    );
+  if (!data)
+    throw new Error(
+      `Required migration-owned reference row is missing from ${table}`,
+    );
 }
 
 async function rpc(client, name, args) {
@@ -1004,25 +1152,33 @@ async function rpc(client, name, args) {
 
 async function assertManifestCoversMigrations() {
   const directory = new URL("../supabase/migrations/", import.meta.url);
-  const filenames = (await readdir(directory)).filter((file) => file.endsWith(".sql")).sort();
+  const filenames = (await readdir(directory))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
   const sqlByFilename = Object.fromEntries(
     await Promise.all(
       filenames.map(async (filename) => [
         filename,
         await readFile(new URL(filename, directory), "utf8"),
-      ])
-    )
+      ]),
+    ),
   );
-  const coverage = compareBootstrapCoverage(discoverActivePublicTables(sqlByFilename));
+  const coverage = compareBootstrapCoverage(
+    discoverActivePublicTables(sqlByFilename),
+  );
   if (coverage.missing.length || coverage.stale.length) {
     throw new Error(
       [
         "Database bootstrap manifest does not match the active public schema.",
-        coverage.missing.length ? `Missing handlers: ${coverage.missing.join(", ")}` : null,
-        coverage.stale.length ? `Stale handlers: ${coverage.stale.join(", ")}` : null,
+        coverage.missing.length
+          ? `Missing handlers: ${coverage.missing.join(", ")}`
+          : null,
+        coverage.stale.length
+          ? `Stale handlers: ${coverage.stale.join(", ")}`
+          : null,
       ]
         .filter(Boolean)
-        .join(" ")
+        .join(" "),
     );
   }
 }
@@ -1030,21 +1186,27 @@ async function assertManifestCoversMigrations() {
 function parseTarget(args, environmentTarget) {
   const positional = args.find((argument) => !argument.startsWith("--"));
   const targetFlag = args.find((argument) => argument.startsWith("--target="));
-  const target = (targetFlag?.split("=")[1] || positional || environmentTarget || "").trim();
+  const target = (
+    targetFlag?.split("=")[1] ||
+    positional ||
+    environmentTarget ||
+    ""
+  ).trim();
   if (!DATABASE_BOOTSTRAP_TARGETS.includes(target)) {
     throw new Error(
-      `Database bootstrap target must be one of: ${DATABASE_BOOTSTRAP_TARGETS.join(", ")}`
+      `Database bootstrap target must be one of: ${DATABASE_BOOTSTRAP_TARGETS.join(", ")}`,
     );
   }
   return target;
 }
 
 export function assertTargetSafety(target, supabaseUrl) {
-  if (target === "production") throw new Error("Production database bootstrap is prohibited");
+  if (target === "production")
+    throw new Error("Production database bootstrap is prohibited");
   const databaseHost = new URL(supabaseUrl).hostname.toLowerCase();
   if (/(?:^|[.-])prod(?:uction)?(?:[.-]|$)/.test(databaseHost)) {
     throw new Error(
-      `Refusing to bootstrap ${target} with a production-looking database URL`
+      `Refusing to bootstrap ${target} with a production-looking database URL`,
     );
   }
 }
@@ -1077,11 +1239,14 @@ async function appendGithubSummary(summary) {
       `- Anonymous read: ${summary.anonymousReadVerified ? "verified" : "skipped"}`,
       `- Hosted storefront: ${summary.hostedStorefrontVerified ? "verified" : "skipped"}`,
       "",
-    ].join("\n")
+    ].join("\n"),
   );
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { PageHeader } from "@/app/_components/page-header";
-import { StatusBadge } from "@/app/_components/status-badge";
-import { checkoutReturnDestination, checkoutReturnState } from "@/lib/checkout-return";
+import { CheckoutStatus } from "@/app/(shop)/checkout/return/checkout-status";
+import { checkoutReturnDestination } from "@/lib/checkout-return";
 
 export const metadata: Metadata = {
   title: "Checkout return",
@@ -13,26 +12,29 @@ export const metadata: Metadata = {
 export default async function CheckoutReturnPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ status?: string; order?: string; destination?: string }>;
+  searchParams?: Promise<{
+    status?: string;
+    order?: string;
+    destination?: string;
+  }>;
 }) {
   const params = (await searchParams) ?? {};
-  const state = checkoutReturnState(params.status);
-  const destination = checkoutReturnDestination(params.order, params.destination);
+  const destination = checkoutReturnDestination(
+    params.order,
+    params.destination,
+  );
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <PageHeader
-        action={<StatusBadge tone={state.tone}>{state.label}</StatusBadge>}
-        description={state.description}
-        eyebrow="Checkout"
-        title={state.title}
-      />
+      <CheckoutStatus orderId={params.order} providerStatus={params.status} />
 
       <section className="max-w-2xl rounded-xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-        <h2 className="text-lg font-semibold text-zinc-950">What happens next</h2>
+        <h2 className="text-lg font-semibold text-zinc-950">
+          What happens next
+        </h2>
         <p className="mt-2 text-sm leading-6 text-zinc-600">
-          Your order page will show the latest payment and fulfilment status. Confirmation may take
-          a short moment after you return from checkout.
+          Your order page will show the latest payment and fulfilment status.
+          Confirmation may take a short moment after you return from checkout.
         </p>
         <div className="mt-7 grid gap-3 sm:flex sm:flex-wrap">
           <Link

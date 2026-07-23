@@ -45,37 +45,92 @@ export interface CreateHitPayPaymentRequestInput {
 }
 
 export interface HitPayClient {
-  createPaymentRequest(input: CreateHitPayPaymentRequestInput): Promise<HitPayPaymentRequest>;
+  createPaymentRequest(
+    input: CreateHitPayPaymentRequestInput,
+  ): Promise<HitPayPaymentRequest>;
   getPaymentRequest(id: string): Promise<HitPayPaymentRequest>;
   cancelPaymentRequest(id: string): Promise<void>;
-  createRefund(input: { paymentId: string; amountCents: number }): Promise<HitPayRefund>;
+  createRefund(input: {
+    paymentId: string;
+    amountCents: number;
+  }): Promise<HitPayRefund>;
 }
 
-export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPayClient {
+export class HitPayRequestError extends Error {
+  readonly outcomeUnknown: boolean;
+  readonly status?: number;
+
+  constructor(
+    message: string,
+    options: { outcomeUnknown: boolean; status?: number; cause?: unknown },
+  ) {
+    super(
+      message,
+      options.cause === undefined ? undefined : { cause: options.cause },
+    );
+    this.name = "HitPayRequestError";
+    this.outcomeUnknown = options.outcomeUnknown;
+    this.status = options.status;
+  }
+}
+
+export function isHitPayRequestError(
+  error: unknown,
+): error is HitPayRequestError {
+  return error instanceof HitPayRequestError;
+}
+
+export function createHitPayClient(
+  env: NodeJS.ProcessEnv = process.env,
+): HitPayClient {
   const apiKey = env.HITPAY_API_KEY?.trim();
   const defaultApiUrl =
-    env.TARGET_ENV === "production" ? "https://api.hit-pay.com" : "https://api.sandbox.hit-pay.com";
+    env.TARGET_ENV === "production"
+      ? "https://api.hit-pay.com"
+      : "https://api.sandbox.hit-pay.com";
   const apiUrl = (env.HITPAY_API_URL || defaultApiUrl).replace(/\/$/, "");
   if (!apiKey) throw new Error("HitPay is not configured (HITPAY_API_KEY)");
-  if (!/^https:\/\//i.test(apiUrl)) throw new Error("HITPAY_API_URL must use HTTPS");
+  if (!/^https:\/\//i.test(apiUrl))
+    throw new Error("HITPAY_API_URL must use HTTPS");
 
-  const request = async <T>(path: string, init: RequestInit, schema?: z.ZodType<T>): Promise<T> => {
-    const response = await fetch(`${apiUrl}${path}`, {
-      ...init,
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        "X-BUSINESS-API-KEY": apiKey,
-        "X-Requested-With": "XMLHttpRequest",
-        ...init.headers,
-      },
-      signal: init.signal ?? AbortSignal.timeout(15_000),
-    });
+  const request = async <T>(
+    path: string,
+    init: RequestInit,
+    schema?: z.ZodType<T>,
+  ): Promise<T> => {
+    const hasExternalSideEffect =
+      (init.method ?? "GET").toUpperCase() !== "GET";
+    let response: Response;
+    try {
+      response = await fetch(`${apiUrl}${path}`, {
+        ...init,
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          "X-BUSINESS-API-KEY": apiKey,
+          "X-Requested-With": "XMLHttpRequest",
+          ...init.headers,
+        },
+        signal: init.signal ?? AbortSignal.timeout(15_000),
+      });
+    } catch (error) {
+      throw new HitPayRequestError("HitPay request outcome is unknown", {
+        outcomeUnknown: hasExternalSideEffect,
+        cause: error,
+      });
+    }
+
     const text = await response.text();
     const payload = text ? safeJson(text) : {};
     if (!response.ok) {
       const detail = providerErrorMessage(payload);
-      throw new Error(`HitPay request failed (${response.status})${detail ? `: ${detail}` : ""}`);
+      throw new HitPayRequestError(
+        `HitPay request failed (${response.status})${detail ? `: ${detail}` : ""}`,
+        {
+          status: response.status,
+          outcomeUnknown: hasExternalSideEffect && response.status >= 500,
+        },
+      );
     }
     return schema ? schema.parse(payload) : (payload as T);
   };
@@ -97,21 +152,25 @@ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPay
             reference_number: input.referenceNumber.slice(0, 255),
             redirect_url: input.redirectUrl,
             allow_repeated_payments: false,
-            expires_after: normalizeHitPayExpiresAfter(input.expiresAfter ?? "15 mins"),
+            expires_after: normalizeHitPayExpiresAfter(
+              input.expiresAfter ?? "15 mins",
+            ),
             send_email: false,
             send_sms: false,
           }),
         },
-        hitPayPaymentRequestSchema
+        hitPayPaymentRequestSchema,
       ),
     getPaymentRequest: (id) =>
       request(
         `/v1/payment-requests/${encodeURIComponent(id)}`,
         { method: "GET" },
-        hitPayPaymentRequestSchema
+        hitPayPaymentRequestSchema,
       ),
     cancelPaymentRequest: async (id) => {
-      await request(`/v1/payment-requests/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await request(`/v1/payment-requests/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
     },
     createRefund: (input) =>
       request(
@@ -123,12 +182,14 @@ export function createHitPayClient(env: NodeJS.ProcessEnv = process.env): HitPay
             amount: formatHitPayAmount(input.amountCents),
           }),
         },
-        hitPayRefundSchema
+        hitPayRefundSchema,
       ),
   };
 }
 
-export function hitPayPaymentMethods(env: NodeJS.ProcessEnv = process.env): string[] {
+export function hitPayPaymentMethods(
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
   const methods = (env.HITPAY_PAYMENT_METHODS || "paynow_online")
     .split(",")
     .map((value) => value.trim())
@@ -163,14 +224,20 @@ export function hitPayAmountToCents(value: string | number): number {
   return Math.round(amount * 100);
 }
 
-export function hitPayRefundStatus(status: string): "pending" | "succeeded" | "failed" {
+export function hitPayRefundStatus(
+  status: string,
+): "pending" | "succeeded" | "failed" {
   const normalized = status.toLowerCase();
-  if (["succeeded", "completed", "refunded"].includes(normalized)) return "succeeded";
-  if (["failed", "cancelled", "canceled", "rejected"].includes(normalized)) return "failed";
+  if (["succeeded", "completed", "refunded"].includes(normalized))
+    return "succeeded";
+  if (["failed", "cancelled", "canceled", "rejected"].includes(normalized))
+    return "failed";
   return "pending";
 }
 
-export function successfulHitPayChargeId(payload: Record<string, unknown>): string | null {
+export function successfulHitPayChargeId(
+  payload: Record<string, unknown>,
+): string | null {
   if (!Array.isArray(payload.payments)) return null;
   for (const raw of payload.payments) {
     const result = hitPayChargeSchema.safeParse(raw);
@@ -181,10 +248,14 @@ export function successfulHitPayChargeId(payload: Record<string, unknown>): stri
   return null;
 }
 
-export function applicationUrl(path: string, env: NodeJS.ProcessEnv = process.env): string {
+export function applicationUrl(
+  path: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   const configured = env.NEXT_PUBLIC_SITE_URL?.trim();
   const vercel = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  const base = configured || (vercel ? `https://${vercel}` : "http://localhost:3000");
+  const base =
+    configured || (vercel ? `https://${vercel}` : "http://localhost:3000");
   return new URL(path, base.endsWith("/") ? base : `${base}/`).toString();
 }
 
@@ -207,7 +278,8 @@ function providerErrorMessage(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
   const record = payload as Record<string, unknown>;
   for (const key of ["message", "error", "detail"]) {
-    if (typeof record[key] === "string") return String(record[key]).slice(0, 500);
+    if (typeof record[key] === "string")
+      return String(record[key]).slice(0, 500);
   }
   return "";
 }

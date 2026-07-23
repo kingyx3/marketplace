@@ -18,6 +18,7 @@ begin
   foreach v_signature in array array[
     'public.expire_checkout_reservations(integer)',
     'public.settle_order_payment(uuid,text,integer,text)',
+    'public.settle_order_payment(uuid,text,text,integer,text)',
     'public.settle_preorder_payment(uuid,text,integer,text)',
     'public.finalize_preorder_allocation(uuid,text,text,text)'
   ]::text[]

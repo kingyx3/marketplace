@@ -2,7 +2,10 @@ import { createHmac } from "node:crypto";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { hitPayEventAuditEnvelope, validSignature } from "@/app/api/webhooks/hitpay/route";
+import {
+  hitPayEventAuditEnvelope,
+  validSignature,
+} from "@/app/api/webhooks/hitpay/route";
 import {
   createHitPayClient,
   hitPayAmountToCents,
@@ -19,7 +22,7 @@ describe("HitPay payment requests", () => {
     expect(
       hitPayPaymentMethods({
         HITPAY_PAYMENT_METHODS: "paynow_online,card",
-      } as unknown as NodeJS.ProcessEnv)
+      } as unknown as NodeJS.ProcessEnv),
     ).toEqual(["paynow_online", "card"]);
   });
 
@@ -44,8 +47,32 @@ describe("HitPay payment requests", () => {
             currency: "SGD",
           },
         ],
-      })
+      }),
     ).toBe("22222222-2222-4222-8222-222222222222");
+  });
+
+  it("marks side-effecting network failures as outcome unknown", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")),
+    );
+    const client = createHitPayClient({
+      HITPAY_API_KEY: "server-secret",
+      HITPAY_API_URL: "https://api.sandbox.hit-pay.com",
+    } as unknown as NodeJS.ProcessEnv);
+
+    await expect(
+      client.createPaymentRequest({
+        amountCents: 1000,
+        currency: "SGD",
+        purpose: "Order",
+        referenceNumber: "attempt:1",
+        redirectUrl: "https://shop.example/checkout/return",
+      }),
+    ).rejects.toMatchObject({
+      name: "HitPayRequestError",
+      outcomeUnknown: true,
+    });
   });
 
   it("creates a hosted payment request using only server-side credentials", async () => {
@@ -58,8 +85,8 @@ describe("HitPay payment requests", () => {
           currency: "SGD",
           url: "https://securecheckout.sandbox.hit-pay.com/example",
         }),
-        { status: 200 }
-      )
+        { status: 200 },
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -78,14 +105,16 @@ describe("HitPay payment requests", () => {
 
     expect(result.url).toContain("securecheckout.sandbox.hit-pay.com");
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect((init.headers as Record<string, string>)["X-BUSINESS-API-KEY"]).toBe("server-secret");
+    expect((init.headers as Record<string, string>)["X-BUSINESS-API-KEY"]).toBe(
+      "server-secret",
+    );
     expect(JSON.parse(String(init.body))).toEqual(
       expect.objectContaining({
         amount: "10.00",
         currency: "SGD",
         payment_methods: ["paynow_online"],
         allow_repeated_payments: false,
-      })
+      }),
     );
   });
 });
@@ -121,9 +150,18 @@ describe("HitPay signed webhooks", () => {
       status: "completed",
       amount: "10.00",
       currency: "SGD",
-      referenceNumber: "order:1",
+      reference_number: "order:1",
+      payments: [
+        {
+          id: null,
+          status: null,
+          amount: null,
+          currency: null,
+          refunded_amount: null,
+        },
+      ],
+      refunds: [],
     });
     expect(envelope).not.toHaveProperty("email");
-    expect(envelope).not.toHaveProperty("payments");
   });
 });

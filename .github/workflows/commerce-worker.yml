@@ -1,0 +1,31 @@
+name: Commerce worker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commerce-worker-production
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Drain durable commerce queues
+        env:
+          SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$SITE_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "${SITE_URL%/}/api/cron/commerce-worker"

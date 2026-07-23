@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiError } from "@/lib/api/errors";
-import { requireIdempotencyKey, runIdempotentJsonOperation } from "@/lib/api/idempotency";
+import { ambiguousExternalResult, ApiError } from "@/lib/api/errors";
+import {
+  requireIdempotencyKey,
+  runIdempotentJsonOperation,
+} from "@/lib/api/idempotency";
 import { readJsonBody } from "@/lib/api/request";
 
 describe("API request protections", () => {
@@ -13,7 +16,9 @@ describe("API request protections", () => {
       body: JSON.stringify({ value: "safe" }),
     });
 
-    await expect(readJsonBody(request, { maxBytes: 1024 })).resolves.toEqual({ value: "safe" });
+    await expect(readJsonBody(request, { maxBytes: 1024 })).resolves.toEqual({
+      value: "safe",
+    });
   });
 
   it("rejects unsupported content types and oversized bodies", async () => {
@@ -32,7 +37,9 @@ describe("API request protections", () => {
       status: 415,
       code: "unsupported_media_type",
     });
-    await expect(readJsonBody(oversized, { maxBytes: 16 })).rejects.toMatchObject({
+    await expect(
+      readJsonBody(oversized, { maxBytes: 16 }),
+    ).rejects.toMatchObject({
       status: 413,
       code: "payload_too_large",
     });
@@ -43,17 +50,20 @@ describe("API request protections", () => {
       requireIdempotencyKey(
         new Request("https://example.test/api/checkout", {
           headers: { "idempotency-key": "checkout-12345678" },
-        })
-      )
+        }),
+      ),
     ).toBe("checkout-12345678");
 
-    expect(() => requireIdempotencyKey(new Request("https://example.test/api/checkout"))).toThrow(
-      ApiError
-    );
+    expect(() =>
+      requireIdempotencyKey(new Request("https://example.test/api/checkout")),
+    ).toThrow(ApiError);
   });
 
   it("stores and replays successful idempotent responses", async () => {
-    const operation = vi.fn(async () => ({ status: 201, body: { orderId: "order-1" } }));
+    const operation = vi.fn(async () => ({
+      status: 201,
+      body: { orderId: "order-1" },
+    }));
     const supabase = mockSupabase([
       { data: { claim_state: "claimed" }, error: null, single: true },
       { data: null, error: null },
@@ -66,10 +76,12 @@ describe("API request protections", () => {
           scope: "checkout.create",
           actorId: "00000000-0000-4000-8000-000000000001",
           key: "checkout-12345678",
-          requestBody: { items: [{ productId: "referenceCode-1", quantity: 1 }] },
+          requestBody: {
+            items: [{ productId: "referenceCode-1", quantity: 1 }],
+          },
         },
-        operation
-      )
+        operation,
+      ),
     ).resolves.toEqual({
       status: 201,
       body: { orderId: "order-1" },
@@ -79,7 +91,7 @@ describe("API request protections", () => {
     expect(supabase.rpc).toHaveBeenNthCalledWith(
       2,
       "complete_api_idempotency",
-      expect.objectContaining({ p_response_status: 201 })
+      expect.objectContaining({ p_response_status: 201 }),
     );
   });
 
@@ -104,10 +116,12 @@ describe("API request protections", () => {
           scope: "checkout.create",
           actorId: "00000000-0000-4000-8000-000000000001",
           key: "checkout-12345678",
-          requestBody: { items: [{ productId: "referenceCode-1", quantity: 1 }] },
+          requestBody: {
+            items: [{ productId: "referenceCode-1", quantity: 1 }],
+          },
         },
-        operation
-      )
+        operation,
+      ),
     ).resolves.toEqual({
       status: 201,
       body: { orderId: "order-1" },
@@ -133,10 +147,40 @@ describe("API request protections", () => {
         },
         async () => {
           throw new Error("operation failed");
-        }
-      )
+        },
+      ),
     ).rejects.toThrow("operation failed");
-    expect(supabase.rpc).toHaveBeenNthCalledWith(2, "release_api_idempotency", expect.any(Object));
+    expect(supabase.rpc).toHaveBeenNthCalledWith(
+      2,
+      "release_api_idempotency",
+      expect.any(Object),
+    );
+  });
+
+  it("keeps the claim when an external side effect has an ambiguous result", async () => {
+    const supabase = mockSupabase([
+      { data: { claim_state: "claimed" }, error: null, single: true },
+    ]);
+
+    await expect(
+      runIdempotentJsonOperation(
+        supabase.client,
+        {
+          scope: "checkout.create",
+          actorId: "00000000-0000-4000-8000-000000000001",
+          key: "checkout-12345678",
+          requestBody: { items: [] },
+        },
+        async () => {
+          throw ambiguousExternalResult();
+        },
+      ),
+    ).rejects.toMatchObject({ code: "external_result_unknown" });
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      "release_api_idempotency",
+      expect.any(Object),
+    );
   });
 
   it("keeps the claim when completion persistence fails after the side effect", async () => {
@@ -154,11 +198,14 @@ describe("API request protections", () => {
           key: "checkout-12345678",
           requestBody: { items: [] },
         },
-        async () => ({ status: 201, body: { orderId: "order-1" } })
-      )
+        async () => ({ status: 201, body: { orderId: "order-1" } }),
+      ),
     ).rejects.toMatchObject({ code: "service_unavailable" });
     expect(supabase.rpc).toHaveBeenCalledTimes(2);
-    expect(supabase.rpc).not.toHaveBeenCalledWith("release_api_idempotency", expect.any(Object));
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      "release_api_idempotency",
+      expect.any(Object),
+    );
   });
 });
 
