@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { handleHitPayEvent } from "@/lib/hitpay-webhooks";
 import { reconcileOrderPayment } from "@/lib/payment-reconciliation";
@@ -10,6 +10,10 @@ vi.mock("@/lib/hitpay-webhooks", () => ({
 const mockedHandleHitPayEvent = vi.mocked(handleHitPayEvent);
 
 describe("order payment reconciliation", () => {
+  beforeEach(() => {
+    mockedHandleHitPayEvent.mockClear();
+  });
+
   it("settles a completed provider request when its webhook was missed", async () => {
     const supabase = fakeSupabase({
       provider_payment_id: "11111111-1111-4111-8111-111111111111",
