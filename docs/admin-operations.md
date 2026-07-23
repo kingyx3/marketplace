@@ -123,7 +123,15 @@ Publication is rejected unless the product is active, has a physical reference a
 
 - `/control/orders` is the commercial order context and non-financial lifecycle workspace.
 - `/control/finance` owns provider exceptions and manual reconciliation. Selecting an exception or **Create reconciliation** opens the modal form, which requires provider, payment reference, amount, currency, reason, and actor.
-- `/control/fulfilment` owns packing and shipment mutations for fully captured orders.
+- `/control/fulfilment` owns packing and shipment mutations for fully captured orders. Its delivery
+  queue separates returned and lost exceptions from orders ready to arrange, prioritizes
+  action-required records, and supports search by customer, order ID, customer ID, product,
+  reference, shipment ID, carrier, or tracking number. Queue and sort filters remain visible across
+  bounded pagination over the latest 100 fully paid orders. Human delivery states are paired with
+  exact order and shipment statuses;
+  labeled identifiers remain selectable in the list and detail view. Read-only fulfilment coverage
+  can inspect the same payment, item, address, shipment, and tracking context without mutation
+  controls.
 - A single order action maps to exactly one owning permission: `orders.manage`, `fulfilment.manage`, or `payments.reconcile`.
 
 ## Customers and communications

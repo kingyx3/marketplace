@@ -38,13 +38,7 @@ export default async function DeliveryDetailPage({
         eyebrow="Control · Delivery"
         title={order.customer?.name || "Delivery order"}
       />
-      {hasControlPermission(staff, "fulfilment.manage") ? (
-        <DeliveryEditor order={order} />
-      ) : (
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 text-sm leading-6 text-zinc-600 shadow-sm">
-          Delivery execution is read only for your current domain coverage.
-        </section>
-      )}
+      <DeliveryEditor canManage={hasControlPermission(staff, "fulfilment.manage")} order={order} />
     </div>
   );
 }
