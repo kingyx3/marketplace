@@ -253,10 +253,41 @@ export function applicationUrl(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   const configured = env.NEXT_PUBLIC_SITE_URL?.trim();
-  const vercel = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  const base =
-    configured || (vercel ? `https://${vercel}` : "http://localhost:3000");
+  const vercel = vercelApplicationUrl(env);
+  const base = preferCurrentVercelUrl(configured, vercel, env)
+    ? vercel
+    : configured || vercel || "http://localhost:3000";
   return new URL(path, base.endsWith("/") ? base : `${base}/`).toString();
+}
+
+function vercelApplicationUrl(env: NodeJS.ProcessEnv): string | undefined {
+  const value =
+    env.VERCEL_URL?.trim() || env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (!value) return undefined;
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
+function preferCurrentVercelUrl(
+  configured: string | undefined,
+  vercel: string | undefined,
+  env: NodeJS.ProcessEnv,
+): vercel is string {
+  if (!vercel) return false;
+  if (!configured) return true;
+  const isProductionDeployment =
+    env.VERCEL_ENV === "production" ||
+    env.TARGET_ENV === "production" ||
+    env.TARGET_ENV === "staging";
+  if (!isProductionDeployment) return false;
+
+  try {
+    // A configured *.vercel.app URL can be an immutable deployment hostname.
+    // On production deployments, prefer the URL injected for this deployment so
+    // provider redirects cannot send customers back to an older deployment.
+    return new URL(configured).hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
 }
 
 function formatHitPayAmount(amountCents: number): string {
