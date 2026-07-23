@@ -1,7 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ApiCustomerContext } from "@/lib/api/auth";
-import { badRequest, conflict, internalError, serviceUnavailable } from "@/lib/api/errors";
+import {
+  ambiguousExternalResult,
+  badRequest,
+  conflict,
+  internalError,
+  serviceUnavailable,
+} from "@/lib/api/errors";
 import {
   checkoutRequestSchema,
   quoteCheckout,
@@ -13,7 +19,12 @@ import {
   createCheckoutPayment as createPreorderCheckoutPayment,
   type CheckoutResult,
 } from "@/lib/checkout";
-import { applicationUrl, createHitPayClient, type HitPayClient } from "@/lib/hitpay";
+import {
+  applicationUrl,
+  createHitPayClient,
+  isHitPayRequestError,
+  type HitPayClient,
+} from "@/lib/hitpay";
 import { logError } from "@/lib/observability";
 import { shippingAddressSchema, type ShippingAddress } from "@/lib/shipping";
 
@@ -24,7 +35,7 @@ export function checkoutResponseBody(result: CheckoutResult) {
 export function checkoutReturnUrl(
   requestedUrl: string | undefined,
   orderId: string,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
 ): string {
   const appUrl = new URL(applicationUrl("/", env));
   let destination: "cart" | "order" = "cart";
@@ -54,7 +65,7 @@ export function checkoutReturnUrl(
 export async function createCheckoutPayment(
   auth: ApiCustomerContext,
   body: unknown,
-  hitpay: HitPayClient = createHitPayClient()
+  hitpay: HitPayClient = createHitPayClient(),
 ): Promise<CheckoutResult> {
   const request = checkoutRequestSchema.parse(body) as CheckoutRequest;
   if (request.mode === "preorder") {
@@ -63,16 +74,18 @@ export async function createCheckoutPayment(
 
   const shippingAddress = shippingAddressSchema.parse(request.shippingAddress);
   const quote = await quoteCheckout(auth.supabase, request, auth.customer);
-  if (quote.totalCents <= 0) throw badRequest("Checkout total must be greater than zero");
+  if (quote.totalCents <= 0)
+    throw badRequest("Checkout total must be greater than zero");
 
   let orderId: string | null = null;
+  let paymentAttemptId: string | null = null;
   let paymentRequestId: string | null = null;
 
   try {
     const order = await auth.supabase
       .rpc(
         "create_checkout_order_from_cart",
-        checkoutOrderRpcParams(auth.user.id, quote, shippingAddress)
+        checkoutOrderRpcParams(auth.user.id, quote, shippingAddress),
       )
       .single();
     if (order.error || !order.data) {
@@ -85,7 +98,15 @@ export async function createCheckoutPayment(
     };
     orderId = orderData.order_id;
     const reservationExpiresAt =
-      orderData.reservation_expires_at ?? new Date(Date.now() + 15 * 60_000).toISOString();
+      orderData.reservation_expires_at ??
+      new Date(Date.now() + 15 * 60_000).toISOString();
+
+    const attempt = await insertPaymentAttempt(auth.supabase, {
+      orderId,
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+    });
+    paymentAttemptId = attempt.id;
 
     const paymentRequest = await hitpay.createPaymentRequest({
       amountCents: quote.totalCents,
@@ -94,17 +115,27 @@ export async function createCheckoutPayment(
       name: shippingAddress.recipientName || auth.customer.name,
       phone: shippingAddress.phone,
       purpose: `Marketplace order ${orderId}`,
-      referenceNumber: `order:${orderId}`,
+      referenceNumber: `attempt:${attempt.id}`,
       redirectUrl: checkoutReturnUrl(request.successUrl, orderId),
       expiresAfter: "15 minutes",
     });
     paymentRequestId = paymentRequest.id;
+    await updatePaymentAttempt(auth.supabase, attempt.id, {
+      status: "provider_succeeded",
+      provider_payment_id: paymentRequest.id,
+      attempt_count: 1,
+    });
 
     const payment = await insertPayment(auth.supabase, {
       orderId,
       providerPaymentId: paymentRequest.id,
       amountCents: quote.totalCents,
       currency: quote.currency,
+    });
+    await updatePaymentAttempt(auth.supabase, attempt.id, {
+      status: "succeeded",
+      payment_id: payment.id,
+      completed_at: new Date().toISOString(),
     });
 
     return {
@@ -119,6 +150,38 @@ export async function createCheckoutPayment(
       reservationExpiresAt,
     };
   } catch (error) {
+    const outcomeUnknown =
+      paymentRequestId !== null ||
+      (isHitPayRequestError(error) && error.outcomeUnknown);
+    if (paymentAttemptId) {
+      try {
+        await updatePaymentAttempt(auth.supabase, paymentAttemptId, {
+          status: outcomeUnknown ? "result_unknown" : "failed",
+          last_error: error instanceof Error ? error.message : String(error),
+          next_attempt_at: new Date().toISOString(),
+          ...(outcomeUnknown ? {} : { completed_at: new Date().toISOString() }),
+        });
+      } catch (attemptError) {
+        logError("checkout.payment_attempt_update_failed", attemptError, {
+          orderId: orderId ?? undefined,
+          paymentAttemptId,
+          userId: auth.user.id,
+        });
+      }
+    }
+
+    if (outcomeUnknown) {
+      logError("checkout.hitpay_result_unknown", error, {
+        orderId: orderId ?? undefined,
+        paymentAttemptId: paymentAttemptId ?? undefined,
+        paymentRequestId: paymentRequestId ?? undefined,
+        userId: auth.user.id,
+      });
+      throw ambiguousExternalResult(
+        "We could not confirm the payment-provider result. Your order is reserved while we reconcile it.",
+      );
+    }
+
     await rollbackFailedOrderCheckout(auth.supabase, {
       orderId,
       paymentRequestId,
@@ -127,10 +190,12 @@ export async function createCheckoutPayment(
     if (isHitPayRequestError(error)) {
       logError("checkout.hitpay_request_failed", error, {
         orderId: orderId ?? undefined,
-        paymentRequestId: paymentRequestId ?? undefined,
+        paymentAttemptId: paymentAttemptId ?? undefined,
         userId: auth.user.id,
       });
-      throw serviceUnavailable("Payment checkout is temporarily unavailable. Please try again.");
+      throw serviceUnavailable(
+        "Payment checkout is temporarily unavailable. Please try again.",
+      );
     }
     throw error instanceof Error ? error : internalError();
   }
@@ -139,7 +204,7 @@ export async function createCheckoutPayment(
 export function checkoutOrderRpcParams(
   authUserId: string,
   quote: CheckoutQuote,
-  shippingAddress: ShippingAddress
+  shippingAddress: ShippingAddress,
 ) {
   return {
     p_auth_user_id: authUserId,
@@ -164,20 +229,52 @@ function checkoutConflict(message: string): Error {
     normalized.includes("no longer available")
   ) {
     return conflict(
-      "Some stock is currently reserved by another checkout or has sold out. Refresh your cart before trying again."
+      "Some stock is currently reserved by another checkout or has sold out. Refresh your cart before trying again.",
     );
   }
   if (
     normalized.includes("checkout subtotal changed") ||
     normalized.includes("checkout total changed")
   ) {
-    return conflict("Prices or availability changed. Review the refreshed cart before payment.");
+    return conflict(
+      "Prices or availability changed. Review the refreshed cart before payment.",
+    );
   }
   return new Error(message);
 }
 
-function isHitPayRequestError(error: unknown): error is Error {
-  return error instanceof Error && error.message.startsWith("HitPay request failed (");
+async function insertPaymentAttempt(
+  supabase: SupabaseClient,
+  input: { orderId: string; amountCents: number; currency: string },
+): Promise<{ id: string; idempotencyKey: string }> {
+  const { data, error } = await supabase
+    .from("payment_attempts")
+    .insert({
+      order_id: input.orderId,
+      provider: "hitpay",
+      amount_cents: input.amountCents,
+      currency: input.currency,
+      status: "calling_provider",
+      attempt_count: 1,
+    })
+    .select("id, idempotency_key")
+    .single();
+
+  if (error || !data)
+    throw new Error(error?.message ?? "payment attempt insert failed");
+  return { id: String(data.id), idempotencyKey: String(data.idempotency_key) };
+}
+
+async function updatePaymentAttempt(
+  supabase: SupabaseClient,
+  id: string,
+  update: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await supabase
+    .from("payment_attempts")
+    .update({ ...update, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 async function insertPayment(
@@ -187,7 +284,7 @@ async function insertPayment(
     providerPaymentId: string;
     amountCents: number;
     currency: string;
-  }
+  },
 ): Promise<{ id: string }> {
   const { data, error } = await supabase
     .from("payments")
@@ -203,7 +300,8 @@ async function insertPayment(
     .select("id")
     .single();
 
-  if (error || !data) throw new Error(error?.message ?? "payment insert failed");
+  if (error || !data)
+    throw new Error(error?.message ?? "payment insert failed");
   return { id: data.id };
 }
 
@@ -213,7 +311,7 @@ async function rollbackFailedOrderCheckout(
     orderId: string | null;
     paymentRequestId: string | null;
     hitpay: HitPayClient;
-  }
+  },
 ): Promise<void> {
   if (input.paymentRequestId) {
     try {
@@ -224,8 +322,13 @@ async function rollbackFailedOrderCheckout(
   }
 
   if (input.orderId) {
-    await supabase.rpc("release_order_allocation", { p_order_id: input.orderId });
-    await supabase.from("payments").update({ status: "cancelled" }).eq("order_id", input.orderId);
+    await supabase.rpc("release_order_allocation", {
+      p_order_id: input.orderId,
+    });
+    await supabase
+      .from("payments")
+      .update({ status: "cancelled" })
+      .eq("order_id", input.orderId);
     await supabase
       .from("orders")
       .update({ status: "cancelled", checkout_reserved_until: null })

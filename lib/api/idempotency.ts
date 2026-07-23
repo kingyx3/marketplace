@@ -31,7 +31,7 @@ export function requireIdempotencyKey(request: Request): string {
   const key = request.headers.get("idempotency-key")?.trim();
   if (!key || !idempotencyKeyPattern.test(key)) {
     throw badRequest(
-      "A valid Idempotency-Key header is required for this duplicate-sensitive operation"
+      "A valid Idempotency-Key header is required for this duplicate-sensitive operation",
     );
   }
   return key;
@@ -40,7 +40,7 @@ export function requireIdempotencyKey(request: Request): string {
 export async function runIdempotentJsonOperation<T>(
   supabase: SupabaseClient,
   options: IdempotentOperationOptions,
-  operation: () => Promise<{ status: number; body: T }>
+  operation: () => Promise<{ status: number; body: T }>,
 ): Promise<IdempotentOperationResult<T>> {
   assertScope(options.scope);
   const idempotencyKeyHash = sha256(options.key);
@@ -60,23 +60,34 @@ export async function runIdempotentJsonOperation<T>(
     .single();
 
   if (claim.error || !claim.data) {
-    logError("api.idempotency.claim_failed", claim.error ?? new Error("Empty claim result"), {
-      requestId: options.requestId,
-      scope: options.scope,
-      actorId: options.actorId,
-    });
-    throw serviceUnavailable("Request deduplication is temporarily unavailable");
+    logError(
+      "api.idempotency.claim_failed",
+      claim.error ?? new Error("Empty claim result"),
+      {
+        requestId: options.requestId,
+        scope: options.scope,
+        actorId: options.actorId,
+      },
+    );
+    throw serviceUnavailable(
+      "Request deduplication is temporarily unavailable",
+    );
   }
 
   const claimResult = claim.data as ClaimResult;
   if (claimResult.claim_state === "conflict") {
-    throw conflict("The idempotency key was already used for a different request");
+    throw conflict(
+      "The idempotency key was already used for a different request",
+    );
   }
   if (claimResult.claim_state === "in_progress") {
     throw conflict("An identical request is already being processed");
   }
   if (claimResult.claim_state === "replay") {
-    if (!claimResult.stored_response_status || claimResult.stored_response_body === null) {
+    if (
+      !claimResult.stored_response_status ||
+      claimResult.stored_response_body === null
+    ) {
       throw serviceUnavailable("The stored idempotent response is unavailable");
     }
     return {
@@ -90,13 +101,23 @@ export async function runIdempotentJsonOperation<T>(
   try {
     result = await operation();
   } catch (error) {
-    const released = await supabase.rpc("release_api_idempotency", rpcContext);
-    if (released.error) {
-      logError("api.idempotency.release_failed", released.error, {
-        requestId: options.requestId,
-        scope: options.scope,
-        actorId: options.actorId,
-      });
+    const preserveClaim =
+      error !== null &&
+      typeof error === "object" &&
+      "preserveIdempotencyClaim" in error &&
+      error.preserveIdempotencyClaim === true;
+    if (!preserveClaim) {
+      const released = await supabase.rpc(
+        "release_api_idempotency",
+        rpcContext,
+      );
+      if (released.error) {
+        logError("api.idempotency.release_failed", released.error, {
+          requestId: options.requestId,
+          scope: options.scope,
+          actorId: options.actorId,
+        });
+      }
     }
     throw error;
   }
@@ -114,7 +135,9 @@ export async function runIdempotentJsonOperation<T>(
     });
     // Keep the processing claim in place. Releasing it after the side effect
     // succeeded could allow a duplicate financial or inventory operation.
-    throw serviceUnavailable("The request completed but its replay record could not be saved");
+    throw serviceUnavailable(
+      "The request completed but its replay record could not be saved",
+    );
   }
 
   return { ...result, replayed: false };
@@ -132,7 +155,7 @@ function sortValue(value: unknown): unknown {
     Object.entries(value as Record<string, unknown>)
       .filter(([, entry]) => entry !== undefined)
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entry]) => [key, sortValue(entry)])
+      .map(([key, entry]) => [key, sortValue(entry)]),
   );
 }
 

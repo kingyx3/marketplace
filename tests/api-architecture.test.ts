@@ -26,7 +26,9 @@ describe("API architecture boundary", () => {
     const violations: string[] = [];
 
     for (const absolutePath of files) {
-      const relativePath = normalize(path.relative(repositoryRoot, absolutePath));
+      const relativePath = normalize(
+        path.relative(repositoryRoot, absolutePath),
+      );
       const source = await readFile(absolutePath, "utf8");
       if (!isClientModule(source)) continue;
 
@@ -47,7 +49,10 @@ describe("API architecture boundary", () => {
   });
 
   it("limits browser Supabase usage to session establishment", async () => {
-    const sessionSource = await readFile(path.join(repositoryRoot, browserSessionModule), "utf8");
+    const sessionSource = await readFile(
+      path.join(repositoryRoot, browserSessionModule),
+      "utf8",
+    );
     expect(sessionSource).toContain('from "@supabase/ssr"');
     expect(sessionSource).toContain("client.auth.getSession()");
     expect(sessionSource).not.toMatch(/\.from\s*\(/);
@@ -58,11 +63,14 @@ describe("API architecture boundary", () => {
   it("routes interactive storefront data operations through the typed API client", async () => {
     const checkout = await readFile(
       path.join(repositoryRoot, "app/(shop)/cart/checkout-panel.tsx"),
-      "utf8"
+      "utf8",
     );
     const waitlist = await readFile(
-      path.join(repositoryRoot, "app/(shop)/catalog/[slug]/waitlist-signup-panel.tsx"),
-      "utf8"
+      path.join(
+        repositoryRoot,
+        "app/(shop)/catalog/[slug]/waitlist-signup-panel.tsx",
+      ),
+      "utf8",
     );
 
     for (const source of [checkout, waitlist]) {
@@ -72,8 +80,24 @@ describe("API architecture boundary", () => {
     }
   });
 
+  it("keeps operational commerce routes on the shared API handler", async () => {
+    const routes = [
+      "app/api/checkout/cancel/route.ts",
+      "app/api/checkout/status/route.ts",
+      "app/api/cron/commerce-worker/route.ts",
+      "app/api/webhooks/hitpay/route.ts",
+    ];
+    for (const route of routes) {
+      const source = await readFile(path.join(repositoryRoot, route), "utf8");
+      expect(source, route).toContain("withApiHandler");
+    }
+  });
+
   it("keeps database client factories server-only", async () => {
-    const source = await readFile(path.join(repositoryRoot, "lib/supabase.ts"), "utf8");
+    const source = await readFile(
+      path.join(repositoryRoot, "lib/supabase.ts"),
+      "utf8",
+    );
     expect(source).toContain("assertServerOnly");
     expect(source).toContain("browser data access must use /api endpoints");
   });
@@ -101,7 +125,10 @@ async function walk(directory: string, files: string[]): Promise<void> {
 
 function isClientModule(source: string): boolean {
   const normalized = source.replace(/^\s*\/\*[\s\S]*?\*\//, "").trimStart();
-  return normalized.startsWith('"use client"') || normalized.startsWith("'use client'");
+  return (
+    normalized.startsWith('"use client"') ||
+    normalized.startsWith("'use client'")
+  );
 }
 
 function normalize(value: string): string {

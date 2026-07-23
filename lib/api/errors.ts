@@ -2,20 +2,34 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import type { ApiErrorCode, ApiFieldError, ApiErrorPayload } from "@/lib/api/contracts";
-import { logError, logWarn, withRequestId, type LogContext } from "@/lib/observability";
+import type {
+  ApiErrorCode,
+  ApiFieldError,
+  ApiErrorPayload,
+} from "@/lib/api/contracts";
+import {
+  logError,
+  logWarn,
+  withRequestId,
+  type LogContext,
+} from "@/lib/observability";
 
 export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode | string;
   readonly retryable: boolean;
   readonly retryAfterSeconds?: number;
+  readonly preserveIdempotencyClaim: boolean;
 
   constructor(
     status: number,
     code: ApiErrorCode | string,
     message: string,
-    options: { retryable?: boolean; retryAfterSeconds?: number } = {}
+    options: {
+      retryable?: boolean;
+      retryAfterSeconds?: number;
+      preserveIdempotencyClaim?: boolean;
+    } = {},
   ) {
     super(message);
     this.name = "ApiError";
@@ -23,6 +37,7 @@ export class ApiError extends Error {
     this.code = code;
     this.retryable = options.retryable ?? defaultRetryable(status);
     this.retryAfterSeconds = options.retryAfterSeconds;
+    this.preserveIdempotencyClaim = options.preserveIdempotencyClaim ?? false;
   }
 }
 
@@ -46,15 +61,22 @@ export function conflict(message = "Conflict"): ApiError {
   return new ApiError(409, "conflict", message);
 }
 
-export function payloadTooLarge(message = "Request body is too large"): ApiError {
+export function payloadTooLarge(
+  message = "Request body is too large",
+): ApiError {
   return new ApiError(413, "payload_too_large", message);
 }
 
-export function unsupportedMediaType(message = "Content-Type must be application/json"): ApiError {
+export function unsupportedMediaType(
+  message = "Content-Type must be application/json",
+): ApiError {
   return new ApiError(415, "unsupported_media_type", message);
 }
 
-export function rateLimited(message = "Too many requests", retryAfterSeconds = 60): ApiError {
+export function rateLimited(
+  message = "Too many requests",
+  retryAfterSeconds = 60,
+): ApiError {
   return new ApiError(429, "rate_limited", message, {
     retryable: true,
     retryAfterSeconds,
@@ -69,11 +91,23 @@ export function serviceUnavailable(message = "Service unavailable"): ApiError {
   return new ApiError(503, "service_unavailable", message, { retryable: true });
 }
 
+export function ambiguousExternalResult(
+  message = "The provider result is still being reconciled",
+): ApiError {
+  return new ApiError(503, "external_result_unknown", message, {
+    retryable: true,
+    preserveIdempotencyClaim: true,
+  });
+}
+
 export function internalError(message = "Internal server error"): ApiError {
   return new ApiError(500, "internal_error", message, { retryable: false });
 }
 
-export function toErrorResponse(error: unknown, context: LogContext = {}): NextResponse {
+export function toErrorResponse(
+  error: unknown,
+  context: LogContext = {},
+): NextResponse {
   const requestId = context.requestId ?? randomUUID();
   const responseContext = { ...context, requestId };
 
@@ -105,7 +139,7 @@ export function toErrorResponse(error: unknown, context: LogContext = {}): NextR
       },
       error.status,
       requestId,
-      error.retryAfterSeconds
+      error.retryAfterSeconds,
     );
   }
 
@@ -131,7 +165,7 @@ export function toErrorResponse(error: unknown, context: LogContext = {}): NextR
         },
       },
       400,
-      requestId
+      requestId,
     );
   }
 
@@ -150,7 +184,7 @@ export function toErrorResponse(error: unknown, context: LogContext = {}): NextR
       },
     },
     500,
-    requestId
+    requestId,
   );
 }
 
@@ -158,13 +192,19 @@ function errorResponse(
   payload: ApiErrorPayload,
   status: number,
   requestId: string,
-  retryAfterSeconds?: number
+  retryAfterSeconds?: number,
 ): NextResponse {
-  const response = withRequestId(NextResponse.json(payload, { status }), requestId);
+  const response = withRequestId(
+    NextResponse.json(payload, { status }),
+    requestId,
+  );
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("X-Content-Type-Options", "nosniff");
   if (retryAfterSeconds !== undefined) {
-    response.headers.set("Retry-After", String(Math.max(1, Math.ceil(retryAfterSeconds))));
+    response.headers.set(
+      "Retry-After",
+      String(Math.max(1, Math.ceil(retryAfterSeconds))),
+    );
   }
   return response;
 }

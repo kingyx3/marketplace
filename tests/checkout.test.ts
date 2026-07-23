@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { quoteCheckout, type CheckoutQuote } from "@/lib/commerce";
 import { cancelPendingCheckoutPayment } from "@/lib/checkout";
-import { checkoutResponseBody, createCheckoutPayment } from "@/lib/order-checkout";
+import {
+  checkoutResponseBody,
+  createCheckoutPayment,
+} from "@/lib/order-checkout";
+import { HitPayRequestError } from "@/lib/hitpay";
 
 vi.mock("@/lib/commerce", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/commerce")>();
@@ -60,7 +64,14 @@ describe("hosted HitPay checkout", () => {
     const reservationExpiresAt = "2026-07-18T07:15:00.000Z";
     const { auth, supabase, calls } = fakeAuthContext({
       rpcSingle: {
-        data: { order_id: "order-123", reservation_expires_at: reservationExpiresAt },
+        data: {
+          order_id: "order-123",
+          reservation_expires_at: reservationExpiresAt,
+        },
+        error: null,
+      },
+      paymentAttemptInsert: {
+        data: { id: "attempt-123", idempotency_key: "attempt-key-123" },
         error: null,
       },
       paymentInsert: { data: { id: "payment-123" }, error: null },
@@ -73,18 +84,22 @@ describe("hosted HitPay checkout", () => {
         mode: "order",
         channel: "b2c",
         shippingAddress,
-        items: [{ productId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+        items: [
+          { productId: "11111111-1111-4111-8111-111111111111", quantity: 1 },
+        ],
       },
-      hitpay as never
+      hitpay as never,
     );
 
     expect(mockedQuoteCheckout).toHaveBeenCalledWith(
       supabase,
       expect.objectContaining({
         shippingAddress,
-        items: [{ productId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+        items: [
+          { productId: "11111111-1111-4111-8111-111111111111", quantity: 1 },
+        ],
       }),
-      auth.customer
+      auth.customer,
     );
     expect(hitpay.createPaymentRequest).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -93,10 +108,19 @@ describe("hosted HitPay checkout", () => {
         email: "buyer@example.com",
         name: "Buyer",
         purpose: "Marketplace order order-123",
-        referenceNumber: "order:order-123",
+        referenceNumber: "attempt:attempt-123",
         expiresAfter: "15 minutes",
-      })
+      }),
     );
+    expect(calls.inserts).toContainEqual({
+      table: "payment_attempts",
+      row: expect.objectContaining({
+        order_id: "order-123",
+        provider: "hitpay",
+        amount_cents: 20700,
+        status: "calling_provider",
+      }),
+    });
     expect(calls.inserts).toContainEqual({
       table: "payments",
       row: expect.objectContaining({
@@ -117,8 +141,11 @@ describe("hosted HitPay checkout", () => {
         amountCents: 20700,
         currency: "SGD",
         reservationExpiresAt,
-        quote: expect.objectContaining({ shippingCents: 800, totalCents: 20700 }),
-      })
+        quote: expect.objectContaining({
+          shippingCents: 800,
+          totalCents: 20700,
+        }),
+      }),
     );
   });
 
@@ -138,10 +165,12 @@ describe("hosted HitPay checkout", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ productId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+          items: [
+            { productId: "11111111-1111-4111-8111-111111111111", quantity: 1 },
+          ],
         },
-        hitpay as never
-      )
+        hitpay as never,
+      ),
     ).rejects.toThrow("currently reserved by another checkout or has sold out");
 
     expect(hitpay.createPaymentRequest).not.toHaveBeenCalled();
@@ -160,15 +189,48 @@ describe("hosted HitPay checkout", () => {
           mode: "order",
           channel: "b2c",
           shippingAddress,
-          items: [{ productId: "11111111-1111-4111-8111-111111111111", quantity: 1 }],
+          items: [
+            { productId: "11111111-1111-4111-8111-111111111111", quantity: 1 },
+          ],
         },
-        hitpay as never
-      )
+        hitpay as never,
+      ),
     ).rejects.toThrow("HitPay unavailable");
 
     expect(calls.rpc).toContainEqual({
       name: "release_order_allocation",
       params: { p_order_id: "order-rollback" },
+    });
+  });
+
+  it("preserves the reservation when the provider result is unknown", async () => {
+    const { auth, calls } = fakeAuthContext({
+      rpcSingle: { data: { order_id: "order-unknown" }, error: null },
+    });
+    const hitpay = fakeHitPay({
+      createError: new HitPayRequestError("HitPay request outcome is unknown", {
+        outcomeUnknown: true,
+      }),
+    });
+
+    await expect(
+      createCheckoutPayment(
+        auth as never,
+        {
+          mode: "order",
+          channel: "b2c",
+          shippingAddress,
+          items: [
+            { productId: "11111111-1111-4111-8111-111111111111", quantity: 1 },
+          ],
+        },
+        hitpay as never,
+      ),
+    ).rejects.toMatchObject({ code: "external_result_unknown" });
+
+    expect(calls.rpc).not.toContainEqual({
+      name: "release_order_allocation",
+      params: { p_order_id: "order-unknown" },
     });
   });
 
@@ -191,7 +253,11 @@ describe("hosted HitPay checkout", () => {
     const hitpay = fakeHitPay();
 
     await expect(
-      cancelPendingCheckoutPayment(auth as never, { paymentRequestId: requestId }, hitpay as never)
+      cancelPendingCheckoutPayment(
+        auth as never,
+        { paymentRequestId: requestId },
+        hitpay as never,
+      ),
     ).resolves.toEqual({
       cancelled: true,
       orderId: "order-cancel",
@@ -207,7 +273,9 @@ describe("hosted HitPay checkout", () => {
       table: "payments",
       update: { status: "cancelled" },
       filters: [["eq", "id", "payment-cancel"]],
-      inFilters: [["in", "status", ["pending", "requires_capture", "authorized"]]],
+      inFilters: [
+        ["in", "status", ["pending", "requires_capture", "authorized"]],
+      ],
     });
   });
 });
@@ -238,6 +306,7 @@ function fakeAuthContext(options: FakeSupabaseOptions = {}) {
 
 interface FakeSupabaseOptions {
   rpcSingle?: { data: unknown; error: { message: string } | null };
+  paymentAttemptInsert?: { data: unknown; error: { message: string } | null };
   paymentInsert?: { data: unknown; error: { message: string } | null };
   paymentLookup?: { data: unknown; error: { message: string } | null };
   orderLookup?: { data: unknown; error: { message: string } | null };
@@ -251,7 +320,9 @@ function fakeSupabase(options: FakeSupabaseOptions) {
       calls.rpc.push({ name, params });
       if (name === "create_checkout_order_from_cart") {
         return {
-          single: vi.fn(async () => options.rpcSingle ?? { data: null, error: null }),
+          single: vi.fn(
+            async () => options.rpcSingle ?? { data: null, error: null },
+          ),
         };
       }
       return Promise.resolve({ data: null, error: null });
@@ -261,7 +332,11 @@ function fakeSupabase(options: FakeSupabaseOptions) {
   return { supabase: supabase as never, calls };
 }
 
-function tableBuilder(table: string, calls: FakeCalls, options: FakeSupabaseOptions) {
+function tableBuilder(
+  table: string,
+  calls: FakeCalls,
+  options: FakeSupabaseOptions,
+) {
   const filters: unknown[] = [];
   const inFilters: unknown[] = [];
   let updatePayload: unknown;
@@ -281,17 +356,37 @@ function tableBuilder(table: string, calls: FakeCalls, options: FakeSupabaseOpti
     }),
     in: vi.fn(async (key: string, values: unknown[]) => {
       inFilters.push(["in", key, values]);
-      calls.updates.push({ table, update: updatePayload, filters: [...filters], inFilters });
+      calls.updates.push({
+        table,
+        update: updatePayload,
+        filters: [...filters],
+        inFilters,
+      });
       return { data: null, error: null };
     }),
     maybeSingle: vi.fn(async () => {
-      if (table === "payments") return options.paymentLookup ?? { data: null, error: null };
-      if (table === "orders") return options.orderLookup ?? { data: null, error: null };
-      if (table === "preorders") return options.preorderLookup ?? { data: null, error: null };
+      if (table === "payments")
+        return options.paymentLookup ?? { data: null, error: null };
+      if (table === "orders")
+        return options.orderLookup ?? { data: null, error: null };
+      if (table === "preorders")
+        return options.preorderLookup ?? { data: null, error: null };
       return { data: null, error: null };
     }),
     single: vi.fn(async () => {
-      if (table === "payments") return options.paymentInsert ?? { data: null, error: null };
+      if (table === "payment_attempts") {
+        return (
+          options.paymentAttemptInsert ?? {
+            data: {
+              id: "attempt-default",
+              idempotency_key: "attempt-key-default",
+            },
+            error: null,
+          }
+        );
+      }
+      if (table === "payments")
+        return options.paymentInsert ?? { data: null, error: null };
       return { data: null, error: null };
     }),
   };

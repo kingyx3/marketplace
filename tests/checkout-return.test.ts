@@ -1,15 +1,29 @@
 import { describe, expect, it } from "vitest";
 
-import { checkoutReturnDestination, checkoutReturnState } from "@/lib/checkout-return";
+import {
+  checkoutReturnDestination,
+  checkoutReturnState,
+} from "@/lib/checkout-return";
 
 const orderId = "11111111-1111-4111-8111-111111111111";
 
 describe("checkout return presentation", () => {
-  it("shows a successful payment return without requiring authentication", () => {
-    expect(checkoutReturnState("completed")).toMatchObject({
+  it("only shows success for the authoritative paid state", () => {
+    expect(checkoutReturnState("paid")).toMatchObject({
       title: "Thank you for your order",
-      label: "Payment received",
+      label: "Payment confirmed",
       tone: "success",
+    });
+    expect(checkoutReturnState("completed")).toMatchObject({
+      label: "Confirmation pending",
+      tone: "warning",
+    });
+  });
+
+  it("shows a dedicated delayed-reconciliation state", () => {
+    expect(checkoutReturnState("reconciliation_delayed")).toMatchObject({
+      label: "Reconciliation delayed",
+      tone: "warning",
     });
   });
 
@@ -36,7 +50,9 @@ describe("checkout return presentation", () => {
       href: "/cart?checkout=processing",
       label: "Return to cart",
     });
-    expect(checkoutReturnDestination(orderId, "https://attacker.example")).toEqual({
+    expect(
+      checkoutReturnDestination(orderId, "https://attacker.example"),
+    ).toEqual({
       href: `/cart?checkout=processing&order=${orderId}`,
       label: "Return to cart",
     });
