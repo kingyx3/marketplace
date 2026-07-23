@@ -120,6 +120,11 @@ export default async function ControlDeliveriesPage({
         <MetricCard label="In transit" value={String(counts.in_transit)} detail="With carrier" />
         <MetricCard label="Delivered" value={String(counts.delivered)} detail="Completed records" />
       </section>
+      <p className="text-xs text-zinc-500">
+        Queue scope: latest {orders.length} fully paid order{orders.length === 1 ? "" : "s"}
+        {orders.length === 100 ? " (100-record maximum reached)" : " (maximum 100)"}. Search,
+        metrics, and filters apply to this bounded operational window.
+      </p>
 
       <form className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_14rem_14rem_auto]">
         <label className="grid gap-1 text-sm font-medium text-zinc-700">

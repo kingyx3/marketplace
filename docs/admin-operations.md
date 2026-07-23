@@ -127,7 +127,8 @@ Publication is rejected unless the product is active, has a physical reference a
   queue separates returned and lost exceptions from orders ready to arrange, prioritizes
   action-required records, and supports search by customer, order ID, customer ID, product,
   reference, shipment ID, carrier, or tracking number. Queue and sort filters remain visible across
-  bounded pagination. Human delivery states are paired with exact order and shipment statuses;
+  bounded pagination over the latest 100 fully paid orders. Human delivery states are paired with
+  exact order and shipment statuses;
   labeled identifiers remain selectable in the list and detail view. Read-only fulfilment coverage
   can inspect the same payment, item, address, shipment, and tracking context without mutation
   controls.

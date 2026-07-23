@@ -68,6 +68,7 @@ describe("control delivery workspace", () => {
     expect(source).toContain('name="sort"');
     expect(source).toContain("const PAGE_SIZE = 24");
     expect(source).toContain("matchingOrders.slice");
+    expect(source).toContain("100-record maximum reached");
     expect(source).toContain('label="Order ID"');
     expect(source).toContain('label="Customer ID"');
     expect(source).toContain('label="Shipment ID"');
