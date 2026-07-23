@@ -20,17 +20,23 @@ export async function handleHitPayEvent(
   event: HitPayWebhookEvent,
   hitpay: HitPayClient = createHitPayClient(),
 ): Promise<void> {
-  if (event.object === "payment_request" && event.type === "completed") {
+  const object = event.object.trim().toLowerCase();
+  const type = event.type.trim().toLowerCase();
+
+  if (object === "payment_request" && type === "completed") {
     await handlePaymentCompleted(supabase, event.payload, hitpay);
     return;
   }
-  if (event.object === "payment_request" && event.type === "failed") {
+  if (object === "payment_request" && type === "failed") {
     await handlePaymentFailed(supabase, event.payload);
     return;
   }
-  if (event.object === "charge" && event.type === "updated") {
+  if (object === "charge" && type === "updated") {
     await handleChargeUpdated(supabase, event.payload);
+    return;
   }
+
+  throw new Error(`Unsupported HitPay webhook event: ${object}.${type}`);
 }
 
 async function handlePaymentCompleted(
@@ -43,7 +49,9 @@ async function handlePaymentCompleted(
     "HitPay webhook is missing payment request id",
   );
   const payment = await paymentByRequest(supabase, requestId);
-  if (!payment) return;
+  if (!payment) {
+    throw new Error("HitPay payment is not persisted yet");
+  }
 
   const chargeId = successfulHitPayChargeId(payload);
   if (!chargeId) {
@@ -113,7 +121,9 @@ async function handlePaymentFailed(
     "HitPay webhook is missing payment request id",
   );
   const payment = await paymentByRequest(supabase, requestId);
-  if (!payment) return;
+  if (!payment) {
+    throw new Error("HitPay payment is not persisted yet");
+  }
 
   await updatePayment(supabase, payment.id, { status: "failed" }, [
     "pending",

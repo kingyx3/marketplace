@@ -219,6 +219,14 @@ describe("deployment workflow contract", () => {
     expect(workflow.indexOf("reconcile-runtime-environment.mjs")).toBeLessThan(
       workflow.indexOf("deploy-vercel.mjs")
     );
+    expect(workflow).toContain("Reconcile HitPay webhook to deployed application");
+    expect(workflow).toContain(
+      "NEXT_PUBLIC_SITE_URL: ${{ steps.vercel.outputs.deployment_url }}"
+    );
+    expect(workflow).toContain("node scripts/configure-hitpay.mjs --apply");
+    expect(workflow.indexOf("deploy-vercel.mjs")).toBeLessThan(
+      workflow.indexOf("node scripts/configure-hitpay.mjs --apply")
+    );
     expect(workflow).toContain("node scripts/generate-env.mjs --check --allow-missing-provisioned");
   });
 
