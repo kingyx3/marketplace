@@ -39,7 +39,7 @@ export const POST = withApiHandler(
           auth,
           body,
           undefined,
-          request.nextUrl.origin,
+          new URL(request.url).origin,
         );
         logInfo("checkout.payment_created", {
           ...context,
