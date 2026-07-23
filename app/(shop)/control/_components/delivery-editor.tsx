@@ -22,7 +22,13 @@ import {
 import { formatMoney } from "@/lib/money";
 import { formatDate, formatStatus } from "@/lib/order-display";
 
-export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
+export function DeliveryEditor({
+  order,
+  canManage,
+}: {
+  order: AdminDeliveryOrder;
+  canManage: boolean;
+}) {
   const shipment = order.latestShipment;
   const address = order.shippingAddress ?? {};
   const canArrange =
@@ -37,7 +43,10 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
             <p className="mt-1 break-all text-sm text-zinc-600">
               {order.customer?.email ?? "Unknown email"}
             </p>
-            <p className="mt-1 break-all font-mono text-xs text-zinc-400">{order.id}</p>
+            <dl className="mt-3 grid gap-1 text-xs text-zinc-500">
+              <Identifier label="Order ID" value={order.id} />
+              <Identifier label="Customer ID" value={order.customer?.id ?? "Not linked"} />
+            </dl>
           </div>
           <div className="flex flex-wrap gap-2">
             <StatusBadge tone={orderTone(order.status)}>{formatStatus(order.status)}</StatusBadge>
@@ -57,6 +66,14 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
           <ControlData label="Placed" value={formatDate(order.placedAt ?? order.createdAt)} />
           <ControlData label="Shipping service" value={order.shippingService ?? "Not assigned"} />
           <ControlData label="Address" value={addressSummary(address)} />
+          <ControlData
+            label="System status"
+            value={
+              <span className="select-all font-mono text-xs">
+                {order.status} · {shipment?.status ?? "no_shipment"}
+              </span>
+            }
+          />
         </dl>
 
         <div className="mt-5 grid gap-2 rounded-lg border border-zinc-100 bg-zinc-50 p-4 text-sm">
@@ -73,7 +90,14 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
         {shipment ? <ShipmentSummary shipment={shipment} /> : null}
       </section>
 
-      {order.status === "paid" ? (
+      {!canManage ? (
+        <section className="rounded-xl border border-zinc-200 bg-white p-5 text-sm leading-6 text-zinc-600 shadow-sm">
+          Delivery execution is read only for your current domain coverage. Exact order, shipment,
+          payment, item, address, and tracking context remains available above.
+        </section>
+      ) : null}
+
+      {canManage && order.status === "paid" ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-zinc-950">Packing</h2>
           <p className="mt-1 text-sm text-zinc-600">
@@ -97,7 +121,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
         </section>
       ) : null}
 
-      {canArrange ? (
+      {canManage && canArrange ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
           <h2 className="font-semibold text-zinc-950">
             {shipment && ["pending", "label_created"].includes(shipment.status)
@@ -213,7 +237,7 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
         </section>
       ) : null}
 
-      {shipment ? (
+      {canManage && shipment ? (
         <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-zinc-950">Delivery status</h2>
           <ControlActionForm
@@ -253,11 +277,33 @@ export function DeliveryEditor({ order }: { order: AdminDeliveryOrder }) {
 function ShipmentSummary({ shipment }: { shipment: AdminDeliveryShipment }) {
   return (
     <dl className="mt-5 grid gap-3 rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm sm:grid-cols-2">
+      <ControlData
+        label="Shipment ID"
+        value={<span className="select-all font-mono text-xs">{shipment.id}</span>}
+      />
       <ControlData label="Carrier" value={shipment.carrier ?? "Not assigned"} />
-      <ControlData label="Tracking" value={shipment.trackingNumber ?? "Pending"} />
+      <ControlData
+        label="Tracking number"
+        value={
+          shipment.trackingNumber ? (
+            <span className="select-all font-mono text-xs">{shipment.trackingNumber}</span>
+          ) : (
+            "Pending"
+          )
+        }
+      />
       <ControlData label="Shipped" value={formatDate(shipment.shippedAt)} />
       <ControlData label="Delivered" value={formatDate(shipment.deliveredAt)} />
     </dl>
+  );
+}
+
+function Identifier({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="inline font-medium">{label} </dt>
+      <dd className="inline select-all break-all font-mono">{value}</dd>
+    </div>
   );
 }
 
