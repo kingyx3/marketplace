@@ -52,11 +52,10 @@ Common variables:
 - `SUPPORT_EMAIL` (optional outside production; required in production for support and data-protection requests)
 
 `NEXT_PUBLIC_SITE_URL` must be a stable canonical domain, not an immutable Vercel deployment
-hostname. On Vercel production deployments, checkout provider redirects prefer
-`VERCEL_URL` whenever the configured site URL is a `*.vercel.app` hostname, with
-`VERCEL_PROJECT_PRODUCTION_URL` as a fallback. Because Vercel injects `VERCEL_URL` for every
-deployment, each checkout consistently returns to the deployment that created it. Custom domains
-remain authoritative.
+hostname. Hosted checkout redirects are anchored to the origin of the live `/api/checkout`
+request so a payment created on a deployment returns to that same deployment. The configured site
+URL and Vercel deployment metadata are fallback inputs only when no request origin is available.
+Custom domains remain authoritative for non-request URL generation.
 
 Common secrets:
 
