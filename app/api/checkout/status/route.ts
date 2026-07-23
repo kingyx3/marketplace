@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { badRequest } from "@/lib/api/errors";
 import { withApiHandler } from "@/lib/api/handler";
+import { logError } from "@/lib/observability";
+import { reconcileOrderPayment } from "@/lib/payment-reconciliation";
 import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -25,10 +27,30 @@ export const GET = withApiHandler("/api/checkout/status", async (request) => {
       authoritative: true,
     });
   }
-  if (["paid", "packing", "shipped", "delivered"].includes(order.data.status)) {
+  let orderStatus = String(order.data.status);
+  if (["draft", "pending_payment"].includes(orderStatus)) {
+    try {
+      const outcome = await reconcileOrderPayment(supabase, orderId);
+      if (outcome !== "unchanged") {
+        const refreshed = await supabase
+          .from("orders")
+          .select("status")
+          .eq("id", orderId)
+          .maybeSingle();
+        if (refreshed.error) throw new Error(refreshed.error.message);
+        if (refreshed.data) orderStatus = String(refreshed.data.status);
+      }
+    } catch (error) {
+      logError("checkout.status.provider_reconciliation_failed", error, {
+        orderId,
+      });
+    }
+  }
+
+  if (["paid", "packing", "shipped", "delivered"].includes(orderStatus)) {
     return NextResponse.json({ status: "paid", authoritative: true });
   }
-  if (["cancelled", "refunded"].includes(order.data.status)) {
+  if (["cancelled", "refunded"].includes(orderStatus)) {
     return NextResponse.json({ status: "failed", authoritative: true });
   }
 
