@@ -45,10 +45,12 @@ export const POST = withApiHandler(
       throw badRequest("Invalid payload");
     }
 
-    const object =
-      request.headers.get("hitpay-event-object")?.toLowerCase() || "unknown";
-    const type =
-      request.headers.get("hitpay-event-type")?.toLowerCase() || "unknown";
+    const object = normalizeHitPayEventHeader(
+      request.headers.get("hitpay-event-object"),
+    );
+    const type = normalizeHitPayEventHeader(
+      request.headers.get("hitpay-event-type"),
+    );
     const eventType = `${object}.${type}`;
     const providerId = typeof payload.id === "string" ? payload.id : "unknown";
     const eventId = `${eventType}:${providerId}:${String(payload.status ?? "unknown")}`;
@@ -112,10 +114,14 @@ export const POST = withApiHandler(
       }
     });
 
-    return NextResponse.json({ received: true, queued: true }, { status: 202 });
+    return NextResponse.json({ received: true, queued: true });
   },
   { timeoutMs: 10_000 },
 );
+
+export function normalizeHitPayEventHeader(value: string | null): string {
+  return value?.trim().toLowerCase() || "unknown";
+}
 
 export function validSignature(
   rawBody: string,
