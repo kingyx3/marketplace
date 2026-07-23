@@ -87,6 +87,62 @@ describe("bootstrap convergence", () => {
     ]);
   });
 
+  it("moves the named HitPay webhook to the deployed application URL", () => {
+    const result = runModule<{
+      action: string;
+      requests: Array<{
+        method: string;
+        url: string;
+        body: Record<string, unknown> | null;
+      }>;
+    }>(`
+      import { buildHitPayWebhookConfig, reconcileHitPayWebhook } from './scripts/lib/hitpay-webhook.mjs';
+      const config = buildHitPayWebhookConfig({
+        APP_NAME: 'Marketplace',
+        TARGET_ENV: 'development',
+        NEXT_PUBLIC_SITE_URL: 'https://new-deployment.example.com',
+        HITPAY_API_KEY: 'sk_test_x'
+      });
+      const existing = {
+        id: 'we_1',
+        name: config.webhookName,
+        url: 'https://old-deployment.example.com/api/webhooks/hitpay',
+        event_types: config.enabledEvents
+      };
+      const requests = [];
+      globalThis.fetch = async (input, init = {}) => {
+        const method = init.method || 'GET';
+        requests.push({
+          method,
+          url: String(input),
+          body: init.body ? JSON.parse(String(init.body)) : null
+        });
+        if (method === 'GET') {
+          return new Response(JSON.stringify([existing]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        return new Response(String(init.body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      };
+      const reconciled = await reconcileHitPayWebhook(config);
+      console.log(JSON.stringify({ action: reconciled.action, requests }));
+    `);
+
+    expect(result.action).toBe("updated");
+    expect(result.requests).toHaveLength(2);
+    expect(result.requests[1]).toMatchObject({
+      method: "PUT",
+      url: "https://api.sandbox.hit-pay.com/v1/webhook-events/we_1",
+      body: {
+        url: "https://new-deployment.example.com/api/webhooks/hitpay",
+      },
+    });
+  });
+
   it("fails before calling HitPay when required provider inputs are absent", () => {
     const result = runModule<Record<string, string>>(`
       import { buildHitPayWebhookConfig, reconcileHitPayWebhook, verifyHitPayWebhook } from './scripts/lib/hitpay-webhook.mjs';
