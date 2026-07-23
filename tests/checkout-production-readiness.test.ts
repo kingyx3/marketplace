@@ -43,6 +43,17 @@ describe("checkout production readiness", () => {
     expect(checkoutRoute).toContain("createCheckoutPayment(");
   });
 
+  it("reconciles missed HitPay webhooks from checkout return reads", async () => {
+    const [statusRoute, orderPage] = await Promise.all([
+      read("app/api/checkout/status/route.ts"),
+      read("app/(shop)/orders/[id]/page.tsx"),
+    ]);
+
+    expect(statusRoute).toContain("reconcileOrderPayment");
+    expect(orderPage).toContain("reconcileOrderPayment");
+    expect(orderPage).toContain('checkout === "processing"');
+  });
+
   it("pins the resolved Supabase secret and gates development on deep readiness", async () => {
     const [deployScript, workflow, webhook] = await Promise.all([
       read("scripts/deploy-vercel.mjs"),
