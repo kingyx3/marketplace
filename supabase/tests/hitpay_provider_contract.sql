@@ -15,9 +15,12 @@ begin
     raise exception 'legacy stripe_customer_id column is still present';
   end if;
 
+  if to_regprocedure('public.settle_order_payment(uuid,text,integer,text)') is not null then
+    raise exception 'legacy order settlement compatibility overload is still active';
+  end if;
+
   foreach v_signature in array array[
     'public.expire_checkout_reservations(integer)',
-    'public.settle_order_payment(uuid,text,integer,text)',
     'public.settle_order_payment(uuid,text,text,integer,text)',
     'public.settle_preorder_payment(uuid,text,integer,text)',
     'public.finalize_preorder_allocation(uuid,text,text,text)'
