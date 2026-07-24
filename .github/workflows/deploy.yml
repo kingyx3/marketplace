@@ -63,7 +63,7 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       ALLOW_DESTRUCTIVE_MIGRATIONS: ${{ vars.ALLOW_DESTRUCTIVE_MIGRATIONS }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
@@ -104,7 +104,7 @@ jobs:
     env:
       PGPASSWORD: postgres
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Run database migration and contract suite
         run: bash .github/ci/run-database-contracts.sh
       - uses: actions/upload-artifact@v7.0.1
@@ -121,7 +121,7 @@ jobs:
     environment: ${{ inputs.environment }}
     env: *resolved_environment
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
@@ -163,7 +163,7 @@ jobs:
       deployment_url: ${{ steps.vercel.outputs.deployment_url }}
     env: *resolved_environment
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
@@ -200,7 +200,7 @@ jobs:
     env:
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc

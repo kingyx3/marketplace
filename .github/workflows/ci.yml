@@ -22,7 +22,7 @@ jobs:
       migrations: ${{ steps.filter.outputs.migrations }}
       terraform: ${{ steps.filter.outputs.terraform }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: dorny/paths-filter@v4.0.2
         id: filter
         with:
@@ -80,7 +80,7 @@ jobs:
     if: needs.changes.outputs.config == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
@@ -103,7 +103,7 @@ jobs:
       matrix:
         stack: [bootstrap, platform]
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: hashicorp/setup-terraform@v4.0.1
         with:
           terraform_version: 1.15.8
@@ -155,7 +155,7 @@ jobs:
       PGPASSWORD: postgres
       VERIFY_LOGICAL_RESTORE: 'true'
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Run database migration and contract suite
         run: bash .github/ci/run-database-contracts.sh
       - uses: actions/upload-artifact@v7.0.1
