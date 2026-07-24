@@ -14,6 +14,9 @@ begin
   if to_regprocedure('public.settle_order_payment(uuid,text,text,integer,text)') is null then
     raise exception 'atomic order settlement function is missing';
   end if;
+  if to_regprocedure('public.settle_order_payment(uuid,text,integer,text)') is not null then
+    raise exception 'legacy order settlement compatibility overload is still active';
+  end if;
   if to_regprocedure('public.claim_payment_attempts(text,integer,integer)') is null
      or to_regprocedure('public.claim_webhook_events(text,integer,integer)') is null
      or to_regprocedure('public.claim_outbox_events(text,integer,integer)') is null then
