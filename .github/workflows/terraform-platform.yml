@@ -35,7 +35,7 @@ jobs:
       VERCEL_ROOT_DIRECTORY: ${{ vars.VERCEL_ROOT_DIRECTORY }}
       SUPABASE_REGION: ${{ vars.SUPABASE_REGION }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc

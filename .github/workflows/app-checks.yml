@@ -36,7 +36,7 @@ jobs:
           - check: build
             command: npm run build
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
@@ -65,7 +65,7 @@ jobs:
       APP_NAME: ${{ vars.APP_NAME }}
       MARKETPLACE_PREVIEW_FIXTURES: "true"
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
