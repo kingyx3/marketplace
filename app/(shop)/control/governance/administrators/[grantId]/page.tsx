@@ -8,6 +8,11 @@ import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/c
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
+import {
+  administratorIdentityLabel,
+  administratorRoleLabel,
+  administratorSystemStatus,
+} from "@/lib/control-governance-view";
 import { createSecretClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -67,8 +72,10 @@ export default async function AdministratorDetailPage({
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <Summary label="Template" value={grant.role} />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Summary label="Role template" value={administratorRoleLabel(grant.role)} />
+        <Summary label="System access state" value={administratorSystemStatus(grant.active)} />
+        <Summary label="Identity state" value={administratorIdentityLabel(grant.auth_user_id)} />
         <Summary
           label="Accepted"
           value={grant.accepted_at ? formatDate(grant.accepted_at) : "Pending"}
@@ -78,6 +85,11 @@ export default async function AdministratorDetailPage({
           value={String(grant.admin_access_grant_permissions?.length ?? 0)}
         />
         <Summary label="Updated" value={formatDate(grant.updated_at)} />
+        <Summary label="Grant ID" value={<Identifier value={grant.id} />} />
+        <Summary
+          label="Auth user ID"
+          value={grant.auth_user_id ? <Identifier value={grant.auth_user_id} /> : "Not yet bound"}
+        />
       </section>
 
       {hasControlPermission(staff, "governance.manage") ? (
@@ -112,6 +124,10 @@ function Summary({ label, value }: { label: string; value: React.ReactNode }) {
       <ControlData label={label} value={value} />
     </div>
   );
+}
+
+function Identifier({ value }: { value: string }) {
+  return <span className="select-all break-all font-mono text-xs">{value}</span>;
 }
 
 function formatDate(value: string): string {
