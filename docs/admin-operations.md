@@ -69,6 +69,12 @@ Each record-list route includes permission-aware empty and read-only states. All
 - A role (`viewer`, `support`, `catalog`, `operations`, `admin`, or `owner`) is a starting template, not the authorization decision.
 - The owner then selects whole domains or individual action checkboxes. Selecting write coverage retains the domain's read permission.
 - Explicit rows in `admin_access_grant_permissions` are the effective database-managed coverage. Existing grants are backfilled from their former role.
+- The administrator directory surfaces active invitations awaiting first sign-in before routine
+  grants. It searches invitation email, grant ID, and bound Auth user ID; filters by access,
+  identity-acceptance, and role-template state; and preserves active filters across bounded
+  pagination. Invitation email remains the primary label while selectable grant and Auth
+  identifiers plus exact underlying access/acceptance states remain available for audit
+  correlation.
 - Only an owner may grant `governance.manage`, create another owner, demote an owner, or revoke owner coverage.
 - Environment owners cannot be revoked in the UI, and the final active owner cannot remove themself.
 - First sign-in with the exact normalized email binds the grant to the Supabase Auth identity and synchronizes `staff_users`.
