@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   hitPayEventAuditEnvelope,
+  normalizeHitPayEventHeader,
   validSignature,
 } from "@/app/api/webhooks/hitpay/route";
 import {
@@ -116,6 +117,13 @@ describe("HitPay payment requests", () => {
         allow_repeated_payments: false,
       }),
     );
+  });
+});
+
+describe("HitPay webhook headers", () => {
+  it("normalizes provider event headers defensively", () => {
+    expect(normalizeHitPayEventHeader(" COMPLETED ")).toBe("completed");
+    expect(normalizeHitPayEventHeader(null)).toBe("unknown");
   });
 });
 
