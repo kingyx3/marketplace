@@ -5,6 +5,11 @@ import { ControlBackLink, ControlData } from "@/app/(shop)/control/_components/c
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { hasControlPermission, requireControlPermission } from "@/lib/control-access";
+import {
+  financeExceptionLabel,
+  financeSeverityLabel,
+  financeSourceLabel,
+} from "@/lib/control-finance-view";
 import { listAdminOrderExceptions } from "@/lib/order-exceptions";
 import { createSecretClient } from "@/lib/supabase";
 
@@ -32,21 +37,23 @@ export default async function PaymentExceptionPage({
         action={
           <>
             <StatusBadge tone={exception.severity === "critical" ? "danger" : "warning"}>
-              {exception.severity}
+              {financeSeverityLabel(exception.severity)}
             </StatusBadge>
             <ControlBackLink href="/control/finance">Back to finance</ControlBackLink>
           </>
         }
         description={exception.detail}
         eyebrow="Control · Payment exception"
-        title={exception.exceptionType.replaceAll("_", " ")}
+        title={financeExceptionLabel(exception.exceptionType)}
       />
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Summary label="Source" value={exception.source} />
-        <Summary label="Order" value={exception.orderId ?? "Not linked"} />
+        <Summary label="Detection" value={financeSourceLabel(exception.source)} />
+        <Summary label="System exception type" value={exception.exceptionType} />
+        <Summary label="Order ID" value={<Identifier value={exception.orderId} />} />
+        <Summary label="Payment ID" value={<Identifier value={exception.paymentId} />} />
         <Summary
-          label="Payment"
-          value={exception.providerPaymentId ?? exception.paymentId ?? "Not linked"}
+          label="HitPay reference"
+          value={<Identifier value={exception.providerPaymentId} />}
         />
         <Summary label="Detected" value={formatDate(exception.createdAt)} />
       </section>
@@ -75,6 +82,10 @@ function Summary({ label, value }: { label: string; value: React.ReactNode }) {
       <ControlData label={label} value={value} />
     </div>
   );
+}
+
+function Identifier({ value }: { value: string | null }) {
+  return <span className="select-all break-all font-mono text-xs">{value ?? "Not linked"}</span>;
 }
 
 function formatDate(value: string): string {

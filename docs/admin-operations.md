@@ -122,6 +122,14 @@ Publication is rejected unless the product is active, has a physical reference a
 ## Orders, finance, and fulfilment
 
 - `/control/orders` is the commercial order context and non-financial lifecycle workspace.
+- `/control/finance` surfaces critical payment exceptions before passive metrics and provides a
+  bounded, searchable work queue over recent manual exceptions, payment records, and HitPay webhook
+  evidence. Staff can filter by severity, detection source, and local-order linkage; sort with
+  action-required records first; and retain active filter context across pagination. Customer
+  identity leads when a local order is available, while selectable order, payment, customer, and
+  HitPay references plus exact system exception, order, and payment states remain available for
+  troubleshooting. Exact linked order and payment amounts are shown without changing provider or
+  reconciliation authority.
 - `/control/finance` owns provider exceptions and manual reconciliation. Selecting an exception or **Create reconciliation** opens the modal form, which requires provider, payment reference, amount, currency, reason, and actor.
 - `/control/fulfilment` owns packing and shipment mutations for fully captured orders. Its delivery
   queue separates returned and lost exceptions from orders ready to arrange, prioritizes
