@@ -48,7 +48,7 @@ jobs:
       HITPAY_API_KEY: ${{ secrets.HITPAY_API_KEY }}
       HITPAY_WEBHOOK_SALT: ${{ secrets.HITPAY_WEBHOOK_SALT }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc

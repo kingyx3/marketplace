@@ -69,6 +69,12 @@ Each record-list route includes permission-aware empty and read-only states. All
 - A role (`viewer`, `support`, `catalog`, `operations`, `admin`, or `owner`) is a starting template, not the authorization decision.
 - The owner then selects whole domains or individual action checkboxes. Selecting write coverage retains the domain's read permission.
 - Explicit rows in `admin_access_grant_permissions` are the effective database-managed coverage. Existing grants are backfilled from their former role.
+- The administrator directory surfaces active invitations awaiting first sign-in before routine
+  grants. It searches invitation email, grant ID, and bound Auth user ID; filters by access,
+  identity-acceptance, and role-template state; and preserves active filters across bounded
+  pagination. Invitation email remains the primary label while selectable grant and Auth
+  identifiers plus exact underlying access/acceptance states remain available for audit
+  correlation.
 - Only an owner may grant `governance.manage`, create another owner, demote an owner, or revoke owner coverage.
 - Environment owners cannot be revoked in the UI, and the final active owner cannot remove themself.
 - First sign-in with the exact normalized email binds the grant to the Supabase Auth identity and synchronizes `staff_users`.
@@ -128,6 +134,14 @@ Publication is rejected unless the product is active, has a physical reference a
   action-required records first; preserves filters through pagination; and pairs human statuses
   with exact system states. Names and products remain primary while labeled identifiers stay
   selectable for support correlation.
+- `/control/finance` surfaces critical payment exceptions before passive metrics and provides a
+  bounded, searchable work queue over recent manual exceptions, payment records, and HitPay webhook
+  evidence. Staff can filter by severity, detection source, and local-order linkage; sort with
+  action-required records first; and retain active filter context across pagination. Customer
+  identity leads when a local order is available, while selectable order, payment, customer, and
+  HitPay references plus exact system exception, order, and payment states remain available for
+  troubleshooting. Exact linked order and payment amounts are shown without changing provider or
+  reconciliation authority.
 - `/control/finance` owns provider exceptions and manual reconciliation. Selecting an exception or **Create reconciliation** opens the modal form, which requires provider, payment reference, amount, currency, reason, and actor.
 - `/control/fulfilment` owns packing and shipment mutations for fully captured orders. Its delivery
   queue separates returned and lost exceptions from orders ready to arrange, prioritizes
