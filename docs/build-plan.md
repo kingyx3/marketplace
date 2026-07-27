@@ -9,6 +9,7 @@ Use these documents for current behavior:
 - [`docs/api-architecture.md`](api-architecture.md) — server boundaries and endpoint rules
 - [`docs/deployment.md`](deployment.md) — deployment and release behavior
 - [`docs/admin-operations.md`](admin-operations.md) — reviewed control-console workflows
+- [`docs/commerce-platform-roadmap.md`](commerce-platform-roadmap.md) — capability maturity, known gaps, active work, iteration history, and next action
 
 ## Built and supported
 
@@ -36,6 +37,10 @@ The following earlier designs are intentionally not part of the active product:
 Do not reintroduce retired providers or workflows through application code, environment variables, documentation, deployment configuration, or tests unless a new architecture decision explicitly restores them.
 
 ## Remaining roadmap
+
+The detailed, persistent roadmap is maintained in [`docs/commerce-platform-roadmap.md`](commerce-platform-roadmap.md). Its maturity table, current risks, active pull requests and issues, iteration history, and next scheduled scope are authoritative for ongoing development prioritisation.
+
+The current strategic themes remain:
 
 - Design-system consolidation and a fuller visual pass
 - Search infrastructure beyond database full-text search when measured relevance requires it
