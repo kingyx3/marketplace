@@ -76,10 +76,21 @@ export default async function ControlProductPage({ params }: ControlProductPageP
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Summary label="Slug" value={`/${product.slug}`} />
+        <Summary label="Product ID" value={<Identifier value={product.id} />} />
+        <Summary label="Slug" value={<Identifier value={`/${product.slug}`} />} />
+        <Summary
+          label="Product reference"
+          value={
+            product.referenceCode ? <Identifier value={product.referenceCode} /> : "Not assigned"
+          }
+        />
+        <Summary
+          label="Barcode"
+          value={product.barcode ? <Identifier value={product.barcode} /> : "Not assigned"}
+        />
+        <Summary label="Set code" value={product.setCode ?? "Not assigned"} />
         <Summary label="Publication" value={product.published ? "Published" : "Not published"} />
         <Summary label="Storefront" value={storefrontStatus} />
-        <Summary label="Reference" value={product.referenceCode ?? "Not assigned"} />
       </section>
 
       <ProductListingWorkflow
@@ -116,13 +127,17 @@ export default async function ControlProductPage({ params }: ControlProductPageP
   );
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
       <p className="mt-2 break-words font-semibold text-zinc-950">{value}</p>
     </div>
   );
+}
+
+function Identifier({ value }: { value: string }) {
+  return <span className="select-all break-all font-mono text-xs">{value}</span>;
 }
 
 function BackLink({ href, children }: { href: string; children: React.ReactNode }) {

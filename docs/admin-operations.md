@@ -93,6 +93,13 @@ Sensitive permissions are intentionally separate: `pricing.approve`, `storefront
 
 ## Product-to-listing flow
 
+- `/control/catalog` is a bounded product directory over the latest 100 records. It searches names,
+  product IDs, slugs, references, barcodes, category/set names, set codes, type, and language;
+  filters lifecycle, reference assignment, and publication state; sorts catalog-owned setup
+  attention first; and preserves active filters across pagination. Active products missing their
+  required product reference appear before passive metrics. Product names remain primary while
+  selectable identifiers, human and system lifecycle/publication states, current price, taxonomy,
+  and the next owning workflow step remain visible.
 1. **Product** — Select **Create product** from `/control/catalog`; the modal sets identity, category, release, type, language, reference, barcode, physical configuration, description, and media.
 2. **Pricing** — Select the same product from `/control/pricing` to open its versioned base and optional compare-at price form.
 3. **Supply** — Select the product inventory record from `/control/supply`, or use **Create purchase order**, to update stock and incoming commitments in a modal.
