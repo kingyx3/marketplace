@@ -88,10 +88,8 @@ describe("buy again", () => {
   });
 });
 
-function quoteWithAvailability(
-  availability: Record<string, number>,
-): ReturnType<typeof vi.fn<ReorderQuoteFunction>> {
-  return vi.fn<ReorderQuoteFunction>(async (items) => ({
+function quoteWithAvailability(availability: Record<string, number>) {
+  return vi.fn(async (items: Parameters<ReorderQuoteFunction>[0]) => ({
     lines: items.map((item) => ({
       ...item,
       available: availability[item.productId] ?? 0,
