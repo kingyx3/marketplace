@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/app/_components/page-header";
 import { StatusBadge } from "@/app/_components/status-badge";
 import { Timeline } from "@/app/_components/timeline";
+import { buyAgainFromOrder } from "@/app/actions/cart";
 import { getAppName } from "@/lib/app-config";
 import { ApiError } from "@/lib/api/errors";
 import { requireCustomer } from "@/lib/auth";
@@ -22,7 +23,7 @@ import {
 
 type OrderPageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ checkout?: string }>;
+  searchParams?: Promise<{ checkout?: string; reorder?: string }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,8 @@ export default async function OrderPage({
 }: OrderPageProps) {
   const { customer } = await requireCustomer("/orders");
   const { id } = await params;
-  const checkout = (await searchParams)?.checkout;
+  const query = (await searchParams) ?? {};
+  const checkout = query.checkout;
   const supabase = createSecretClient();
   let order: LiveOrder | null = null;
   let dataError = false;
@@ -93,6 +95,19 @@ export default async function OrderPage({
         title={order.id}
       />
 
+      {query.reorder === "unavailable" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          These items could not all be added. A product may be inactive or no longer have enough
+          sellable stock. Your cart was not changed.
+        </div>
+      ) : null}
+      {query.reorder === "cart-limit" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          Your cart does not have room for every item in this order. Review the cart quantities and
+          try again.
+        </div>
+      ) : null}
+
       <section className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold text-zinc-950">Items</h2>
@@ -128,6 +143,18 @@ export default async function OrderPage({
             })}
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
+            {(order.order_items ?? []).length > 0 ? (
+              <form action={buyAgainFromOrder} className="grid gap-1">
+                <input name="orderId" type="hidden" value={order.id} />
+                <button className="inline-flex min-h-10 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
+                  Buy these items again
+                </button>
+                <span className="max-w-sm text-xs leading-5 text-zinc-500">
+                  Current prices, product status, stock, and cart limits are checked before anything
+                  is added.
+                </span>
+              </form>
+            ) : null}
             <Link
               className="inline-flex min-h-10 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:border-zinc-500"
               href="/orders"

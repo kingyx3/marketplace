@@ -36,6 +36,7 @@ Use plain language and avoid implementation terminology. A customer should not n
 - Use `Restock alert` in customer-facing copy. Internal notification template and deduplication identifiers may retain stable legacy keys when changing them would break persisted data.
 - The account page prioritizes purchase history, recent delivery destinations, restock alerts, profile preferences, sign-out, and a clearly separated destructive account-deletion action.
 - Delivery addresses currently belong to individual orders. The account page may show recent destinations, while customers enter a new destination during checkout; do not imply that a reusable address book exists until it is implemented.
+- An order detail may offer **Buy these items again**. The server derives products and quantities from the authenticated customer's owned order, checks current product status, prices, sellable stock, currency compatibility, and cart limits, then either adds the complete set or leaves the cart unchanged with an actionable explanation. Historical prices and client-supplied product lists are never trusted.
 - Account deletion requires an explicit confirmation modal. Both the entry action and final confirmation use destructive styling, while cancellation remains prominent and safe.
 
 ## Checkout returns
