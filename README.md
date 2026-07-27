@@ -76,3 +76,4 @@ Pull-request CI also applies every database migration in order, loads seed data,
 - [`docs/data-model.md`](docs/data-model.md) — active application data model
 - [`docs/admin-operations.md`](docs/admin-operations.md) — control-console workflows
 - [`docs/storefront-ui.md`](docs/storefront-ui.md) — customer-visible status and implementation-detail boundaries
+- [`docs/commerce-platform-roadmap.md`](docs/commerce-platform-roadmap.md) — capability maturity, current risks, active work, iteration history, and the next recommended scope
