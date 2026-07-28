@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { checkoutOrderRpcParams } from "@/lib/order-checkout";
 import {
-  calculateDepositCents,
   calculateDiscountCents,
   normalizeCartItems,
   quoteCheckout,
@@ -33,12 +32,9 @@ describe("commerce helpers", () => {
     ]);
   });
 
-  it("calculates integer-cent discounts and full upfront preorder payment", () => {
+  it("calculates integer-cent discounts", () => {
     expect(calculateDiscountCents(19900, 800)).toBe(1592);
     expect(calculateDiscountCents(19900, 0)).toBe(0);
-    expect(calculateDepositCents(19900)).toBe(19900);
-    expect(calculateDepositCents(1)).toBe(1);
-    expect(calculateDepositCents(0)).toBe(0);
   });
 
   it("rejects carts over the database checkout quantity limit", () => {

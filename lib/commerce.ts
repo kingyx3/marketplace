@@ -123,15 +123,6 @@ export function calculateDiscountCents(subtotalCents: number, discountBps: numbe
   return Math.floor((subtotalCents * discountBps) / 10000);
 }
 
-/**
- * Pre-orders use the same payment term as normal orders: the entire quoted
- * amount is paid at checkout. The legacy name remains as a compatibility
- * helper for callers and tests while returning the full amount.
- */
-export function calculateDepositCents(totalCents: number): number {
-  return Math.max(0, totalCents);
-}
-
 export async function quoteCheckout(
   supabase: SupabaseClient,
   request: CheckoutRequest,
