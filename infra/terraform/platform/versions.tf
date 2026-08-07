@@ -9,7 +9,7 @@ terraform {
 
     supabase = {
       source  = "supabase/supabase"
-      version = "1.9.1"
+      version = "1.10.1"
     }
 
     random = {
