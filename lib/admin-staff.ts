@@ -84,19 +84,6 @@ export async function resolveAdminStaff(
   return { ...profile, permissions: grant.permissions };
 }
 
-/** Compatibility wrapper for older call sites and focused unit tests. */
-export function resolveAllowlistedAdminStaff(
-  supabase: SupabaseClient,
-  authUserId: string,
-  email?: string | null
-): Promise<StaffProfile | null> {
-  return resolveAdminStaff(supabase, {
-    authUserId,
-    email,
-    environmentAllowlisted: true,
-  });
-}
-
 export function normalizeAdminEmail(value: string | null | undefined): string | null {
   const normalized = value?.trim().toLowerCase();
   return normalized || null;

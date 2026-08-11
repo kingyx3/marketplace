@@ -1,12 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
-import {
-  normalizeAdminEmail,
-  resolveAdminStaff,
-  resolveAllowlistedAdminStaff,
-  type StaffProfile,
-} from "@/lib/admin-staff";
+import { normalizeAdminEmail, resolveAdminStaff, type StaffProfile } from "@/lib/admin-staff";
 
 describe("control staff resolution", () => {
   it("normalizes administrator emails", () => {
@@ -26,7 +21,11 @@ describe("control staff resolution", () => {
     const state = createStaffClient({ staff: existing });
 
     await expect(
-      resolveAllowlistedAdminStaff(state.client, "user-1", " Owner@Example.test ")
+      resolveAdminStaff(state.client, {
+        authUserId: "user-1",
+        email: " Owner@Example.test ",
+        environmentAllowlisted: true,
+      })
     ).resolves.toMatchObject({
       id: "staff-1",
       role: "owner",
@@ -40,7 +39,11 @@ describe("control staff resolution", () => {
     const state = createStaffClient();
 
     await expect(
-      resolveAllowlistedAdminStaff(state.client, "user-2", "owner@example.test")
+      resolveAdminStaff(state.client, {
+        authUserId: "user-2",
+        email: "owner@example.test",
+        environmentAllowlisted: true,
+      })
     ).resolves.toMatchObject({
       role: "owner",
       active: true,
