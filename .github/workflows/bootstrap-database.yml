@@ -67,7 +67,7 @@ jobs:
         run: |
           set -o pipefail
           npm run db:bootstrap -- --target="${{ inputs.environment }}" 2>&1 | tee database-bootstrap.log
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: database-bootstrap-log-${{ inputs.environment }}

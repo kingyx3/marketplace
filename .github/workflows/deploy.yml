@@ -107,7 +107,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - name: Run database migration and contract suite
         run: bash .github/ci/run-database-contracts.sh
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: deployment-migration-log-${{ inputs.environment }}
@@ -144,7 +144,7 @@ jobs:
             npx --yes "supabase@$SUPABASE_CLI" link --project-ref "$SUPABASE_PROJECT_REF"
             npx --yes "supabase@$SUPABASE_CLI" db push --include-all
           } 2>&1 | tee -a hosted-migration.log
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: hosted-migration-log-${{ inputs.environment }}
