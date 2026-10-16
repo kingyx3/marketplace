@@ -75,7 +75,7 @@ jobs:
         run: node scripts/verify-hitpay-staging.mjs 2>&1 | tee hosted-hitpay.log
       - name: Verify deep readiness, cron, SLOs, ownership, correlation, and alert delivery
         run: node scripts/verify-hosted-operations.mjs 2>&1 | tee hosted-operations.log
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: staging-release-gate-evidence-${{ github.sha }}
@@ -130,7 +130,7 @@ jobs:
           NODE
       - name: Verify recoverable PITR window and Supabase advisors
         run: node scripts/verify-supabase-provider-readiness.mjs 2>&1 | tee production-provider-readiness.log
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: production-provider-readiness-${{ github.sha }}
